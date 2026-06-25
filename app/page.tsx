@@ -1,3 +1,6 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import {
@@ -9,11 +12,14 @@ import {
   ChefHat,
   Star,
   UtensilsCrossed,
+  Menu,
+  LockKeyhole,
 } from "lucide-react"
 import { RESTAURANT, MENU_ITEMS } from "@/lib/data"
 import { cn } from "@/lib/utils"
 import { ReservationWidget } from "@/components/site/reservation-widget"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 
 // Map featured item ids to their real dish photos
 const DISH_IMAGES: Record<string, string> = {
@@ -23,7 +29,17 @@ const DISH_IMAGES: Record<string, string> = {
 }
 
 export default function HomePage() {
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const featured = MENU_ITEMS.filter((m) => m.popular).slice(0, 3)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
     <div className="min-h-screen bg-background">
@@ -46,29 +62,79 @@ export default function HomePage() {
         </div>
 
         {/* ── Inline header (overlaid on hero) ── */}
-        <header className="relative z-20 mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
-          <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
-              <UtensilsCrossed className="size-3.5" strokeWidth={1.75} />
-            </span>
-            <span className="font-heading text-base font-semibold tracking-widest text-white uppercase">
-              {RESTAURANT.name}
-            </span>
-          </Link>
-          <nav className="hidden items-center gap-1 md:flex">
-            <Link
-              href="/menu"
-              className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:underline"
-            >
-              Menu
+        <header
+          className={cn(
+            "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300",
+            isScrolled
+              ? "bg-background/80 backdrop-blur-md border-b border-border/60 shadow-sm"
+              : "bg-transparent border-transparent",
+          )}
+        >
+          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
+            <Link href="/" className="flex items-center gap-2.5">
+              <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
+                <UtensilsCrossed className="size-3.5" strokeWidth={1.75} />
+              </span>
+              <span className="font-heading text-base font-semibold tracking-widest text-white uppercase">
+                {RESTAURANT.name}
+              </span>
             </Link>
-          </nav>
-          <Link
-            href="/admin"
-            className="hidden rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium tracking-widest text-white/80 uppercase backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white sm:block"
-          >
-            Staff
-          </Link>
+            <nav className="hidden items-center gap-1 md:flex">
+              <Link
+                href="/menu"
+                className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:underline"
+              >
+                Menu
+              </Link>
+            </nav>
+            <div className="hidden items-center gap-2 md:flex">
+              <Link
+                href="/admin"
+                className="rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium tracking-widest text-white/80 uppercase backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
+              >
+                Staff
+              </Link>
+            </div>
+
+            {/* Mobile Menu Trigger */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <button className="flex md:hidden rounded-lg p-2 text-white hover:bg-white/10">
+                  <Menu className="size-5" />
+                  <span className="sr-only">Open menu</span>
+                </button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-64">
+                <nav className="flex flex-col gap-4 mt-8">
+                  <Link
+                    href="/menu"
+                    className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Menu
+                  </Link>
+                  <div className="border-t pt-4">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-foreground"
+                      render={<Link href="/admin" />}
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <LockKeyhole className="size-4 mr-2" />
+                      Staff login
+                    </Button>
+                  </div>
+                  <Button
+                    className="w-full rounded-full"
+                    render={<Link href="/#reserve" />}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Book a table
+                  </Button>
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
         </header>
 
         {/* ── Hero content ── */}

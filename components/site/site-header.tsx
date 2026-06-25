@@ -1,11 +1,13 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { UtensilsCrossed, LockKeyhole } from "lucide-react"
+import { UtensilsCrossed, LockKeyhole, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 
 const LINKS = [
   { href: "/menu", label: "Menu" },
@@ -13,10 +15,29 @@ const LINKS = [
 
 export function SiteHeader() {
   const pathname = usePathname()
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
   // The homepage has its own inline header overlaid on the hero.
   if (pathname === "/") return null
+
   return (
-    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur-md">
+    <header
+      className={cn(
+        "fixed top-0 left-0 right-0 z-50 w-full transition-all duration-300",
+        isScrolled
+          ? "bg-background/80 backdrop-blur-md border-b border-border/60 shadow-sm"
+          : "bg-transparent border-transparent",
+      )}
+    >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
@@ -28,7 +49,7 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {/* Nav */}
+        {/* Desktop Nav */}
         <nav className="hidden items-center gap-0.5 md:flex">
           {LINKS.map((link) => (
             <Link
@@ -44,12 +65,12 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
+        {/* Desktop Actions */}
+        <div className="hidden items-center gap-2 md:flex">
           <Button
             variant="ghost"
             size="sm"
-            className="hidden rounded-full text-xs font-medium tracking-wide text-muted-foreground sm:inline-flex"
+            className="rounded-full text-xs font-medium tracking-wide text-muted-foreground"
             render={<Link href="/admin" />}
           >
             <LockKeyhole className="size-3.5" />
@@ -63,6 +84,48 @@ export function SiteHeader() {
             Book a table
           </Button>
         </div>
+
+        {/* Mobile Menu Trigger */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <button className="flex md:hidden rounded-lg p-2 text-foreground hover:bg-muted">
+              <Menu className="size-5" />
+              <span className="sr-only">Open menu</span>
+            </button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-64">
+            <nav className="flex flex-col gap-4 mt-8">
+              {LINKS.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <div className="border-t pt-4">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-foreground"
+                  render={<Link href="/admin" />}
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <LockKeyhole className="size-4 mr-2" />
+                  Staff login
+                </Button>
+              </div>
+              <Button
+                className="w-full rounded-full"
+                render={<Link href="/#reserve" />}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Book a table
+              </Button>
+            </nav>
+          </SheetContent>
+        </Sheet>
       </div>
     </header>
   )
