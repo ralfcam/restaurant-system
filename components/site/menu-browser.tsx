@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Leaf, AlertCircle } from "lucide-react"
 import {
   MENU_CATEGORIES,
@@ -58,42 +59,55 @@ export function MenuBrowser() {
         {items.map((item) => (
           <article
             key={item.id}
-            className="flex flex-col gap-2 rounded-xl border border-border bg-card p-5"
+            className="flex gap-4 overflow-hidden rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-md sm:p-4"
           >
-            <div className="flex items-baseline justify-between gap-4">
-              <h3 className="flex items-center gap-2 font-heading text-lg font-semibold">
-                {item.name}
-                {item.popular ? (
-                  <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                    Popular
-                  </span>
-                ) : null}
-              </h3>
-              <span className="shrink-0 font-medium tabular-nums text-primary">
-                ${item.price}
-              </span>
-            </div>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {item.description}
-            </p>
-            {item.allergens.length > 0 ? (
-              <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                {item.allergens.map((a) => (
-                  <Badge
-                    key={a}
-                    variant="secondary"
-                    className="gap-1 font-normal text-muted-foreground"
-                  >
-                    {a === "vegan" ? (
-                      <Leaf className="size-3 text-accent" />
-                    ) : (
-                      <AlertCircle className="size-3" />
-                    )}
-                    {ALLERGEN_LABEL[a]}
-                  </Badge>
-                ))}
+            {item.image ? (
+              <div className="relative size-24 shrink-0 overflow-hidden rounded-lg sm:size-28">
+                <Image
+                  src={item.image || "/placeholder.svg"}
+                  alt={item.name}
+                  fill
+                  sizes="(max-width: 640px) 96px, 112px"
+                  className="object-cover"
+                />
               </div>
             ) : null}
+            <div className="flex min-w-0 flex-1 flex-col gap-2 py-1">
+              <div className="flex items-baseline justify-between gap-4">
+                <h3 className="flex items-center gap-2 font-heading text-lg font-semibold">
+                  {item.name}
+                  {item.popular ? (
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                      Popular
+                    </span>
+                  ) : null}
+                </h3>
+                <span className="shrink-0 font-medium tabular-nums text-primary">
+                  ${item.price}
+                </span>
+              </div>
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {item.description}
+              </p>
+              {item.allergens.length > 0 ? (
+                <div className="mt-auto flex flex-wrap items-center gap-1.5 pt-1">
+                  {item.allergens.map((a) => (
+                    <Badge
+                      key={a}
+                      variant="secondary"
+                      className="gap-1 font-normal text-muted-foreground"
+                    >
+                      {a === "vegan" ? (
+                        <Leaf className="size-3 text-accent" />
+                      ) : (
+                        <AlertCircle className="size-3" />
+                      )}
+                      {ALLERGEN_LABEL[a]}
+                    </Badge>
+                  ))}
+                </div>
+              ) : null}
+            </div>
           </article>
         ))}
       </div>

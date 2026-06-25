@@ -45,6 +45,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 16,
     category: "Antipasti",
     allergens: ["dairy", "gluten"],
+    image: "/images/menu/burrata.png",
     popular: true,
   },
   {
@@ -54,6 +55,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 18,
     category: "Antipasti",
     allergens: ["gluten", "shellfish", "egg"],
+    image: "/images/menu/calamari.png",
   },
   {
     id: "m3",
@@ -63,6 +65,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 26,
     category: "Pasta",
     allergens: ["gluten", "dairy", "egg"],
+    image: "/images/menu/tagliatelle.png",
     popular: true,
   },
   {
@@ -72,6 +75,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 22,
     category: "Pasta",
     allergens: ["gluten", "dairy"],
+    image: "/images/menu/cacio-e-pepe.png",
   },
   {
     id: "m5",
@@ -80,6 +84,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 24,
     category: "Pasta",
     allergens: ["dairy", "vegan"],
+    image: "/images/menu/risotto.png",
   },
   {
     id: "m6",
@@ -89,6 +94,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 34,
     category: "Mains",
     allergens: [],
+    image: "/images/menu/branzino.png",
     popular: true,
   },
   {
@@ -98,6 +104,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 52,
     category: "Mains",
     allergens: [],
+    image: "/images/menu/bistecca.png",
   },
   {
     id: "m8",
@@ -106,6 +113,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 12,
     category: "Dessert",
     allergens: ["dairy", "gluten", "egg"],
+    image: "/images/menu/tiramisu.png",
     popular: true,
   },
   {
@@ -115,6 +123,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 10,
     category: "Dessert",
     allergens: ["dairy"],
+    image: "/images/menu/affogato.png",
   },
   {
     id: "m10",
@@ -123,6 +132,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 15,
     category: "Drinks",
     allergens: [],
+    image: "/images/menu/negroni.png",
   },
   {
     id: "m11",
@@ -131,6 +141,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 14,
     category: "Drinks",
     allergens: [],
+    image: "/images/menu/chianti.png",
   },
   {
     id: "m12",
@@ -139,6 +150,7 @@ export const MENU_ITEMS: MenuItem[] = [
     price: 6,
     category: "Drinks",
     allergens: ["vegan"],
+    image: "/images/menu/sparkling-water.png",
   },
 ]
 
