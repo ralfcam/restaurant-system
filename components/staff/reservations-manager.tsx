@@ -1,7 +1,8 @@
 "use client"
 
-import { useMemo, useState } from "react"
-import { Search, Phone, Check, Armchair, X } from "lucide-react"
+import { useMemo, useState, useTransition } from "react"
+import { useRouter } from "next/navigation"
+import { Search, Phone, Check, Armchair, X, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { type ReservationStatus } from "@/lib/data"
 import { type ReservationRow, updateReservationStatus } from "@/app/actions/reservations"
@@ -49,16 +50,45 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "cancelled", label: "Cancelled" },
 ]
 
+function offsetDate(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00")
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+function formatDateShort(iso: string): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })
+}
+
 export function ReservationsManager({
   initialReservations = [],
+  selectedDate,
+  today,
 }: {
   initialReservations?: ReservationRow[]
+  selectedDate?: string
+  today?: string
 }) {
+  const router = useRouter()
+  const [isPending, startTransition] = useTransition()
+  const currentDate = selectedDate ?? new Date().toISOString().slice(0, 10)
+  const todayISO = today ?? new Date().toISOString().slice(0, 10)
+
   const [reservations, setReservations] = useState<Reservation[]>(
     initialReservations.map(rowToReservation),
   )
   const [tab, setTab] = useState<Tab>("all")
   const [query, setQuery] = useState("")
+
+  function navigateToDate(date: string) {
+    startTransition(() => {
+      router.push(`/admin/reservations?date=${date}`)
+    })
+  }
 
   const filtered = useMemo(() => {
     return reservations.filter((r) => {
@@ -100,6 +130,57 @@ export function ReservationsManager({
 
   return (
     <div>
+      {/* Date navigation */}
+      <div className="mb-4 flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigateToDate(offsetDate(currentDate, -1))}
+          disabled={isPending}
+          title="Previous day"
+        >
+          <ChevronLeft className="size-4" />
+          <span className="sr-only">Previous day</span>
+        </Button>
+        <input
+          type="date"
+          value={currentDate}
+          onChange={(e) => e.target.value && navigateToDate(e.target.value)}
+          className="h-9 rounded-md border border-border bg-background px-3 text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
+        />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigateToDate(offsetDate(currentDate, 1))}
+          disabled={isPending}
+          title="Next day"
+        >
+          <ChevronRight className="size-4" />
+          <span className="sr-only">Next day</span>
+        </Button>
+        {currentDate !== todayISO && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigateToDate(todayISO)}
+            disabled={isPending}
+          >
+            Today
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto"
+          onClick={() => startTransition(() => router.refresh())}
+          disabled={isPending}
+          title="Refresh"
+        >
+          <RefreshCw className={cn("size-4", isPending && "animate-spin")} />
+          <span className="sr-only">Refresh</span>
+        </Button>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 overflow-x-auto">
           {TABS.map((t) => (

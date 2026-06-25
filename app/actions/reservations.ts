@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { revalidatePath } from "next/cache"
 
 export type ReservationRow = {
@@ -17,6 +18,11 @@ export type ReservationRow = {
   created_at: string
 }
 
+function generateConfCode(): string {
+  const n = Math.floor(1000 + Math.random() * 9000)
+  return `TVL-${n}`
+}
+
 export async function createReservation(payload: {
   guestName: string
   partySize: number
@@ -25,7 +31,9 @@ export async function createReservation(payload: {
   phone: string
   notes?: string
 }): Promise<{ confCode: string; error?: string }> {
-  const supabase = await createClient()
+  // Use a plain anon client (no session required) for public guest bookings.
+  const supabase = createAnonClient()
+  const confCode = generateConfCode()
 
   const { data, error } = await supabase
     .from("reservations")
@@ -36,13 +44,14 @@ export async function createReservation(payload: {
       time: payload.time,
       phone: payload.phone,
       notes: payload.notes ?? null,
+      conf_code: confCode,
     })
     .select("conf_code")
     .single()
 
   if (error) {
-    console.error("[v0] createReservation error:", error.message)
-    return { confCode: "", error: error.message }
+    console.error("[reservations] createReservation error:", error.message, error.code, error.details)
+    return { confCode: "", error: "Could not save your reservation. Please try again." }
   }
 
   revalidatePath("/admin/reservations")
@@ -62,7 +71,33 @@ export async function getReservationsForDate(
     .order("time", { ascending: true })
 
   if (error) {
-    console.error("[v0] getReservationsForDate error:", error.message)
+    console.error("[reservations] getReservationsForDate error:", error.message)
+    return []
+  }
+
+  return data as ReservationRow[]
+}
+
+/** Fetch reservations across a date range (or all if no bounds given). */
+export async function getReservations(opts?: {
+  from?: string
+  to?: string
+}): Promise<ReservationRow[]> {
+  const supabase = await createClient()
+
+  let query = supabase
+    .from("reservations")
+    .select("*")
+    .order("date", { ascending: true })
+    .order("time", { ascending: true })
+
+  if (opts?.from) query = query.gte("date", opts.from)
+  if (opts?.to) query = query.lte("date", opts.to)
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("[reservations] getReservations error:", error.message)
     return []
   }
 
@@ -81,7 +116,7 @@ export async function updateReservationStatus(
     .eq("id", id)
 
   if (error) {
-    console.error("[v0] updateReservationStatus error:", error.message)
+    console.error("[reservations] updateReservationStatus error:", error.message)
     return { error: error.message }
   }
 
