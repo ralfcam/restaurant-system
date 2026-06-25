@@ -104,6 +104,65 @@ export async function getReservations(opts?: {
   return data as ReservationRow[]
 }
 
+export type SlotAvailability = {
+  time: string
+  available: boolean
+}
+
+/**
+ * Returns which TIME_SLOTS are still bookable for a given date + party size.
+ * A slot is unavailable when:
+ *  - It's in the past (today only)
+ *  - Adding `partySize` covers would exceed the restaurant's total seating capacity
+ */
+export async function getAvailableSlots(
+  date: string,
+  partySize: number,
+): Promise<SlotAvailability[]> {
+  const TIME_SLOTS = [
+    "17:00", "17:30", "18:00", "18:30", "19:00",
+    "19:30", "20:00", "20:30", "21:00", "21:30",
+  ]
+  // Total covers the restaurant can seat at once (sum of all table seats).
+  const TOTAL_CAPACITY = 38 // 2+2+4+4+6+4+2+8+4+2
+
+  const supabase = createAnonClient()
+
+  // Fetch all confirmed/seated reservations for this date.
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("time, party_size")
+    .eq("date", date)
+    .in("status", ["confirmed", "seated"])
+
+  if (error) {
+    console.error("[reservations] getAvailableSlots error:", error.message)
+    // Fail open so the widget is never completely blocked.
+    return TIME_SLOTS.map((time) => ({ time, available: true }))
+  }
+
+  // Sum booked covers per slot.
+  const bookedBySlot: Record<string, number> = {}
+  for (const row of data ?? []) {
+    bookedBySlot[row.time] = (bookedBySlot[row.time] ?? 0) + row.party_size
+  }
+
+  // "Now" in local restaurant time — block past slots on today's date.
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+
+  return TIME_SLOTS.map((time) => {
+    // Block past times on today.
+    if (date === todayISO) {
+      const [h, m] = time.split(":").map(Number)
+      if (h * 60 + m <= nowMinutes) return { time, available: false }
+    }
+    // Block if adding this party exceeds capacity.
+    const booked = bookedBySlot[time] ?? 0
+    return { time, available: booked + partySize <= TOTAL_CAPACITY }
+  })
+}
+
 export async function updateReservationStatus(
   id: string,
   status: ReservationRow["status"],
