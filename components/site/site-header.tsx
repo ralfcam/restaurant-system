@@ -38,26 +38,27 @@ export function SiteHeader() {
           : "bg-transparent border-transparent",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
+      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <UtensilsCrossed className="size-4" strokeWidth={1.75} />
           </span>
-          <span className="font-heading text-lg font-semibold tracking-tight">
+          <span className={cn("font-heading text-lg font-semibold tracking-tight transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
             {RESTAURANT.name}
           </span>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden items-center gap-0.5 md:flex">
+        {/* Desktop Nav — absolutely centered */}
+        <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-0.5 md:flex">
           {LINKS.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               className={cn(
-                "rounded-full px-4 py-2 text-sm font-semibold tracking-wide text-foreground transition-colors hover:underline",
-                pathname === link.href && "text-foreground",
+                "rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-300 hover:underline",
+                isScrolled ? "text-foreground" : "text-white",
+                pathname === link.href && "font-bold",
               )}
             >
               {link.label}
@@ -70,7 +71,7 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             size="sm"
-            className="rounded-full text-xs font-medium tracking-wide text-muted-foreground"
+            className={cn("rounded-full text-xs font-medium tracking-wide transition-colors duration-300", isScrolled ? "text-muted-foreground" : "text-white/80")}
             render={<Link href="/admin" />}
           >
             <LockKeyhole className="size-3.5" />
@@ -88,7 +89,7 @@ export function SiteHeader() {
         {/* Mobile Menu Trigger */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
-            <button className="flex md:hidden rounded-lg p-2 text-foreground hover:bg-muted">
+            <button className={cn("flex md:hidden rounded-lg p-2 transition-colors duration-300", isScrolled ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/10")}>
               <Menu className="size-5" />
               <span className="sr-only">Open menu</span>
             </button>
