@@ -5,10 +5,10 @@ import Image from "next/image"
 import { Leaf, AlertCircle } from "lucide-react"
 import {
   MENU_CATEGORIES,
-  MENU_ITEMS,
   type MenuCategory,
   type Allergen,
 } from "@/lib/data"
+import { useMenu } from "@/lib/menu-store"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -25,11 +25,13 @@ type Filter = "All" | MenuCategory
 
 export function MenuBrowser() {
   const [filter, setFilter] = useState<Filter>("All")
+  const menu = useMenu()
 
+  const available = menu.filter((m) => m.available ?? true)
   const items =
     filter === "All"
-      ? MENU_ITEMS
-      : MENU_ITEMS.filter((m) => m.category === filter)
+      ? available
+      : available.filter((m) => m.category === filter)
 
   const tabs: Filter[] = ["All", ...MENU_CATEGORIES]
 
