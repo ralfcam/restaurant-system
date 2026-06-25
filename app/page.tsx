@@ -10,6 +10,7 @@ import {
   Star,
 } from "lucide-react"
 import { RESTAURANT, MENU_ITEMS } from "@/lib/data"
+import { cn } from "@/lib/utils"
 import { SiteHeader } from "@/components/site/site-header"
 import { ReservationWidget } from "@/components/site/reservation-widget"
 import { Button } from "@/components/ui/button"
@@ -123,31 +124,42 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="border-t border-border bg-secondary/50">
-        <div className="mx-auto max-w-6xl px-4 py-16 md:px-6">
-          <h2 className="text-center font-heading text-3xl font-semibold">
-            A better night out, end to end
-          </h2>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
-            <Step
-              icon={CalendarCheck}
-              title="Reserve online"
-              body="Pick your party size and time. We check live capacity so you never double-book."
-            />
-            <Step
-              icon={QrCode}
-              title="Scan the menu"
-              body="Mobile-friendly digital menu with prices and allergen info at your table."
-            />
-            <Step
-              icon={ChefHat}
-              title="Cooked to order"
-              body="Your order flows straight to the kitchen display for fast, accurate service."
-            />
+        {/* How it works */}
+        <section className="relative isolate overflow-hidden border-t border-border">
+          <Image
+            src="/images/bar-counter.png"
+            alt="Restaurant bar and prep counter with infused oils, spices and a point-of-sale tablet"
+            fill
+            sizes="100vw"
+            className="-z-10 object-cover"
+          />
+          <div className="absolute inset-0 -z-10 bg-foreground/75" />
+          <div className="mx-auto max-w-6xl px-4 py-16 md:px-6">
+            <h2 className="text-balance text-center font-heading text-3xl font-semibold text-background">
+              A better night out, end to end
+            </h2>
+            <div className="mt-10 grid gap-6 md:grid-cols-3">
+              <Step
+                icon={CalendarCheck}
+                title="Reserve online"
+                body="Pick your party size and time. We check live capacity so you never double-book."
+                onImage
+              />
+              <Step
+                icon={QrCode}
+                title="Scan the menu"
+                body="Mobile-friendly digital menu with prices and allergen info at your table."
+                onImage
+              />
+              <Step
+                icon={ChefHat}
+                title="Cooked to order"
+                body="Your order flows straight to the kitchen display for fast, accurate service."
+                onImage
+              />
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
 
       <footer className="border-t border-border bg-card">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-muted-foreground md:flex-row md:px-6">
@@ -191,18 +203,32 @@ function Step({
   icon: Icon,
   title,
   body,
+  onImage = false,
 }: {
   icon: React.ElementType
   title: string
   body: string
+  onImage?: boolean
 }) {
   return (
     <div className="flex flex-col items-center text-center">
       <span className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
         <Icon className="size-6" />
       </span>
-      <h3 className="mt-4 font-heading text-xl font-semibold">{title}</h3>
-      <p className="mt-2 max-w-xs text-sm leading-relaxed text-muted-foreground">
+      <h3
+        className={cn(
+          "mt-4 font-heading text-xl font-semibold",
+          onImage && "text-background",
+        )}
+      >
+        {title}
+      </h3>
+      <p
+        className={cn(
+          "mt-2 max-w-xs text-sm leading-relaxed",
+          onImage ? "text-background/80" : "text-muted-foreground",
+        )}
+      >
         {body}
       </p>
     </div>
