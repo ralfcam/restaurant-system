@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Image from "next/image"
-import { Leaf, AlertCircle } from "lucide-react"
+import { Leaf, AlertCircle, UtensilsCrossed } from "lucide-react"
 import {
   MENU_CATEGORIES,
   type MenuCategory,
@@ -30,13 +30,17 @@ export function MenuBrowser({
 }) {
   const [filter, setFilter] = useState<Filter>("All")
 
-  const available = initialItems.filter((m) => m.available)
+  // initialItems already contains only available items (filtered at the DB level).
   const items =
     filter === "All"
-      ? available
-      : available.filter((m) => m.category === filter)
+      ? initialItems
+      : initialItems.filter((m) => m.category === filter)
 
-  const tabs: Filter[] = ["All", ...MENU_CATEGORIES]
+  // Only show category tabs that have at least one available item.
+  const populatedCategories = MENU_CATEGORIES.filter((c) =>
+    initialItems.some((m) => m.category === c),
+  )
+  const tabs: Filter[] = ["All", ...populatedCategories]
 
   return (
     <div>
@@ -60,8 +64,20 @@ export function MenuBrowser({
         </div>
       </div>
 
+      {initialItems.length === 0 && (
+        <div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-foreground">
+          <UtensilsCrossed className="size-8" />
+          <p className="font-medium">Menu coming soon</p>
+          <p className="text-sm">Check back shortly — we&apos;re updating our dishes.</p>
+        </div>
+      )}
+
       <div className="mt-6 space-y-4">
-        {items.map((item) => (
+        {items.length === 0 && initialItems.length > 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">
+            No dishes available in this category right now.
+          </p>
+        ) : items.map((item) => (
           <article
             key={item.id}
             className="flex gap-4 overflow-hidden rounded-xl border border-border bg-card p-3 transition-shadow hover:shadow-md sm:p-4"
@@ -119,3 +135,4 @@ export function MenuBrowser({
     </div>
   )
 }
+

@@ -156,23 +156,18 @@ export function MenuManager({
     }
 
     if (draft.id && draft.slug) {
-      // Update existing
-      const { error } = await upsertMenuItem({ ...base, id: draft.id, slug: draft.slug })
+      // Update existing — use the row returned by the server to stay in sync.
+      const { row, error } = await upsertMenuItem({ ...base, id: draft.id, slug: draft.slug })
       if (error) { toast.error("Could not save", { description: error }); setSaving(false); return }
-      setItems((prev) => prev.map((i) => i.id === draft.id ? { ...i, ...base } : i))
+      setItems((prev) => prev.map((i) => i.id === draft.id ? (row ?? { ...i, ...base }) : i))
       toast.success(`Updated ${base.name}`)
     } else {
-      // Create new
-      const { error } = await createMenuItem(base)
+      // Create new — replace temp row with the real DB row so id/slug are correct.
+      const { row, error } = await createMenuItem(base)
       if (error) { toast.error("Could not create dish", { description: error }); setSaving(false); return }
-      // Refresh list — add optimistic row with temp id
-      const tempRow: MenuItemRow = {
-        ...base,
-        id: `temp-${Date.now()}`,
-        slug: `m-${Date.now()}`,
-        created_at: new Date().toISOString(),
+      if (row) {
+        setItems((prev) => [row, ...prev])
       }
-      setItems((prev) => [tempRow, ...prev])
       toast.success(`Added ${base.name}`)
     }
     setSaving(false)

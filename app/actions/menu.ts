@@ -20,12 +20,13 @@ export type MenuItemRow = {
   created_at: string
 }
 
+/** Public guest menu — only returns available items. */
 export async function getMenuItems(): Promise<MenuItemRow[]> {
-  // Use the anon client — public RLS policy allows unauthenticated reads.
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("menu_items")
     .select("*")
+    .eq("available", true)
     .order("sort_order", { ascending: true })
 
   if (error) {
