@@ -21,14 +21,21 @@ import {
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8]
 const MAX_CAPACITY = Math.max(...TABLES.map((t) => t.seats))
 
+/** Convert a Date to YYYY-MM-DD string in local timezone (not UTC). */
+function getLocalISO(d: Date): string {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10)
+}
+
 function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+  return getLocalISO(new Date())
 }
 
 function tomorrowISO() {
   const d = new Date()
   d.setDate(d.getDate() + 1)
-  return d.toISOString().slice(0, 10)
+  return getLocalISO(d)
 }
 
 function firstAvailableDate() {
