@@ -1,9 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { UtensilsCrossed, Loader2 } from "lucide-react"
-import { toast } from "sonner"
+import { UtensilsCrossed, Loader2, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { RESTAURANT } from "@/lib/data"
 import { Button } from "@/components/ui/button"
@@ -14,20 +12,21 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setErrorMsg(null)
     setLoading(true)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setLoading(false)
     if (error) {
-      toast.error("Login failed", { description: error.message })
+      setErrorMsg("Invalid email or password. Please try again.")
       return
     }
-    router.push("/admin")
-    router.refresh()
+    // Full page navigation so the middleware session cookie is read correctly.
+    window.location.href = "/admin"
   }
 
   return (
@@ -46,6 +45,12 @@ export default function LoginPage() {
 
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+            {errorMsg && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
             <div className="grid gap-1.5">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -54,7 +59,10 @@ export default function LoginPage() {
                 autoComplete="email"
                 required
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value)
+                  setErrorMsg(null)
+                }}
                 placeholder="you@example.com"
               />
             </div>
@@ -66,7 +74,10 @@ export default function LoginPage() {
                 autoComplete="current-password"
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value)
+                  setErrorMsg(null)
+                }}
               />
             </div>
             <Button type="submit" className="mt-1 w-full" disabled={loading}>
