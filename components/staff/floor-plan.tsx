@@ -92,17 +92,23 @@ export function FloorPlan() {
                 key={t.id}
                 onClick={() => setSelectedId(t.id)}
                 className={cn(
-                  "relative flex flex-col items-center justify-center border-2 text-center transition-all",
+                  "relative flex flex-col items-center justify-center border-2 text-center transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-105 active:scale-100",
                   t.shape === "round" && "rounded-full",
                   t.shape === "square" && "rounded-lg",
                   t.shape === "rect" && "rounded-lg",
                   t.seats <= 2 ? "size-20" : t.seats <= 4 ? "size-24" : "h-24 w-32",
                   meta.color,
                   isSelected
-                    ? "ring-2 ring-primary ring-offset-2 ring-offset-card"
-                    : "hover:brightness-95",
+                    ? "z-10 scale-105 ring-2 ring-primary ring-offset-2 ring-offset-card"
+                    : "hover:brightness-95 hover:shadow-md",
                 )}
               >
+                {t.status === "seated" ? (
+                  <span className="absolute right-1.5 top-1.5 flex size-2.5">
+                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
+                    <span className="relative inline-flex size-2.5 rounded-full bg-current" />
+                  </span>
+                ) : null}
                 <span className="font-heading text-lg font-semibold leading-none">
                   {t.label}
                 </span>

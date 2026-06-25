@@ -31,6 +31,7 @@ export function ReservationWidget() {
   const [name, setName] = useState("")
   const [phone, setPhone] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [confCode, setConfCode] = useState("")
 
   const partyNum = Number(party)
   const overCapacity = partyNum > MAX_CAPACITY
@@ -55,6 +56,9 @@ export function ReservationWidget() {
     // Simulate a transaction-safe server action.
     setTimeout(() => {
       setSubmitting(false)
+      setConfCode(
+        `TVL-${Math.floor(1000 + Math.random() * 9000)}`,
+      )
       setStep("done")
       toast.success("Reservation confirmed", {
         description: `${name}, party of ${party} · ${formatDate(date)} at ${slot}`,
@@ -67,21 +71,53 @@ export function ReservationWidget() {
     setSlot(null)
     setName("")
     setPhone("")
+    setConfCode("")
   }
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-lg shadow-foreground/5 md:p-6">
       {step === "done" ? (
-        <div className="flex flex-col items-center gap-3 py-6 text-center">
-          <span className="flex size-12 items-center justify-center rounded-full bg-accent/15 text-accent">
-            <Check className="size-6" />
+        <div className="flex flex-col items-center gap-3 py-4 text-center duration-500 animate-in fade-in">
+          <span className="relative mb-1 flex size-16 items-center justify-center duration-500 zoom-in-50 animate-in">
+            <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/30 [animation-iteration-count:3]" />
+            <span className="relative flex size-16 items-center justify-center rounded-full bg-accent text-accent-foreground">
+              <Check className="size-8" strokeWidth={2.5} />
+            </span>
           </span>
-          <h3 className="font-heading text-xl font-semibold">Table reserved</h3>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            A confirmation was sent to {name || "your phone"}. We can&apos;t wait to
-            host your party of {party} on {formatDate(date)} at {slot}.
+          <h3 className="font-heading text-2xl font-semibold">
+            Table reserved
+          </h3>
+          <p className="max-w-xs text-pretty text-sm text-muted-foreground">
+            A confirmation was sent to {name || "your phone"}. We can&apos;t wait
+            to host you.
           </p>
-          <Button variant="outline" onClick={reset} className="mt-2">
+
+          <dl className="mt-2 w-full divide-y divide-border rounded-lg border border-border bg-secondary/40 text-left text-sm duration-700 fade-in slide-in-from-bottom-2 animate-in">
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <dt className="text-muted-foreground">Guest</dt>
+              <dd className="font-medium">{name || "Guest"}</dd>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <dt className="text-muted-foreground">When</dt>
+              <dd className="font-medium">
+                {formatDate(date)} · {slot}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <dt className="text-muted-foreground">Party</dt>
+              <dd className="font-medium">
+                {party} {Number(party) === 1 ? "guest" : "guests"}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <dt className="text-muted-foreground">Confirmation</dt>
+              <dd className="font-mono font-medium tracking-wide text-primary">
+                {confCode}
+              </dd>
+            </div>
+          </dl>
+
+          <Button variant="outline" onClick={reset} className="mt-3">
             Make another reservation
           </Button>
         </div>
