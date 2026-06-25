@@ -201,16 +201,17 @@ export default function HomePage() {
       </section>
 
       {/* ── Chef's picks ─────────────────────────────────────────────── */}
-      <section className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-              Chef&apos;s picks
-            </p>
-            <h2 className="mt-2 font-heading text-4xl font-semibold tracking-tight md:text-5xl">
-              Tonight&apos;s favorites
-            </h2>
-          </div>
+      <section className="relative bg-black">
+        <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-32">
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+                Chef&apos;s picks
+              </p>
+              <h2 className="mt-2 font-heading text-4xl font-semibold tracking-tighter text-white text-balance md:text-5xl">
+                Tonight&apos;s favorites
+              </h2>
+            </div>
           <Button
             variant="ghost"
             className="hidden shrink-0 rounded-full text-sm tracking-wide sm:inline-flex"
@@ -226,7 +227,7 @@ export default function HomePage() {
             return (
               <div
                 key={item.id}
-                className="group relative overflow-hidden rounded-2xl bg-card shadow-sm transition-shadow duration-300 hover:shadow-lg hover:shadow-foreground/8"
+                className="group relative overflow-hidden rounded-2xl bg-zinc-900 border border-white/10 shadow-sm transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/20 hover:border-white/20"
               >
                 {/* Dish photo */}
                 {img ? (
@@ -243,8 +244,8 @@ export default function HomePage() {
                     </span>
                   </div>
                 ) : (
-                  <div className="flex h-52 items-center justify-center bg-secondary">
-                    <span className="text-3xl font-heading text-muted-foreground/30">
+                  <div className="flex h-52 items-center justify-center bg-zinc-800">
+                    <span className="text-3xl font-heading text-zinc-700">
                       {item.name[0]}
                     </span>
                     <span className="absolute right-3.5 top-3.5 rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground">
@@ -255,10 +256,10 @@ export default function HomePage() {
 
                 {/* Card body */}
                 <div className="p-5">
-                  <h3 className="font-heading text-lg font-semibold leading-snug tracking-tight">
+                  <h3 className="font-heading text-lg font-semibold leading-snug tracking-tighter text-white">
                     {item.name}
                   </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-2">
+                  <p className="mt-1.5 text-sm leading-relaxed text-zinc-400 line-clamp-2">
                     {item.description}
                   </p>
                 </div>
@@ -271,6 +272,7 @@ export default function HomePage() {
           <Button variant="outline" className="w-full rounded-full" render={<Link href="/menu" />}>
             View full menu
           </Button>
+        </div>
         </div>
       </section>
 
@@ -286,11 +288,11 @@ export default function HomePage() {
         {/* Warm dark overlay */}
         <div className="absolute inset-0 -z-10 bg-[oklch(0.18_0.018_40/0.82)]" />
 
-        <div className="mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-32">
+        <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-32">
           <p className="text-center text-xs font-medium uppercase tracking-[0.18em] text-primary">
             The experience
           </p>
-          <h2 className="mt-3 text-balance text-center font-heading text-4xl font-semibold tracking-tight text-background md:text-5xl">
+          <h2 className="mt-3 text-balance text-center font-heading text-4xl font-semibold tracking-tighter text-white md:text-5xl">
             A better night out, end to end
           </h2>
 
@@ -303,14 +305,14 @@ export default function HomePage() {
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
-      <footer className="border-t border-border bg-card">
+      <footer className="border-t border-white/10 bg-black/50">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 md:flex-row md:px-8">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-zinc-500">
             © {new Date().getFullYear()} {RESTAURANT.name}. {RESTAURANT.address}.
           </p>
           <Link
             href="/admin"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="text-sm text-zinc-500 transition-colors hover:text-white"
           >
             Staff console
           </Link>
@@ -360,10 +362,10 @@ function Step({
       <span className="flex size-14 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
         <Icon className="size-6" strokeWidth={1.5} />
       </span>
-      <h3 className="mt-5 font-heading text-xl font-semibold tracking-tight text-background">
+      <h3 className="mt-5 font-heading text-xl font-semibold tracking-tighter text-white">
         {title}
       </h3>
-      <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-background/60">
+      <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-zinc-400">
         {body}
       </p>
     </div>
