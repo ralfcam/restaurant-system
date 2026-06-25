@@ -59,7 +59,6 @@ export default function HomePage() {
             {[
               { href: "/", label: "Home" },
               { href: "/menu", label: "Menu" },
-              { href: "/#reserve", label: "Reserve" },
             ].map((l) => (
               <Link
                 key={l.href}
