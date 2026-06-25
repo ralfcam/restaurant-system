@@ -8,10 +8,10 @@ import {
   CalendarCheck,
   ChefHat,
   Star,
+  UtensilsCrossed,
 } from "lucide-react"
 import { RESTAURANT, MENU_ITEMS } from "@/lib/data"
 import { cn } from "@/lib/utils"
-import { SiteHeader } from "@/components/site/site-header"
 import { ReservationWidget } from "@/components/site/reservation-widget"
 import { Button } from "@/components/ui/button"
 
@@ -27,71 +27,103 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
+      <section className="relative min-h-screen overflow-hidden">
+        {/* Background photo */}
         <div className="absolute inset-0">
           <Image
             src="/images/hero-dining.png"
             alt="Warm restaurant dining room at golden hour"
             fill
             priority
-            className="object-cover brightness-[0.45] saturate-[0.85]"
+            className="object-cover brightness-[0.42] saturate-[0.80]"
           />
-          {/* warm amber vignette */}
-          <div className="absolute inset-0 bg-gradient-to-r from-foreground/60 via-foreground/40 to-foreground/20" />
+          {/* Left-heavy vignette so text stays readable */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+          {/* Bottom fade */}
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
         </div>
 
-        <div className="relative mx-auto grid max-w-6xl gap-12 px-5 py-20 md:px-8 md:py-28 lg:grid-cols-2 lg:items-center lg:gap-16">
-          {/* Left — headline */}
-          <div className="text-background">
-            <span className="inline-flex items-center gap-2 rounded-full border border-background/25 bg-background/10 px-3.5 py-1.5 text-xs font-medium uppercase tracking-widest backdrop-blur-sm">
-              <Star className="size-3 fill-current opacity-80" />
-              {RESTAURANT.tagline}
+        {/* ── Inline header (overlaid on hero) ── */}
+        <header className="relative z-20 mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
+              <UtensilsCrossed className="size-3.5" strokeWidth={1.75} />
             </span>
-            <h1 className="mt-5 text-balance font-heading text-5xl font-semibold leading-[1.08] tracking-tight md:text-7xl">
+            <span className="font-heading text-base font-semibold tracking-widest text-white uppercase">
+              {RESTAURANT.name}
+            </span>
+          </Link>
+          <nav className="hidden items-center gap-1 md:flex">
+            {[
+              { href: "/", label: "Home" },
+              { href: "/menu", label: "Menu" },
+              { href: "/#reserve", label: "Reserve" },
+            ].map((l) => (
+              <Link
+                key={l.href}
+                href={l.href}
+                className="rounded-full px-4 py-2 text-xs font-medium uppercase tracking-widest text-white/70 transition-colors hover:text-white"
+              >
+                {l.label}
+              </Link>
+            ))}
+          </nav>
+          <Link
+            href="/admin"
+            className="hidden rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium tracking-widest text-white/80 uppercase backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white sm:block"
+          >
+            Staff
+          </Link>
+        </header>
+
+        {/* ── Hero content ── */}
+        <div className="relative z-10 mx-auto max-w-6xl px-5 pb-20 pt-10 md:px-8 md:pt-14 md:pb-28">
+          <div className="max-w-xl">
+            {/* Tag pill */}
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
+              <Star className="size-2.5 fill-white text-white" />
+              Seasonal Italian Kitchen &amp; Wine Bar
+            </span>
+
+            {/* Headline */}
+            <h1 className="mt-6 font-heading text-5xl font-semibold leading-[1.05] tracking-tight text-white text-balance md:text-6xl lg:text-7xl">
               A seat at the table, reserved in seconds.
             </h1>
-            <p className="mt-5 max-w-md text-pretty text-base leading-relaxed text-background/70 md:text-lg">
+
+            {/* Subtext */}
+            <p className="mt-5 max-w-sm text-pretty text-base leading-relaxed text-white/65 md:text-[17px]">
               Browse our seasonal menu, pick your time, and book instantly. No
               calls, no waiting — just great food at {RESTAURANT.name}.
             </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button
-                size="lg"
-                className="rounded-full px-7 text-sm font-medium tracking-wide"
-                render={<Link href="#reserve" />}
-              >
-                Reserve a table
-              </Button>
-              <Button
-                size="lg"
-                variant="ghost"
-                className="rounded-full border border-background/30 px-7 text-sm font-medium tracking-wide text-background hover:bg-background/10 hover:text-background"
-                render={<Link href="/menu" />}
-              >
-                <QrCode className="size-4" /> View menu
-              </Button>
-            </div>
-          </div>
 
-          {/* Right — booking widget */}
-          <div id="reserve" className="scroll-mt-24">
-            <div className="mb-4 text-background">
-              <h2 className="font-heading text-2xl font-semibold tracking-tight">
-                Book your table
-              </h2>
-              <p className="mt-1 text-sm text-background/65 tracking-wide">
-                Real-time availability · instant confirmation
-              </p>
-            </div>
-            {/* Frosted glass widget wrapper */}
-            <div className="overflow-hidden rounded-2xl border border-background/15 bg-background/[0.08] shadow-2xl shadow-foreground/30 backdrop-blur-xl">
-              <ReservationWidget />
+            {/* ── Booking card ── */}
+            <div id="reserve" className="relative mt-10 scroll-mt-8 rounded-2xl border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-2xl shadow-black/40 backdrop-blur-2xl">
+              {/* Botanical watermarks clipped inside their own overflow-hidden layer */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                <BotanicalWatermark className="absolute -right-4 -top-4 size-44 rotate-12 opacity-[0.07] text-white" />
+                <BotanicalWatermark className="absolute -bottom-6 -left-6 size-44 -rotate-12 scale-x-[-1] opacity-[0.07] text-white" />
+              </div>
+
+              {/* Card header */}
+              <div className="relative px-6 pt-5 pb-1">
+                <h2 className="font-heading text-xl font-semibold text-white">
+                  Book your table
+                </h2>
+                <p className="mt-0.5 text-xs tracking-wide text-white/50">
+                  Real-time availability · Instant confirmation
+                </p>
+              </div>
+
+              {/* Widget (dark-skinned) */}
+              <ReservationWidget dark />
             </div>
           </div>
         </div>
+
+        {/* 4-pointed star accent */}
+        <FourPointedStar className="absolute bottom-8 right-8 size-10 text-white/80" />
       </section>
 
       {/* ── Info strip ───────────────────────────────────────────────── */}
@@ -272,5 +304,53 @@ function Step({
         {body}
       </p>
     </div>
+  )
+}
+
+/** Etched olive-branch botanical SVG watermark */
+function BotanicalWatermark({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 200 200"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {/* Main stem */}
+      <path d="M100 180 C95 140 90 100 100 60 C110 20 120 10 120 10" />
+      {/* Branches left */}
+      <path d="M97 155 C80 145 65 140 55 130" />
+      <path d="M97 155 C82 148 74 142 68 132" />
+      <path d="M95 130 C75 120 58 118 45 108" />
+      <path d="M95 130 C78 124 68 118 58 108" />
+      <path d="M96 105 C78 96 63 95 52 86" />
+      <path d="M97 80 C82 72 70 72 60 64" />
+      {/* Branches right */}
+      <path d="M103 145 C118 134 130 128 142 120" />
+      <path d="M103 145 C120 138 130 130 138 120" />
+      <path d="M104 120 C120 110 134 108 146 100" />
+      <path d="M104 95 C118 86 130 84 140 76" />
+      <path d="M105 70 C118 62 128 60 138 52" />
+      {/* Olive fruits */}
+      <ellipse cx="53" cy="128" rx="5" ry="7" transform="rotate(-20 53 128)" />
+      <ellipse cx="144" cy="118" rx="5" ry="7" transform="rotate(20 144 118)" />
+      <ellipse cx="50" cy="104" rx="4" ry="6" transform="rotate(-15 50 104)" />
+      <ellipse cx="148" cy="98" rx="4" ry="6" transform="rotate(15 148 98)" />
+      <ellipse cx="58" cy="62" rx="4" ry="6" transform="rotate(-10 58 62)" />
+      <ellipse cx="140" cy="74" rx="4" ry="6" transform="rotate(10 140 74)" />
+    </svg>
+  )
+}
+
+/** 4-pointed decorative star */
+function FourPointedStar({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 40 40" fill="currentColor" className={className} aria-hidden="true">
+      <path d="M20 0 L22.5 17.5 L40 20 L22.5 22.5 L20 40 L17.5 22.5 L0 20 L17.5 17.5 Z" />
+    </svg>
   )
 }

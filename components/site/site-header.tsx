@@ -15,6 +15,8 @@ const LINKS = [
 
 export function SiteHeader() {
   const pathname = usePathname()
+  // The homepage has its own inline header overlaid on the hero.
+  if (pathname === "/") return null
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
