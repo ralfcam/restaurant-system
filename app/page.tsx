@@ -56,18 +56,12 @@ export default function HomePage() {
             </span>
           </Link>
           <nav className="hidden items-center gap-1 md:flex">
-            {[
-              { href: "/", label: "Home" },
-              { href: "/menu", label: "Menu" },
-            ].map((l) => (
-              <Link
-                key={l.href}
-                href={l.href}
-                className="rounded-full px-4 py-2 text-xs font-medium uppercase tracking-widest text-white/70 transition-colors hover:text-white"
-              >
-                {l.label}
-              </Link>
-            ))}
+            <Link
+              href="/menu"
+              className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:underline"
+            >
+              Menu
+            </Link>
           </nav>
           <Link
             href="/admin"
