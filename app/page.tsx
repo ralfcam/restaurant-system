@@ -71,14 +71,17 @@ export default function HomePage() {
           )}
         >
           <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
-                <UtensilsCrossed className={cn("size-3.5 transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")} strokeWidth={1.75} />
-              </span>
-              <span className={cn("font-heading text-base font-semibold tracking-widest uppercase transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
-                {RESTAURANT.name}
-              </span>
-            </Link>
+            {/* Logo — left third */}
+            <div className="w-1/3 flex items-center justify-start">
+              <Link href="/" className="flex items-center gap-2.5">
+                <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
+                  <UtensilsCrossed className={cn("size-3.5 transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")} strokeWidth={1.75} />
+                </span>
+                <span className={cn("font-heading text-base font-semibold tracking-widest uppercase transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
+                  {RESTAURANT.name}
+                </span>
+              </Link>
+            </div>
             <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-1 md:flex">
               <Link
                 href="/menu"
@@ -87,7 +90,8 @@ export default function HomePage() {
                 Menu
               </Link>
             </nav>
-            <div className="hidden items-center gap-2 md:flex">
+            {/* Staff — right third */}
+            <div className="w-1/3 flex items-center gap-2 justify-end hidden md:flex">
               <Link
                 href="/admin"
                 className={cn("rounded-full px-4 py-1.5 text-xs font-medium tracking-widest uppercase transition-colors duration-300", isScrolled ? "border border-border/60 bg-transparent text-foreground hover:bg-muted" : "border border-white/20 bg-white/10 text-white/80 backdrop-blur-sm hover:bg-white/20 hover:text-white")}
