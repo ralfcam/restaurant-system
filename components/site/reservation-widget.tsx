@@ -195,8 +195,9 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                 </SelectTrigger>
                 <SelectContent
                   className={cn(
-                    dark &&
-                      "border border-white/10 bg-[oklch(0.18_0.015_40/0.88)] text-white shadow-2xl shadow-black/60 backdrop-blur-xl [&_.scroll-area-scrollbar]:bg-white/10",
+                    dark
+                      ? "border-white/10 bg-black/80 text-white shadow-2xl shadow-black/60 backdrop-blur-xl"
+                      : "",
                   )}
                 >
                   {PARTY_SIZES.map((n) => (
@@ -204,8 +205,9 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                       key={n}
                       value={String(n)}
                       className={cn(
-                        dark &&
-                          "text-white/90 focus:bg-white/12 focus:text-white not-data-[variant=destructive]:focus:**:text-white data-[state=checked]:text-white",
+                        dark
+                          ? "text-white/90 focus:bg-white/15 focus:text-white data-[state=checked]:text-white [&_svg]:text-white/60"
+                          : "",
                       )}
                     >
                       {n} {n === 1 ? "guest" : "guests"}
@@ -235,11 +237,8 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   }
                 }}
                 style={{
-                  // Force the browser's calendar popup into dark mode so it
-                  // matches our glassmorphic card instead of the OS default.
                   colorScheme: dark ? "dark" : "light",
-                  // Warm terracotta accent replaces the default blue selection ring.
-                  accentColor: dark ? "oklch(0.50 0.155 35)" : undefined,
+                  accentColor: dark ? "#C45A3B" : undefined,
                 }}
                 className={cn(
                   "flex h-9 w-full rounded-lg border px-3 py-1 text-sm transition-colors outline-none",
