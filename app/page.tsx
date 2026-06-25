@@ -305,14 +305,14 @@ export default function HomePage() {
       </section>
 
       {/* ── Footer ───────────────────────────────────────────────────── */}
-      <footer className="border-t border-white/10 bg-black/50">
+      <footer className="border-t border-zinc-800 bg-zinc-950">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 md:flex-row md:px-8">
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-zinc-300">
             © {new Date().getFullYear()} {RESTAURANT.name}. {RESTAURANT.address}.
           </p>
           <Link
             href="/admin"
-            className="text-sm text-zinc-500 transition-colors hover:text-white"
+            className="text-sm text-zinc-300 transition-colors hover:text-zinc-100"
           >
             Staff console
           </Link>
