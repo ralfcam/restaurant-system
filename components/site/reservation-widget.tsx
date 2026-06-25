@@ -193,9 +193,21 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                 <SelectTrigger className={cn("w-full", selectTriggerCls)}>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent
+                  className={cn(
+                    dark &&
+                      "border border-white/10 bg-[oklch(0.18_0.015_40/0.88)] text-white shadow-2xl shadow-black/60 backdrop-blur-xl [&_.scroll-area-scrollbar]:bg-white/10",
+                  )}
+                >
                   {PARTY_SIZES.map((n) => (
-                    <SelectItem key={n} value={String(n)}>
+                    <SelectItem
+                      key={n}
+                      value={String(n)}
+                      className={cn(
+                        dark &&
+                          "text-white/90 focus:bg-white/12 focus:text-white not-data-[variant=destructive]:focus:**:text-white data-[state=checked]:text-white",
+                      )}
+                    >
                       {n} {n === 1 ? "guest" : "guests"}
                     </SelectItem>
                   ))}
@@ -210,17 +222,33 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               >
                 <CalendarDays className="size-3.5" /> Date
               </Label>
-              <Input
+              <input
                 id="res-date"
                 type="date"
                 value={date}
                 min={todayISO()}
-                className={inputCls}
                 onChange={(e) => {
-                  setDate(e.target.value)
-                  setSlot(null)
-                  setStep("slots")
+                  if (e.target.value) {
+                    setDate(e.target.value)
+                    setSlot(null)
+                    setStep("slots")
+                  }
                 }}
+                style={{
+                  // Force the browser's calendar popup into dark mode so it
+                  // matches our glassmorphic card instead of the OS default.
+                  colorScheme: dark ? "dark" : "light",
+                  // Warm terracotta accent replaces the default blue selection ring.
+                  accentColor: dark ? "oklch(0.50 0.155 35)" : undefined,
+                }}
+                className={cn(
+                  "flex h-9 w-full rounded-lg border px-3 py-1 text-sm transition-colors outline-none",
+                  "file:border-0 file:bg-transparent file:text-sm file:font-medium",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                  dark
+                    ? "border-white/15 bg-white/10 text-white [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 focus-visible:border-white/40 focus-visible:ring-2 focus-visible:ring-white/20"
+                    : "border-input bg-transparent focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20",
+                )}
               />
             </div>
           </div>
