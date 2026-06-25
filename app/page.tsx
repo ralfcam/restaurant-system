@@ -53,10 +53,10 @@ export default function HomePage() {
             alt="Warm restaurant dining room at golden hour"
             fill
             priority
-            className="object-cover brightness-[0.42] saturate-[0.80]"
+            className="object-cover brightness-[0.42] saturate-[0.80] animate-slow-zoom"
           />
-          {/* Left-heavy vignette so text stays readable */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-black/10" />
+          {/* Dynamic radial gradient overlay */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-black/20 via-black/50 to-black/80" />
           {/* Bottom fade */}
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
         </div>
@@ -71,14 +71,17 @@ export default function HomePage() {
           )}
         >
           <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
-                <UtensilsCrossed className={cn("size-3.5 transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")} strokeWidth={1.75} />
-              </span>
-              <span className={cn("font-heading text-base font-semibold tracking-widest uppercase transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
-                {RESTAURANT.name}
-              </span>
-            </Link>
+            {/* Logo — left third */}
+            <div className="w-1/3 flex items-center justify-start">
+              <Link href="/" className="flex items-center gap-2.5">
+                <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
+                  <UtensilsCrossed className={cn("size-3.5 transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")} strokeWidth={1.75} />
+                </span>
+                <span className={cn("font-heading text-base font-semibold tracking-widest uppercase transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
+                  {RESTAURANT.name}
+                </span>
+              </Link>
+            </div>
             <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-1 md:flex">
               <Link
                 href="/menu"
@@ -87,7 +90,8 @@ export default function HomePage() {
                 Menu
               </Link>
             </nav>
-            <div className="hidden items-center gap-2 md:flex">
+            {/* Staff — right third */}
+            <div className="w-1/3 flex items-center gap-2 justify-end hidden md:flex">
               <Link
                 href="/admin"
                 className={cn("rounded-full px-4 py-1.5 text-xs font-medium tracking-widest uppercase transition-colors duration-300", isScrolled ? "border border-border/60 bg-transparent text-foreground hover:bg-muted" : "border border-white/20 bg-white/10 text-white/80 backdrop-blur-sm hover:bg-white/20 hover:text-white")}
@@ -147,7 +151,7 @@ export default function HomePage() {
             </span>
 
             {/* Headline */}
-            <h1 className="mt-6 font-heading text-5xl font-semibold leading-[1.05] tracking-tight text-white text-balance md:text-6xl lg:text-7xl">
+            <h1 className="mt-6 font-heading text-5xl font-semibold leading-[1.05] tracking-tighter text-white text-balance md:text-6xl lg:text-7xl" style={{ textShadow: "0 4px 12px rgba(0,0,0,0.5)" }}>
               A seat at the table, reserved in seconds.
             </h1>
 
@@ -158,7 +162,7 @@ export default function HomePage() {
             </p>
 
             {/* ── Booking card ── */}
-            <div id="reserve" className="relative mt-10 scroll-mt-8 rounded-2xl border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-2xl shadow-black/40 backdrop-blur-2xl">
+            <div id="reserve" className="relative mt-10 scroll-mt-8 rounded-2xl border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-2xl shadow-black/40 backdrop-blur-2xl hover:scale-[1.01] transition-transform duration-500 focus-within:border-amber-500/50">
               {/* Botanical watermarks clipped inside their own overflow-hidden layer */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                 <BotanicalWatermark className="absolute -right-4 -top-4 size-44 rotate-12 opacity-[0.07] text-white" />
@@ -329,8 +333,8 @@ function InfoItem({
 }) {
   return (
     <div className="flex flex-col items-center text-center md:flex-row md:text-left gap-3 md:gap-4 px-6 py-6 md:px-8">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-white/80">
-        <Icon className="size-4" strokeWidth={1.5} />
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/20">
+        <Icon className="size-4 text-white/70" strokeWidth={1.5} />
       </span>
       <div>
         <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/70">

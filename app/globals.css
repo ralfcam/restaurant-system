@@ -136,3 +136,18 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  @keyframes slow-zoom {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.05);
+    }
+  }
+
+  .animate-slow-zoom {
+    animation: slow-zoom 8s ease-in-out infinite alternate;
+  }
+}

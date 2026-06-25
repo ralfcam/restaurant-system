@@ -38,16 +38,18 @@ export function SiteHeader() {
           : "bg-transparent border-transparent",
       )}
     >
-      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <UtensilsCrossed className="size-4" strokeWidth={1.75} />
-          </span>
-          <span className={cn("font-heading text-lg font-semibold tracking-tight transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
-            {RESTAURANT.name}
-          </span>
-        </Link>
+      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
+        {/* Logo — left third */}
+        <div className="w-1/3 flex items-center justify-start">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <UtensilsCrossed className="size-4" strokeWidth={1.75} />
+            </span>
+            <span className={cn("font-heading text-lg font-semibold tracking-tight transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
+              {RESTAURANT.name}
+            </span>
+          </Link>
+        </div>
 
         {/* Desktop Nav — absolutely centered */}
         <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-0.5 md:flex">
@@ -66,8 +68,8 @@ export function SiteHeader() {
           ))}
         </nav>
 
-        {/* Desktop Actions */}
-        <div className="hidden items-center gap-2 md:flex">
+        {/* Desktop Actions — right third */}
+        <div className="w-1/3 flex items-center gap-2 justify-end hidden md:flex">
           <Button
             variant="ghost"
             size="sm"
