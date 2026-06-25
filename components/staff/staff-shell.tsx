@@ -11,9 +11,11 @@ import {
   UtensilsCrossed,
   ExternalLink,
   Menu,
+  LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
+import { signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
@@ -22,6 +24,8 @@ import {
   SheetTrigger,
   SheetTitle,
 } from "@/components/ui/sheet"
+
+type StaffUser = { email?: string | null; name?: string | null } | null
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, role: "Admin" },
@@ -66,7 +70,17 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({
+  onNavigate,
+  user,
+}: {
+  onNavigate?: () => void
+  user?: StaffUser
+}) {
+  const initials = user?.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "ST"
+
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -83,7 +97,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/"
           onClick={onNavigate}
-          className="mb-3 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          className="mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <ExternalLink className="size-4" />
           View guest site
@@ -91,13 +105,25 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="flex items-center gap-3 rounded-md px-3 py-2">
           <Avatar className="size-9">
             <AvatarFallback className="bg-sidebar-accent text-sidebar-accent-foreground">
-              AM
+              {initials}
             </AvatarFallback>
           </Avatar>
-          <div className="leading-tight">
-            <p className="text-sm font-medium">Alex Moreno</p>
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-sm font-medium">
+              {user?.name ?? user?.email ?? "Staff"}
+            </p>
             <p className="text-xs text-sidebar-foreground/60">Administrator</p>
           </div>
+          <form action={signOut}>
+            <button
+              type="submit"
+              title="Sign out"
+              className="flex size-7 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            >
+              <LogOut className="size-4" />
+              <span className="sr-only">Sign out</span>
+            </button>
+          </form>
         </div>
       </div>
     </div>
@@ -108,17 +134,19 @@ export function StaffShell({
   title,
   description,
   actions,
+  user,
   children,
 }: {
   title: string
   description?: string
   actions?: React.ReactNode
+  user?: StaffUser
   children: React.ReactNode
 }) {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
-        <SidebarContent />
+        <SidebarContent user={user} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -134,7 +162,7 @@ export function StaffShell({
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <SidebarContent />
+              <SidebarContent user={user} />
             </SheetContent>
           </Sheet>
 

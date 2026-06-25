@@ -3,15 +3,41 @@
 import { useMemo, useState } from "react"
 import { Search, Phone, Check, Armchair, X } from "lucide-react"
 import { toast } from "sonner"
-import {
-  RESERVATIONS,
-  type Reservation,
-  type ReservationStatus,
-} from "@/lib/data"
+import { type ReservationStatus } from "@/lib/data"
+import { type ReservationRow, updateReservationStatus } from "@/app/actions/reservations"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+
+// Map DB row shape to a UI-friendly type
+type Reservation = {
+  id: string
+  guestName: string
+  partySize: number
+  time: string
+  date: string
+  tableLabel?: string
+  status: ReservationStatus
+  phone: string
+  notes?: string
+  confCode: string
+}
+
+function rowToReservation(r: ReservationRow): Reservation {
+  return {
+    id: r.id,
+    guestName: r.guest_name,
+    partySize: r.party_size,
+    time: r.time,
+    date: r.date,
+    tableLabel: r.table_label ?? undefined,
+    status: r.status,
+    phone: r.phone,
+    notes: r.notes ?? undefined,
+    confCode: r.conf_code,
+  }
+}
 
 type Tab = "all" | ReservationStatus
 
@@ -23,9 +49,13 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "cancelled", label: "Cancelled" },
 ]
 
-export function ReservationsManager() {
+export function ReservationsManager({
+  initialReservations = [],
+}: {
+  initialReservations?: ReservationRow[]
+}) {
   const [reservations, setReservations] = useState<Reservation[]>(
-    [...RESERVATIONS].sort((a, b) => a.time.localeCompare(b.time)),
+    initialReservations.map(rowToReservation),
   )
   const [tab, setTab] = useState<Tab>("all")
   const [query, setQuery] = useState("")
@@ -41,7 +71,8 @@ export function ReservationsManager() {
     })
   }, [reservations, tab, query])
 
-  function updateStatus(id: string, status: ReservationStatus) {
+  async function updateStatus(id: string, status: ReservationStatus) {
+    // Optimistic update
     setReservations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status } : r)),
     )
@@ -50,6 +81,19 @@ export function ReservationsManager() {
       seated: "seated",
       completed: "completed",
       cancelled: "cancelled",
+    }
+    const { error } = await updateReservationStatus(id, status)
+    if (error) {
+      toast.error("Update failed", { description: error })
+      // Roll back optimistic update
+      setReservations((prev) =>
+        prev.map((r) =>
+          r.id === id
+            ? { ...r, status: r.status }
+            : r,
+        ),
+      )
+      return
     }
     toast.success(`Reservation ${labels[status]}`)
   }

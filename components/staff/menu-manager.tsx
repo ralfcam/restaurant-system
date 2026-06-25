@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Image from "next/image"
-import { Plus, Pencil, Trash2, Search, Star, UtensilsCrossed } from "lucide-react"
+import { Plus, Pencil, Trash2, Search, Star, UtensilsCrossed, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import {
   MENU_CATEGORIES,
@@ -10,13 +10,12 @@ import {
   type Allergen,
 } from "@/lib/data"
 import {
-  useMenu,
-  createItem,
-  upsertItem,
-  deleteItem,
-  toggleAvailability,
-  type MenuItem,
-} from "@/lib/menu-store"
+  type MenuItemRow,
+  upsertMenuItem,
+  createMenuItem,
+  deleteMenuItem,
+  toggleMenuItemAvailability,
+} from "@/app/actions/menu"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -62,6 +61,7 @@ type Filter = "All" | MenuCategory
 
 type Draft = {
   id?: string
+  slug?: string
   name: string
   description: string
   price: string
@@ -70,6 +70,7 @@ type Draft = {
   image: string
   popular: boolean
   available: boolean
+  sort_order: number
 }
 
 function emptyDraft(): Draft {
@@ -82,85 +83,123 @@ function emptyDraft(): Draft {
     image: "",
     popular: false,
     available: true,
+    sort_order: 0,
   }
 }
 
-function toDraft(item: MenuItem): Draft {
+function toDraft(item: MenuItemRow): Draft {
   return {
     id: item.id,
+    slug: item.slug,
     name: item.name,
     description: item.description,
     price: String(item.price),
     category: item.category,
     allergens: item.allergens,
     image: item.image ?? "",
-    popular: item.popular ?? false,
-    available: item.available ?? true,
+    popular: item.popular,
+    available: item.available,
+    sort_order: item.sort_order,
   }
 }
 
-export function MenuManager() {
-  const menu = useMenu()
+export function MenuManager({
+  initialItems = [],
+}: {
+  initialItems?: MenuItemRow[]
+}) {
+  const [items, setItems] = useState<MenuItemRow[]>(initialItems)
   const [filter, setFilter] = useState<Filter>("All")
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [draft, setDraft] = useState<Draft>(emptyDraft())
 
   const filtered = useMemo(() => {
-    return menu.filter((m) => {
+    return items.filter((m) => {
       const matchCat = filter === "All" || m.category === filter
       const matchQuery =
         query.trim() === "" ||
         m.name.toLowerCase().includes(query.toLowerCase())
       return matchCat && matchQuery
     })
-  }, [menu, filter, query])
+  }, [items, filter, query])
 
-  const availableCount = menu.filter((m) => m.available ?? true).length
+  const availableCount = items.filter((m) => m.available).length
 
   function openCreate() {
     setDraft(emptyDraft())
     setOpen(true)
   }
 
-  function openEdit(item: MenuItem) {
+  function openEdit(item: MenuItemRow) {
     setDraft(toDraft(item))
     setOpen(true)
   }
 
-  function save() {
+  async function save() {
     const price = Number.parseFloat(draft.price)
-    if (!draft.name.trim()) {
-      toast.error("Name is required")
-      return
-    }
-    if (Number.isNaN(price) || price < 0) {
-      toast.error("Enter a valid price")
-      return
-    }
+    if (!draft.name.trim()) { toast.error("Name is required"); return }
+    if (Number.isNaN(price) || price < 0) { toast.error("Enter a valid price"); return }
+
+    setSaving(true)
     const base = {
       name: draft.name.trim(),
       description: draft.description.trim(),
       price,
       category: draft.category,
       allergens: draft.allergens,
-      image: draft.image.trim() || undefined,
+      image: draft.image.trim() || null,
       popular: draft.popular,
       available: draft.available,
+      sort_order: draft.sort_order,
     }
-    if (draft.id) {
-      upsertItem({ ...base, id: draft.id })
+
+    if (draft.id && draft.slug) {
+      // Update existing
+      const { error } = await upsertMenuItem({ ...base, id: draft.id, slug: draft.slug })
+      if (error) { toast.error("Could not save", { description: error }); setSaving(false); return }
+      setItems((prev) => prev.map((i) => i.id === draft.id ? { ...i, ...base } : i))
       toast.success(`Updated ${base.name}`)
     } else {
-      createItem(base)
+      // Create new
+      const { error } = await createMenuItem(base)
+      if (error) { toast.error("Could not create dish", { description: error }); setSaving(false); return }
+      // Refresh list — add optimistic row with temp id
+      const tempRow: MenuItemRow = {
+        ...base,
+        id: `temp-${Date.now()}`,
+        slug: `m-${Date.now()}`,
+        created_at: new Date().toISOString(),
+      }
+      setItems((prev) => [tempRow, ...prev])
       toast.success(`Added ${base.name}`)
     }
+    setSaving(false)
     setOpen(false)
   }
 
-  function remove(item: MenuItem) {
-    deleteItem(item.id)
+  async function remove(item: MenuItemRow) {
+    // Optimistic
+    setItems((prev) => prev.filter((i) => i.id !== item.id))
+    const { error } = await deleteMenuItem(item.id)
+    if (error) {
+      toast.error("Could not delete", { description: error })
+      setItems((prev) => [...prev, item]) // restore
+      return
+    }
     toast.success(`Removed ${item.name}`)
+  }
+
+  async function handleToggle(item: MenuItemRow) {
+    const next = !item.available
+    // Optimistic
+    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, available: next } : i))
+    const { error } = await toggleMenuItemAvailability(item.id, next)
+    if (error) {
+      toast.error("Could not update availability", { description: error })
+      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, available: item.available } : i))
+    }
   }
 
   function toggleAllergen(a: Allergen) {
@@ -219,106 +258,97 @@ export function MenuManager() {
               No dishes match your filters.
             </li>
           ) : (
-            filtered.map((item) => {
-              const isAvailable = item.available ?? true
-              return (
-                <li
-                  key={item.id}
-                  className={cn(
-                    "flex items-center gap-4 px-4 py-3 transition-opacity",
-                    !isAvailable && "opacity-60",
-                  )}
-                >
-                  <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                    {item.image ? (
-                      <Image
-                        src={item.image || "/placeholder.svg"}
-                        alt={item.name}
-                        fill
-                        sizes="56px"
-                        className="object-cover"
-                      />
-                    ) : (
-                      <span className="flex size-full items-center justify-center text-muted-foreground">
-                        <UtensilsCrossed className="size-5" />
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="truncate font-medium">{item.name}</p>
-                      {item.popular ? (
-                        <Star className="size-3.5 shrink-0 fill-primary text-primary" />
-                      ) : null}
-                      {!isAvailable ? (
-                        <Badge
-                          variant="secondary"
-                          className="shrink-0 text-destructive"
-                        >
-                          86&apos;d
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <p className="truncate text-sm text-muted-foreground">
-                      {item.category} · ${item.price}
-                    </p>
-                  </div>
-
-                  {/* Availability toggle */}
-                  <div className="hidden items-center gap-2 sm:flex">
-                    <Switch
-                      checked={isAvailable}
-                      onCheckedChange={() => toggleAvailability(item.id)}
-                      aria-label={`Toggle availability for ${item.name}`}
+            filtered.map((item) => (
+              <li
+                key={item.id}
+                className={cn(
+                  "flex items-center gap-4 px-4 py-3 transition-opacity",
+                  !item.available && "opacity-60",
+                )}
+              >
+                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
+                  {item.image ? (
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      sizes="56px"
+                      className="object-cover"
                     />
-                    <span className="w-16 text-xs text-muted-foreground">
-                      {isAvailable ? "Available" : "Unavailable"}
+                  ) : (
+                    <span className="flex size-full items-center justify-center text-muted-foreground">
+                      <UtensilsCrossed className="size-5" />
                     </span>
-                  </div>
+                  )}
+                </div>
 
-                  <div className="flex items-center gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-8"
-                      title="Edit"
-                      onClick={() => openEdit(item)}
-                    >
-                      <Pencil className="size-4" />
-                      <span className="sr-only">Edit {item.name}</span>
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="size-8 text-destructive hover:text-destructive"
-                      title="Delete"
-                      onClick={() => remove(item)}
-                    >
-                      <Trash2 className="size-4" />
-                      <span className="sr-only">Delete {item.name}</span>
-                    </Button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate font-medium">{item.name}</p>
+                    {item.popular ? (
+                      <Star className="size-3.5 shrink-0 fill-primary text-primary" />
+                    ) : null}
+                    {!item.available ? (
+                      <Badge variant="secondary" className="shrink-0 text-destructive">
+                        86&apos;d
+                      </Badge>
+                    ) : null}
                   </div>
-                </li>
-              )
-            })
+                  <p className="truncate text-sm text-muted-foreground">
+                    {item.category} · ${item.price}
+                  </p>
+                </div>
+
+                <div className="hidden items-center gap-2 sm:flex">
+                  <Switch
+                    checked={item.available}
+                    onCheckedChange={() => handleToggle(item)}
+                    aria-label={`Toggle availability for ${item.name}`}
+                  />
+                  <span className="w-16 text-xs text-muted-foreground">
+                    {item.available ? "Available" : "Unavailable"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8"
+                    title="Edit"
+                    onClick={() => openEdit(item)}
+                  >
+                    <Pencil className="size-4" />
+                    <span className="sr-only">Edit {item.name}</span>
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-8 text-destructive hover:text-destructive"
+                    title="Delete"
+                    onClick={() => remove(item)}
+                  >
+                    <Trash2 className="size-4" />
+                    <span className="sr-only">Delete {item.name}</span>
+                  </Button>
+                </div>
+              </li>
+            ))
           )}
         </ul>
       </div>
 
       <p className="mt-3 text-xs text-muted-foreground">
-        {availableCount} of {menu.length} dishes live on the guest menu
+        {availableCount} of {items.length} dishes live on the guest menu
       </p>
 
       {/* Create / Edit dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {draft.id ? "Edit dish" : "New dish"}
-            </DialogTitle>
+            <DialogTitle>{draft.id ? "Edit dish" : "New dish"}</DialogTitle>
             <DialogDescription>
-              Changes publish to the guest menu instantly.
+              Changes publish to the guest menu after the next page load.
             </DialogDescription>
           </DialogHeader>
 
@@ -328,9 +358,7 @@ export function MenuManager() {
               <Input
                 id="name"
                 value={draft.name}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, name: e.target.value }))
-                }
+                onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
                 placeholder="e.g. Margherita Pizza"
               />
             </div>
@@ -340,9 +368,7 @@ export function MenuManager() {
               <Textarea
                 id="description"
                 value={draft.description}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, description: e.target.value }))
-                }
+                onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
                 placeholder="Short, appetizing description"
                 rows={2}
               />
@@ -355,9 +381,7 @@ export function MenuManager() {
                   id="price"
                   inputMode="decimal"
                   value={draft.price}
-                  onChange={(e) =>
-                    setDraft((d) => ({ ...d, price: e.target.value }))
-                  }
+                  onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
                   placeholder="0.00"
                 />
               </div>
@@ -366,10 +390,7 @@ export function MenuManager() {
                 <Select
                   value={draft.category}
                   onValueChange={(v) =>
-                    setDraft((d) => ({
-                      ...d,
-                      category: (v as MenuCategory) ?? d.category,
-                    }))
+                    setDraft((d) => ({ ...d, category: (v as MenuCategory) ?? d.category }))
                   }
                 >
                   <SelectTrigger className="w-full">
@@ -377,9 +398,7 @@ export function MenuManager() {
                   </SelectTrigger>
                   <SelectContent>
                     {MENU_CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
+                      <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -391,9 +410,7 @@ export function MenuManager() {
               <Input
                 id="image"
                 value={draft.image}
-                onChange={(e) =>
-                  setDraft((d) => ({ ...d, image: e.target.value }))
-                }
+                onChange={(e) => setDraft((d) => ({ ...d, image: e.target.value }))}
                 placeholder="/images/menu/your-dish.png"
               />
             </div>
@@ -425,40 +442,32 @@ export function MenuManager() {
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div>
                 <p className="text-sm font-medium">Mark as popular</p>
-                <p className="text-xs text-muted-foreground">
-                  Shows a highlight badge on the menu.
-                </p>
+                <p className="text-xs text-muted-foreground">Shows a highlight badge on the menu.</p>
               </div>
               <Switch
                 checked={draft.popular}
-                onCheckedChange={(v) =>
-                  setDraft((d) => ({ ...d, popular: v }))
-                }
+                onCheckedChange={(v) => setDraft((d) => ({ ...d, popular: v }))}
               />
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div>
                 <p className="text-sm font-medium">Available</p>
-                <p className="text-xs text-muted-foreground">
-                  Turn off to 86 the dish and hide it from guests.
-                </p>
+                <p className="text-xs text-muted-foreground">Turn off to 86 the dish and hide it from guests.</p>
               </div>
               <Switch
                 checked={draft.available}
-                onCheckedChange={(v) =>
-                  setDraft((d) => ({ ...d, available: v }))
-                }
+                onCheckedChange={(v) => setDraft((d) => ({ ...d, available: v }))}
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={save}>
-              {draft.id ? "Save changes" : "Add to menu"}
+            <Button onClick={save} disabled={saving}>
+              {saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : draft.id ? "Save changes" : "Add to menu"}
             </Button>
           </DialogFooter>
         </DialogContent>

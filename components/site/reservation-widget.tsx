@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import { CalendarDays, Users, Clock, Check, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { TIME_SLOTS, UNAVAILABLE_SLOTS, TABLES } from "@/lib/data"
+import { createReservation } from "@/app/actions/reservations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -50,20 +51,26 @@ export function ReservationWidget() {
     setStep("details")
   }
 
-  function confirm(e: React.FormEvent) {
+  async function confirm(e: React.FormEvent) {
     e.preventDefault()
     setSubmitting(true)
-    // Simulate a transaction-safe server action.
-    setTimeout(() => {
-      setSubmitting(false)
-      setConfCode(
-        `TVL-${Math.floor(1000 + Math.random() * 9000)}`,
-      )
-      setStep("done")
-      toast.success("Reservation confirmed", {
-        description: `${name}, party of ${party} · ${formatDate(date)} at ${slot}`,
-      })
-    }, 900)
+    const { confCode: code, error } = await createReservation({
+      guestName: name,
+      partySize: Number(party),
+      date,
+      time: slot!,
+      phone,
+    })
+    setSubmitting(false)
+    if (error) {
+      toast.error("Could not confirm reservation", { description: error })
+      return
+    }
+    setConfCode(code)
+    setStep("done")
+    toast.success("Reservation confirmed", {
+      description: `${name}, party of ${party} · ${formatDate(date)} at ${slot}`,
+    })
   }
 
   function reset() {

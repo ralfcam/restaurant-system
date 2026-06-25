@@ -6,25 +6,35 @@ import {
   Receipt,
   ArrowRight,
 } from "lucide-react"
-import { RESERVATIONS, TABLES, TABLE_STATUS_META } from "@/lib/data"
+import { TABLES, TABLE_STATUS_META } from "@/lib/data"
+import { getReservationsForDate } from "@/app/actions/reservations"
+import { getAuthUser } from "@/app/actions/auth"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { StatCard } from "@/components/staff/stat-card"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { Button } from "@/components/ui/button"
 
-export default function AdminDashboardPage() {
-  const todays = RESERVATIONS.filter((r) => r.status !== "cancelled")
-  const covers = todays.reduce((sum, r) => sum + r.partySize, 0)
+export const dynamic = "force-dynamic"
+
+export default async function AdminDashboardPage() {
+  const [authUser, allReservations] = await Promise.all([
+    getAuthUser(),
+    getReservationsForDate(new Date().toISOString().slice(0, 10)),
+  ])
+  const today = new Date().toISOString().slice(0, 10)
+  const todays = allReservations.filter((r) => r.status !== "cancelled")
+  const covers = todays.reduce((sum, r) => sum + r.party_size, 0)
   const seated = TABLES.filter((t) => t.status === "seated").length
   const available = TABLES.filter((t) => t.status === "available").length
-  const upcoming = RESERVATIONS.filter(
-    (r) => r.status === "confirmed",
-  ).slice(0, 5)
+  const upcoming = allReservations
+    .filter((r) => r.status === "confirmed")
+    .slice(0, 5)
 
   return (
     <StaffShell
       title="Dashboard"
       description="Tonight's service at a glance"
+      user={{ email: authUser?.email }}
       actions={
         <Button render={<Link href="/admin/reservations" />}>
           <CalendarClock className="size-4" /> Manage reservations
@@ -76,25 +86,31 @@ export default function AdminDashboardPage() {
             </Button>
           </div>
           <ul className="divide-y divide-border">
-            {upcoming.map((r) => (
-              <li
-                key={r.id}
-                className="flex items-center gap-4 px-5 py-3.5"
-              >
-                <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-md bg-secondary text-xs font-medium">
-                  <span className="font-heading text-sm">{r.time}</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{r.guestName}</p>
-                  <p className="text-sm text-muted-foreground">
-                    Party of {r.partySize}
-                    {r.tableLabel ? ` · Table ${r.tableLabel}` : " · unassigned"}
-                    {r.notes ? ` · ${r.notes}` : ""}
-                  </p>
-                </div>
-                <ReservationStatusBadge status={r.status} />
+            {upcoming.length === 0 ? (
+              <li className="px-5 py-8 text-center text-sm text-muted-foreground">
+                No upcoming reservations today.
               </li>
-            ))}
+            ) : (
+              upcoming.map((r) => (
+                <li
+                  key={r.id}
+                  className="flex items-center gap-4 px-5 py-3.5"
+                >
+                  <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-md bg-secondary text-xs font-medium">
+                    <span className="font-heading text-sm">{r.time}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{r.guest_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Party of {r.party_size}
+                      {r.table_label ? ` · Table ${r.table_label}` : " · unassigned"}
+                      {r.notes ? ` · ${r.notes}` : ""}
+                    </p>
+                  </div>
+                  <ReservationStatusBadge status={r.status} />
+                </li>
+              ))
+            )}
           </ul>
         </div>
 

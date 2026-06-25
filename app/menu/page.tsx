@@ -2,16 +2,20 @@ import Link from "next/link"
 import { QrCode } from "lucide-react"
 import type { Metadata } from "next"
 import { RESTAURANT } from "@/lib/data"
+import { getMenuItems } from "@/app/actions/menu"
 import { SiteHeader } from "@/components/site/site-header"
 import { MenuBrowser } from "@/components/site/menu-browser"
 import { Button } from "@/components/ui/button"
+
+export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: `Menu — ${RESTAURANT.name}`,
   description: "Browse our seasonal menu with prices and allergen information.",
 }
 
-export default function MenuPage() {
+export default async function MenuPage() {
+  const items = await getMenuItems()
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -35,7 +39,7 @@ export default function MenuPage() {
       </section>
 
       <main className="mx-auto max-w-3xl px-4 py-8 md:px-6">
-        <MenuBrowser />
+        <MenuBrowser initialItems={items} />
       </main>
 
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">

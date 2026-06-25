@@ -8,7 +8,7 @@ import {
   type MenuCategory,
   type Allergen,
 } from "@/lib/data"
-import { useMenu } from "@/lib/menu-store"
+import type { MenuItemRow } from "@/app/actions/menu"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 
@@ -23,11 +23,14 @@ const ALLERGEN_LABEL: Record<Allergen, string> = {
 
 type Filter = "All" | MenuCategory
 
-export function MenuBrowser() {
+export function MenuBrowser({
+  initialItems = [],
+}: {
+  initialItems?: MenuItemRow[]
+}) {
   const [filter, setFilter] = useState<Filter>("All")
-  const menu = useMenu()
 
-  const available = menu.filter((m) => m.available ?? true)
+  const available = initialItems.filter((m) => m.available)
   const items =
     filter === "All"
       ? available
