@@ -38,7 +38,7 @@ export function SiteHeader() {
           : "bg-transparent border-transparent",
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
+      <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
           <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
@@ -49,8 +49,8 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        {/* Desktop Nav */}
-        <nav className="hidden items-center gap-0.5 md:flex">
+        {/* Desktop Nav — absolutely centered */}
+        <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-0.5 md:flex">
           {LINKS.map((link) => (
             <Link
               key={link.href}

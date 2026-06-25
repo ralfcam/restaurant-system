@@ -70,7 +70,7 @@ export default function HomePage() {
               : "bg-transparent border-transparent",
           )}
         >
-          <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
+          <div className="relative mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
                 <UtensilsCrossed className={cn("size-3.5 transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")} strokeWidth={1.75} />
@@ -79,7 +79,7 @@ export default function HomePage() {
                 {RESTAURANT.name}
               </span>
             </Link>
-            <nav className="hidden items-center gap-1 md:flex">
+            <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-1 md:flex">
               <Link
                 href="/menu"
                 className={cn("rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors duration-300 hover:underline", isScrolled ? "text-foreground" : "text-white")}
@@ -138,7 +138,7 @@ export default function HomePage() {
         </header>
 
         {/* ── Hero content ── */}
-        <div className="relative z-10 flex flex-1 flex-col justify-center mx-auto max-w-6xl px-5 pb-20 pt-10 md:px-8 md:pt-14 md:pb-28">
+        <div className="relative z-10 flex flex-1 flex-col justify-center mx-auto max-w-6xl px-5 pb-20 pt-24 md:px-8 md:pt-32 md:pb-28">
           <div className="max-w-xl">
             {/* Tag pill */}
             <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
