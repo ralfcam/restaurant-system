@@ -73,16 +73,16 @@ export default function HomePage() {
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
             <Link href="/" className="flex items-center gap-2.5">
               <span className="flex size-7 items-center justify-center rounded-md bg-white/15 text-white backdrop-blur-sm">
-                <UtensilsCrossed className="size-3.5" strokeWidth={1.75} />
+                <UtensilsCrossed className={cn("size-3.5 transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")} strokeWidth={1.75} />
               </span>
-              <span className="font-heading text-base font-semibold tracking-widest text-white uppercase">
+              <span className={cn("font-heading text-base font-semibold tracking-widest uppercase transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
                 {RESTAURANT.name}
               </span>
             </Link>
             <nav className="hidden items-center gap-1 md:flex">
               <Link
                 href="/menu"
-                className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide text-white transition-colors hover:underline"
+                className={cn("rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wide transition-colors duration-300 hover:underline", isScrolled ? "text-foreground" : "text-white")}
               >
                 Menu
               </Link>
@@ -90,7 +90,7 @@ export default function HomePage() {
             <div className="hidden items-center gap-2 md:flex">
               <Link
                 href="/admin"
-                className="rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-medium tracking-widest text-white/80 uppercase backdrop-blur-sm transition-colors hover:bg-white/20 hover:text-white"
+                className={cn("rounded-full px-4 py-1.5 text-xs font-medium tracking-widest uppercase transition-colors duration-300", isScrolled ? "border border-border/60 bg-transparent text-foreground hover:bg-muted" : "border border-white/20 bg-white/10 text-white/80 backdrop-blur-sm hover:bg-white/20 hover:text-white")}
               >
                 Staff
               </Link>
@@ -99,7 +99,7 @@ export default function HomePage() {
             {/* Mobile Menu Trigger */}
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <button className="flex md:hidden rounded-lg p-2 text-white hover:bg-white/10">
+                <button className={cn("flex md:hidden rounded-lg p-2 transition-colors duration-300", isScrolled ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/10")}>
                   <Menu className="size-5" />
                   <span className="sr-only">Open menu</span>
                 </button>
