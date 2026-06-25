@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button"
 const LINKS = [
   { href: "/", label: "Home" },
   { href: "/menu", label: "Menu" },
-  { href: "/#reserve", label: "Reserve" },
 ]
 
 export function SiteHeader() {
