@@ -25,9 +25,22 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function tomorrowISO() {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Returns today if there are still future slots today, otherwise tomorrow. */
+function firstAvailableDate() {
+  const now = new Date()
+  const lastSlotHour = 21 // last slot is 21:30
+  return now.getHours() >= lastSlotHour ? tomorrowISO() : todayISO()
+}
+
 export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const [party, setParty] = useState("2")
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(firstAvailableDate)
   const [slot, setSlot] = useState<string | null>(null)
   const [step, setStep] = useState<"slots" | "details" | "done">("slots")
   const [name, setName] = useState("")
@@ -44,6 +57,16 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
     async (d: string, p: number) => {
       setLoadingSlots(true)
       const result = await getAvailableSlots(d, p)
+      // If every slot is unavailable on this date, silently advance one day.
+      if (result.every((s) => !s.available)) {
+        const next = new Date(d + "T00:00:00")
+        next.setDate(next.getDate() + 1)
+        const nextISO = next.toISOString().slice(0, 10)
+        setDate(nextISO)
+        // The date change will trigger a re-fetch via the effect below.
+        setLoadingSlots(false)
+        return
+      }
       setSlots(result)
       setLoadingSlots(false)
     },
@@ -96,8 +119,13 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   }
 
   const labelCls = dark ? "text-white/55" : "text-muted-foreground"
+  // Shared input skin for dark card
   const inputCls = dark
     ? "bg-white/10 border-white/15 text-white placeholder:text-white/30 focus-visible:ring-white/20 [color-scheme:dark]"
+    : ""
+  // Select trigger needs explicit transparent bg + white text to override any browser/dark defaults
+  const selectTriggerCls = dark
+    ? "bg-transparent hover:bg-white/10 border-white/15 text-white [&_svg]:text-white/60 dark:bg-transparent dark:hover:bg-white/10 focus-visible:ring-white/20"
     : ""
 
   return (
@@ -162,7 +190,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   setStep("slots")
                 }}
               >
-                <SelectTrigger className={cn("w-full", inputCls)}>
+                <SelectTrigger className={cn("w-full", selectTriggerCls)}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

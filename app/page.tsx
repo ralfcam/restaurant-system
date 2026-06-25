@@ -116,11 +116,12 @@ export default function HomePage() {
             </div>
 
             {/* ── Booking card ── */}
-            <div id="reserve" className="relative mt-10 scroll-mt-8 overflow-hidden rounded-2xl border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-2xl shadow-black/40 backdrop-blur-2xl">
-              {/* Botanical watermark — top right */}
-              <BotanicalWatermark className="absolute -right-4 -top-4 size-44 rotate-12 opacity-[0.07] text-white" />
-              {/* Botanical watermark — bottom left */}
-              <BotanicalWatermark className="absolute -bottom-6 -left-6 size-44 -rotate-12 scale-x-[-1] opacity-[0.07] text-white" />
+            <div id="reserve" className="relative mt-10 scroll-mt-8 rounded-2xl border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-2xl shadow-black/40 backdrop-blur-2xl">
+              {/* Botanical watermarks clipped inside their own overflow-hidden layer */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                <BotanicalWatermark className="absolute -right-4 -top-4 size-44 rotate-12 opacity-[0.07] text-white" />
+                <BotanicalWatermark className="absolute -bottom-6 -left-6 size-44 -rotate-12 scale-x-[-1] opacity-[0.07] text-white" />
+              </div>
 
               {/* Card header */}
               <div className="relative px-6 pt-5 pb-1">
