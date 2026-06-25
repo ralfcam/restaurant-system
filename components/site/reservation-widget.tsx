@@ -25,7 +25,7 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10)
 }
 
-export function ReservationWidget() {
+export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const [party, setParty] = useState("2")
   const [date, setDate] = useState(todayISO())
   const [slot, setSlot] = useState<string | null>(null)
@@ -95,8 +95,13 @@ export function ReservationWidget() {
     setConfCode("")
   }
 
+  const labelCls = dark ? "text-white/55" : "text-muted-foreground"
+  const inputCls = dark
+    ? "bg-white/10 border-white/15 text-white placeholder:text-white/30 focus-visible:ring-white/20 [color-scheme:dark]"
+    : ""
+
   return (
-    <div className="bg-card p-5 md:p-7">
+    <div className={cn("p-5 md:p-6", dark ? "bg-transparent" : "bg-card")}>
       {step === "done" ? (
         <div className="flex flex-col items-center gap-3 py-4 text-center duration-500 animate-in fade-in">
           <span className="relative mb-1 flex size-16 items-center justify-center duration-500 zoom-in-50 animate-in">
@@ -146,7 +151,7 @@ export function ReservationWidget() {
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Label className={cn("flex items-center gap-1.5 text-xs font-medium", labelCls)}>
                 <Users className="size-3.5" /> Party size
               </Label>
               <Select
@@ -157,7 +162,7 @@ export function ReservationWidget() {
                   setStep("slots")
                 }}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className={cn("w-full", inputCls)}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -173,7 +178,7 @@ export function ReservationWidget() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="res-date"
-                className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"
+                className={cn("flex items-center gap-1.5 text-xs font-medium", labelCls)}
               >
                 <CalendarDays className="size-3.5" /> Date
               </Label>
@@ -182,6 +187,7 @@ export function ReservationWidget() {
                 type="date"
                 value={date}
                 min={todayISO()}
+                className={inputCls}
                 onChange={(e) => {
                   setDate(e.target.value)
                   setSlot(null)
@@ -192,13 +198,13 @@ export function ReservationWidget() {
           </div>
 
           {overCapacity ? (
-            <p className="mt-4 rounded-md bg-secondary px-3 py-2.5 text-sm text-muted-foreground">
+            <p className={cn("mt-4 rounded-md px-3 py-2.5 text-sm", dark ? "bg-white/10 text-white/60" : "bg-secondary text-muted-foreground")}>
               For parties larger than {MAX_CAPACITY}, please call us at the number
               below so we can arrange seating.
             </p>
           ) : (
             <div className="mt-4">
-              <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Label className={cn("flex items-center gap-1.5 text-xs font-medium", labelCls)}>
                 <Clock className="size-3.5" /> Available times
               </Label>
               {loadingSlots ? (
@@ -206,12 +212,12 @@ export function ReservationWidget() {
                   {Array.from({ length: 10 }).map((_, i) => (
                     <div
                       key={i}
-                      className="h-9 animate-pulse rounded-md bg-muted"
+                      className={cn("h-9 animate-pulse rounded-full", dark ? "bg-white/10" : "bg-muted")}
                     />
                   ))}
                 </div>
               ) : slots.every((s) => !s.available) ? (
-                <p className="mt-2 rounded-md bg-secondary px-3 py-2.5 text-sm text-muted-foreground">
+                <p className={cn("mt-2 rounded-md px-3 py-2.5 text-sm", dark ? "bg-white/10 text-white/50" : "bg-secondary text-muted-foreground")}>
                   No availability for this date and party size. Try another day.
                 </p>
               ) : (
@@ -224,13 +230,23 @@ export function ReservationWidget() {
                       onClick={() => selectSlot(time)}
                       className={cn(
                         "rounded-full border py-2 text-xs font-medium tracking-wide transition-all duration-150",
-                        !available &&
+                        // dark unavailable
+                        dark && !available &&
+                          "cursor-not-allowed border-white/10 bg-white/5 text-white/20 line-through",
+                        // dark selected
+                        dark && available && slot === time &&
+                          "border-primary bg-primary text-white shadow-sm",
+                        // dark idle
+                        dark && available && slot !== time &&
+                          "border-white/20 bg-white/8 text-white/80 hover:border-white/50 hover:text-white",
+                        // light unavailable
+                        !dark && !available &&
                           "cursor-not-allowed border-border bg-muted text-muted-foreground/40 line-through",
-                        available &&
-                          slot === time &&
+                        // light selected
+                        !dark && available && slot === time &&
                           "border-primary bg-primary text-primary-foreground shadow-sm",
-                        available &&
-                          slot !== time &&
+                        // light idle
+                        !dark && available && slot !== time &&
                           "border-border bg-background hover:border-primary/60 hover:text-primary",
                       )}
                     >
@@ -245,26 +261,28 @@ export function ReservationWidget() {
           {step === "details" && slot ? (
             <form
               onSubmit={confirm}
-              className="mt-5 space-y-3 border-t border-border pt-5"
+              className={cn("mt-5 space-y-3 border-t pt-5", dark ? "border-white/10" : "border-border")}
             >
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="res-name">Full name</Label>
+                  <Label htmlFor="res-name" className={dark ? "text-white/70" : ""}>Full name</Label>
                   <Input
                     id="res-name"
                     required
                     value={name}
+                    className={inputCls}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Jamie Rivera"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="res-phone">Phone</Label>
+                  <Label htmlFor="res-phone" className={dark ? "text-white/70" : ""}>Phone</Label>
                   <Input
                     id="res-phone"
                     required
                     type="tel"
                     value={phone}
+                    className={inputCls}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="(503) 555-0100"
                   />
