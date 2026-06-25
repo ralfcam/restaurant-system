@@ -225,8 +225,20 @@ export interface OrderTicket {
   table: string
   server: string
   placedAt: string // "19:42"
+  placedAtMs: number // epoch ms, drives live aging on the KDS
   status: OrderTicketStatus
   lines: OrderLine[]
+}
+
+// Helper so seeded tickets age realistically relative to "now" on first load.
+function minutesAgo(mins: number): { placedAt: string; placedAtMs: number } {
+  const d = new Date(Date.now() - mins * 60_000)
+  return {
+    placedAtMs: d.getTime(),
+    placedAt: `${String(d.getHours()).padStart(2, "0")}:${String(
+      d.getMinutes(),
+    ).padStart(2, "0")}`,
+  }
 }
 
 export const INITIAL_TICKETS: OrderTicket[] = [
@@ -234,7 +246,7 @@ export const INITIAL_TICKETS: OrderTicket[] = [
     id: "ord-201",
     table: "5",
     server: "Maya",
-    placedAt: "19:42",
+    ...minutesAgo(3),
     status: "new",
     lines: [
       { itemId: "m3", name: "Tagliatelle Bolognese", qty: 2 },
@@ -245,7 +257,7 @@ export const INITIAL_TICKETS: OrderTicket[] = [
     id: "ord-200",
     table: "2",
     server: "Jon",
-    placedAt: "19:38",
+    ...minutesAgo(9),
     status: "preparing",
     lines: [
       { itemId: "m6", name: "Branzino al Forno", qty: 1 },
@@ -257,7 +269,7 @@ export const INITIAL_TICKETS: OrderTicket[] = [
     id: "ord-199",
     table: "10",
     server: "Maya",
-    placedAt: "19:31",
+    ...minutesAgo(14),
     status: "ready",
     lines: [{ itemId: "m4", name: "Cacio e Pepe", qty: 2 }],
   },

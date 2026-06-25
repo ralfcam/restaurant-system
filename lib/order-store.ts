@@ -52,7 +52,9 @@ export function useOrders() {
 
 let counter = INITIAL_TICKETS.length + 200
 
-export function addOrder(order: Omit<OrderTicket, "id" | "placedAt" | "status">) {
+export function addOrder(
+  order: Omit<OrderTicket, "id" | "placedAt" | "placedAtMs" | "status">,
+) {
   counter += 1
   const now = new Date()
   const placedAt = `${String(now.getHours()).padStart(2, "0")}:${String(
@@ -62,6 +64,7 @@ export function addOrder(order: Omit<OrderTicket, "id" | "placedAt" | "status">)
     ...order,
     id: `ord-${counter}`,
     placedAt,
+    placedAtMs: now.getTime(),
     status: "new",
   }
   tickets = [ticket, ...tickets]
