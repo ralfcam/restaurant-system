@@ -47,21 +47,37 @@ function formatDate(iso: string) {
 }
 
 // ─── Animated step wrapper ──────────────────────────────────────────────────
-// Each step mounts with a fade + subtle upward slide, no external deps needed.
-function StepPanel({ children, stepKey }: { children: React.ReactNode; stepKey: string | number }) {
+// Renders as absolute fill so steps overlap during transitions, preventing
+// any vertical layout shift. overflow-y-auto is opt-in per step.
+function StepPanel({
+  children,
+  stepKey,
+  scroll = false,
+}: {
+  children: React.ReactNode
+  stepKey: string | number
+  scroll?: boolean
+}) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = ref.current
     if (!el) return
     el.style.opacity = "0"
-    el.style.transform = "translateY(8px)"
+    el.style.transform = "translateY(10px)"
     requestAnimationFrame(() => {
-      el.style.transition = "opacity 220ms ease, transform 220ms ease"
+      el.style.transition = "opacity 240ms ease, transform 240ms ease"
       el.style.opacity = "1"
       el.style.transform = "translateY(0)"
     })
   }, [stepKey])
-  return <div ref={ref}>{children}</div>
+  return (
+    <div
+      ref={ref}
+      className={cn("absolute inset-0", scroll ? "overflow-y-auto" : "overflow-hidden")}
+    >
+      {children}
+    </div>
+  )
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -139,13 +155,14 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
 
   return (
     <div className={cn(
-      "min-h-[17rem] p-5 md:p-6",
+      "relative h-[380px] overflow-hidden",
       dark ? "bg-transparent" : "bg-card",
     )}>
 
       {/* ── STEP 3: Confirmation ────────────────────────────────── */}
       {step === 3 && (
-        <StepPanel stepKey="done">
+        <StepPanel stepKey="done" scroll>
+          <div className="p-5 md:p-6">
           <div className="flex flex-col items-center gap-3 py-2 text-center">
             <span className="relative flex size-14 items-center justify-center">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent/30 [animation-iteration-count:3]" />
@@ -204,12 +221,14 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               Make another reservation
             </button>
           </div>
+          </div>
         </StepPanel>
       )}
 
       {/* ── STEP 1: Party / Date / Time slots ──────────────────── */}
       {step === 1 && (
         <StepPanel stepKey="step1">
+          <div className="p-5 md:p-6">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {/* Party size */}
             <div className="space-y-1.5">
@@ -300,12 +319,14 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               )}
             </div>
           )}
+          </div>
         </StepPanel>
       )}
 
       {/* ── STEP 2: Guest details ───────────────────────────────── */}
       {step === 2 && slot && (
-        <StepPanel stepKey="step2">
+        <StepPanel stepKey="step2" scroll>
+          <div className="p-5 md:p-6">
           {/* Booking summary */}
           <div className={cn(
             "mb-5 flex items-start gap-3 rounded-xl border p-3.5",
@@ -370,6 +391,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               }
             </Button>
           </form>
+          </div>
         </StepPanel>
       )}
 
