@@ -15,6 +15,13 @@ import { SiteHeader } from "@/components/site/site-header"
 import { ReservationWidget } from "@/components/site/reservation-widget"
 import { Button } from "@/components/ui/button"
 
+// Map featured item ids to their real dish photos
+const DISH_IMAGES: Record<string, string> = {
+  m1: "/images/menu/burrata.png",
+  m3: "/images/menu/tagliatelle.png",
+  m6: "/images/menu/branzino.png",
+}
+
 export default function HomePage() {
   const featured = MENU_ITEMS.filter((m) => m.popular).slice(0, 3)
 
@@ -22,7 +29,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      {/* Hero */}
+      {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0">
           <Image
@@ -30,32 +37,38 @@ export default function HomePage() {
             alt="Warm restaurant dining room at golden hour"
             fill
             priority
-            className="object-cover"
+            className="object-cover brightness-[0.45] saturate-[0.85]"
           />
-          <div className="absolute inset-0 bg-foreground/55" />
+          {/* warm amber vignette */}
+          <div className="absolute inset-0 bg-gradient-to-r from-foreground/60 via-foreground/40 to-foreground/20" />
         </div>
 
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-16 md:px-6 md:py-24 lg:grid-cols-2 lg:items-center">
+        <div className="relative mx-auto grid max-w-6xl gap-12 px-5 py-20 md:px-8 md:py-28 lg:grid-cols-2 lg:items-center lg:gap-16">
+          {/* Left — headline */}
           <div className="text-background">
-            <span className="inline-flex items-center gap-2 rounded-full bg-background/15 px-3 py-1 text-sm font-medium backdrop-blur">
-              <Star className="size-3.5 fill-current" />
+            <span className="inline-flex items-center gap-2 rounded-full border border-background/25 bg-background/10 px-3.5 py-1.5 text-xs font-medium uppercase tracking-widest backdrop-blur-sm">
+              <Star className="size-3 fill-current opacity-80" />
               {RESTAURANT.tagline}
             </span>
-            <h1 className="mt-4 text-balance font-heading text-4xl font-semibold leading-tight md:text-6xl">
+            <h1 className="mt-5 text-balance font-heading text-5xl font-semibold leading-[1.08] tracking-tight md:text-7xl">
               A seat at the table, reserved in seconds.
             </h1>
-            <p className="mt-4 max-w-md text-pretty text-base text-background/80 md:text-lg">
+            <p className="mt-5 max-w-md text-pretty text-base leading-relaxed text-background/70 md:text-lg">
               Browse our seasonal menu, pick your time, and book instantly. No
               calls, no waiting — just great food at {RESTAURANT.name}.
             </p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Button size="lg" render={<Link href="#reserve" />}>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Button
+                size="lg"
+                className="rounded-full px-7 text-sm font-medium tracking-wide"
+                render={<Link href="#reserve" />}
+              >
                 Reserve a table
               </Button>
               <Button
                 size="lg"
-                variant="outline"
-                className="border-background/40 bg-transparent text-background hover:bg-background/10 hover:text-background"
+                variant="ghost"
+                className="rounded-full border border-background/30 px-7 text-sm font-medium tracking-wide text-background hover:bg-background/10 hover:text-background"
                 render={<Link href="/menu" />}
               >
                 <QrCode className="size-4" /> View menu
@@ -63,110 +76,147 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div id="reserve" className="scroll-mt-20">
-            <div className="mb-3 text-background">
-              <h2 className="font-heading text-2xl font-semibold">
+          {/* Right — booking widget */}
+          <div id="reserve" className="scroll-mt-24">
+            <div className="mb-4 text-background">
+              <h2 className="font-heading text-2xl font-semibold tracking-tight">
                 Book your table
               </h2>
-              <p className="text-sm text-background/75">
+              <p className="mt-1 text-sm text-background/65 tracking-wide">
                 Real-time availability · instant confirmation
               </p>
             </div>
-            <ReservationWidget />
+            {/* Frosted glass widget wrapper */}
+            <div className="overflow-hidden rounded-2xl border border-background/15 bg-background/[0.08] shadow-2xl shadow-foreground/30 backdrop-blur-xl">
+              <ReservationWidget />
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Info strip */}
+      {/* ── Info strip ───────────────────────────────────────────────── */}
       <section className="border-b border-border bg-card">
-        <div className="mx-auto grid max-w-6xl gap-4 px-4 py-6 md:grid-cols-3 md:px-6">
-          <InfoItem icon={Clock} label="Hours" value={RESTAURANT.hours} />
-          <InfoItem icon={MapPin} label="Location" value={RESTAURANT.address} />
-          <InfoItem icon={Phone} label="Reservations" value={RESTAURANT.phone} />
+        <div className="mx-auto max-w-6xl px-5 py-8 md:px-8">
+          <div className="grid gap-0 divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
+            <InfoItem icon={Clock}  label="Hours"        value={RESTAURANT.hours}   />
+            <InfoItem icon={MapPin} label="Location"     value={RESTAURANT.address} />
+            <InfoItem icon={Phone}  label="Reservations" value={RESTAURANT.phone}   />
+          </div>
         </div>
       </section>
 
-      {/* Featured menu */}
-      <section className="mx-auto max-w-6xl px-4 py-16 md:px-6">
+      {/* ── Chef's picks ─────────────────────────────────────────────── */}
+      <section className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-28">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <p className="text-sm font-medium uppercase tracking-wide text-primary">
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
               Chef&apos;s picks
             </p>
-            <h2 className="mt-1 font-heading text-3xl font-semibold">
+            <h2 className="mt-2 font-heading text-4xl font-semibold tracking-tight md:text-5xl">
               Tonight&apos;s favorites
             </h2>
           </div>
-          <Button variant="ghost" render={<Link href="/menu" />}>
-            Full menu
+          <Button
+            variant="ghost"
+            className="hidden shrink-0 rounded-full text-sm tracking-wide sm:inline-flex"
+            render={<Link href="/menu" />}
+          >
+            Full menu →
           </Button>
         </div>
 
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((item) => (
-            <div
-              key={item.id}
-              className="rounded-xl border border-border bg-card p-5"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <h3 className="font-heading text-lg font-semibold">
-                  {item.name}
-                </h3>
-                <span className="shrink-0 font-medium text-primary">
-                  ${item.price}
-                </span>
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((item) => {
+            const img = DISH_IMAGES[item.id]
+            return (
+              <div
+                key={item.id}
+                className="group relative overflow-hidden rounded-2xl bg-card shadow-sm transition-shadow duration-300 hover:shadow-lg hover:shadow-foreground/8"
+              >
+                {/* Dish photo */}
+                {img ? (
+                  <div className="relative h-52 w-full overflow-hidden">
+                    <Image
+                      src={img}
+                      alt={item.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    {/* Price pill */}
+                    <span className="absolute right-3.5 top-3.5 rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground backdrop-blur-sm">
+                      ${item.price}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex h-52 items-center justify-center bg-secondary">
+                    <span className="text-3xl font-heading text-muted-foreground/30">
+                      {item.name[0]}
+                    </span>
+                    <span className="absolute right-3.5 top-3.5 rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground">
+                      ${item.price}
+                    </span>
+                  </div>
+                )}
+
+                {/* Card body */}
+                <div className="p-5">
+                  <h3 className="font-heading text-lg font-semibold leading-snug tracking-tight">
+                    {item.name}
+                  </h3>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground line-clamp-2">
+                    {item.description}
+                  </p>
+                </div>
               </div>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                {item.description}
-              </p>
-            </div>
-          ))}
+            )
+          })}
+        </div>
+
+        <div className="mt-8 flex sm:hidden">
+          <Button variant="outline" className="w-full rounded-full" render={<Link href="/menu" />}>
+            View full menu
+          </Button>
         </div>
       </section>
 
-        {/* How it works */}
-        <section className="relative isolate overflow-hidden border-t border-border">
-          <Image
-            src="/images/bar-counter.png"
-            alt="Restaurant bar and prep counter with infused oils, spices and a point-of-sale tablet"
-            fill
-            sizes="100vw"
-            className="-z-10 object-cover"
-          />
-          <div className="absolute inset-0 -z-10 bg-foreground/75" />
-          <div className="mx-auto max-w-6xl px-4 py-16 md:px-6">
-            <h2 className="text-balance text-center font-heading text-3xl font-semibold text-background">
-              A better night out, end to end
-            </h2>
-            <div className="mt-10 grid gap-6 md:grid-cols-3">
-              <Step
-                icon={CalendarCheck}
-                title="Reserve online"
-                body="Pick your party size and time. We check live capacity so you never double-book."
-                onImage
-              />
-              <Step
-                icon={QrCode}
-                title="Scan the menu"
-                body="Mobile-friendly digital menu with prices and allergen info at your table."
-                onImage
-              />
-              <Step
-                icon={ChefHat}
-                title="Cooked to order"
-                body="Your order flows straight to the kitchen display for fast, accurate service."
-                onImage
-              />
-            </div>
-          </div>
-        </section>
+      {/* ── Features ─────────────────────────────────────────────────── */}
+      <section className="relative isolate overflow-hidden border-t border-border">
+        <Image
+          src="/images/bar-counter.png"
+          alt="Restaurant bar and prep counter"
+          fill
+          sizes="100vw"
+          className="-z-10 object-cover brightness-[0.32] saturate-75"
+        />
+        {/* Warm dark overlay */}
+        <div className="absolute inset-0 -z-10 bg-[oklch(0.18_0.018_40/0.82)]" />
 
+        <div className="mx-auto max-w-6xl px-5 py-24 md:px-8 md:py-32">
+          <p className="text-center text-xs font-medium uppercase tracking-[0.18em] text-primary">
+            The experience
+          </p>
+          <h2 className="mt-3 text-balance text-center font-heading text-4xl font-semibold tracking-tight text-background md:text-5xl">
+            A better night out, end to end
+          </h2>
+
+          <div className="mt-14 grid gap-8 md:grid-cols-3 md:gap-12">
+            <Step icon={CalendarCheck} title="Reserve online"   body="Pick your party size and time. We check live capacity so you never double-book." />
+            <Step icon={QrCode}        title="Scan the menu"    body="Mobile-friendly digital menu with prices and allergen info at your table." />
+            <Step icon={ChefHat}       title="Cooked to order"  body="Your order flows straight to the kitchen display for fast, accurate service." />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ───────────────────────────────────────────────────── */}
       <footer className="border-t border-border bg-card">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 py-8 text-sm text-muted-foreground md:flex-row md:px-6">
-          <p>
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 md:flex-row md:px-8">
+          <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} {RESTAURANT.name}. {RESTAURANT.address}.
           </p>
-          <Link href="/admin" className="hover:text-foreground">
+          <Link
+            href="/admin"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
             Staff console
           </Link>
         </div>
@@ -174,6 +224,8 @@ export default function HomePage() {
     </div>
   )
 }
+
+/* ── Sub-components ──────────────────────────────────────────────────────── */
 
 function InfoItem({
   icon: Icon,
@@ -185,15 +237,15 @@ function InfoItem({
   value: string
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="flex size-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="size-5" />
+    <div className="flex items-center gap-4 px-6 py-5 first:pl-0 last:pr-0 md:px-8">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-primary">
+        <Icon className="size-4" strokeWidth={1.5} />
       </span>
       <div>
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">
+        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
           {label}
         </p>
-        <p className="font-medium">{value}</p>
+        <p className="mt-0.5 text-sm font-medium">{value}</p>
       </div>
     </div>
   )
@@ -203,32 +255,20 @@ function Step({
   icon: Icon,
   title,
   body,
-  onImage = false,
 }: {
   icon: React.ElementType
   title: string
   body: string
-  onImage?: boolean
 }) {
   return (
     <div className="flex flex-col items-center text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground">
-        <Icon className="size-6" />
+      <span className="flex size-14 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
+        <Icon className="size-6" strokeWidth={1.5} />
       </span>
-      <h3
-        className={cn(
-          "mt-4 font-heading text-xl font-semibold",
-          onImage && "text-background",
-        )}
-      >
+      <h3 className="mt-5 font-heading text-xl font-semibold tracking-tight text-background">
         {title}
       </h3>
-      <p
-        className={cn(
-          "mt-2 max-w-xs text-sm leading-relaxed",
-          onImage ? "text-background/80" : "text-muted-foreground",
-        )}
-      >
+      <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-background/60">
         {body}
       </p>
     </div>

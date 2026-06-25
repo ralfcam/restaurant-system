@@ -96,7 +96,7 @@ export function ReservationWidget() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 shadow-lg shadow-foreground/5 md:p-6">
+    <div className="bg-card p-5 md:p-7">
       {step === "done" ? (
         <div className="flex flex-col items-center gap-3 py-4 text-center duration-500 animate-in fade-in">
           <span className="relative mb-1 flex size-16 items-center justify-center duration-500 zoom-in-50 animate-in">
@@ -132,7 +132,7 @@ export function ReservationWidget() {
             </div>
             <div className="flex items-center justify-between px-4 py-2.5">
               <dt className="text-muted-foreground">Confirmation</dt>
-              <dd className="font-mono font-medium tracking-wide text-primary">
+              <dd className="rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-semibold tracking-widest text-primary">
                 {confCode}
               </dd>
             </div>
@@ -223,15 +223,15 @@ export function ReservationWidget() {
                       disabled={!available}
                       onClick={() => selectSlot(time)}
                       className={cn(
-                        "rounded-md border px-2 py-2 text-sm font-medium transition-colors",
+                        "rounded-full border py-2 text-xs font-medium tracking-wide transition-all duration-150",
                         !available &&
-                          "cursor-not-allowed border-border bg-muted text-muted-foreground/50 line-through",
+                          "cursor-not-allowed border-border bg-muted text-muted-foreground/40 line-through",
                         available &&
                           slot === time &&
-                          "border-primary bg-primary text-primary-foreground",
+                          "border-primary bg-primary text-primary-foreground shadow-sm",
                         available &&
                           slot !== time &&
-                          "border-border bg-background hover:border-primary hover:text-primary",
+                          "border-border bg-background hover:border-primary/60 hover:text-primary",
                       )}
                     >
                       {time}
