@@ -45,7 +45,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-background">
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
-      <section className="relative min-h-screen overflow-hidden">
+      <section className="relative flex min-h-screen flex-col overflow-hidden">
         {/* Background photo */}
         <div className="absolute inset-0">
           <Image
@@ -138,7 +138,7 @@ export default function HomePage() {
         </header>
 
         {/* ── Hero content ── */}
-        <div className="relative z-10 mx-auto max-w-6xl px-5 pb-20 pt-10 md:px-8 md:pt-14 md:pb-28">
+        <div className="relative z-10 flex flex-1 flex-col justify-center mx-auto max-w-6xl px-5 pb-20 pt-10 md:px-8 md:pt-14 md:pb-28">
           <div className="max-w-xl">
             {/* Tag pill */}
             <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
@@ -183,15 +183,15 @@ export default function HomePage() {
 
         {/* 4-pointed star accent */}
         <FourPointedStar className="absolute bottom-8 right-8 size-10 text-white/80" />
-      </section>
 
-      {/* ── Info strip ───────────────────────────────────────────────── */}
-      <section className="border-b border-border bg-card">
-        <div className="mx-auto max-w-6xl px-5 py-8 md:px-8">
-          <div className="grid gap-0 divide-y divide-border md:grid-cols-3 md:divide-x md:divide-y-0">
-            <InfoItem icon={Clock}  label="Hours"        value={RESTAURANT.hours}   />
-            <InfoItem icon={MapPin} label="Location"     value={RESTAURANT.address} />
-            <InfoItem icon={Phone}  label="Reservations" value={RESTAURANT.phone}   />
+        {/* ── Info strip (dark glass overlay) ── */}
+        <div className="relative z-20 w-full border-t border-white/10 bg-black/20 backdrop-blur-md">
+          <div className="mx-auto max-w-6xl">
+            <div className="grid gap-0 divide-y divide-white/10 md:grid-cols-3 md:divide-x md:divide-y-0">
+              <InfoItem icon={Clock}  label="Hours"        value={RESTAURANT.hours}   />
+              <InfoItem icon={MapPin} label="Location"     value={RESTAURANT.address} />
+              <InfoItem icon={Phone}  label="Reservations" value={RESTAURANT.phone}   />
+            </div>
           </div>
         </div>
       </section>
@@ -328,15 +328,15 @@ function InfoItem({
   value: string
 }) {
   return (
-    <div className="flex items-center gap-4 px-6 py-5 first:pl-0 last:pr-0 md:px-8">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-border text-primary">
+    <div className="flex flex-col items-center text-center md:flex-row md:text-left gap-3 md:gap-4 px-6 py-6 md:px-8">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/20 text-white/80">
         <Icon className="size-4" strokeWidth={1.5} />
       </span>
       <div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/70">
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-medium">{value}</p>
+        <p className="mt-0.5 text-sm font-medium text-white">{value}</p>
       </div>
     </div>
   )
