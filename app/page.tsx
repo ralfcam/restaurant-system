@@ -98,23 +98,6 @@ export default function HomePage() {
               calls, no waiting — just great food at {RESTAURANT.name}.
             </p>
 
-            {/* CTAs */}
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link
-                href="#reserve"
-                className="inline-flex h-11 items-center rounded-full bg-primary px-7 text-sm font-semibold tracking-wide text-white shadow-lg shadow-primary/30 transition-opacity hover:opacity-90"
-              >
-                Reserve a table
-              </Link>
-              <Link
-                href="/menu"
-                className="inline-flex h-11 items-center gap-2 rounded-full border border-white/25 bg-white/10 px-7 text-sm font-semibold tracking-wide text-white backdrop-blur-sm transition-colors hover:bg-white/20"
-              >
-                <QrCode className="size-4" strokeWidth={1.5} />
-                View menu
-              </Link>
-            </div>
-
             {/* ── Booking card ── */}
             <div id="reserve" className="relative mt-10 scroll-mt-8 rounded-2xl border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-2xl shadow-black/40 backdrop-blur-2xl">
               {/* Botanical watermarks clipped inside their own overflow-hidden layer */}
