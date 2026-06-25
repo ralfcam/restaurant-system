@@ -1,12 +1,12 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { MenuManager } from "@/components/staff/menu-manager"
-import { getMenuItems } from "@/app/actions/menu"
+import { getAllMenuItems } from "@/app/actions/menu"
 import { getAuthUser } from "@/app/actions/auth"
 
 export const dynamic = "force-dynamic"
 
 export default async function AdminMenuPage() {
-  const [items, authUser] = await Promise.all([getMenuItems(), getAuthUser()])
+  const [items, authUser] = await Promise.all([getAllMenuItems(), getAuthUser()])
 
   return (
     <StaffShell

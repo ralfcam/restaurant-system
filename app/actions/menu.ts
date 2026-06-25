@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
+import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { revalidatePath } from "next/cache"
 import type { MenuCategory, Allergen } from "@/lib/data"
 
@@ -19,7 +20,24 @@ export type MenuItemRow = {
   created_at: string
 }
 
+/** Public guest menu — only returns available items. */
 export async function getMenuItems(): Promise<MenuItemRow[]> {
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("menu_items")
+    .select("*")
+    .eq("available", true)
+    .order("sort_order", { ascending: true })
+
+  if (error) {
+    console.error("[menu] getMenuItems error:", error.message)
+    return []
+  }
+  return data as MenuItemRow[]
+}
+
+/** Staff-only: fetch all items including unavailable ones. */
+export async function getAllMenuItems(): Promise<MenuItemRow[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("menu_items")
@@ -27,7 +45,7 @@ export async function getMenuItems(): Promise<MenuItemRow[]> {
     .order("sort_order", { ascending: true })
 
   if (error) {
-    console.error("[v0] getMenuItems error:", error.message)
+    console.error("[menu] getAllMenuItems error:", error.message)
     return []
   }
   return data as MenuItemRow[]
@@ -35,40 +53,46 @@ export async function getMenuItems(): Promise<MenuItemRow[]> {
 
 export async function upsertMenuItem(
   item: Omit<MenuItemRow, "created_at">,
-): Promise<{ error?: string }> {
+): Promise<{ row?: MenuItemRow; error?: string }> {
   const supabase = await createClient()
-  const { error } = await supabase.from("menu_items").upsert(item, {
-    onConflict: "id",
-  })
+  const { data, error } = await supabase
+    .from("menu_items")
+    .upsert(item, { onConflict: "id" })
+    .select()
+    .single()
   if (error) {
-    console.error("[v0] upsertMenuItem error:", error.message)
+    console.error("[menu] upsertMenuItem error:", error.message)
     return { error: error.message }
   }
   revalidatePath("/menu")
   revalidatePath("/admin/menu")
-  return {}
+  return { row: data as MenuItemRow }
 }
 
 export async function createMenuItem(
   item: Omit<MenuItemRow, "id" | "slug" | "created_at">,
-): Promise<{ error?: string }> {
+): Promise<{ row?: MenuItemRow; error?: string }> {
   const supabase = await createClient()
   const slug = `m-${Date.now()}`
-  const { error } = await supabase.from("menu_items").insert({ ...item, slug })
+  const { data, error } = await supabase
+    .from("menu_items")
+    .insert({ ...item, slug })
+    .select()
+    .single()
   if (error) {
-    console.error("[v0] createMenuItem error:", error.message)
+    console.error("[menu] createMenuItem error:", error.message)
     return { error: error.message }
   }
   revalidatePath("/menu")
   revalidatePath("/admin/menu")
-  return {}
+  return { row: data as MenuItemRow }
 }
 
 export async function deleteMenuItem(id: string): Promise<{ error?: string }> {
   const supabase = await createClient()
   const { error } = await supabase.from("menu_items").delete().eq("id", id)
   if (error) {
-    console.error("[v0] deleteMenuItem error:", error.message)
+    console.error("[menu] deleteMenuItem error:", error.message)
     return { error: error.message }
   }
   revalidatePath("/menu")
@@ -86,7 +110,7 @@ export async function toggleMenuItemAvailability(
     .update({ available })
     .eq("id", id)
   if (error) {
-    console.error("[v0] toggleMenuItemAvailability error:", error.message)
+    console.error("[menu] toggleMenuItemAvailability error:", error.message)
     return { error: error.message }
   }
   revalidatePath("/menu")

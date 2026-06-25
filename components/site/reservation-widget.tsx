@@ -1,10 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { CalendarDays, Users, Clock, Check, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { TIME_SLOTS, UNAVAILABLE_SLOTS, TABLES } from "@/lib/data"
-import { createReservation } from "@/app/actions/reservations"
+import { TABLES } from "@/lib/data"
+
+import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -33,18 +34,31 @@ export function ReservationWidget() {
   const [phone, setPhone] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [confCode, setConfCode] = useState("")
+  const [slots, setSlots] = useState<SlotAvailability[]>([])
+  const [loadingSlots, setLoadingSlots] = useState(true)
 
   const partyNum = Number(party)
   const overCapacity = partyNum > MAX_CAPACITY
 
-  // Availability engine (mock): a slot is open unless it's flagged full
-  // or the party exceeds the largest table.
-  const slots = useMemo(() => {
-    return TIME_SLOTS.map((time) => ({
-      time,
-      available: !UNAVAILABLE_SLOTS.includes(time) && !overCapacity,
-    }))
-  }, [overCapacity])
+  const fetchSlots = useCallback(
+    async (d: string, p: number) => {
+      setLoadingSlots(true)
+      const result = await getAvailableSlots(d, p)
+      setSlots(result)
+      setLoadingSlots(false)
+    },
+    [],
+  )
+
+  // Re-fetch whenever date or party changes.
+  useEffect(() => {
+    if (overCapacity) {
+      setSlots([])
+      setLoadingSlots(false)
+      return
+    }
+    fetchSlots(date, partyNum)
+  }, [date, partyNum, overCapacity, fetchSlots])
 
   function selectSlot(time: string) {
     setSlot(time)
@@ -82,7 +96,7 @@ export function ReservationWidget() {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-5 shadow-lg shadow-foreground/5 md:p-6">
+    <div className="bg-card p-5 md:p-7">
       {step === "done" ? (
         <div className="flex flex-col items-center gap-3 py-4 text-center duration-500 animate-in fade-in">
           <span className="relative mb-1 flex size-16 items-center justify-center duration-500 zoom-in-50 animate-in">
@@ -118,7 +132,7 @@ export function ReservationWidget() {
             </div>
             <div className="flex items-center justify-between px-4 py-2.5">
               <dt className="text-muted-foreground">Confirmation</dt>
-              <dd className="font-mono font-medium tracking-wide text-primary">
+              <dd className="rounded-full bg-primary/10 px-2.5 py-0.5 font-mono text-xs font-semibold tracking-widest text-primary">
                 {confCode}
               </dd>
             </div>
@@ -187,29 +201,44 @@ export function ReservationWidget() {
               <Label className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <Clock className="size-3.5" /> Available times
               </Label>
-              <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
-                {slots.map(({ time, available }) => (
-                  <button
-                    key={time}
-                    type="button"
-                    disabled={!available}
-                    onClick={() => selectSlot(time)}
-                    className={cn(
-                      "rounded-md border px-2 py-2 text-sm font-medium transition-colors",
-                      !available &&
-                        "cursor-not-allowed border-border bg-muted text-muted-foreground/50 line-through",
-                      available &&
-                        slot === time &&
-                        "border-primary bg-primary text-primary-foreground",
-                      available &&
-                        slot !== time &&
-                        "border-border bg-background hover:border-primary hover:text-primary",
-                    )}
-                  >
-                    {time}
-                  </button>
-                ))}
-              </div>
+              {loadingSlots ? (
+                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {Array.from({ length: 10 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-9 animate-pulse rounded-md bg-muted"
+                    />
+                  ))}
+                </div>
+              ) : slots.every((s) => !s.available) ? (
+                <p className="mt-2 rounded-md bg-secondary px-3 py-2.5 text-sm text-muted-foreground">
+                  No availability for this date and party size. Try another day.
+                </p>
+              ) : (
+                <div className="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                  {slots.map(({ time, available }) => (
+                    <button
+                      key={time}
+                      type="button"
+                      disabled={!available}
+                      onClick={() => selectSlot(time)}
+                      className={cn(
+                        "rounded-full border py-2 text-xs font-medium tracking-wide transition-all duration-150",
+                        !available &&
+                          "cursor-not-allowed border-border bg-muted text-muted-foreground/40 line-through",
+                        available &&
+                          slot === time &&
+                          "border-primary bg-primary text-primary-foreground shadow-sm",
+                        available &&
+                          slot !== time &&
+                          "border-border bg-background hover:border-primary/60 hover:text-primary",
+                      )}
+                    >
+                      {time}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
