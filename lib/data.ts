@@ -26,6 +26,8 @@ export interface MenuItem {
   allergens: Allergen[]
   image?: string
   popular?: boolean
+  /** When false the dish is "86'd" — hidden from the guest menu. Defaults to available. */
+  available?: boolean
 }
 
 export const MENU_CATEGORIES: MenuCategory[] = [
