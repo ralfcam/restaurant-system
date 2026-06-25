@@ -43,14 +43,17 @@ export function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-            <Link href="/admin">
-              <LockKeyhole className="size-4" />
-              Staff login
-            </Link>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden sm:inline-flex"
+            render={<Link href="/admin" />}
+          >
+            <LockKeyhole className="size-4" />
+            Staff login
           </Button>
-          <Button asChild size="sm">
-            <Link href="/#reserve">Book a table</Link>
+          <Button size="sm" render={<Link href="/#reserve" />}>
+            Book a table
           </Button>
         </div>
       </div>

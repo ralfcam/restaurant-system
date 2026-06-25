@@ -48,18 +48,16 @@ export default function HomePage() {
               calls, no waiting — just great food at {RESTAURANT.name}.
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Button asChild size="lg">
-                <Link href="#reserve">Reserve a table</Link>
+              <Button size="lg" render={<Link href="#reserve" />}>
+                Reserve a table
               </Button>
               <Button
-                asChild
                 size="lg"
                 variant="outline"
                 className="border-background/40 bg-transparent text-background hover:bg-background/10 hover:text-background"
+                render={<Link href="/menu" />}
               >
-                <Link href="/menu">
-                  <QrCode className="size-4" /> View menu
-                </Link>
+                <QrCode className="size-4" /> View menu
               </Button>
             </div>
           </div>
@@ -98,8 +96,8 @@ export default function HomePage() {
               Tonight&apos;s favorites
             </h2>
           </div>
-          <Button asChild variant="ghost">
-            <Link href="/menu">Full menu</Link>
+          <Button variant="ghost" render={<Link href="/menu" />}>
+            Full menu
           </Button>
         </div>
 

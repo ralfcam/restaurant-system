@@ -95,7 +95,7 @@ export function ReservationWidget() {
               <Select
                 value={party}
                 onValueChange={(v) => {
-                  setParty(v)
+                  setParty(v ?? "")
                   setSlot(null)
                   setStep("slots")
                 }}

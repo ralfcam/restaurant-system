@@ -26,10 +26,8 @@ export default function AdminDashboardPage() {
       title="Dashboard"
       description="Tonight's service at a glance"
       actions={
-        <Button asChild>
-          <Link href="/admin/reservations">
-            <CalendarClock className="size-4" /> Manage reservations
-          </Link>
+        <Button render={<Link href="/admin/reservations" />}>
+          <CalendarClock className="size-4" /> Manage reservations
         </Button>
       }
     >
@@ -69,10 +67,12 @@ export default function AdminDashboardPage() {
             <h2 className="font-heading text-lg font-semibold">
               Upcoming reservations
             </h2>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/admin/reservations">
-                View all <ArrowRight className="size-4" />
-              </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              render={<Link href="/admin/reservations" />}
+            >
+              View all <ArrowRight className="size-4" />
             </Button>
           </div>
           <ul className="divide-y divide-border">
@@ -102,10 +102,12 @@ export default function AdminDashboardPage() {
         <div className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="font-heading text-lg font-semibold">Floor status</h2>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/admin/floor">
-                Manage <ArrowRight className="size-4" />
-              </Link>
+            <Button
+              variant="ghost"
+              size="sm"
+              render={<Link href="/admin/floor" />}
+            >
+              Manage <ArrowRight className="size-4" />
             </Button>
           </div>
           <div className="space-y-3 p-5">

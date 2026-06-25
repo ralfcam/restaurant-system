@@ -115,7 +115,10 @@ export function PosTerminal() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-muted-foreground">Table</label>
-              <Select value={table} onValueChange={setTable}>
+              <Select
+                value={table}
+                onValueChange={(v) => setTable(v ?? "")}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -130,7 +133,10 @@ export function PosTerminal() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Server</label>
-              <Select value={server} onValueChange={setServer}>
+              <Select
+                value={server}
+                onValueChange={(v) => setServer(v ?? "")}
+              >
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>

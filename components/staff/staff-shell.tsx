@@ -123,11 +123,13 @@ export function StaffShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-border bg-background/95 px-4 py-4 backdrop-blur md:px-8">
           <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="lg:hidden">
-                <Menu className="size-5" />
-                <span className="sr-only">Open navigation</span>
-              </Button>
+            <SheetTrigger
+              render={
+                <Button variant="outline" size="icon" className="lg:hidden" />
+              }
+            >
+              <Menu className="size-5" />
+              <span className="sr-only">Open navigation</span>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>

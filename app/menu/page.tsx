@@ -28,8 +28,8 @@ export default function MenuPage() {
             {RESTAURANT.tagline}. Tap a category to filter. Allergen info is shown
             on every dish.
           </p>
-          <Button asChild className="mt-2">
-            <Link href="/#reserve">Reserve a table</Link>
+          <Button className="mt-2" render={<Link href="/#reserve" />}>
+            Reserve a table
           </Button>
         </div>
       </section>
