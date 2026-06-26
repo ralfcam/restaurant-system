@@ -113,13 +113,9 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const fetchSlots = useCallback(async (d: string, p: number) => {
     setLoadingSlots(true)
     const result = await getAvailableSlots(d, p)
-    if (result.every((s) => !s.available)) {
-      const next = new Date(d + "T00:00:00")
-      next.setDate(next.getDate() + 1)
-      setDate(next.toISOString().slice(0, 10))
-      setLoadingSlots(false)
-      return
-    }
+    // Always set slots, regardless of availability. This ensures the UI
+    // can render the "No availability for this date" message without
+    // triggering an infinite loop by trying to auto-advance the date.
     setSlots(result)
     setLoadingSlots(false)
   }, [])
