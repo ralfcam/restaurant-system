@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { revalidatePath } from "next/cache"
+import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
+import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
 
 export type ReservationRow = {
   id: string
@@ -23,6 +25,8 @@ function generateConfCode(): string {
   return `TVL-${n}`
 }
 
+const ONLINE_MAX_PARTY = 8
+
 export async function createReservation(payload: {
   guestName: string
   partySize: number
@@ -31,6 +35,41 @@ export async function createReservation(payload: {
   phone: string
   notes?: string
 }): Promise<{ confCode: string; error?: string }> {
+  // Hard server-side cap — cannot be bypassed by client-side manipulation.
+  if (payload.partySize > ONLINE_MAX_PARTY) {
+    return {
+      confCode: "",
+      error: `Online reservations are limited to a maximum of ${ONLINE_MAX_PARTY} people. For larger groups please call us directly.`,
+    }
+  }
+
+  // Validate against operating hours and blocked dates (server-side enforcement)
+  const dateIsBlocked = await isDateBlocked(payload.date)
+  if (dateIsBlocked) {
+    return {
+      confCode: "",
+      error: "This date is not available for reservations.",
+    }
+  }
+
+  const operatingWindow = await getOperatingWindowForDate(payload.date)
+  if (!operatingWindow || operatingWindow.is_closed) {
+    return {
+      confCode: "",
+      error: "The restaurant is closed on this date.",
+    }
+  }
+
+  if (
+    payload.time < operatingWindow.opens_at ||
+    payload.time > operatingWindow.closes_at
+  ) {
+    return {
+      confCode: "",
+      error: `Reservations are only available between ${operatingWindow.opens_at} and ${operatingWindow.closes_at}.`,
+    }
+  }
+
   // Use a plain anon client (no session required) for public guest bookings.
   const supabase = createAnonClient()
   const confCode = generateConfCode()
@@ -112,6 +151,8 @@ export type SlotAvailability = {
 /**
  * Returns which TIME_SLOTS are still bookable for a given date + party size.
  * A slot is unavailable when:
+ *  - The date is blocked (holiday, special closure)
+ *  - The date falls outside operating hours
  *  - It's in the past (today only)
  *  - Adding `partySize` covers would exceed the restaurant's total seating capacity
  */
@@ -127,6 +168,20 @@ export async function getAvailableSlots(
   const TOTAL_CAPACITY = 38 // 2+2+4+4+6+4+2+8+4+2
 
   const supabase = createAnonClient()
+
+  // Check if the requested date is blocked
+  const dateIsBlocked = await isDateBlocked(date)
+  if (dateIsBlocked) {
+    // Entire date is unavailable
+    return TIME_SLOTS.map((time) => ({ time, available: false }))
+  }
+
+  // Check operating window for the day of week
+  const operatingWindow = await getOperatingWindowForDate(date)
+  if (!operatingWindow || operatingWindow.is_closed) {
+    // Restaurant is closed on this day
+    return TIME_SLOTS.map((time) => ({ time, available: false }))
+  }
 
   // Fetch all confirmed/seated reservations for this date.
   const { data, error } = await supabase
@@ -147,19 +202,26 @@ export async function getAvailableSlots(
     bookedBySlot[row.time] = (bookedBySlot[row.time] ?? 0) + row.party_size
   }
 
-  // "Now" in local restaurant time — block past slots on today's date.
-  const todayISO = new Date().toISOString().slice(0, 10)
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+  // "Now" in local restaurant timezone — block past slots on today's date.
+  const todayISO = getTodayInRestaurantTZ()
+  const nowTime = getNowTimeInRestaurantTZ()
 
   return TIME_SLOTS.map((time) => {
-    // Block past times on today.
-    if (date === todayISO) {
-      const [h, m] = time.split(":").map(Number)
-      if (h * 60 + m <= nowMinutes) return { time, available: false }
+    // Block times outside operating hours
+    if (time < operatingWindow.opens_at || time > operatingWindow.closes_at) {
+      return { time, available: false }
     }
+
+    // Block past times on today.
+    if (date === todayISO && time <= nowTime) {
+      return { time, available: false }
+    }
+
     // Block if adding this party exceeds capacity.
     const booked = bookedBySlot[time] ?? 0
-    return { time, available: booked + partySize <= TOTAL_CAPACITY }
+    const available = booked + partySize <= TOTAL_CAPACITY
+
+    return { time, available }
   })
 }
 

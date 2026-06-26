@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CalendarDays, Users, Clock, Check, Loader2, ArrowLeft, CalendarCheck } from "lucide-react"
 import { toast } from "sonner"
-import { TABLES } from "@/lib/data"
+import { TABLES, RESTAURANT } from "@/lib/data"
 
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
+import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
+import { ReservationCalendar } from "@/components/site/reservation-calendar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,30 +20,24 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8]
+const ONLINE_MAX_PARTY = 8
+const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= ONLINE_MAX_PARTY)
 const MAX_CAPACITY = Math.max(...TABLES.map((t) => t.seats))
 
-/** Convert a Date to YYYY-MM-DD string in local timezone (not UTC). */
-function getLocalISO(d: Date): string {
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10)
-}
-
-function todayISO() {
-  return getLocalISO(new Date())
-}
-
-function tomorrowISO() {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return getLocalISO(d)
-}
-
-function firstAvailableDate() {
-  const now = new Date()
+/** Get the minimum bookable date (today or tomorrow, in restaurant timezone). */
+function getMinBookableDate(): string {
+  const today = getTodayInRestaurantTZ()
+  const nowTime = getNowTimeInRestaurantTZ()
   const lastSlotHour = 21
-  return now.getHours() >= lastSlotHour ? tomorrowISO() : todayISO()
+  
+  // If it's past 21:00 in restaurant timezone, start bookings tomorrow
+  if (nowTime >= `${lastSlotHour}:00`) {
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().split("T")[0]
+  }
+  
+  return today
 }
 
 function formatDate(iso: string) {
@@ -90,7 +86,12 @@ function StepPanel({
 // ─── Component ──────────────────────────────────────────────────────────────
 export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const [party, setParty] = useState("2")
-  const [date, setDate] = useState(firstAvailableDate)
+  // Date is intentionally empty on first render (server + first client paint)
+  // to avoid a hydration mismatch — `firstAvailableDate()` depends on the
+  // local clock/timezone, which differs between server (UTC) and browser.
+  // It's populated in a mount effect below.
+  const [mounted, setMounted] = useState(false)
+  const [date, setDate] = useState("")
   const [slot, setSlot] = useState<string | null>(null)
   const [step, setStep] = useState<1 | 2 | 3>(1) // 1=select, 2=details, 3=done
   const [name, setName] = useState("")
@@ -107,18 +108,22 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const fetchSlots = useCallback(async (d: string, p: number) => {
     setLoadingSlots(true)
     const result = await getAvailableSlots(d, p)
-    if (result.every((s) => !s.available)) {
-      const next = new Date(d + "T00:00:00")
-      next.setDate(next.getDate() + 1)
-      setDate(next.toISOString().slice(0, 10))
-      setLoadingSlots(false)
-      return
-    }
+    // Always set slots, regardless of availability. This ensures the UI
+    // can render the "No availability for this date" message without
+    // triggering an infinite loop by trying to auto-advance the date.
     setSlots(result)
     setLoadingSlots(false)
   }, [])
 
+  // Populate the real date once on the client, after hydration.
+  // Uses timezone-aware minimum bookable date from server.
   useEffect(() => {
+    setMounted(true)
+    setDate(getMinBookableDate())
+  }, [])
+
+  useEffect(() => {
+    if (!date) return
     if (overCapacity) { setSlots([]); setLoadingSlots(false); return }
     fetchSlots(date, partyNum)
   }, [date, partyNum, overCapacity, fetchSlots])
@@ -236,13 +241,20 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
       {step === 1 && (
         <StepPanel stepKey="step1">
           <div className="p-5 md:p-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3">
             {/* Party size */}
             <div className="space-y-1.5">
               <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
                 <Users className="size-3.5" /> Party size
               </Label>
-              <Select value={party} onValueChange={(v) => { setParty(v ?? ""); setSlot(null) }}>
+              <Select
+                value={String(Math.min(Number(party), ONLINE_MAX_PARTY))}
+                onValueChange={(v) => {
+                  const clamped = Math.min(Number(v ?? "1"), ONLINE_MAX_PARTY)
+                  setParty(String(clamped))
+                  setSlot(null)
+                }}
+              >
                 <SelectTrigger className={cn("w-full", triggerCls)}>
                   <SelectValue />
                 </SelectTrigger>
@@ -258,28 +270,34 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Large-group notice */}
+              <p className={cn("border-t pt-3 mt-1 text-sm leading-relaxed tracking-wide", dark ? "border-white/10 text-white/50" : "border-border/40 text-muted-foreground")}>
+                For groups of more than {ONLINE_MAX_PARTY}, please call us directly at{" "}
+                <a
+                  href={`tel:${RESTAURANT.phone}`}
+                  className={cn("underline underline-offset-2 transition-colors", dark ? "text-white/70 hover:text-white" : "text-foreground hover:text-primary")}
+                >
+                  {RESTAURANT.phone}
+                </a>
+                .
+              </p>
             </div>
 
-            {/* Date */}
+            {/* Date picker */}
             <div className="space-y-1.5">
-              <Label htmlFor="res-date" className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
+              <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
                 <CalendarDays className="size-3.5" /> Date
               </Label>
-              <input
-                id="res-date"
-                type="date"
-                value={date}
-                min={todayISO()}
-                onChange={(e) => { if (e.target.value) { setDate(e.target.value); setSlot(null) } }}
-                style={{ colorScheme: dark ? "dark" : "light", accentColor: dark ? "#C45A3B" : undefined }}
-                className={cn(
-                  "flex h-9 w-full rounded-lg border px-3 py-1 text-sm outline-none transition-colors",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                  dark
-                    ? "border-white/15 bg-white/10 text-white [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 focus:border-white/40 focus:ring-2 focus:ring-white/20"
-                    : "border-input bg-transparent focus:ring-2 focus:ring-ring/20",
-                )}
-              />
+              {mounted && (
+                <ReservationCalendar
+                  value={date}
+                  onChange={(newDate) => {
+                    setDate(newDate)
+                    setSlot(null)
+                  }}
+                  dark={dark}
+                />
+              )}
             </div>
           </div>
 
@@ -299,8 +317,8 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                     <div key={i} className={cn("h-9 animate-pulse rounded-full", dark ? "bg-white/10" : "bg-muted")} />
                   ))}
                 </div>
-              ) : slots.every((s) => !s.available) ? (
-                <p className={cn("mt-2 rounded-xl px-3 py-2.5 text-sm", dark ? "bg-white/10 text-white/50" : "bg-secondary text-muted-foreground")}>
+              ) : slots.length === 0 || !slots.some((s) => s.available) ? (
+                <p className={cn("mt-2 text-sm tracking-wide", dark ? "text-white/50" : "text-muted-foreground")}>
                   No availability for this date. Try another day.
                 </p>
               ) : (

@@ -90,11 +90,9 @@ export function SiteHeader() {
 
         {/* Mobile Menu Trigger */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetTrigger asChild>
-            <button className={cn("flex md:hidden rounded-lg p-2 transition-colors duration-300", isScrolled ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/10")}>
-              <Menu className="size-5" />
-              <span className="sr-only">Open menu</span>
-            </button>
+          <SheetTrigger className={cn("flex md:hidden rounded-lg p-2 transition-colors duration-300", isScrolled ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/10")}>
+            <Menu className="size-5" />
+            <span className="sr-only">Open menu</span>
           </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <nav className="flex flex-col gap-4 mt-8">
