@@ -19,6 +19,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 const ONLINE_MAX_PARTY = 8
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= ONLINE_MAX_PARTY)
@@ -92,6 +99,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   // It's populated in a mount effect below.
   const [mounted, setMounted] = useState(false)
   const [date, setDate] = useState("")
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [slot, setSlot] = useState<string | null>(null)
   const [step, setStep] = useState<1 | 2 | 3>(1) // 1=select, 2=details, 3=done
   const [name, setName] = useState("")
@@ -283,20 +291,47 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               </p>
             </div>
 
-            {/* Date picker */}
+            {/* Date picker trigger */}
             <div className="space-y-1.5">
               <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
                 <CalendarDays className="size-3.5" /> Date
               </Label>
               {mounted && (
-                <ReservationCalendar
-                  value={date}
-                  onChange={(newDate) => {
-                    setDate(newDate)
-                    setSlot(null)
-                  }}
-                  dark={dark}
-                />
+                <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "w-full h-9 rounded-lg border px-3 flex items-center justify-between text-sm transition-colors",
+                        dark
+                          ? "border-white/15 bg-white/10 text-white hover:bg-white/15 focus:ring-2 focus:ring-white/20 focus:border-white/30"
+                          : "border-input bg-transparent hover:bg-secondary focus:ring-2 focus:ring-ring/20 focus:border-foreground/30",
+                      )}
+                    >
+                      <span>{date ? formatDate(date) : "Select a date"}</span>
+                      <CalendarDays className="size-3.5 opacity-60" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent showCloseButton={true} className={cn(
+                    "max-w-sm rounded-sm border border-border/40 bg-background p-6 shadow-none",
+                    dark && "border-white/10 bg-white/8",
+                  )}>
+                    <DialogHeader>
+                      <DialogTitle className={cn("text-sm font-semibold tracking-wide", dark ? "text-white" : "text-foreground")}>
+                        Select a date
+                      </DialogTitle>
+                    </DialogHeader>
+                    <ReservationCalendar
+                      value={date}
+                      onChange={(newDate) => {
+                        setDate(newDate)
+                        setSlot(null)
+                        setIsCalendarOpen(false)
+                      }}
+                      dark={dark}
+                    />
+                  </DialogContent>
+                </Dialog>
               )}
             </div>
           </div>
