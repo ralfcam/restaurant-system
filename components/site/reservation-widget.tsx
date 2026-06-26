@@ -441,12 +441,12 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                 <Clock className="size-3.5" /> Available times
               </Label>
               {loadingSlots ? (
-                <div className="mt-2 grid grid-cols-5 gap-2">
-                  {Array.from({ length: 10 }).map((_, i) => (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Array.from({ length: 18 }).map((_, i) => (
                     <div
                       key={i}
                       className={cn(
-                        "h-9 w-full rounded-full border animate-pulse",
+                        "h-9 w-16 rounded-full border animate-pulse",
                         dark
                           ? "border-white/10 bg-white/5"
                           : "border-border/20 bg-muted/50"
@@ -463,7 +463,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   No availability for this date. Try another day.
                 </p>
               ) : (
-                <div className="mt-2 grid grid-cols-5 gap-2">
+                <div className="mt-2 flex flex-wrap gap-2">
                   {slots.map(({ time, available }) => (
                     <button
                       key={time}
@@ -471,7 +471,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                       disabled={!available}
                       onClick={() => pickSlot(time)}
                       className={cn(
-                        "rounded-full border py-2 text-xs font-medium tracking-wide transition-all duration-150",
+                        "w-16 rounded-full border py-2 text-center text-xs font-medium tracking-wide transition-all duration-150",
                         dark && !available  && "cursor-not-allowed border-white/8 bg-white/4 text-white/20 line-through",
                         dark && available   && "border-white/20 bg-white/8 text-white/80 hover:border-white/50 hover:bg-white/15 hover:text-white active:scale-95",
                         !dark && !available && "cursor-not-allowed border-border bg-muted text-muted-foreground/40 line-through",

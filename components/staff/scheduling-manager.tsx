@@ -17,6 +17,18 @@ import { Save } from "lucide-react"
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
+// Detects PostgREST schema-cache / missing-table errors surfaced by the server
+// action (it prefixes these with the PGRST116 code).
+function isSchemaCacheError(error: string): boolean {
+  const e = error.toLowerCase()
+  return (
+    e.includes("pgrst116") ||
+    e.includes("pgrst205") ||
+    e.includes("schema cache") ||
+    e.includes("does not exist")
+  )
+}
+
 // Mandatory baseline seed — Mon-Sat open 09:00-22:00, Sunday closed.
 const SEED_WINDOWS: OperatingWindow[] = [
   { day_of_week: 0, opens_at: "09:00", closes_at: "22:00", is_closed: true },
@@ -107,9 +119,18 @@ export function SchedulingManager({
       if (result.error) {
         // Rollback optimistic update on error
         setBlockedDates(previousDates)
-        toast.error("Failed to update blocked date", {
-          description: result.error ?? "Database rejected the date block.",
-        })
+        // Separate configuration errors (missing table / schema cache) from
+        // runtime network failures with an action-oriented description.
+        if (isSchemaCacheError(result.error)) {
+          toast.error("Database not configured", {
+            description:
+              "Missing database table. Please run the SQL migration for 'blocked_dates' in your Supabase dashboard.",
+          })
+        } else {
+          toast.error("Failed to update blocked date", {
+            description: result.error ?? "Database rejected the date block.",
+          })
+        }
         return
       }
 

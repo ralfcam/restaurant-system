@@ -11,11 +11,11 @@ RETURNS TRIGGER AS $$
 DECLARE
   v_window RECORD;
 BEGIN
-  -- 1. Blocked date check
+  -- 1. Blocked date check (standardized `date` column)
   IF EXISTS (
     SELECT 1
     FROM blocked_dates
-    WHERE blocked_date = NEW.date::DATE
+    WHERE date = NEW.date::DATE
   ) THEN
     RAISE EXCEPTION 'Booking denied: Date is explicitly blocked.'
       USING ERRCODE = 'P0001';

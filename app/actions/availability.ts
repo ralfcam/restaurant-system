@@ -12,21 +12,37 @@ export type OperatingWindow = {
 }
 
 /**
+ * Detects PostgREST schema-cache / missing-table errors. These occur when the
+ * `blocked_dates` table doesn't exist yet or the PostgREST cache is stale
+ * (codes PGRST116 / PGRST205, or messages mentioning the schema cache).
+ */
+function isSchemaCacheError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  return (
+    error.code === "PGRST116" ||
+    error.code === "PGRST205" ||
+    (error.message?.toLowerCase().includes("schema cache") ?? false) ||
+    (error.message?.toLowerCase().includes("does not exist") ?? false)
+  )
+}
+
+/**
  * Fetch the operating window for a specific day of the week.
  * Falls back to default if not configured.
  */
 export async function getOperatingWindowForDate(dateISO: string): Promise<OperatingWindow | null> {
   const dayOfWeek = getDayOfWeekInRestaurantTZ(dateISO)
 
-  // Default operating hours if not configured in database
+  // Default operating hours if not configured in database.
+  // Global standard baseline: 09:00–22:00, matching the admin scheduling seed.
   const DEFAULT_HOURS: Record<number, OperatingWindow> = {
-    0: { day_of_week: 0, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Sunday
-    1: { day_of_week: 1, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Monday
-    2: { day_of_week: 2, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Tuesday
-    3: { day_of_week: 3, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Wednesday
-    4: { day_of_week: 4, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Thursday
-    5: { day_of_week: 5, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Friday
-    6: { day_of_week: 6, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Saturday
+    0: { day_of_week: 0, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Sunday
+    1: { day_of_week: 1, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Monday
+    2: { day_of_week: 2, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Tuesday
+    3: { day_of_week: 3, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Wednesday
+    4: { day_of_week: 4, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Thursday
+    5: { day_of_week: 5, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Friday
+    6: { day_of_week: 6, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Saturday
   }
 
   const supabase = createAnonClient()
@@ -51,8 +67,8 @@ export async function isDateBlocked(dateISO: string): Promise<boolean> {
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("blocked_dates")
-    .select("blocked_date")
-    .eq("blocked_date", dateISO)
+    .select("date")
+    .eq("date", dateISO)
     .maybeSingle()
 
   // If table doesn't exist, assume no dates are blocked (fail open)
@@ -73,16 +89,16 @@ export async function getBlockedDatesInMonth(year: number, month: number): Promi
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("blocked_dates")
-    .select("blocked_date")
-    .gte("blocked_date", startDate)
-    .lte("blocked_date", endDate)
+    .select("date")
+    .gte("date", startDate)
+    .lte("date", endDate)
 
   if (error) {
     console.error("[availability] getBlockedDatesInMonth error:", error.message)
     return []
   }
 
-  return (data ?? []).map((row) => row.blocked_date)
+  return (data ?? []).map((row) => row.date as string)
 }
 
 /**
@@ -92,13 +108,13 @@ export async function getBlockedDatesInMonth(year: number, month: number): Promi
  */
 export async function getAllOperatingWindowsMap(): Promise<Record<number, OperatingWindow>> {
   const DEFAULT_HOURS: Record<number, OperatingWindow> = {
-    0: { day_of_week: 0, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-    1: { day_of_week: 1, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-    2: { day_of_week: 2, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-    3: { day_of_week: 3, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-    4: { day_of_week: 4, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-    5: { day_of_week: 5, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-    6: { day_of_week: 6, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    0: { day_of_week: 0, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+    1: { day_of_week: 1, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+    2: { day_of_week: 2, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+    3: { day_of_week: 3, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+    4: { day_of_week: 4, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+    5: { day_of_week: 5, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+    6: { day_of_week: 6, opens_at: "09:00", closes_at: "22:00", is_closed: false },
   }
 
   const supabase = createAnonClient()
@@ -125,12 +141,12 @@ export async function getBlockedDatesInRange(startISO: string, endISO: string): 
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("blocked_dates")
-    .select("blocked_date")
-    .gte("blocked_date", startISO)
-    .lte("blocked_date", endISO)
+    .select("date")
+    .gte("date", startISO)
+    .lte("date", endISO)
 
   if (error) return []
-  return (data ?? []).map((row) => row.blocked_date as string)
+  return (data ?? []).map((row) => row.date as string)
 }
 
 /**
@@ -225,21 +241,16 @@ export async function toggleBlockedDate(
   // Check current state
   const { data, error: selectError } = await supabase
     .from("blocked_dates")
-    .select("blocked_date")
-    .eq("blocked_date", safeISO)
+    .select("date")
+    .eq("date", safeISO)
     .maybeSingle()
 
-  // PGRST116 = PostgREST schema cache miss (table doesn't exist or cache stale).
-  // Surface a structured developer message instead of silently failing.
+  // Surface schema-cache / missing-table errors with a recognizable PGRST code
+  // prefix so the client can render an action-oriented message.
+  if (selectError && isSchemaCacheError(selectError)) {
+    return { blocked: false, error: `PGRST116: ${selectError.message}` }
+  }
   if (selectError) {
-    if (selectError.code === "PGRST116" || selectError.message?.includes("schema cache")) {
-      return {
-        blocked: false,
-        error:
-          "Schema cache error: the `blocked_dates` table may not exist. " +
-          "Run the migration and execute `NOTIFY pgrst, 'reload schema';` in your SQL editor.",
-      }
-    }
     return { blocked: false, error: selectError.message }
   }
 
@@ -248,24 +259,19 @@ export async function toggleBlockedDate(
     const { error } = await supabase
       .from("blocked_dates")
       .delete()
-      .eq("blocked_date", safeISO)
-    if (error) return { blocked: true, error: error.message }
+      .eq("date", safeISO)
+    if (error) {
+      if (isSchemaCacheError(error)) return { blocked: true, error: `PGRST116: ${error.message}` }
+      return { blocked: true, error: error.message }
+    }
     return { blocked: false }
   } else {
     // Not blocked — add it
     const { error } = await supabase
       .from("blocked_dates")
-      .insert({ blocked_date: safeISO, reason: null })
+      .insert({ date: safeISO, reason: "Admin blocked" })
     if (error) {
-      // Surface schema cache / missing table errors with actionable guidance
-      if (error.code === "PGRST116" || error.message?.includes("schema cache")) {
-        return {
-          blocked: false,
-          error:
-            "Schema cache error: the `blocked_dates` table may not exist. " +
-            "Run the migration and execute `NOTIFY pgrst, 'reload schema';` in your SQL editor.",
-        }
-      }
+      if (isSchemaCacheError(error)) return { blocked: false, error: `PGRST116: ${error.message}` }
       return { blocked: false, error: error.message }
     }
     return { blocked: true }
@@ -279,8 +285,8 @@ export async function addBlockedDate(dateISO: string, reason?: string): Promise<
   const supabase = createAnonClient()
 
   const { error } = await supabase.from("blocked_dates").insert({
-    blocked_date: dateISO,
-    reason: reason ?? null,
+    date: dateISO,
+    reason: reason ?? "Admin blocked",
   })
 
   if (error) {
@@ -297,7 +303,7 @@ export async function addBlockedDate(dateISO: string, reason?: string): Promise<
 export async function removeBlockedDate(dateISO: string): Promise<{ error?: string }> {
   const supabase = createAnonClient()
 
-  const { error } = await supabase.from("blocked_dates").delete().eq("blocked_date", dateISO)
+  const { error } = await supabase.from("blocked_dates").delete().eq("date", dateISO)
 
   if (error) {
     console.error("[availability] removeBlockedDate error:", error.message)
