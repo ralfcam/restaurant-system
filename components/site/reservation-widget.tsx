@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CalendarDays, Users, Clock, Check, Loader2, ArrowLeft, CalendarCheck } from "lucide-react"
 import { toast } from "sonner"
-import { TABLES } from "@/lib/data"
+import { TABLES, RESTAURANT } from "@/lib/data"
 
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
 import { Button } from "@/components/ui/button"
@@ -18,7 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8]
+const ONLINE_MAX_PARTY = 8
+const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= ONLINE_MAX_PARTY)
 const MAX_CAPACITY = Math.max(...TABLES.map((t) => t.seats))
 
 /** Convert a Date to YYYY-MM-DD string in local timezone (not UTC). */
@@ -248,13 +249,20 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
       {step === 1 && (
         <StepPanel stepKey="step1">
           <div className="p-5 md:p-6">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3">
             {/* Party size */}
             <div className="space-y-1.5">
               <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
                 <Users className="size-3.5" /> Party size
               </Label>
-              <Select value={party} onValueChange={(v) => { setParty(v ?? ""); setSlot(null) }}>
+              <Select
+                value={String(Math.min(Number(party), ONLINE_MAX_PARTY))}
+                onValueChange={(v) => {
+                  const clamped = Math.min(Number(v ?? "1"), ONLINE_MAX_PARTY)
+                  setParty(String(clamped))
+                  setSlot(null)
+                }}
+              >
                 <SelectTrigger className={cn("w-full", triggerCls)}>
                   <SelectValue />
                 </SelectTrigger>
@@ -270,6 +278,17 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   ))}
                 </SelectContent>
               </Select>
+              {/* Large-group notice */}
+              <p className={cn("border-t pt-3 mt-1 text-sm leading-relaxed tracking-wide", dark ? "border-white/10 text-white/50" : "border-border/40 text-muted-foreground")}>
+                For groups of more than {ONLINE_MAX_PARTY}, please call us directly at{" "}
+                <a
+                  href={`tel:${RESTAURANT.phone}`}
+                  className={cn("underline underline-offset-2 transition-colors", dark ? "text-white/70 hover:text-white" : "text-foreground hover:text-primary")}
+                >
+                  {RESTAURANT.phone}
+                </a>
+                .
+              </p>
             </div>
 
             {/* Date */}

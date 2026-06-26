@@ -23,6 +23,8 @@ function generateConfCode(): string {
   return `TVL-${n}`
 }
 
+const ONLINE_MAX_PARTY = 8
+
 export async function createReservation(payload: {
   guestName: string
   partySize: number
@@ -31,6 +33,14 @@ export async function createReservation(payload: {
   phone: string
   notes?: string
 }): Promise<{ confCode: string; error?: string }> {
+  // Hard server-side cap — cannot be bypassed by client-side manipulation.
+  if (payload.partySize > ONLINE_MAX_PARTY) {
+    return {
+      confCode: "",
+      error: `Online reservations are limited to a maximum of ${ONLINE_MAX_PARTY} people. For larger groups please call us directly.`,
+    }
+  }
+
   // Use a plain anon client (no session required) for public guest bookings.
   const supabase = createAnonClient()
   const confCode = generateConfCode()
