@@ -106,27 +106,27 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
 
   return (
     <div className={cn(
-      "rounded-sm border p-3",
+      "rounded-sm border p-2",
       dark
         ? "border-white/10 bg-white/8"
         : "border-border/40 bg-background",
     )}>
       {/* Header */}
-      <div className="mb-3 flex items-center justify-between gap-2">
+      <div className="mb-2 flex items-center justify-between gap-1">
         <button
           type="button"
           onClick={handlePrevMonth}
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-sm transition-colors",
+            "flex h-6 w-6 items-center justify-center rounded-sm transition-colors",
             dark
               ? "hover:bg-white/10 text-white/60 hover:text-white"
               : "hover:bg-muted text-muted-foreground hover:text-foreground",
           )}
         >
-          <ChevronLeft className="size-4" />
+          <ChevronLeft className="size-3" />
         </button>
         <h3 className={cn(
-          "text-xs font-semibold tracking-wide flex-1 text-center",
+          "text-[11px] font-semibold tracking-wide flex-1 text-center",
           dark ? "text-white/70" : "text-foreground/70",
         )}>
           {monthName}
@@ -135,23 +135,23 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
           type="button"
           onClick={handleNextMonth}
           className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-sm transition-colors",
+            "flex h-6 w-6 items-center justify-center rounded-sm transition-colors",
             dark
               ? "hover:bg-white/10 text-white/60 hover:text-white"
               : "hover:bg-muted text-muted-foreground hover:text-foreground",
           )}
         >
-          <ChevronRight className="size-4" />
+          <ChevronRight className="size-3" />
         </button>
       </div>
 
       {/* Weekday headers */}
-      <div className="mb-2 grid grid-cols-7 gap-1">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+      <div className="mb-1 grid grid-cols-7 gap-0.5">
+        {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
           <div
             key={day}
             className={cn(
-              "text-center text-[10px] font-semibold tracking-wide py-1",
+              "text-center text-[9px] font-semibold tracking-wide py-0.5",
               dark ? "text-white/40" : "text-muted-foreground",
             )}
           >
@@ -161,7 +161,7 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
       </div>
 
       {/* Calendar grid */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-0.5">
         {weeks.map((week, weekIdx) =>
           week.map((date, dayIdx) => {
             const dateISO = date.toISOString().split("T")[0]
@@ -178,9 +178,9 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
                 onClick={() => handleDateClick(dateISO)}
                 disabled={isDisabled}
                 className={cn(
-                  "aspect-square text-xs font-medium rounded-sm transition-colors border",
-                  "disabled:cursor-not-allowed disabled:opacity-30 disabled:line-through",
-                  isCurrentMonth ? "" : "opacity-20",
+                  "w-6 h-6 text-[10px] font-medium rounded-sm transition-colors border",
+                  "disabled:cursor-not-allowed disabled:opacity-20 disabled:line-through",
+                  isCurrentMonth ? "" : "opacity-15",
                   isSelected && !isDisabled && (dark
                     ? "border-white/50 bg-white/15 text-white"
                     : "border-primary/60 bg-primary/10 text-primary"
@@ -204,10 +204,10 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
 
       {loading && (
         <div className={cn(
-          "text-center text-xs mt-2",
+          "text-center text-[10px] mt-1",
           dark ? "text-white/40" : "text-muted-foreground",
         )}>
-          Loading availability...
+          Loading...
         </div>
       )}
     </div>
