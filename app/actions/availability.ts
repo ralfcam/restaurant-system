@@ -17,6 +17,17 @@ export type OperatingWindow = {
 export async function getOperatingWindowForDate(dateISO: string): Promise<OperatingWindow | null> {
   const dayOfWeek = getDayOfWeekInRestaurantTZ(dateISO)
 
+  // Default operating hours if not configured in database
+  const DEFAULT_HOURS: Record<number, OperatingWindow> = {
+    0: { day_of_week: 0, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Sunday
+    1: { day_of_week: 1, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Monday
+    2: { day_of_week: 2, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Tuesday
+    3: { day_of_week: 3, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Wednesday
+    4: { day_of_week: 4, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Thursday
+    5: { day_of_week: 5, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Friday
+    6: { day_of_week: 6, opens_at: "17:00", closes_at: "22:00", is_closed: false }, // Saturday
+  }
+
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("operating_windows")
@@ -24,10 +35,9 @@ export async function getOperatingWindowForDate(dateISO: string): Promise<Operat
     .eq("day_of_week", dayOfWeek)
     .single()
 
-  if (error) {
-    console.error("[availability] getOperatingWindowForDate error:", error.message)
-    // Return default if fetch fails
-    return null
+  // If table doesn't exist or no data, use defaults
+  if (error || !data) {
+    return DEFAULT_HOURS[dayOfWeek] || DEFAULT_HOURS[0]
   }
 
   return data as OperatingWindow
@@ -44,8 +54,8 @@ export async function isDateBlocked(dateISO: string): Promise<boolean> {
     .eq("blocked_date", dateISO)
     .maybeSingle()
 
+  // If table doesn't exist, assume no dates are blocked (fail open)
   if (error) {
-    console.error("[availability] isDateBlocked error:", error.message)
     return false
   }
 

@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { TABLES, RESTAURANT } from "@/lib/data"
 
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
+import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,27 +23,20 @@ const ONLINE_MAX_PARTY = 8
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= ONLINE_MAX_PARTY)
 const MAX_CAPACITY = Math.max(...TABLES.map((t) => t.seats))
 
-/** Convert a Date to YYYY-MM-DD string in local timezone (not UTC). */
-function getLocalISO(d: Date): string {
-  return new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 10)
-}
-
-function todayISO() {
-  return getLocalISO(new Date())
-}
-
-function tomorrowISO() {
-  const d = new Date()
-  d.setDate(d.getDate() + 1)
-  return getLocalISO(d)
-}
-
-function firstAvailableDate() {
-  const now = new Date()
+/** Get the minimum bookable date (today or tomorrow, in restaurant timezone). */
+function getMinBookableDate(): string {
+  const today = getTodayInRestaurantTZ()
+  const nowTime = getNowTimeInRestaurantTZ()
   const lastSlotHour = 21
-  return now.getHours() >= lastSlotHour ? tomorrowISO() : todayISO()
+  
+  // If it's past 21:00 in restaurant timezone, start bookings tomorrow
+  if (nowTime >= `${lastSlotHour}:00`) {
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    return tomorrow.toISOString().split("T")[0]
+  }
+  
+  return today
 }
 
 function formatDate(iso: string) {
@@ -121,9 +115,10 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   }, [])
 
   // Populate the real date once on the client, after hydration.
+  // Uses timezone-aware minimum bookable date from server.
   useEffect(() => {
     setMounted(true)
-    setDate(firstAvailableDate())
+    setDate(getMinBookableDate())
   }, [])
 
   useEffect(() => {
@@ -296,7 +291,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                 id="res-date"
                 type="date"
                 value={date}
-                min={mounted ? todayISO() : undefined}
+                min={mounted ? getTodayInRestaurantTZ() : undefined}
                 onChange={(e) => { if (e.target.value) { setDate(e.target.value); setSlot(null) } }}
                 style={{ colorScheme: dark ? "dark" : "light", accentColor: dark ? "#C45A3B" : undefined }}
                 className={cn(
@@ -326,8 +321,8 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                     <div key={i} className={cn("h-9 animate-pulse rounded-full", dark ? "bg-white/10" : "bg-muted")} />
                   ))}
                 </div>
-              ) : slots.every((s) => !s.available) ? (
-                <p className={cn("mt-2 rounded-xl px-3 py-2.5 text-sm", dark ? "bg-white/10 text-white/50" : "bg-secondary text-muted-foreground")}>
+              ) : slots.length === 0 || !slots.some((s) => s.available) ? (
+                <p className={cn("mt-2 text-sm tracking-wide", dark ? "text-white/50" : "text-muted-foreground")}>
                   No availability for this date. Try another day.
                 </p>
               ) : (
