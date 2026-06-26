@@ -52,11 +52,9 @@ export function ReservationCalendar({
   const blockedSet = useMemo(() => new Set(blockedDates), [blockedDates])
 
   // Compute disabled dates purely from props — no async work here.
-  // In adminMode all dates are clickable; the component just renders
-  // blocked dates with a danger style instead of disabling them.
+  // adminMode bypasses past-date blocking but still respects is_closed days
+  // so the grid correctly reflects live uncommitted switch state.
   const disabledDates = useMemo<Set<string>>(() => {
-    if (adminMode) return new Set<string>()
-
     const disabled = new Set<string>()
     const today = getTodayInRestaurantTZ()
     const todayDate = new Date(today + "T00:00:00")
@@ -70,22 +68,25 @@ export function ReservationCalendar({
       d.setDate(d.getDate() + i)
       const dateISO = d.toISOString().split("T")[0]
 
-      // Past dates
-      if (d < todayDate) {
+      // Past dates — only blocked in guest mode, not admin mode
+      if (!adminMode && d < todayDate) {
         disabled.add(dateISO)
         continue
       }
 
-      // Explicitly blocked dates (admin overrides)
-      if (blockedSet.has(dateISO)) {
+      // Explicitly blocked dates (admin overrides) — guest mode only;
+      // in adminMode blocked dates are styled with danger but stay clickable
+      if (!adminMode && blockedSet.has(dateISO)) {
         disabled.add(dateISO)
         continue
       }
 
-      // Dynamic operating schedule — uses timezone-safe day-of-week resolution
+      // Operating schedule always applies — uses timezone-safe DOW resolution.
+      // In adminMode this makes closed days visually inactive (opacity-15
+      // line-through) and unclickable, matching the baseline inactive aesthetic.
       const dow = getDayOfWeekInRestaurantTZ(dateISO)
-      const window = effectiveWindows[dow]
-      if (!window || window.is_closed) {
+      const win = effectiveWindows[dow]
+      if (!win || win.is_closed) {
         disabled.add(dateISO)
       }
     }
@@ -191,12 +192,16 @@ export function ReservationCalendar({
             const isToday = dateISO === today
 
             const isBlocked = blockedSet.has(dateISO)
+            // In adminMode, closed-by-schedule days are in disabledDates —
+            // prevent toggleBlockedDate from firing for them since blocking
+            // a permanently closed day is redundant and confusing.
+            const isClosed = adminMode && disabledDates.has(dateISO) && !isBlocked
 
             return (
               <button
                 key={`${weekIdx}-${dayIdx}`}
                 type="button"
-                onClick={() => { if (!isDisabled) onChange(dateISO) }}
+                onClick={() => { if (!isDisabled && !isClosed) onChange(dateISO) }}
                 disabled={isDisabled}
                 className={cn(
                   "w-6 h-6 text-[10px] font-medium rounded-sm transition-colors border",

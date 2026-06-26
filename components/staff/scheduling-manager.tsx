@@ -76,8 +76,13 @@ export function SchedulingManager({
     }
   }
 
-  // Called by the calendar in adminMode — toggles the date in DB and local state
+  // Called by the calendar in adminMode — toggles the date in DB and local state.
+  // Guard: skip if the day-of-week is marked is_closed in the live windows state
+  // (the calendar already prevents the click visually, but this is a safety net).
   const handleCalendarDateClick = async (dateISO: string) => {
+    const dow = new Date(dateISO + "T00:00:00").getDay()
+    if (windowsMap[dow]?.is_closed) return
+
     setTogglingDate(dateISO)
     const result = await toggleBlockedDate(dateISO)
     setTogglingDate(null)
