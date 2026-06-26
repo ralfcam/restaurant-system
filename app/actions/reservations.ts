@@ -60,13 +60,13 @@ export async function createReservation(payload: {
     }
   }
 
-  if (
-    payload.time < operatingWindow.opens_at ||
-    payload.time > operatingWindow.closes_at
-  ) {
+  const opensAt = operatingWindow.opens_at ?? "17:00"
+  const closesAt = operatingWindow.closes_at ?? "22:00"
+
+  if (payload.time < opensAt || payload.time > closesAt) {
     return {
       confCode: "",
-      error: `Reservations are only available between ${operatingWindow.opens_at} and ${operatingWindow.closes_at}.`,
+      error: `Reservations are only available between ${opensAt} and ${closesAt}.`,
     }
   }
 
@@ -193,6 +193,11 @@ export async function getAvailableSlots(
     return TIME_SLOTS.map((time) => ({ time, available: false }))
   }
 
+  // Guard against DB rows with null time columns — fall back to full-day defaults
+  // so the comparison `time < opens_at` never evaluates against undefined.
+  const opensAt = operatingWindow.opens_at ?? "17:00"
+  const closesAt = operatingWindow.closes_at ?? "22:00"
+
   // Fetch all confirmed/seated reservations for this date.
   const { data, error } = await supabase
     .from("reservations")
@@ -218,7 +223,7 @@ export async function getAvailableSlots(
 
   return TIME_SLOTS.map((time) => {
     // Block times outside operating hours
-    if (time < operatingWindow.opens_at || time > operatingWindow.closes_at) {
+    if (time < opensAt || time > closesAt) {
       return { time, available: false }
     }
 
