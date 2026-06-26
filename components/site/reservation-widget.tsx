@@ -203,7 +203,25 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
       phone,
     })
     setSubmitting(false)
-    if (error) { toast.error("Could not confirm reservation", { description: error }); return }
+    if (error) {
+      // Detect database-level trigger rejections by their prefix and show a
+      // dedicated toast. Form inputs (name, phone, email) are intentionally
+      // NOT reset so the guest can pick a new slot without re-typing.
+      const isSlotError =
+        error.toLowerCase().includes("blocked") ||
+        error.toLowerCase().includes("operating hours") ||
+        error.toLowerCase().includes("closed")
+      if (isSlotError) {
+        setSlot(null)
+        setStep(1)
+        toast.error("Time slot unavailable", {
+          description: "This slot was just booked or is outside operating hours.",
+        })
+      } else {
+        toast.error("Could not confirm reservation", { description: error })
+      }
+      return
+    }
     setConfCode(code)
     setStep(3)
     toast.success("Reservation confirmed", {
