@@ -314,7 +314,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   </DialogTrigger>
                   <DialogContent showCloseButton={true} className={cn(
                     "max-w-sm rounded-sm border border-border/40 bg-background p-6 shadow-none",
-                    dark && "border-white/10 bg-white/8",
+                    dark ? "border-white/10 bg-zinc-950" : "bg-white border-border/60",
                   )}>
                     <DialogHeader>
                       <DialogTitle className={cn("text-sm font-semibold tracking-wide", dark ? "text-white" : "text-foreground")}>

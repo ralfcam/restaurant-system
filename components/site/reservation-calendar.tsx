@@ -108,8 +108,8 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
     <div className={cn(
       "rounded-sm border p-2",
       dark
-        ? "border-white/10 bg-white/8"
-        : "border-border/40 bg-background",
+        ? "border-white/15 bg-zinc-900"
+        : "border-border/60 bg-white",
     )}>
       {/* Header */}
       <div className="mb-2 flex items-center justify-between gap-1">
@@ -127,7 +127,7 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
         </button>
         <h3 className={cn(
           "text-[11px] font-semibold tracking-wide flex-1 text-center",
-          dark ? "text-white/70" : "text-foreground/70",
+          dark ? "text-white/90" : "text-foreground",
         )}>
           {monthName}
         </h3>
@@ -152,7 +152,7 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
             key={day}
             className={cn(
               "text-center text-[9px] font-semibold tracking-wide py-0.5",
-              dark ? "text-white/40" : "text-muted-foreground",
+              dark ? "text-white/60" : "text-foreground/60",
             )}
           >
             {day}
@@ -179,19 +179,19 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
                 disabled={isDisabled}
                 className={cn(
                   "w-6 h-6 text-[10px] font-medium rounded-sm transition-colors border",
-                  "disabled:cursor-not-allowed disabled:opacity-20 disabled:line-through",
-                  isCurrentMonth ? "" : "opacity-15",
+                  "disabled:cursor-not-allowed disabled:opacity-15 disabled:line-through disabled:pointer-events-none",
+                  isCurrentMonth ? "" : "opacity-30",
                   isSelected && !isDisabled && (dark
-                    ? "border-white/50 bg-white/15 text-white"
-                    : "border-primary/60 bg-primary/10 text-primary"
+                    ? "border-white bg-white text-zinc-950 font-semibold"
+                    : "border-foreground bg-foreground text-background font-semibold"
                   ),
                   isToday && !isSelected && !isDisabled && (dark
-                    ? "border-white/30 bg-white/8 text-white"
-                    : "border-border bg-secondary/50 text-foreground"
+                    ? "border-white/50 bg-white/20 text-white font-semibold"
+                    : "border-foreground/40 bg-foreground/8 text-foreground font-semibold"
                   ),
                   !isSelected && !isToday && !isDisabled && (dark
-                    ? "border-white/10 hover:border-white/20 hover:bg-white/5 text-white/70 hover:text-white"
-                    : "border-border hover:border-foreground/30 hover:bg-secondary text-foreground"
+                    ? "border-white/20 text-white/80 hover:border-white/40 hover:bg-white/10"
+                    : "border-border/60 text-foreground hover:border-foreground/40 hover:bg-secondary"
                   ),
                 )}
               >
@@ -204,10 +204,10 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
 
       {loading && (
         <div className={cn(
-          "text-center text-[10px] mt-1",
-          dark ? "text-white/40" : "text-muted-foreground",
+          "text-center text-[10px] mt-2 py-1 font-medium",
+          dark ? "text-white/70" : "text-foreground/70",
         )}>
-          Loading...
+          Loading availability...
         </div>
       )}
     </div>
