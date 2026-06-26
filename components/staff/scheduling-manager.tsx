@@ -1,178 +1,229 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback } from "react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { OperatingWindow, updateOperatingWindow, addBlockedDate, removeBlockedDate, getBlockedDatesInMonth } from "@/app/actions/availability"
-import { Trash2, Plus } from "lucide-react"
+import {
+  type OperatingWindow,
+  upsertOperatingWindows,
+  toggleBlockedDate,
+} from "@/app/actions/availability"
+import { ReservationCalendar } from "@/components/site/reservation-calendar"
+import { Save } from "lucide-react"
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
+// Mandatory baseline seed — Mon-Sat open 09:00-22:00, Sunday closed.
+const SEED_WINDOWS: OperatingWindow[] = [
+  { day_of_week: 0, opens_at: "09:00", closes_at: "22:00", is_closed: true },
+  { day_of_week: 1, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+  { day_of_week: 2, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+  { day_of_week: 3, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+  { day_of_week: 4, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+  { day_of_week: 5, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+  { day_of_week: 6, opens_at: "09:00", closes_at: "22:00", is_closed: false },
+]
+
+function hydrateWindows(initial: OperatingWindow[]): OperatingWindow[] {
+  // If the DB returned nothing, use the mandatory seed.
+  if (!initial || initial.length === 0) return SEED_WINDOWS
+
+  // Fill any missing days from the seed so we always have all 7.
+  const byDay: Record<number, OperatingWindow> = {}
+  for (const w of initial) byDay[w.day_of_week] = w
+  return SEED_WINDOWS.map((seed) => byDay[seed.day_of_week] ?? seed)
+}
+
 export function SchedulingManager({
   initialOperatingWindows,
+  initialBlockedDates = [],
 }: {
   initialOperatingWindows: OperatingWindow[]
+  initialBlockedDates?: string[]
 }) {
-  const [operatingWindows, setOperatingWindows] = useState<OperatingWindow[]>(initialOperatingWindows)
-  const [blockedDates, setBlockedDates] = useState<string[]>([])
-  const [newBlockedDate, setNewBlockedDate] = useState("")
-  const [newBlockedReason, setNewBlockedReason] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [windows, setWindows] = useState<OperatingWindow[]>(() =>
+    hydrateWindows(initialOperatingWindows),
+  )
+  const [blockedDates, setBlockedDates] = useState<string[]>(initialBlockedDates)
+  const [savingHours, setSavingHours] = useState(false)
+  const [togglingDate, setTogglingDate] = useState<string | null>(null)
 
-  const handleUpdateOperatingWindow = async (dayOfWeek: number, updates: Partial<Omit<OperatingWindow, "day_of_week">>) => {
-    setLoading(true)
-    try {
-      const result = await updateOperatingWindow(dayOfWeek, updates)
-      if (!result.error) {
-        setOperatingWindows((prev) =>
-          prev.map((w) => (w.day_of_week === dayOfWeek ? { ...w, ...updates } : w))
-        )
-      }
-    } finally {
-      setLoading(false)
+  // Build the windows map for the calendar's disabled-date logic
+  const windowsMap: Record<number, OperatingWindow> = {}
+  for (const w of windows) windowsMap[w.day_of_week] = w
+
+  const handleWindowChange = useCallback(
+    (dayOfWeek: number, patch: Partial<Omit<OperatingWindow, "day_of_week">>) => {
+      setWindows((prev) =>
+        prev.map((w) => (w.day_of_week === dayOfWeek ? { ...w, ...patch } : w)),
+      )
+    },
+    [],
+  )
+
+  const handleSaveHours = async () => {
+    setSavingHours(true)
+    const result = await upsertOperatingWindows(windows)
+    setSavingHours(false)
+    if (result.error) {
+      toast.error("Failed to save operating hours", { description: result.error })
+    } else {
+      toast.success("Operating hours saved")
     }
   }
 
-  const handleAddBlockedDate = async () => {
-    if (!newBlockedDate) return
+  // Called by the calendar in adminMode — toggles the date in DB and local state
+  const handleCalendarDateClick = async (dateISO: string) => {
+    setTogglingDate(dateISO)
+    const result = await toggleBlockedDate(dateISO)
+    setTogglingDate(null)
 
-    setLoading(true)
-    try {
-      const result = await addBlockedDate(newBlockedDate, newBlockedReason || undefined)
-      if (!result.error) {
-        setBlockedDates((prev) => [...prev, newBlockedDate])
-        setNewBlockedDate("")
-        setNewBlockedReason("")
-      }
-    } finally {
-      setLoading(false)
+    if (result.error) {
+      toast.error("Failed to update blocked date", { description: result.error })
+      return
     }
-  }
 
-  const handleRemoveBlockedDate = async (dateISO: string) => {
-    setLoading(true)
-    try {
-      const result = await removeBlockedDate(dateISO)
-      if (!result.error) {
-        setBlockedDates((prev) => prev.filter((d) => d !== dateISO))
-      }
-    } finally {
-      setLoading(false)
-    }
+    setBlockedDates((prev) =>
+      result.blocked ? [...prev, dateISO] : prev.filter((d) => d !== dateISO),
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Operating Windows */}
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+      {/* ── Left column: Operating Hours ── */}
       <Card>
         <CardHeader>
-          <CardTitle>Operating Hours</CardTitle>
-          <CardDescription>Configure standard opening and closing times for each day</CardDescription>
+          <CardTitle className="text-sm font-semibold tracking-wide">Standard Operating Hours</CardTitle>
+          <CardDescription className="text-xs">
+            Set opening and closing times for each day of the week. Changes are batched — click
+            &ldquo;Save Changes&rdquo; to persist.
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {operatingWindows.map((window) => (
-              <div key={window.day_of_week} className="flex items-center justify-between gap-4 rounded-lg border border-border/40 p-4">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium">{DAYS[window.day_of_week]}</Label>
-                </div>
-
-                <div className="flex items-center gap-2">
+        <CardContent className="pb-4">
+          <div className="divide-y divide-border/40">
+            {windows.map((w) => (
+              <div
+                key={w.day_of_week}
+                className="flex items-center justify-between gap-4 py-3 last:pb-0 first:pt-0"
+              >
+                {/* Day name + open/close toggle */}
+                <div className="flex w-28 shrink-0 items-center gap-3">
                   <Switch
-                    checked={!window.is_closed}
+                    checked={!w.is_closed}
                     onCheckedChange={(checked) =>
-                      handleUpdateOperatingWindow(window.day_of_week, { is_closed: !checked })
+                      handleWindowChange(w.day_of_week, { is_closed: !checked })
                     }
-                    disabled={loading}
+                    size="sm"
                   />
-                  <span className="text-xs text-muted-foreground">{window.is_closed ? "Closed" : "Open"}</span>
+                  <Label
+                    className={cn(
+                      "text-xs font-medium",
+                      w.is_closed ? "text-muted-foreground" : "text-foreground",
+                    )}
+                  >
+                    {DAYS[w.day_of_week]}
+                  </Label>
                 </div>
 
-                {!window.is_closed && (
-                  <div className="flex items-center gap-2">
-                    <Input
+                {/* Time inputs — hidden when closed */}
+                {w.is_closed ? (
+                  <span className="text-xs text-muted-foreground">Closed</span>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <input
                       type="time"
-                      value={window.opens_at}
+                      value={w.opens_at}
                       onChange={(e) =>
-                        handleUpdateOperatingWindow(window.day_of_week, { opens_at: e.target.value })
+                        handleWindowChange(w.day_of_week, { opens_at: e.target.value })
                       }
-                      disabled={loading}
-                      className="w-32"
+                      className={cn(
+                        "h-7 w-24 rounded-sm border border-border/60 bg-transparent px-2 text-xs",
+                        "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
+                      )}
                     />
-                    <span className="text-xs text-muted-foreground">to</span>
-                    <Input
+                    <span className="text-[10px] text-muted-foreground">–</span>
+                    <input
                       type="time"
-                      value={window.closes_at}
+                      value={w.closes_at}
                       onChange={(e) =>
-                        handleUpdateOperatingWindow(window.day_of_week, { closes_at: e.target.value })
+                        handleWindowChange(w.day_of_week, { closes_at: e.target.value })
                       }
-                      disabled={loading}
-                      className="w-32"
+                      className={cn(
+                        "h-7 w-24 rounded-sm border border-border/60 bg-transparent px-2 text-xs",
+                        "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
+                      )}
                     />
                   </div>
                 )}
               </div>
             ))}
           </div>
+
+          <Button
+            onClick={handleSaveHours}
+            disabled={savingHours}
+            size="sm"
+            className="mt-5 w-full gap-1.5"
+          >
+            <Save className="size-3.5" />
+            {savingHours ? "Saving…" : "Save Changes"}
+          </Button>
         </CardContent>
       </Card>
 
-      {/* Blocked Dates */}
+      {/* ── Right column: Blocked Dates calendar ── */}
       <Card>
         <CardHeader>
-          <CardTitle>Blocked Dates</CardTitle>
-          <CardDescription>Block specific dates when the restaurant is closed (e.g., holidays, special events)</CardDescription>
+          <CardTitle className="text-sm font-semibold tracking-wide">Blocked Dates</CardTitle>
+          <CardDescription className="text-xs">
+            Click a date to toggle it as blocked. Blocked dates are highlighted in red and
+            instantly persisted — no save step required.
+            {togglingDate && (
+              <span className="ml-1 text-muted-foreground">Updating…</span>
+            )}
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              type="date"
-              value={newBlockedDate}
-              onChange={(e) => setNewBlockedDate(e.target.value)}
-              disabled={loading}
-            />
-            <Input
-              type="text"
-              placeholder="Reason (optional)"
-              value={newBlockedReason}
-              onChange={(e) => setNewBlockedReason(e.target.value)}
-              disabled={loading}
-            />
-            <Button onClick={handleAddBlockedDate} disabled={loading || !newBlockedDate} size="sm">
-              <Plus className="size-4" />
-              Add
-            </Button>
-          </div>
+        <CardContent>
+          <ReservationCalendar
+            value=""
+            onChange={handleCalendarDateClick}
+            operatingWindows={windowsMap}
+            blockedDates={blockedDates}
+            adminMode={true}
+          />
 
-          {blockedDates.length > 0 ? (
-            <div className="space-y-2">
-              {blockedDates.map((date) => (
-                <div key={date} className="flex items-center justify-between rounded-lg border border-border/40 p-3">
-                  <span className="text-sm font-medium">
-                    {new Date(date + "T00:00:00").toLocaleDateString(undefined, {
-                      weekday: "long",
-                      month: "long",
+          {/* Blocked dates list */}
+          {blockedDates.length > 0 && (
+            <div className="mt-4 space-y-1 border-t border-border/40 pt-4">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {blockedDates.length} blocked {blockedDates.length === 1 ? "date" : "dates"}
+              </p>
+              {[...blockedDates].sort().map((d) => (
+                <div
+                  key={d}
+                  className="flex items-center justify-between rounded-sm border border-destructive/20 bg-destructive/5 px-2 py-1"
+                >
+                  <span className="text-xs text-destructive">
+                    {new Date(d + "T00:00:00").toLocaleDateString(undefined, {
+                      weekday: "short",
+                      month: "short",
                       day: "numeric",
                     })}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveBlockedDate(date)}
-                    disabled={loading}
-                    className="text-destructive hover:text-destructive"
+                  <button
+                    type="button"
+                    onClick={() => handleCalendarDateClick(d)}
+                    className="text-[10px] text-destructive/60 hover:text-destructive transition-colors"
                   >
-                    <Trash2 className="size-4" />
-                  </Button>
+                    Remove
+                  </button>
                 </div>
               ))}
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No blocked dates configured.</p>
           )}
         </CardContent>
       </Card>

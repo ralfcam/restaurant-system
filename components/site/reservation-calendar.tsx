@@ -25,6 +25,11 @@ interface ReservationCalendarProps {
   operatingWindows?: Record<number, OperatingWindow> | null
   /** Explicitly blocked dates as YYYY-MM-DD strings. */
   blockedDates?: string[]
+  /**
+   * Admin mode: disables past-date blocking and renders blocked dates with a
+   * danger style. Clicking any date fires onChange to toggle its blocked state.
+   */
+  adminMode?: boolean
 }
 
 export function ReservationCalendar({
@@ -33,6 +38,7 @@ export function ReservationCalendar({
   dark = false,
   operatingWindows,
   blockedDates = [],
+  adminMode = false,
 }: ReservationCalendarProps) {
   const [viewMonth, setViewMonth] = useState<Date>(() => {
     const date = value ? new Date(value + "T00:00:00") : new Date()
@@ -45,8 +51,12 @@ export function ReservationCalendar({
   // Build a Set of blocked dates for O(1) lookup
   const blockedSet = useMemo(() => new Set(blockedDates), [blockedDates])
 
-  // Compute disabled dates purely from props — no async work here
+  // Compute disabled dates purely from props — no async work here.
+  // In adminMode all dates are clickable; the component just renders
+  // blocked dates with a danger style instead of disabling them.
   const disabledDates = useMemo<Set<string>>(() => {
+    if (adminMode) return new Set<string>()
+
     const disabled = new Set<string>()
     const today = getTodayInRestaurantTZ()
     const todayDate = new Date(today + "T00:00:00")
@@ -81,7 +91,7 @@ export function ReservationCalendar({
     }
 
     return disabled
-  }, [viewMonth, effectiveWindows, blockedSet])
+  }, [adminMode, viewMonth, effectiveWindows, blockedSet])
 
   const handlePrevMonth = () => {
     setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -180,25 +190,32 @@ export function ReservationCalendar({
             const today = getTodayInRestaurantTZ()
             const isToday = dateISO === today
 
+            const isBlocked = blockedSet.has(dateISO)
+
             return (
               <button
                 key={`${weekIdx}-${dayIdx}`}
                 type="button"
-                onClick={() => { if (!disabledDates.has(dateISO)) onChange(dateISO) }}
+                onClick={() => { if (!isDisabled) onChange(dateISO) }}
                 disabled={isDisabled}
                 className={cn(
                   "w-6 h-6 text-[10px] font-medium rounded-sm transition-colors border",
                   "disabled:cursor-not-allowed disabled:opacity-15 disabled:line-through disabled:pointer-events-none",
                   isCurrentMonth ? "" : "opacity-30",
-                  isSelected && !isDisabled && (dark
+                  // Admin mode: blocked dates get danger highlight
+                  adminMode && isBlocked && (
+                    "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/60"
+                  ),
+                  // Normal selected state (only when not blocked in admin mode)
+                  isSelected && !isDisabled && !(adminMode && isBlocked) && (dark
                     ? "border-white bg-white text-zinc-950 font-semibold"
                     : "border-foreground bg-foreground text-background font-semibold"
                   ),
-                  isToday && !isSelected && !isDisabled && (dark
+                  isToday && !isSelected && !isDisabled && !(adminMode && isBlocked) && (dark
                     ? "border-white/50 bg-white/20 text-white font-semibold"
                     : "border-foreground/40 bg-foreground/8 text-foreground font-semibold"
                   ),
-                  !isSelected && !isToday && !isDisabled && (dark
+                  !isSelected && !isToday && !isDisabled && !(adminMode && isBlocked) && (dark
                     ? "border-white/20 text-white/80 hover:border-white/40 hover:bg-white/10"
                     : "border-border/60 text-foreground hover:border-foreground/40 hover:bg-secondary"
                   ),

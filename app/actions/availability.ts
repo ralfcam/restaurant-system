@@ -173,6 +173,69 @@ export async function updateOperatingWindow(
 }
 
 /**
+ * Upsert all 7 operating windows in a single batch (admin Save Changes action).
+ * Uses UPSERT so the database values persist and override the client-side seed.
+ */
+export async function upsertOperatingWindows(
+  windows: OperatingWindow[],
+): Promise<{ error?: string }> {
+  const supabase = createAnonClient()
+
+  const { error } = await supabase
+    .from("operating_windows")
+    .upsert(
+      windows.map((w) => ({
+        day_of_week: w.day_of_week,
+        opens_at: w.opens_at,
+        closes_at: w.closes_at,
+        is_closed: w.is_closed,
+      })),
+      { onConflict: "day_of_week" },
+    )
+
+  if (error) {
+    console.error("[availability] upsertOperatingWindows error:", error.message)
+    return { error: error.message }
+  }
+
+  return {}
+}
+
+/**
+ * Toggle a blocked date — inserts if not present, deletes if already blocked.
+ * Returns whether the date is now blocked (true) or unblocked (false).
+ */
+export async function toggleBlockedDate(
+  dateISO: string,
+): Promise<{ blocked: boolean; error?: string }> {
+  const supabase = createAnonClient()
+
+  // Check current state
+  const { data } = await supabase
+    .from("blocked_dates")
+    .select("blocked_date")
+    .eq("blocked_date", dateISO)
+    .maybeSingle()
+
+  if (data) {
+    // Already blocked — remove it
+    const { error } = await supabase
+      .from("blocked_dates")
+      .delete()
+      .eq("blocked_date", dateISO)
+    if (error) return { blocked: true, error: error.message }
+    return { blocked: false }
+  } else {
+    // Not blocked — add it
+    const { error } = await supabase
+      .from("blocked_dates")
+      .insert({ blocked_date: dateISO, reason: null })
+    if (error) return { blocked: false, error: error.message }
+    return { blocked: true }
+  }
+}
+
+/**
  * Add a blocked date (admin action).
  */
 export async function addBlockedDate(dateISO: string, reason?: string): Promise<{ error?: string }> {
