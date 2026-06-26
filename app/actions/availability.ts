@@ -176,10 +176,11 @@ export async function updateOperatingWindow(
 /**
  * Upsert all 7 operating windows in a single batch (admin Save Changes action).
  * Uses UPSERT so the database values persist and override the client-side seed.
+ * Returns a strict { success: true } | { success: false; error: string } contract.
  */
 export async function upsertOperatingWindows(
   windows: OperatingWindow[],
-): Promise<{ error?: string }> {
+): Promise<{ success: true } | { success: false; error: string }> {
   const supabase = createServiceClient()
 
   const { error } = await supabase
@@ -196,10 +197,10 @@ export async function upsertOperatingWindows(
 
   if (error) {
     console.error("[availability] upsertOperatingWindows error:", error.message)
-    return { error: error.message }
+    return { success: false, error: error.message }
   }
 
-  return {}
+  return { success: true }
 }
 
 /**

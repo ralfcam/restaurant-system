@@ -67,12 +67,19 @@ export function SchedulingManager({
 
   const handleSaveHours = async () => {
     setSavingHours(true)
-    const result = await upsertOperatingWindows(windows)
-    setSavingHours(false)
-    if (result.error) {
-      toast.error("Failed to save operating hours", { description: result.error })
-    } else {
-      toast.success("Operating hours saved")
+    try {
+      const result = await upsertOperatingWindows(windows)
+      if (result.success) {
+        toast.success("Operating hours updated successfully.")
+      } else {
+        toast.error("Failed to save", { description: result.error })
+      }
+    } catch (err) {
+      toast.error("Failed to save", {
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      })
+    } finally {
+      setSavingHours(false)
     }
   }
 
