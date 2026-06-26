@@ -53,10 +53,10 @@ export default function HomePage() {
             alt="Warm restaurant dining room at golden hour"
             fill
             priority
-            className="object-cover brightness-[0.42] saturate-[0.80] animate-slow-zoom"
+            className="object-cover brightness-[0.48] saturate-[0.90] animate-slow-zoom"
           />
-          {/* Dynamic radial gradient overlay */}
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-black/20 via-black/50 to-black/80" />
+          {/* Radial gradient — darker at edges, open at centre to let the green walls breathe */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-black/10 via-black/45 to-black/75" />
           {/* Bottom fade */}
           <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
         </div>
