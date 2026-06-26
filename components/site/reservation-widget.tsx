@@ -110,12 +110,31 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const [slots, setSlots] = useState<SlotAvailability[]>([])
   const [loadingSlots, setLoadingSlots] = useState(true)
 
+  // Cache for slot availability to avoid redundant server requests
+  const slotCacheRef = useRef<Record<string, SlotAvailability[]>>({})
+  // Debounce timer for fetch requests
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const partyNum = Number(party)
   const overCapacity = partyNum > MAX_CAPACITY
 
   const fetchSlots = useCallback(async (d: string, p: number) => {
+    const cacheKey = `${d}-${p}`
+    
+    // Check cache first — if available, use it immediately without loading state
+    if (slotCacheRef.current[cacheKey]) {
+      setSlots(slotCacheRef.current[cacheKey])
+      setLoadingSlots(false)
+      return
+    }
+    
+    // Show loading state and fetch from server
     setLoadingSlots(true)
     const result = await getAvailableSlots(d, p)
+    
+    // Store in cache for future requests
+    slotCacheRef.current[cacheKey] = result
+    
     // Always set slots, regardless of availability. This ensures the UI
     // can render the "No availability for this date" message without
     // triggering an infinite loop by trying to auto-advance the date.
@@ -130,10 +149,27 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
     setDate(getMinBookableDate())
   }, [])
 
+  // Debounced slot fetching to prevent slamming the server with rapid requests
   useEffect(() => {
     if (!date) return
     if (overCapacity) { setSlots([]); setLoadingSlots(false); return }
-    fetchSlots(date, partyNum)
+    
+    // Clear any pending debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // Set a new debounce timer (300ms delay before fetching)
+    debounceTimerRef.current = setTimeout(() => {
+      fetchSlots(date, partyNum)
+    }, 300)
+    
+    // Cleanup: clear timer on unmount or if dependencies change
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
   }, [date, partyNum, overCapacity, fetchSlots])
 
   function pickSlot(time: string) {
@@ -349,7 +385,19 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               {loadingSlots ? (
                 <div className="mt-2 grid grid-cols-5 gap-2">
                   {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className={cn("h-9 animate-pulse rounded-full", dark ? "bg-white/10" : "bg-muted")} />
+                    <div
+                      key={i}
+                      className={cn(
+                        "h-9 w-full rounded-full border animate-pulse",
+                        dark
+                          ? "border-white/10 bg-white/5"
+                          : "border-border/20 bg-muted/50"
+                      )}
+                      style={{
+                        animationDelay: `${i * 40}ms`,
+                        animationDuration: "1.5s",
+                      }}
+                    />
                   ))}
                 </div>
               ) : slots.length === 0 || !slots.some((s) => s.available) ? (
