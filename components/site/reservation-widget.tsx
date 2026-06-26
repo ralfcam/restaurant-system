@@ -90,7 +90,12 @@ function StepPanel({
 // ─── Component ──────────────────────────────────────────────────────────────
 export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const [party, setParty] = useState("2")
-  const [date, setDate] = useState(firstAvailableDate)
+  // Date is intentionally empty on first render (server + first client paint)
+  // to avoid a hydration mismatch — `firstAvailableDate()` depends on the
+  // local clock/timezone, which differs between server (UTC) and browser.
+  // It's populated in a mount effect below.
+  const [mounted, setMounted] = useState(false)
+  const [date, setDate] = useState("")
   const [slot, setSlot] = useState<string | null>(null)
   const [step, setStep] = useState<1 | 2 | 3>(1) // 1=select, 2=details, 3=done
   const [name, setName] = useState("")
@@ -118,7 +123,14 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
     setLoadingSlots(false)
   }, [])
 
+  // Populate the real date once on the client, after hydration.
   useEffect(() => {
+    setMounted(true)
+    setDate(firstAvailableDate())
+  }, [])
+
+  useEffect(() => {
+    if (!date) return
     if (overCapacity) { setSlots([]); setLoadingSlots(false); return }
     fetchSlots(date, partyNum)
   }, [date, partyNum, overCapacity, fetchSlots])
@@ -269,7 +281,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                 id="res-date"
                 type="date"
                 value={date}
-                min={todayISO()}
+                min={mounted ? todayISO() : undefined}
                 onChange={(e) => { if (e.target.value) { setDate(e.target.value); setSlot(null) } }}
                 style={{ colorScheme: dark ? "dark" : "light", accentColor: dark ? "#C45A3B" : undefined }}
                 className={cn(
