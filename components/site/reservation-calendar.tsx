@@ -1,72 +1,87 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
-import { getTodayInRestaurantTZ } from "@/lib/timezone"
+import { getTodayInRestaurantTZ, getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
+import type { OperatingWindow } from "@/app/actions/availability"
+
+// Safe fallback: Mon–Sat open, Sunday closed — matches the most common restaurant schedule
+const FALLBACK_OPERATING_WINDOWS: Record<number, OperatingWindow> = {
+  0: { day_of_week: 0, opens_at: "17:00", closes_at: "22:00", is_closed: true },  // Sunday — closed
+  1: { day_of_week: 1, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+  2: { day_of_week: 2, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+  3: { day_of_week: 3, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+  4: { day_of_week: 4, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+  5: { day_of_week: 5, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+  6: { day_of_week: 6, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+}
 
 interface ReservationCalendarProps {
   value: string
   onChange: (date: string) => void
   dark?: boolean
+  /** Operating windows keyed by day_of_week (0=Sun…6=Sat). Null while loading. */
+  operatingWindows?: Record<number, OperatingWindow> | null
+  /** Explicitly blocked dates as YYYY-MM-DD strings. */
+  blockedDates?: string[]
 }
 
-export function ReservationCalendar({ value, onChange, dark = false }: ReservationCalendarProps) {
+export function ReservationCalendar({
+  value,
+  onChange,
+  dark = false,
+  operatingWindows,
+  blockedDates = [],
+}: ReservationCalendarProps) {
   const [viewMonth, setViewMonth] = useState<Date>(() => {
-    // Initialize to the month of the selected value or today
     const date = value ? new Date(value + "T00:00:00") : new Date()
     return new Date(date.getFullYear(), date.getMonth(), 1)
   })
 
-  const [disabledDates, setDisabledDates] = useState<Set<string>>(new Set())
-  const [loading, setLoading] = useState(true)
+  // Resolve the effective operating windows — use prop if loaded, else fallback
+  const effectiveWindows = operatingWindows ?? FALLBACK_OPERATING_WINDOWS
 
-  // Load disabled dates and blocked dates on mount and when view month changes
-  useEffect(() => {
-    const loadDisabledDates = async () => {
-      setLoading(true)
-      const disabled = new Set<string>()
-      const today = getTodayInRestaurantTZ()
-      const todayDate = new Date(today + "T00:00:00")
+  // Build a Set of blocked dates for O(1) lookup
+  const blockedSet = useMemo(() => new Set(blockedDates), [blockedDates])
 
-      // Generate all dates in the current view (6 weeks = 42 days)
-      const startDate = new Date(viewMonth)
-      startDate.setDate(1)
-      startDate.setDate(startDate.getDate() - startDate.getDay()) // Start from Sunday
+  // Compute disabled dates purely from props — no async work here
+  const disabledDates = useMemo<Set<string>>(() => {
+    const disabled = new Set<string>()
+    const today = getTodayInRestaurantTZ()
+    const todayDate = new Date(today + "T00:00:00")
 
-      for (let i = 0; i < 42; i++) {
-        const d = new Date(startDate)
-        d.setDate(d.getDate() + i)
-        const dateISO = d.toISOString().split("T")[0]
+    const startDate = new Date(viewMonth)
+    startDate.setDate(1)
+    startDate.setDate(startDate.getDate() - startDate.getDay())
 
-        // Disable past dates
-        if (d < todayDate) {
-          disabled.add(dateISO)
-          continue
-        }
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(startDate)
+      d.setDate(d.getDate() + i)
+      const dateISO = d.toISOString().split("T")[0]
 
-        // Get operating window for this day
-        const opWindow = await getOperatingWindowForDate(dateISO)
-        if (!opWindow || opWindow.is_closed) {
-          disabled.add(dateISO)
-          continue
-        }
-
-        // Check if explicitly blocked
-        const blocked = await isDateBlocked(dateISO)
-        if (blocked) {
-          disabled.add(dateISO)
-          continue
-        }
+      // Past dates
+      if (d < todayDate) {
+        disabled.add(dateISO)
+        continue
       }
 
-      setDisabledDates(disabled)
-      setLoading(false)
+      // Explicitly blocked dates (admin overrides)
+      if (blockedSet.has(dateISO)) {
+        disabled.add(dateISO)
+        continue
+      }
+
+      // Dynamic operating schedule — uses timezone-safe day-of-week resolution
+      const dow = getDayOfWeekInRestaurantTZ(dateISO)
+      const window = effectiveWindows[dow]
+      if (!window || window.is_closed) {
+        disabled.add(dateISO)
+      }
     }
 
-    loadDisabledDates()
-  }, [viewMonth])
+    return disabled
+  }, [viewMonth, effectiveWindows, blockedSet])
 
   const handlePrevMonth = () => {
     setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))
@@ -74,12 +89,6 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
 
   const handleNextMonth = () => {
     setViewMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))
-  }
-
-  const handleDateClick = (date: string) => {
-    if (!disabledDates.has(date)) {
-      onChange(date)
-    }
   }
 
   // Generate calendar grid
@@ -175,7 +184,7 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
               <button
                 key={`${weekIdx}-${dayIdx}`}
                 type="button"
-                onClick={() => handleDateClick(dateISO)}
+                onClick={() => { if (!disabledDates.has(dateISO)) onChange(dateISO) }}
                 disabled={isDisabled}
                 className={cn(
                   "w-6 h-6 text-[10px] font-medium rounded-sm transition-colors border",
@@ -202,12 +211,13 @@ export function ReservationCalendar({ value, onChange, dark = false }: Reservati
         )}
       </div>
 
-      {loading && (
+      {/* Show a subtle hint while the parent is still loading operating rules */}
+      {!operatingWindows && (
         <div className={cn(
-          "text-center text-[10px] mt-2 py-1 font-medium",
-          dark ? "text-white/70" : "text-foreground/70",
+          "text-center text-[10px] mt-2 py-1",
+          dark ? "text-white/40" : "text-foreground/40",
         )}>
-          Loading availability...
+          Loading schedule...
         </div>
       )}
     </div>

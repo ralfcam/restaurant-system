@@ -85,6 +85,54 @@ export async function getBlockedDatesInMonth(year: number, month: number): Promi
 }
 
 /**
+ * Fetch all operating windows as a map keyed by day_of_week.
+ * Used by the calendar to evaluate disabled dates without per-date server calls.
+ * Falls back to safe defaults (all days open) if the table doesn't exist yet.
+ */
+export async function getAllOperatingWindowsMap(): Promise<Record<number, OperatingWindow>> {
+  const DEFAULT_HOURS: Record<number, OperatingWindow> = {
+    0: { day_of_week: 0, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    1: { day_of_week: 1, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    2: { day_of_week: 2, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    3: { day_of_week: 3, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    4: { day_of_week: 4, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    5: { day_of_week: 5, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    6: { day_of_week: 6, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+  }
+
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("operating_windows")
+    .select("day_of_week, opens_at, closes_at, is_closed")
+
+  if (error || !data || data.length === 0) {
+    return DEFAULT_HOURS
+  }
+
+  const map: Record<number, OperatingWindow> = { ...DEFAULT_HOURS }
+  for (const row of data) {
+    map[row.day_of_week] = row as OperatingWindow
+  }
+  return map
+}
+
+/**
+ * Fetch all blocked dates within a date range (inclusive).
+ * Used by the calendar to bulk-evaluate disabled dates without per-date server calls.
+ */
+export async function getBlockedDatesInRange(startISO: string, endISO: string): Promise<string[]> {
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("blocked_dates")
+    .select("blocked_date")
+    .gte("blocked_date", startISO)
+    .lte("blocked_date", endISO)
+
+  if (error) return []
+  return (data ?? []).map((row) => row.blocked_date as string)
+}
+
+/**
  * Fetch all operating windows (for admin configuration page).
  */
 export async function getAllOperatingWindows(): Promise<OperatingWindow[]> {

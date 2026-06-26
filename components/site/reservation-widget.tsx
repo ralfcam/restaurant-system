@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { TABLES, RESTAURANT } from "@/lib/data"
 
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
+import { getAllOperatingWindowsMap, getBlockedDatesInRange, type OperatingWindow } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
 import { ReservationCalendar } from "@/components/site/reservation-calendar"
 import { Button } from "@/components/ui/button"
@@ -109,6 +110,8 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const [confCode, setConfCode] = useState("")
   const [slots, setSlots] = useState<SlotAvailability[]>([])
   const [loadingSlots, setLoadingSlots] = useState(true)
+  const [operatingWindows, setOperatingWindows] = useState<Record<number, OperatingWindow> | null>(null)
+  const [blockedDates, setBlockedDates] = useState<string[]>([])
 
   // Cache for slot availability to avoid redundant server requests
   const slotCacheRef = useRef<Record<string, SlotAvailability[]>>({})
@@ -142,12 +145,24 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
     setLoadingSlots(false)
   }, [])
 
-  // Populate the real date once on the client, after hydration.
-  // Uses timezone-aware minimum bookable date from server.
+  // Populate the real date and fetch global scheduling rules on mount.
   useEffect(() => {
     setMounted(true)
     setDate(getMinBookableDate())
+
+    // Fetch the operating windows map once — drives calendar disabled state
+    getAllOperatingWindowsMap().then(setOperatingWindows)
   }, [])
+
+  // When the calendar dialog opens, refresh blocked dates for the next 3 months
+  useEffect(() => {
+    if (!isCalendarOpen) return
+    const today = getTodayInRestaurantTZ()
+    const end = new Date(today)
+    end.setMonth(end.getMonth() + 3)
+    const endISO = end.toISOString().split("T")[0]
+    getBlockedDatesInRange(today, endISO).then(setBlockedDates)
+  }, [isCalendarOpen])
 
   // Debounced slot fetching to prevent slamming the server with rapid requests
   useEffect(() => {
@@ -365,6 +380,8 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                         setIsCalendarOpen(false)
                       }}
                       dark={dark}
+                      operatingWindows={operatingWindows}
+                      blockedDates={blockedDates}
                     />
                   </DialogContent>
                 </Dialog>
