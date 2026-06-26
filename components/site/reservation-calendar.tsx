@@ -169,7 +169,7 @@ export function ReservationCalendar({
 
       {/* Weekday headers */}
       <div className="mb-1 grid grid-cols-7 gap-0.5">
-        {["S", "M", "T", "W", "T", "F", "S"].map((day) => (
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
           <div
             key={day}
             className={cn(
@@ -177,7 +177,7 @@ export function ReservationCalendar({
               dark ? "text-white/60" : "text-foreground/60",
             )}
           >
-            {day}
+            {day.charAt(0)}
           </div>
         ))}
       </div>
