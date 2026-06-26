@@ -7,6 +7,7 @@ import { TABLES, RESTAURANT } from "@/lib/data"
 
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
+import { ReservationCalendar } from "@/components/site/reservation-calendar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -282,26 +283,21 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               </p>
             </div>
 
-            {/* Date */}
+            {/* Date picker */}
             <div className="space-y-1.5">
-              <Label htmlFor="res-date" className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
+              <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
                 <CalendarDays className="size-3.5" /> Date
               </Label>
-              <input
-                id="res-date"
-                type="date"
-                value={date}
-                min={mounted ? getTodayInRestaurantTZ() : undefined}
-                onChange={(e) => { if (e.target.value) { setDate(e.target.value); setSlot(null) } }}
-                style={{ colorScheme: dark ? "dark" : "light", accentColor: dark ? "#C45A3B" : undefined }}
-                className={cn(
-                  "flex h-9 w-full rounded-lg border px-3 py-1 text-sm outline-none transition-colors",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                  dark
-                    ? "border-white/15 bg-white/10 text-white [&::-webkit-calendar-picker-indicator]:invert [&::-webkit-calendar-picker-indicator]:opacity-50 [&::-webkit-calendar-picker-indicator]:hover:opacity-100 focus:border-white/40 focus:ring-2 focus:ring-white/20"
-                    : "border-input bg-transparent focus:ring-2 focus:ring-ring/20",
-                )}
-              />
+              {mounted && (
+                <ReservationCalendar
+                  value={date}
+                  onChange={(newDate) => {
+                    setDate(newDate)
+                    setSlot(null)
+                  }}
+                  dark={dark}
+                />
+              )}
             </div>
           </div>
 
