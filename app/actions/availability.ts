@@ -1,7 +1,8 @@
 "use server"
 
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
-import { getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
+import { createServiceClient } from "@/lib/supabase/service"
+import { getDayOfWeekInRestaurantTZ, getTodayInRestaurantTZ } from "@/lib/timezone"
 
 export type OperatingWindow = {
   day_of_week: number
@@ -179,7 +180,7 @@ export async function updateOperatingWindow(
 export async function upsertOperatingWindows(
   windows: OperatingWindow[],
 ): Promise<{ error?: string }> {
-  const supabase = createAnonClient()
+  const supabase = createServiceClient()
 
   const { error } = await supabase
     .from("operating_windows")
@@ -208,13 +209,23 @@ export async function upsertOperatingWindows(
 export async function toggleBlockedDate(
   dateISO: string,
 ): Promise<{ blocked: boolean; error?: string }> {
-  const supabase = createAnonClient()
+  // Strictly re-format the incoming string through the restaurant timezone to
+  // guarantee the payload is always YYYY-MM-DD in Europe/Zurich, regardless of
+  // the caller's locale or clock skew.
+  const safeISO = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(dateISO + "T12:00:00")) // noon anchors the date safely
+
+  const supabase = createServiceClient()
 
   // Check current state
   const { data } = await supabase
     .from("blocked_dates")
     .select("blocked_date")
-    .eq("blocked_date", dateISO)
+    .eq("blocked_date", safeISO)
     .maybeSingle()
 
   if (data) {
@@ -222,14 +233,14 @@ export async function toggleBlockedDate(
     const { error } = await supabase
       .from("blocked_dates")
       .delete()
-      .eq("blocked_date", dateISO)
+      .eq("blocked_date", safeISO)
     if (error) return { blocked: true, error: error.message }
     return { blocked: false }
   } else {
     // Not blocked — add it
     const { error } = await supabase
       .from("blocked_dates")
-      .insert({ blocked_date: dateISO, reason: null })
+      .insert({ blocked_date: safeISO, reason: null })
     if (error) return { blocked: false, error: error.message }
     return { blocked: true }
   }

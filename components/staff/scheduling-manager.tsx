@@ -83,18 +83,43 @@ export function SchedulingManager({
     const dow = new Date(dateISO + "T00:00:00").getDay()
     if (windowsMap[dow]?.is_closed) return
 
-    setTogglingDate(dateISO)
-    const result = await toggleBlockedDate(dateISO)
-    setTogglingDate(null)
+    // Snapshot current state before optimistic update for rollback
+    const previousDates = blockedDates
 
-    if (result.error) {
-      toast.error("Failed to update blocked date", { description: result.error })
-      return
-    }
-
+    // Optimistically update UI immediately
+    const isCurrentlyBlocked = blockedDates.includes(dateISO)
     setBlockedDates((prev) =>
-      result.blocked ? [...prev, dateISO] : prev.filter((d) => d !== dateISO),
+      isCurrentlyBlocked ? prev.filter((d) => d !== dateISO) : [...prev, dateISO],
     )
+
+    setTogglingDate(dateISO)
+    try {
+      const result = await toggleBlockedDate(dateISO)
+      setTogglingDate(null)
+
+      if (result.error) {
+        // Rollback optimistic update on error
+        setBlockedDates(previousDates)
+        toast.error("Failed to update blocked date", {
+          description: result.error ?? "Database rejected the date block.",
+        })
+        return
+      }
+
+      // Reconcile with server truth in case our optimistic guess was wrong
+      setBlockedDates((prev) =>
+        result.blocked
+          ? prev.includes(dateISO) ? prev : [...prev, dateISO]
+          : prev.filter((d) => d !== dateISO),
+      )
+    } catch (err) {
+      // Rollback on unexpected network / server error
+      setTogglingDate(null)
+      setBlockedDates(previousDates)
+      toast.error("Failed to update blocked date", {
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      })
+    }
   }
 
   return (
