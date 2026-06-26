@@ -66,7 +66,9 @@ export function ReservationCalendar({
     for (let i = 0; i < 42; i++) {
       const d = new Date(startDate)
       d.setDate(d.getDate() + i)
-      const dateISO = d.toISOString().split("T")[0]
+      // Use local date components — toISOString() converts to UTC which can
+      // shift the date by ±1 day and cause the wrong DOW to be evaluated.
+      const dateISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 
       // Past dates — only blocked in guest mode, not admin mode
       if (!adminMode && d < todayDate) {
@@ -184,7 +186,13 @@ export function ReservationCalendar({
       <div className="grid grid-cols-7 gap-0.5">
         {weeks.map((week, weekIdx) =>
           week.map((date, dayIdx) => {
-            const dateISO = date.toISOString().split("T")[0]
+            // Build YYYY-MM-DD from local date components to avoid UTC timezone
+            // shift — toISOString() converts to UTC first which can shift the
+            // date by ±1 day in non-UTC environments.
+            const yy = date.getFullYear()
+            const mm = String(date.getMonth() + 1).padStart(2, "0")
+            const dd = String(date.getDate()).padStart(2, "0")
+            const dateISO = `${yy}-${mm}-${dd}`
             const isDisabled = disabledDates.has(dateISO)
             const isCurrentMonth = date.getMonth() === month
             const isSelected = value === dateISO

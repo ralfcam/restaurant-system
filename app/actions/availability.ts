@@ -222,11 +222,25 @@ export async function toggleBlockedDate(
   const supabase = createServiceClient()
 
   // Check current state
-  const { data } = await supabase
+  const { data, error: selectError } = await supabase
     .from("blocked_dates")
     .select("blocked_date")
     .eq("blocked_date", safeISO)
     .maybeSingle()
+
+  // PGRST116 = PostgREST schema cache miss (table doesn't exist or cache stale).
+  // Surface a structured developer message instead of silently failing.
+  if (selectError) {
+    if (selectError.code === "PGRST116" || selectError.message?.includes("schema cache")) {
+      return {
+        blocked: false,
+        error:
+          "Schema cache error: the `blocked_dates` table may not exist. " +
+          "Run the migration and execute `NOTIFY pgrst, 'reload schema';` in your SQL editor.",
+      }
+    }
+    return { blocked: false, error: selectError.message }
+  }
 
   if (data) {
     // Already blocked — remove it
@@ -241,7 +255,18 @@ export async function toggleBlockedDate(
     const { error } = await supabase
       .from("blocked_dates")
       .insert({ blocked_date: safeISO, reason: null })
-    if (error) return { blocked: false, error: error.message }
+    if (error) {
+      // Surface schema cache / missing table errors with actionable guidance
+      if (error.code === "PGRST116" || error.message?.includes("schema cache")) {
+        return {
+          blocked: false,
+          error:
+            "Schema cache error: the `blocked_dates` table may not exist. " +
+            "Run the migration and execute `NOTIFY pgrst, 'reload schema';` in your SQL editor.",
+        }
+      }
+      return { blocked: false, error: error.message }
+    }
     return { blocked: true }
   }
 }
