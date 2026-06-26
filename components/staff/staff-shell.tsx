@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation"
 import {
   LayoutDashboard,
   CalendarClock,
+  Clock,
   LayoutGrid,
   Receipt,
   ChefHat,
@@ -30,6 +31,7 @@ type StaffUser = { email?: string | null; name?: string | null } | null
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, role: "Admin" },
   { href: "/admin/reservations", label: "Reservations", icon: CalendarClock, role: "Admin" },
+  { href: "/admin/scheduling", label: "Scheduling", icon: Clock, role: "Admin" },
   { href: "/admin/floor", label: "Floor Plan", icon: LayoutGrid, role: "Admin" },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, role: "Admin" },
   { href: "/pos", label: "Point of Sale", icon: Receipt, role: "Cashier" },

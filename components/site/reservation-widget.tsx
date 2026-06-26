@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { TABLES, RESTAURANT } from "@/lib/data"
 
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
+import { getAllOperatingWindowsMap, getBlockedDatesInRange, type OperatingWindow } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
 import { ReservationCalendar } from "@/components/site/reservation-calendar"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
 const ONLINE_MAX_PARTY = 8
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= ONLINE_MAX_PARTY)
@@ -92,6 +100,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   // It's populated in a mount effect below.
   const [mounted, setMounted] = useState(false)
   const [date, setDate] = useState("")
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
   const [slot, setSlot] = useState<string | null>(null)
   const [step, setStep] = useState<1 | 2 | 3>(1) // 1=select, 2=details, 3=done
   const [name, setName] = useState("")
@@ -101,13 +110,34 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const [confCode, setConfCode] = useState("")
   const [slots, setSlots] = useState<SlotAvailability[]>([])
   const [loadingSlots, setLoadingSlots] = useState(true)
+  const [operatingWindows, setOperatingWindows] = useState<Record<number, OperatingWindow> | null>(null)
+  const [blockedDates, setBlockedDates] = useState<string[]>([])
+
+  // Cache for slot availability to avoid redundant server requests
+  const slotCacheRef = useRef<Record<string, SlotAvailability[]>>({})
+  // Debounce timer for fetch requests
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const partyNum = Number(party)
   const overCapacity = partyNum > MAX_CAPACITY
 
   const fetchSlots = useCallback(async (d: string, p: number) => {
+    const cacheKey = `${d}-${p}`
+    
+    // Check cache first — if available, use it immediately without loading state
+    if (slotCacheRef.current[cacheKey]) {
+      setSlots(slotCacheRef.current[cacheKey])
+      setLoadingSlots(false)
+      return
+    }
+    
+    // Show loading state and fetch from server
     setLoadingSlots(true)
     const result = await getAvailableSlots(d, p)
+    
+    // Store in cache for future requests
+    slotCacheRef.current[cacheKey] = result
+    
     // Always set slots, regardless of availability. This ensures the UI
     // can render the "No availability for this date" message without
     // triggering an infinite loop by trying to auto-advance the date.
@@ -115,17 +145,46 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
     setLoadingSlots(false)
   }, [])
 
-  // Populate the real date once on the client, after hydration.
-  // Uses timezone-aware minimum bookable date from server.
+  // Populate the real date and fetch global scheduling rules on mount.
   useEffect(() => {
     setMounted(true)
     setDate(getMinBookableDate())
+
+    // Fetch the operating windows map once — drives calendar disabled state
+    getAllOperatingWindowsMap().then(setOperatingWindows)
   }, [])
 
+  // When the calendar dialog opens, refresh blocked dates for the next 3 months
+  useEffect(() => {
+    if (!isCalendarOpen) return
+    const today = getTodayInRestaurantTZ()
+    const end = new Date(today)
+    end.setMonth(end.getMonth() + 3)
+    const endISO = end.toISOString().split("T")[0]
+    getBlockedDatesInRange(today, endISO).then(setBlockedDates)
+  }, [isCalendarOpen])
+
+  // Debounced slot fetching to prevent slamming the server with rapid requests
   useEffect(() => {
     if (!date) return
     if (overCapacity) { setSlots([]); setLoadingSlots(false); return }
-    fetchSlots(date, partyNum)
+    
+    // Clear any pending debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    
+    // Set a new debounce timer (300ms delay before fetching)
+    debounceTimerRef.current = setTimeout(() => {
+      fetchSlots(date, partyNum)
+    }, 300)
+    
+    // Cleanup: clear timer on unmount or if dependencies change
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+      }
+    }
   }, [date, partyNum, overCapacity, fetchSlots])
 
   function pickSlot(time: string) {
@@ -144,7 +203,25 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
       phone,
     })
     setSubmitting(false)
-    if (error) { toast.error("Could not confirm reservation", { description: error }); return }
+    if (error) {
+      // Detect database-level trigger rejections by their prefix and show a
+      // dedicated toast. Form inputs (name, phone, email) are intentionally
+      // NOT reset so the guest can pick a new slot without re-typing.
+      const isSlotError =
+        error.toLowerCase().includes("blocked") ||
+        error.toLowerCase().includes("operating hours") ||
+        error.toLowerCase().includes("closed")
+      if (isSlotError) {
+        setSlot(null)
+        setStep(1)
+        toast.error("Time slot unavailable", {
+          description: "This slot was just booked or is outside operating hours.",
+        })
+      } else {
+        toast.error("Could not confirm reservation", { description: error })
+      }
+      return
+    }
     setConfCode(code)
     setStep(3)
     toast.success("Reservation confirmed", {
@@ -283,20 +360,49 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               </p>
             </div>
 
-            {/* Date picker */}
+            {/* Date picker trigger */}
             <div className="space-y-1.5">
               <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
                 <CalendarDays className="size-3.5" /> Date
               </Label>
               {mounted && (
-                <ReservationCalendar
-                  value={date}
-                  onChange={(newDate) => {
-                    setDate(newDate)
-                    setSlot(null)
-                  }}
-                  dark={dark}
-                />
+                <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                  <DialogTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "w-full h-9 rounded-lg border px-3 flex items-center justify-between text-sm transition-colors",
+                        dark
+                          ? "border-white/15 bg-white/10 text-white hover:bg-white/15 focus:ring-2 focus:ring-white/20 focus:border-white/30"
+                          : "border-input bg-transparent hover:bg-secondary focus:ring-2 focus:ring-ring/20 focus:border-foreground/30",
+                      )}
+                    >
+                      <span>{date ? formatDate(date) : "Select a date"}</span>
+                      <CalendarDays className="size-3.5 opacity-60" />
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent showCloseButton={true} className={cn(
+                    "max-w-sm rounded-sm border border-border/40 bg-background p-6 shadow-none",
+                    dark ? "border-white/10 bg-zinc-950" : "bg-white border-border/60",
+                  )}>
+                    <DialogHeader>
+                      <DialogTitle className={cn("text-sm font-semibold tracking-wide", dark ? "text-white" : "text-foreground")}>
+                        Select a date
+                      </DialogTitle>
+                    </DialogHeader>
+                    <ReservationCalendar
+                      value={date}
+                      onChange={(newDate) => {
+                        setDate(newDate)
+                        setSlot(null)
+                        setIsCalendarOpen(false)
+                      }}
+                      dark={dark}
+                      operatingWindows={operatingWindows}
+                      blockedDates={blockedDates}
+                    />
+                  </DialogContent>
+                </Dialog>
               )}
             </div>
           </div>
@@ -314,7 +420,19 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               {loadingSlots ? (
                 <div className="mt-2 grid grid-cols-5 gap-2">
                   {Array.from({ length: 10 }).map((_, i) => (
-                    <div key={i} className={cn("h-9 animate-pulse rounded-full", dark ? "bg-white/10" : "bg-muted")} />
+                    <div
+                      key={i}
+                      className={cn(
+                        "h-9 w-full rounded-full border animate-pulse",
+                        dark
+                          ? "border-white/10 bg-white/5"
+                          : "border-border/20 bg-muted/50"
+                      )}
+                      style={{
+                        animationDelay: `${i * 40}ms`,
+                        animationDuration: "1.5s",
+                      }}
+                    />
                   ))}
                 </div>
               ) : slots.length === 0 || !slots.some((s) => s.available) ? (

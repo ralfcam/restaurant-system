@@ -90,6 +90,16 @@ export async function createReservation(payload: {
 
   if (error) {
     console.error("[reservations] createReservation error:", error.message, error.code, error.details)
+
+    // PostgreSQL trigger raises use ERRCODE P0001 (raise_exception).
+    // Supabase surfaces these as code "P0001" on the error object.
+    // Expose the trigger message directly — it is safe, user-facing prose.
+    if (error.code === "P0001" && error.message) {
+      // Strip the Postgres "ERROR: " prefix if present and return clean text.
+      const clean = error.message.replace(/^ERROR:\s*/i, "").trim()
+      return { confCode: "", error: clean }
+    }
+
     return { confCode: "", error: "Could not save your reservation. Please try again." }
   }
 

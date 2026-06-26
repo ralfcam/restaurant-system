@@ -1,7 +1,8 @@
 "use server"
 
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
-import { getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
+import { createServiceClient } from "@/lib/supabase/service"
+import { getDayOfWeekInRestaurantTZ, getTodayInRestaurantTZ } from "@/lib/timezone"
 
 export type OperatingWindow = {
   day_of_week: number
@@ -85,6 +86,54 @@ export async function getBlockedDatesInMonth(year: number, month: number): Promi
 }
 
 /**
+ * Fetch all operating windows as a map keyed by day_of_week.
+ * Used by the calendar to evaluate disabled dates without per-date server calls.
+ * Falls back to safe defaults (all days open) if the table doesn't exist yet.
+ */
+export async function getAllOperatingWindowsMap(): Promise<Record<number, OperatingWindow>> {
+  const DEFAULT_HOURS: Record<number, OperatingWindow> = {
+    0: { day_of_week: 0, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    1: { day_of_week: 1, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    2: { day_of_week: 2, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    3: { day_of_week: 3, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    4: { day_of_week: 4, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    5: { day_of_week: 5, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+    6: { day_of_week: 6, opens_at: "17:00", closes_at: "22:00", is_closed: false },
+  }
+
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("operating_windows")
+    .select("day_of_week, opens_at, closes_at, is_closed")
+
+  if (error || !data || data.length === 0) {
+    return DEFAULT_HOURS
+  }
+
+  const map: Record<number, OperatingWindow> = { ...DEFAULT_HOURS }
+  for (const row of data) {
+    map[row.day_of_week] = row as OperatingWindow
+  }
+  return map
+}
+
+/**
+ * Fetch all blocked dates within a date range (inclusive).
+ * Used by the calendar to bulk-evaluate disabled dates without per-date server calls.
+ */
+export async function getBlockedDatesInRange(startISO: string, endISO: string): Promise<string[]> {
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("blocked_dates")
+    .select("blocked_date")
+    .gte("blocked_date", startISO)
+    .lte("blocked_date", endISO)
+
+  if (error) return []
+  return (data ?? []).map((row) => row.blocked_date as string)
+}
+
+/**
  * Fetch all operating windows (for admin configuration page).
  */
 export async function getAllOperatingWindows(): Promise<OperatingWindow[]> {
@@ -122,6 +171,79 @@ export async function updateOperatingWindow(
   }
 
   return {}
+}
+
+/**
+ * Upsert all 7 operating windows in a single batch (admin Save Changes action).
+ * Uses UPSERT so the database values persist and override the client-side seed.
+ */
+export async function upsertOperatingWindows(
+  windows: OperatingWindow[],
+): Promise<{ error?: string }> {
+  const supabase = createServiceClient()
+
+  const { error } = await supabase
+    .from("operating_windows")
+    .upsert(
+      windows.map((w) => ({
+        day_of_week: w.day_of_week,
+        opens_at: w.opens_at,
+        closes_at: w.closes_at,
+        is_closed: w.is_closed,
+      })),
+      { onConflict: "day_of_week" },
+    )
+
+  if (error) {
+    console.error("[availability] upsertOperatingWindows error:", error.message)
+    return { error: error.message }
+  }
+
+  return {}
+}
+
+/**
+ * Toggle a blocked date — inserts if not present, deletes if already blocked.
+ * Returns whether the date is now blocked (true) or unblocked (false).
+ */
+export async function toggleBlockedDate(
+  dateISO: string,
+): Promise<{ blocked: boolean; error?: string }> {
+  // Strictly re-format the incoming string through the restaurant timezone to
+  // guarantee the payload is always YYYY-MM-DD in Europe/Zurich, regardless of
+  // the caller's locale or clock skew.
+  const safeISO = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Zurich",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(dateISO + "T12:00:00")) // noon anchors the date safely
+
+  const supabase = createServiceClient()
+
+  // Check current state
+  const { data } = await supabase
+    .from("blocked_dates")
+    .select("blocked_date")
+    .eq("blocked_date", safeISO)
+    .maybeSingle()
+
+  if (data) {
+    // Already blocked — remove it
+    const { error } = await supabase
+      .from("blocked_dates")
+      .delete()
+      .eq("blocked_date", safeISO)
+    if (error) return { blocked: true, error: error.message }
+    return { blocked: false }
+  } else {
+    // Not blocked — add it
+    const { error } = await supabase
+      .from("blocked_dates")
+      .insert({ blocked_date: safeISO, reason: null })
+    if (error) return { blocked: false, error: error.message }
+    return { blocked: true }
+  }
 }
 
 /**
