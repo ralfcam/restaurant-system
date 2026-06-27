@@ -1,7 +1,8 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { ReservationsManager } from "@/components/staff/reservations-manager"
-import { getReservationsForDate } from "@/app/actions/reservations"
+import { getReservationsByDate } from "@/app/actions/reservations"
 import { getAuthUser } from "@/app/actions/auth"
+import { getTodayInRestaurantTZ } from "@/lib/timezone"
 
 export const dynamic = "force-dynamic"
 
@@ -11,11 +12,13 @@ export default async function ReservationsPage({
   searchParams: Promise<{ date?: string }>
 }) {
   const { date: dateParam } = await searchParams
-  const today = new Date().toISOString().slice(0, 10)
+  // Use the restaurant's local timezone to determine "today" — avoids UTC
+  // midnight boundary mismatches when the server runs in a different TZ.
+  const today = getTodayInRestaurantTZ()
   const selectedDate = dateParam ?? today
 
   const [reservations, authUser] = await Promise.all([
-    getReservationsForDate(selectedDate),
+    getReservationsByDate(selectedDate),
     getAuthUser(),
   ])
 

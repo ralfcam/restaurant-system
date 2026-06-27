@@ -1,11 +1,11 @@
 "use client"
 
-import { useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { Search, Phone, Check, Armchair, X, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { type ReservationStatus } from "@/lib/data"
-import { type ReservationRow, updateReservationStatus } from "@/app/actions/reservations"
+import { type ReservationRow, updateReservationStatus, getReservationsByDate } from "@/app/actions/reservations"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -83,6 +83,21 @@ export function ReservationsManager({
   )
   const [tab, setTab] = useState<Tab>("all")
   const [query, setQuery] = useState("")
+  const [loadingDate, setLoadingDate] = useState(false)
+
+  // Refetch whenever the admin navigates to a new date. The server action uses
+  // the service-role client so RLS never filters out rows on the admin side.
+  useEffect(() => {
+    let cancelled = false
+    setLoadingDate(true)
+    getReservationsByDate(currentDate).then((rows) => {
+      if (!cancelled) {
+        setReservations(rows.map(rowToReservation))
+        setLoadingDate(false)
+      }
+    })
+    return () => { cancelled = true }
+  }, [currentDate])
 
   function navigateToDate(date: string) {
     startTransition(() => {
@@ -209,7 +224,7 @@ export function ReservationsManager({
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+      <div className={cn("mt-4 overflow-hidden rounded-xl border border-border bg-card transition-opacity", loadingDate && "opacity-50 pointer-events-none")}>
         {/* Header row (desktop) */}
         <div className="hidden grid-cols-[80px_1fr_120px_120px_140px] gap-4 border-b border-border bg-secondary/50 px-5 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid">
           <span>Time</span>
