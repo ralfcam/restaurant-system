@@ -43,6 +43,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Plan | Shipped | Docs updated |
 | --- | --- | --- |
 | Shared Site Header + 48px Logo | 2026-06-27 | `specs/site-chrome.md`, `specs/README.md`, `testing/Design-And-Patterns.md` |
+| REAZED-276 single homepage (SC-5) | 2026-06-27 | `specs/site-chrome.md` (SC-5), `testing/Design-And-Patterns.md`; removes flat `app/page.tsx` |
 
 ## Seed path
 
