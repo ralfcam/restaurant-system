@@ -125,6 +125,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
   const partyNum = Number(party)
   const overCapacity = partyNum > MAX_CAPACITY
   const displaySlots = overCapacity ? [] : slots
+  const availableSlots = displaySlots.filter((s) => s.available)
   const displayLoadingSlots = overCapacity ? false : loadingSlots
 
   const fetchSlots = useCallback(async (d: string, p: number) => {
@@ -463,24 +464,22 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                     />
                   ))}
                 </div>
-              ) : displaySlots.length === 0 || !displaySlots.some((s) => s.available) ? (
+              ) : availableSlots.length === 0 ? (
                 <p className={cn("mt-2 text-sm tracking-wide", dark ? "text-white/50" : "text-muted-foreground")}>
                   No availability for this date. Try another day.
                 </p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2 max-h-[320px] overflow-y-auto overscroll-contain pr-3" style={{ scrollbarWidth: 'thin' }}>
-                  {displaySlots.map(({ time, available }) => (
+                  {availableSlots.map(({ time }) => (
                     <button
                       key={time}
                       type="button"
-                      disabled={!available}
                       onClick={() => pickSlot(time)}
                       className={cn(
-                        "w-16 rounded-full border py-2 text-center text-xs font-medium tracking-wide transition-all duration-150",
-                        dark && !available  && "cursor-not-allowed border-white/8 bg-white/4 text-white/20 line-through",
-                        dark && available   && "border-white/20 bg-white/8 text-white/80 hover:border-white/50 hover:bg-white/15 hover:text-white active:scale-95",
-                        !dark && !available && "cursor-not-allowed border-border bg-muted text-muted-foreground/40 line-through",
-                        !dark && available  && "border-border bg-background hover:border-primary/60 hover:text-primary active:scale-95",
+                        "w-16 rounded-full border py-2 text-center text-xs font-medium tracking-wide transition-all duration-150 active:scale-95",
+                        dark
+                          ? "border-white/20 bg-white/8 text-white/80 hover:border-white/50 hover:bg-white/15 hover:text-white"
+                          : "border-border bg-background hover:border-primary/60 hover:text-primary",
                       )}
                     >
                       {time}
