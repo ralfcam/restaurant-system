@@ -16,7 +16,7 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'Tavola — Restaurant Management & Reservations',
+  title: 'äkta — Restaurant Management & Reservations',
   description:
     'Reservations, digital menus, floor planning, POS and kitchen display — one platform to run your restaurant.',
   generator: 'v0.app',

@@ -156,7 +156,7 @@ export default function HomePage() {
             {/* Subtext */}
             <p className="mt-5 max-w-sm text-pretty text-base leading-relaxed text-white/65 md:text-[17px]">
               Browse our seasonal menu, pick your time, and book instantly. No
-              calls, no waiting — just great food at {RESTAURANT.name}.
+              calls, no waiting — just great food at äkta.
             </p>
 
             {/* ── Booking card ── */}
@@ -306,7 +306,7 @@ export default function HomePage() {
       <footer className="border-t border-zinc-800 bg-zinc-950">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 md:flex-row md:px-8">
           <p className="text-sm text-zinc-300">
-            © {new Date().getFullYear()} {RESTAURANT.name}. {RESTAURANT.address}.
+            © {new Date().getFullYear()} äkta. {RESTAURANT.address}.
           </p>
           <Link
             href="/admin"

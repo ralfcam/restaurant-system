@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { revalidatePath } from "next/cache"
 import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
@@ -125,6 +126,31 @@ export async function getReservationsForDate(
   }
 
   return data as ReservationRow[]
+}
+
+/**
+ * Admin-privileged fetch of all reservations for a given date (YYYY-MM-DD).
+ * Uses the service-role client to bypass RLS — safe only in server actions.
+ * The `date` column is a native DATE type so simple equality is correct; no
+ * timezone boundary arithmetic is needed for this schema.
+ */
+export async function getReservationsByDate(
+  date: string,
+): Promise<ReservationRow[]> {
+  const supabase = createServiceClient()
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("*")
+    .eq("date", date)
+    .order("time", { ascending: true })
+
+  if (error) {
+    console.error("[reservations] getReservationsByDate error:", error.message)
+    return []
+  }
+
+  return (data ?? []) as ReservationRow[]
 }
 
 /** Fetch reservations across a date range (or all if no bounds given). */
