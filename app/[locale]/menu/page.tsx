@@ -1,4 +1,5 @@
 import { QrCode } from "lucide-react"
+import Image from "next/image"
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 import { RESTAURANT } from "@/lib/data"
@@ -34,15 +35,25 @@ export default async function MenuPage({ params }: PageProps) {
     <div className="min-h-screen bg-background">
       <SiteHeader />
 
-      <section className="border-b border-border bg-secondary/40">
-        <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 px-4 py-12 text-center md:px-6">
-          <span className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
+      <section className="relative isolate overflow-hidden border-b border-border">
+        <Image
+          src="/images/bar-counter.png"
+          alt="Restaurant bar and prep counter"
+          fill
+          sizes="100vw"
+          priority
+          className="-z-10 object-cover brightness-[0.32] saturate-75"
+        />
+        <div className="absolute inset-0 -z-10 bg-[oklch(0.18_0.018_40/0.82)]" />
+
+        <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 px-4 pb-12 pt-24 text-center md:px-6">
+          <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-sm font-medium text-white/90 backdrop-blur-sm">
             <QrCode className="size-4" /> {t("badge")}
           </span>
-          <h1 className="font-heading text-4xl font-semibold">
+          <h1 className="font-heading text-4xl font-semibold text-white">
             {t("title", { name: RESTAURANT.name })}
           </h1>
-          <p className="max-w-md text-pretty text-muted-foreground">
+          <p className="max-w-md text-pretty text-white/65">
             {t("description", { tagline: RESTAURANT.tagline })}
           </p>
           <Button className="mt-2" render={<Link href="/#reserve" />}>

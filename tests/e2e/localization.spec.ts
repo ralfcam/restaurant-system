@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test"
 
-const FRENCH_HEADLINE = "Une place à table, réservée en quelques secondes."
-const ENGLISH_HEADLINE = "A seat at the table, reserved in seconds."
+const FRENCH_HEADLINE =
+  "Une cuisine suisse moderne mariée à la pureté et la rigueur de la philosophie nordique."
+const ENGLISH_HEADLINE =
+  "Modern Swiss cuisine married to the purity and rigor of Nordic philosophy."
 
 test.describe("site localization", () => {
   test("admin stays unlocalized", async ({ page }) => {

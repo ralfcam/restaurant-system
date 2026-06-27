@@ -45,16 +45,15 @@ export default function HomePage() {
               {t("hero.tagline")}
             </span>
 
-            <h1
-              className="mt-6 font-heading text-5xl font-semibold leading-[1.05] tracking-tighter text-white text-balance md:text-6xl lg:text-7xl"
-              style={{ textShadow: "0 4px 12px rgba(0,0,0,0.5)" }}
-            >
-              {t("hero.headline")}
-            </h1>
+            <div className="mt-6 rounded-2xl bg-black/30 px-5 py-5 backdrop-blur-sm ring-1 ring-inset ring-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
+              <h1 className="font-heading text-4xl font-semibold leading-[1.08] tracking-tighter text-white text-balance md:text-5xl lg:text-6xl [text-shadow:0_1px_2px_rgb(0_0_0/0.85),0_4px_16px_rgb(0_0_0/0.55)]">
+                {t("hero.headline")}
+              </h1>
 
-            <p className="mt-5 max-w-sm text-pretty text-base leading-relaxed text-white/65 md:text-[17px]">
-              {t("hero.subtext")}
-            </p>
+              <p className="mt-5 max-w-sm text-pretty text-base leading-relaxed text-white/80 md:text-[17px] [text-shadow:0_1px_2px_rgb(0_0_0/0.8),0_2px_8px_rgb(0_0_0/0.45)]">
+                {t("hero.subtext")}
+              </p>
+            </div>
 
             <div
               id="reserve"
