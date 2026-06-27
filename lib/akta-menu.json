@@ -1,0 +1,1031 @@
+[
+  {
+    "id": "midi",
+    "title": "Menu Midi",
+    "titleEn": "Lunch Menu",
+    "footerNote": "Formule Midi : Plat Seul 24.- | Entrée + Plat ou Plat + Dessert 31.- | Entrée + Plat + Dessert 38.-",
+    "footerNoteEn": "Lunch Set: Main Only 24.- | Starter + Main or Main + Dessert 31.- | Starter + Main + Dessert 38.-",
+    "sections": [
+      {
+        "title": "Les Entrées (au choix)",
+        "titleEn": "Starters (choose one)",
+        "items": [
+          {
+            "name": "Velouté froid de petits pois, menthe et mousse de brebis",
+            "nameEn": "Chilled green pea soup, mint and ewe's milk cheese mousse",
+            "description": "Velouté rafraîchissant de petits pois frais, menthe du potager et émulsion crémeuse de brebis",
+            "descriptionEn": "Refreshing cold green pea soup, garden mint, and creamy sheep's milk cheese emulsion",
+            "price": "11.-"
+          },
+          {
+            "name": "Salade de cervelas, cornichons, oignons rouges, tomate",
+            "nameEn": "Swiss cervelas salad with pickles, red onions, and tomatoes",
+            "description": "Salade croquante de cervelas traditionnel, cornichons, oignons rouges et tomates fraîches",
+            "descriptionEn": "Crunchy traditional Swiss cervelas salad, pickles, red onions, and fresh tomatoes",
+            "price": "13.-"
+          }
+        ]
+      },
+      {
+        "title": "Les Plats (au choix)",
+        "titleEn": "Mains (choose one)",
+        "items": [
+          {
+            "name": "Taboulé de saison, citrons confits, freekeh et amandes",
+            "nameEn": "Seasonal freekeh tabouleh, confit lemons, and almonds",
+            "description": "Taboulé de freekeh aux herbes fraîches, citrons confits maison et amandes torréfiées",
+            "descriptionEn": "Freekeh tabouleh with fresh herbs, homemade confit lemons, and toasted almonds",
+            "price": "25.-"
+          },
+          {
+            "name": "Parmentier de bœuf, salade verte",
+            "nameEn": "Beef Parmentier, green salad",
+            "description": "Effiloché de bœuf mijoté, purée gratinée maison et salade verte assaisonnée",
+            "descriptionEn": "Slow-cooked pulled beef, gratinéed mashed potatoes, and dressed green salad",
+            "price": "26.-"
+          }
+        ]
+      },
+      {
+        "title": "Les Desserts (au choix)",
+        "titleEn": "Desserts (choose one)",
+        "items": [
+          {
+            "name": "Cheesecake, compotée de rhubarbe",
+            "nameEn": "Cheesecake, rhubarb compote",
+            "description": "Cheesecake crémeux sur biscuit croustillant et compotée de rhubarbe acidulée",
+            "descriptionEn": "Creamy cheesecake on a crunchy crust with tangy rhubarb compote",
+            "price": "9.-"
+          },
+          {
+            "name": "Fromages de la maison Bruand",
+            "nameEn": "Cheese selection from Maison Bruand",
+            "description": "Assortiment de fromages locaux affinés sélectionnés par la maison Bruand à Genève",
+            "descriptionEn": "Assortment of aged local cheeses selected by Maison Bruand in Geneva",
+            "price": "12.-"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "soir",
+    "title": "Menu Soir",
+    "titleEn": "Dinner Menu",
+    "footerNote": "Tous nos plats sont conçus pour être partagés et sont préparés à partir d'ingrédients bruts et locaux.",
+    "footerNoteEn": "All our plates are designed to be shared and are prepared using raw and local ingredients.",
+    "sections": [
+      {
+        "title": "À grignoter (dès 18h)",
+        "titleEn": "Bites & Snacks (from 6pm)",
+        "items": [
+          {
+            "name": "Olives vertes giganti",
+            "nameEn": "Green giganti olives",
+            "description": "Olives vertes charnues marinées aux herbes et agrumes",
+            "descriptionEn": "Plump green olives marinated with herbs and citrus",
+            "price": "6.-"
+          },
+          {
+            "name": "Tartinade chèvre, toast de focaccia",
+            "nameEn": "Goat cheese spread, toasted focaccia",
+            "description": "Crème de chèvre frais aux herbes et toast de focaccia maison dorée",
+            "descriptionEn": "Fresh goat cheese spread with herbs and toasted homemade focaccia",
+            "price": "11.-"
+          },
+          {
+            "name": "Fromages de la maison Bruand",
+            "nameEn": "Fine cheeses from Maison Bruand",
+            "description": "Assortiment de fromages locaux affinés par la prestigieuse maison Bruand",
+            "descriptionEn": "Selection of local cheeses aged by the prestigious Maison Bruand",
+            "price": "17.-"
+          },
+          {
+            "name": "Nos Salaisons (Magret fumé, Bœuf séché, porc de Jussy)",
+            "nameEn": "Our Cured Meats (Smoked duck, dried Beef, Jussy pork)",
+            "description": "Planche de salaisons locales : magret fumé maison, bœuf séché artisanal et porc de Jussy",
+            "descriptionEn": "Platter of local cured meats: homemade smoked duck breast, artisanal dried beef, and Jussy pork",
+            "price": "20.-"
+          }
+        ]
+      },
+      {
+        "title": "Les Assiettes Froides (dès 19h)",
+        "titleEn": "Cold Plates (from 7pm)",
+        "items": [
+          {
+            "name": "Petit pois, brebis, câpres",
+            "nameEn": "Green peas, sheep cheese, capers",
+            "description": "Petits pois frais, mousse de fromage de brebis et câpres de capucine maison",
+            "descriptionEn": "Fresh green peas, sheep's milk cheese mousse, and homemade nasturtium capers",
+            "price": "17.-"
+          },
+          {
+            "name": "Croquette de canard, carotte",
+            "nameEn": "Duck croquette, carrot",
+            "description": "Croquettes croustillantes de canard confit, texture de carottes locales",
+            "descriptionEn": "Crispy duck confit croquettes, textures of local carrots",
+            "price": "15.-"
+          },
+          {
+            "name": "Maquereau, concombre, citron",
+            "nameEn": "Mackerel, cucumber, lemon",
+            "description": "Filet de maquereau mariné, déclinaison de concombre frais et gel de citron",
+            "descriptionEn": "Marinated mackerel fillet, fresh cucumber variation, and lemon gel",
+            "price": "20.-"
+          }
+        ]
+      },
+      {
+        "title": "Les Assiettes Chaudes (dès 19h)",
+        "titleEn": "Hot Plates (from 7pm)",
+        "items": [
+          {
+            "name": "Riz croustillant, kimchi",
+            "nameEn": "Crispy rice, kimchi",
+            "description": "Riz croustillant doré à la poêle et kimchi de saison fait maison",
+            "descriptionEn": "Pan-seared crispy rice with homemade seasonal kimchi",
+            "price": "12.-"
+          },
+          {
+            "name": "Millefeuille pomme de terre, mayo paprika",
+            "nameEn": "Potato mille-feuille, paprika mayo",
+            "description": "Millefeuille croustillant de pommes de terre de la région et mayonnaise fumée au paprika",
+            "descriptionEn": "Crispy potato mille-feuille made with local potatoes and smoked paprika mayonnaise",
+            "price": "12.-"
+          },
+          {
+            "name": "Courgette, yaourt, tahini",
+            "nameEn": "Zucchini, yogurt, tahini",
+            "description": "Courgettes grillées, yaourt grec crémeux infusé et sauce tahini au sésame",
+            "descriptionEn": "Grilled zucchini, creamy infused yogurt, and sesame tahini sauce",
+            "price": "20.-"
+          },
+          {
+            "name": "Fenouil, amande, anis",
+            "nameEn": "Fennel, almond, anise",
+            "description": "Fenouil braisé au jus d'anis, éclats d'amandes grillées et huile d'herbes",
+            "descriptionEn": "Braised fennel with anise jus, toasted almonds, and herb oil",
+            "price": "20.-"
+          },
+          {
+            "name": "Os à moelle, gremolata",
+            "nameEn": "Marrow bone, gremolata",
+            "description": "Os à moelle rôti au four, gremolata fraîche au persil et zeste de citron (1 pc / 2 pcs)",
+            "descriptionEn": "Oven-roasted bone marrow, fresh parsley and lemon gremolata (1 pc / 2 pcs)",
+            "price": "14.- | 25.-"
+          },
+          {
+            "name": "Porc, patate douce, cacahuète",
+            "nameEn": "Pork, sweet potato, peanut",
+            "description": "Poitrine de porc de Jussy confite, mousseline de patate douce et éclats de cacahuètes",
+            "descriptionEn": "Confit Jussy pork belly, sweet potato mousseline, and crushed peanuts",
+            "price": "29.-"
+          },
+          {
+            "name": "Maigre de ligne",
+            "nameEn": "Line-caught meagre",
+            "description": "Filet de maigre de ligne cuit sur la peau, sauce émulsionnée aux herbes (tarif aux 100gr)",
+            "descriptionEn": "Line-caught meagre fillet cooked skin-on, emulsified herb sauce (priced per 100g)",
+            "price": "18.- / 100g"
+          },
+          {
+            "name": "Entrecôte de bœuf 350g",
+            "nameEn": "Beef ribeye steak 350g",
+            "description": "Entrecôte de bœuf locale (350g) cuite au sautoir, jus de viande réduit au thym",
+            "descriptionEn": "Local beef ribeye steak (350g) pan-seared, reduced meat jus with thyme",
+            "price": "50.-"
+          },
+          {
+            "name": "Côte de bœuf maturé 5 semaines 800g",
+            "nameEn": "Dry-aged beef rib 800g",
+            "description": "Côte de bœuf maturée 5 semaines sur os (env. 800g) à partager, ail confit et romarin",
+            "descriptionEn": "5-week dry-aged beef rib on the bone (approx. 800g) to share, confit garlic and rosemary",
+            "price": "115.-"
+          }
+        ]
+      },
+      {
+        "title": "Les Desserts (dès 19h)",
+        "titleEn": "Desserts (from 7pm)",
+        "items": [
+          {
+            "name": "Cerise, tuile, glace amande",
+            "nameEn": "Cherry, tuile, almond ice cream",
+            "description": "Cerises pochées aux épices douces, tuile croustillante et glace à l'amande amère",
+            "descriptionEn": "Poached cherries with sweet spices, crispy tuile, and bitter almond ice cream",
+            "price": "14.-"
+          },
+          {
+            "name": "Abricot, basilic, noisette",
+            "nameEn": "Apricot, basil, hazelnut",
+            "description": "Abricots rôtis, pesto de basilic frais et noisettes torréfiées concassées",
+            "descriptionEn": "Roasted apricots, fresh basil pesto, and crushed toasted hazelnuts",
+            "price": "14.-"
+          },
+          {
+            "name": "Sorbet poire ou glace kéfir",
+            "nameEn": "Pear sorbet or kefir ice cream",
+            "description": "Sorbet artisanal à la poire locale ou crème glacée au kéfir maison",
+            "descriptionEn": "Artisanal local pear sorbet or homemade kefir ice cream",
+            "price": "6.-"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "boissons",
+    "title": "Boissons & Philosophie",
+    "titleEn": "Drinks & Philosophy",
+    "footerNote": "Nos boissons fermentées sont produites sur place dans notre laboratoire de fermentation.",
+    "footerNoteEn": "Our fermented drinks are produced on-site in our fermentation lab.",
+    "sections": [
+      {
+        "title": "Softs Maison & Artisanaux",
+        "titleEn": "Homemade Softs & Sodas",
+        "items": [
+          {
+            "name": "Thé froid maison, 22cl",
+            "nameEn": "Homemade iced tea, 22cl",
+            "description": "Infusion maison d'herbes du potager et thé noir biologique légèrement sucré",
+            "descriptionEn": "Homemade infusion of garden herbs and organic black tea, lightly sweetened",
+            "price": "6.-"
+          },
+          {
+            "name": "Kombucha maison, 22cl",
+            "nameEn": "Seasonal kombucha, 22cl",
+            "description": "Thé fermenté maison aux fruits de saison issus de producteurs locaux",
+            "descriptionEn": "Homemade fermented tea with seasonal fruits from local producers",
+            "price": "6.-"
+          },
+          {
+            "name": "Citronnade maison, plate ou gazeuse, 22cl",
+            "nameEn": "Homemade lemonade, still or sparkling, 22cl",
+            "description": "Citrons biologiques pressés, eau filtrée (plate ou gazeuse) et sirop de canne léger",
+            "descriptionEn": "Freshly squeezed organic lemons, filtered water (still or sparkling), and light cane syrup",
+            "price": "6.-"
+          },
+          {
+            "name": "Gingembrennade maison, plate ou gazeuse, 22cl",
+            "nameEn": "Homemade ginger soda, still or sparkling, 22cl",
+            "description": "Boisson piquante et rafraîchissante au gingembre frais infusé et pressé",
+            "descriptionEn": "Spicy and refreshing drink made with freshly pressed and infused ginger",
+            "price": "6.-"
+          },
+          {
+            "name": "Eau de mar, raisin pétillant, 22cl",
+            "nameEn": "Eau de Mar sparkling grape, 22cl",
+            "description": "Pur jus de raisin genevois pasteurisé et gazéifié de manière artisanale",
+            "descriptionEn": "Pure Geneva grape juice, pasteurized and carbonated in an artisanal way",
+            "price": "6.-"
+          },
+          {
+            "name": "Kéfir feuille de figuier, 33cl",
+            "nameEn": "Fig leaf kefir, 33cl",
+            "description": "Boisson fermentée pétillante infusée aux feuilles de figuier du jardin Äkta",
+            "descriptionEn": "Sparkling fermented beverage infused with fig leaves from the Äkta garden",
+            "price": "6.-"
+          },
+          {
+            "name": "Kéfir frais basilic, 33cl",
+            "nameEn": "Fresh basil kefir, 33cl",
+            "description": "Boisson probiotique rafraîchissante fermentée avec du basilic frais",
+            "descriptionEn": "Refreshing probiotic drink fermented with fresh basil",
+            "price": "6.-"
+          },
+          {
+            "name": "Maté de Bâle, 33cl",
+            "nameEn": "Basel Mate, 33cl",
+            "description": "Infusion de maté biologique pétillante et stimulante produite à Bâle",
+            "descriptionEn": "Sparkling and stimulating organic mate infusion produced in Basel",
+            "price": "6.-"
+          },
+          {
+            "name": "Cola de Neuchâtel, 33cl",
+            "nameEn": "Neuchâtel Cola, 33cl",
+            "description": "Viva Cola, alternative suisse artisanale et biologique produite à Neuchâtel",
+            "descriptionEn": "Viva Cola, an artisanal and organic Swiss alternative produced in Neuchâtel",
+            "price": "5.-"
+          },
+          {
+            "name": "Tonic suisse, 20cl",
+            "nameEn": "Swiss tonic, 20cl",
+            "description": "Swiss Mountain Spring Tonic, idéal pour accompagner nos spiritueux locaux",
+            "descriptionEn": "Swiss Mountain Spring Tonic, ideal for pairing with our local spirits",
+            "price": "5.-"
+          },
+          {
+            "name": "Gingerbeer suisse, 20cl",
+            "nameEn": "Swiss ginger beer, 20cl",
+            "description": "Limonade de gingembre suisse artisanale aux arômes intenses et épicés",
+            "descriptionEn": "Artisanal Swiss ginger lemonade with intense, spicy aromas",
+            "price": "5.-"
+          },
+          {
+            "name": "Eau minérale filtrée gazeuse, 75cl",
+            "nameEn": "Sparkling filtered mineral water, 75cl",
+            "description": "Eau locale micro-filtrée et gazéifiée sur place pour limiter l'empreinte carbone",
+            "descriptionEn": "Local micro-filtered water carbonated on site to reduce carbon footprint",
+            "price": "5.-"
+          },
+          {
+            "name": "Jus de tomate bio, 20cl",
+            "nameEn": "Organic tomato juice, 20cl",
+            "description": "Pur jus de tomate biologique de la région genevoise, assaisonné",
+            "descriptionEn": "Pure organic tomato juice from the Geneva region, seasoned",
+            "price": "4.-"
+          },
+          {
+            "name": "Jus de poire bio, 22cl",
+            "nameEn": "Organic pear juice, 22cl",
+            "description": "Nectar de poire artisanal issu de vergers locaux certifiés bio",
+            "descriptionEn": "Artisanal pear nectar from local certified organic orchards",
+            "price": "4.-"
+          },
+          {
+            "name": "Jus de pomme bio, 22cl",
+            "nameEn": "Organic apple juice, 22cl",
+            "description": "Pur jus de pomme pressé à froid de la région genevoise",
+            "descriptionEn": "Pure cold-pressed apple juice from the Geneva region",
+            "price": "4.-"
+          },
+          {
+            "name": "Sirop de grenadine ou pêche bio, 22cl",
+            "nameEn": "Organic syrup (grenadine or peach), 22cl",
+            "description": "Sirop artisanal bio dilué à l'eau filtrée plate ou gazeuse",
+            "descriptionEn": "Artisanal organic syrup diluted with filtered still or sparkling water",
+            "price": "4.-"
+          }
+        ]
+      },
+      {
+        "title": "Café & Barista",
+        "titleEn": "Barista Selection",
+        "items": [
+          {
+            "name": "Café / Espresso / Ristretto",
+            "nameEn": "Coffee / Espresso / Ristretto",
+            "description": "Café de spécialité torréfié localement à Genève",
+            "descriptionEn": "Locally roasted specialty coffee from Geneva",
+            "price": "4.-"
+          },
+          {
+            "name": "Double Espresso / Cappuccino / Renversé",
+            "nameEn": "Double & Milk drinks",
+            "description": "Lait biologique local de la ferme ou alternative boisson à l'avoine maison",
+            "descriptionEn": "Organic local farm milk or homemade oat milk alternative",
+            "price": "5.50"
+          },
+          {
+            "name": "Chocolat chaud",
+            "nameEn": "Hot chocolate",
+            "description": "Chocolat chaud onctueux préparé avec du cacao équitable et du lait local",
+            "descriptionEn": "Rich hot chocolate made with fair-trade cocoa and local milk",
+            "price": "5.50"
+          },
+          {
+            "name": "Thé (vert, noir, chaï, earl grey)",
+            "nameEn": "Tea Selection (green, black, chai, earl grey)",
+            "description": "Sélection de thés biologiques en feuilles entières",
+            "descriptionEn": "Selection of organic whole-leaf teas",
+            "price": "5.-"
+          },
+          {
+            "name": "Infusion (gingembre, citron, menthe, verveine, hibiscus)",
+            "nameEn": "Herbal Infusion (ginger, lemon, mint, verbena, hibiscus)",
+            "description": "Herbes fraîches du potager Äkta ou fleurs séchées maison",
+            "descriptionEn": "Fresh herbs from the Äkta garden or homemade dried flowers",
+            "price": "5.-"
+          },
+          {
+            "name": "Théière de thé ou infusion",
+            "nameEn": "Teapot (tea or infusion)",
+            "description": "Format théière à partager pour prolonger l'expérience barista",
+            "descriptionEn": "Teapot format to share, extending the barista experience",
+            "price": "9.-"
+          }
+        ]
+      },
+      {
+        "title": "Bières Artisanales",
+        "titleEn": "Craft Beers",
+        "items": [
+          {
+            "name": "Blonde, pression, Brasserie du Mât, 30/50cl",
+            "nameEn": "Draft Blonde Beer, Brasserie du Mât, 30/50cl",
+            "description": "Bière blonde artisanale locale brassée à Genève par la Brasserie du Mât",
+            "descriptionEn": "Artisanal local blonde beer brewed in Geneva by Brasserie du Mât",
+            "price": "5.50 | 8.-"
+          },
+          {
+            "name": "Blonde pression + gingembre, 30/50cl",
+            "nameEn": "Draft Blonde Beer with Ginger, 30/50cl",
+            "description": "Bière pression blonde avec une infusion de gingembre frais pressé maison",
+            "descriptionEn": "Draft blonde beer with an infusion of fresh house-pressed ginger",
+            "price": "6.50 | 9.-"
+          },
+          {
+            "name": "Blanche, Melting Pote, 33cl",
+            "nameEn": "White Beer, Melting Pote, 33cl",
+            "description": "Bière blanche artisanale genevoise de la brasserie locale Melting Pote",
+            "descriptionEn": "Artisanal Geneva wheat beer from the local Melting Pote brewery",
+            "price": "6.50"
+          },
+          {
+            "name": "IPA, Melting Pote, 33cl",
+            "nameEn": "IPA Beer, Melting Pote, 33cl",
+            "description": "Bière India Pale Ale genevoise aux arômes fruités et d'amertume franche",
+            "descriptionEn": "Geneva India Pale Ale beer with fruity aromas and clean bitterness",
+            "price": "6.50"
+          },
+          {
+            "name": "Bière sans alcool, 33cl",
+            "nameEn": "Non-alcoholic Beer, 33cl",
+            "description": "Bière artisanale sans alcool, fraîche et maltée",
+            "descriptionEn": "Fresh and malty craft non-alcoholic beer",
+            "price": "6.50"
+          }
+        ]
+      },
+      {
+        "title": "Cocktails & Mocktails",
+        "titleEn": "Signature Cocktails & Mocktails",
+        "items": [
+          {
+            "name": "Coing",
+            "nameEn": "Signature Quince",
+            "description": "Liqueur au coing artisanale, jus de lime, gingembre et pétillant naturel du Chambet (Option sans alcool disponible)",
+            "descriptionEn": "Artisanal quince liqueur, lime juice, ginger, and natural sparkling wine from Chambet (Non-alcoholic option available)",
+            "price": "14.- | Mocktail: 12.-"
+          },
+          {
+            "name": "Spritz Giselle",
+            "nameEn": "Giselle Spritz",
+            "description": "Liqueur à la quinine Giselle (Zürich), pétillant naturel du Chambet et zeste d'orange (Option sans alcool disponible)",
+            "descriptionEn": "Giselle quinine liqueur (Zürich), natural sparkling wine from Chambet, and orange zest (Non-alcoholic option available)",
+            "price": "14.- | Mocktail: 12.-"
+          },
+          {
+            "name": "Moscow / London Mule",
+            "nameEn": "Moscow / London Mule",
+            "description": "Vodka ou Gin genevois LUX, gingerbeer suisse et jus de citron vert frais (Option sans alcool disponible)",
+            "descriptionEn": "Geneva LUX Vodka or Gin, Swiss ginger beer, and fresh lime juice (Non-alcoholic option available)",
+            "price": "16.- | Mocktail: 12.-"
+          },
+          {
+            "name": "Gin Tonic",
+            "nameEn": "Gin & Tonic",
+            "description": "Gin genevois LUX de la distillerie locale et tonic suisse de spécialité (Option sans alcool disponible)",
+            "descriptionEn": "Geneva LUX Gin from the local distillery and specialty Swiss tonic (Non-alcoholic option available)",
+            "price": "16.- | Mocktail: 12.-"
+          },
+          {
+            "name": "Maté Fizz",
+            "nameEn": "Mate Fizz",
+            "description": "Gin ou Vodka LUX, infusion de maté bio de la Brasserie du Mât et citron vert (Option sans alcool disponible)",
+            "descriptionEn": "LUX Gin or Vodka, organic mate infusion from Brasserie du Mât, and lime (Non-alcoholic option available)",
+            "price": "16.- | Mocktail: 12.-"
+          },
+          {
+            "name": "Maté Tonic",
+            "nameEn": "Mate Tonic",
+            "description": "Vodka genevoise infusée artisanalement au maté LUX, tonic suisse",
+            "descriptionEn": "Geneva vodka craft-infused with LUX mate, Swiss tonic",
+            "price": "16.-"
+          },
+          {
+            "name": "Espresso Martini",
+            "nameEn": "Espresso Martini",
+            "description": "Vodka genevoise LUX, liqueur de café artisanale et espresso de spécialité",
+            "descriptionEn": "Geneva LUX vodka, artisanal coffee liqueur, and specialty espresso",
+            "price": "18.-"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "blanc",
+    "title": "Vins Blancs",
+    "titleEn": "White Wines",
+    "footerNote": "Tous nos vins sont issus de cultures biologiques ou biodynamiques, valorisant les cépages locaux suisses.",
+    "footerNoteEn": "All our wines are sourced from organic or biodynamic vineyards, celebrating local Swiss grape varieties.",
+    "sections": [
+      {
+        "title": "Vins au Verre (1dl)",
+        "titleEn": "Wines by the Glass (1dl)",
+        "items": [
+          {
+            "name": "Chasselas 21 Sabré Sable, Chambet (Bulles)",
+            "nameEn": "Chasselas 21 Sabré Sable, Chambet (Sparkling)",
+            "description": "Pétillant naturel de Chasselas, Domaine du Chambet. Fruité, frais et perlant.",
+            "descriptionEn": "Natural sparkling Chasselas, Domaine du Chambet. Fruited, fresh, and pearled.",
+            "price": "12.-"
+          },
+          {
+            "name": "Chasselas, Domaine du Chambet",
+            "nameEn": "Chasselas, Domaine du Chambet",
+            "description": "Blanc sec traditionnel genevois, frais et floral du Domaine du Chambet.",
+            "descriptionEn": "Geneva traditional dry white, fresh and floral from Domaine du Chambet.",
+            "price": "8.-"
+          },
+          {
+            "name": "Riesling-Sylvaner, Domaine Sternen",
+            "nameEn": "Riesling-Sylvaner, Domaine Sternen",
+            "description": "Domaine Sternen (Argovie). Belle minéralité, agrumes et vivativité en bouche.",
+            "descriptionEn": "Domain Sternen (Argovia). Beautiful minerality, citrus, and crispness.",
+            "price": "9.-"
+          },
+          {
+            "name": "Chardonnay Réserve, Domaine Graenicher",
+            "nameEn": "Chardonnay Réserve, Domaine Graenicher",
+            "description": "Domaine Graenicher (Vaud). Élevage précis, notes de poire mûre et beurrées.",
+            "descriptionEn": "Domain Graenicher (Vaud). Precise oak aging, ripe pear and buttery notes.",
+            "price": "9.-"
+          },
+          {
+            "name": "Chardonnay Oxydatif 2008, Cave des Chevalières",
+            "nameEn": "Oxidative Chardonnay 2008, Cave des Chevalières",
+            "description": "Élevage sous voile oxydatif exceptionnel du Domaine des Chevalières (Genève).",
+            "descriptionEn": "Exceptional oxidative aging under veil from Domaine des Chevalières (Geneva).",
+            "price": "12.-"
+          },
+          {
+            "name": "Pinot Gris L'Orangerie, Domaine de Chambet (Orange)",
+            "nameEn": "Pinot Gris L'Orangerie, Domaine de Chambet (Orange)",
+            "description": "Vin orange genevois de macération, notes de coing sauvage et d'épices douces.",
+            "descriptionEn": "Macerated orange wine, notes of wild juice and sweet spices.",
+            "price": "9.-"
+          }
+        ]
+      },
+      {
+        "title": "Les Bulles (Bouteilles)",
+        "titleEn": "Sparkling Bottles",
+        "items": [
+          {
+            "name": "Vaud - Chasselas 24 De Facto, Domaine de la Colombe",
+            "nameEn": "Vaud - Chasselas 24 De Facto, Domaine de la Colombe",
+            "description": "Méthode traditionnelle du Domaine de la Colombe. Fines bulles élégantes.",
+            "descriptionEn": "Traditional method from Domaine de la Colombe. Elegant fine bubbles.",
+            "price": "60.-"
+          },
+          {
+            "name": "Grisons - Chardonnay 21 Brut Nature, Weingut Obrecht",
+            "nameEn": "Grisons - Chardonnay 21 Brut Nature, Weingut Obrecht",
+            "description": "Grand vin effervescent, élevage sur lattes de la prestigieuse maison Obrecht.",
+            "descriptionEn": "Great sparkling wine, aged on laths from Weingut Obrecht.",
+            "price": "95.-"
+          },
+          {
+            "name": "Genève - Chasselas 21 Sabré Sable, Domaine du Chambet",
+            "nameEn": "Geneva - Chasselas 21 Sabré Sable, Domaine du Chambet",
+            "description": "Pétillant naturel brut, non filtré et sauvage du Domaine du Chambet.",
+            "descriptionEn": "Natural sparkling brut wine, unfiltered and wild from Domaine du Chambet.",
+            "price": "50.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Genève",
+        "titleEn": "Bottles - Geneva",
+        "items": [
+          {
+            "name": "Chasselas 24 La Garmaise, Domaine de Chambet",
+            "nameEn": "Chasselas 24 La Garmaise, Domaine de Chambet",
+            "description": "Frais, net, notes de levure fine et fleurs blanches du Domaine de Chambet.",
+            "descriptionEn": "Fresh, clean, notes of fine yeast and white flowers from Domaine de Chambet.",
+            "price": "45.-"
+          },
+          {
+            "name": "Aligoté 22, Domaine de la Mermière",
+            "nameEn": "Aligoté 22, Domaine de la Mermière",
+            "description": "Belle acidité tendue, agrumes confits et finale saline.",
+            "descriptionEn": "Crisp acidity, confit citrus, and saline finish.",
+            "price": "55.-"
+          },
+          {
+            "name": "Chardonnay 22, Domaine Grand'Cour",
+            "nameEn": "Chardonnay 22, Domaine Grand'Cour",
+            "description": "Cuvée prestigieuse élevée par Jean-Michel Novelle, boisé délicat et ampleur.",
+            "descriptionEn": "Prestigious cuvée, delicate oak and volume by Jean-Michel Novelle.",
+            "price": "95.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Vaud",
+        "titleEn": "Bottles - Vaud",
+        "items": [
+          {
+            "name": "Arzillier, Chasselas Non Filtré, Christinat",
+            "nameEn": "Arzillier, Chasselas Non Filtré, Christinat",
+            "description": "Vin vivant aux arômes de poire et de chèvrefeuille, biodynamie.",
+            "descriptionEn": "Living wine with pear and honeysuckle aromas, biodynamic.",
+            "price": "60.-"
+          },
+          {
+            "name": "Chasselas 23 Amphore, Domaine Graenicher",
+            "nameEn": "Chasselas 23 Amphore, Domaine Graenicher",
+            "description": "Chasselas vinifié en amphore de terre cuite, texture unique et pureté.",
+            "descriptionEn": "Chasselas vinified in terracotta amphora, unique texture and purity.",
+            "price": "50.-"
+          },
+          {
+            "name": "Chardonnay 23 Réserve, Domaine Graenicher",
+            "nameEn": "Chardonnay 23 Réserve, Domaine Graenicher",
+            "description": "Belle texture grasse, notes beurrées de noisette et élevage précis.",
+            "descriptionEn": "Rich buttery texture, hazelnut notes, and precise barrel aging.",
+            "price": "60.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Valais",
+        "titleEn": "Bottles - Valais",
+        "items": [
+          {
+            "name": "Païen, La Cave aux Chats",
+            "nameEn": "Païen, La Cave aux Chats",
+            "description": "Savagnin blanc valaisan fruité, vif avec des notes de fruits à chair blanche.",
+            "descriptionEn": "Valais Savagnin Blanc, fresh and lively with white fruit notes.",
+            "price": "70.-"
+          },
+          {
+            "name": "Petite Arvine, La Cave aux Chats",
+            "nameEn": "Petite Arvine, La Cave aux Chats",
+            "description": "Le cépage roi du Valais aux arômes de pamplemousse et finale saline caractéristique.",
+            "descriptionEn": "Valais flagship grape with grapefruit aromas and signature saline finish.",
+            "price": "70.-"
+          },
+          {
+            "name": "Fendant 13, Domaine de Beudon",
+            "nameEn": "Fendant 13, Domaine de Beudon",
+            "description": "Fendant d'altitude vieilli en bouteille, minéralité calcaire et grande complexité.",
+            "descriptionEn": "High altitude Fendant aged in bottle, chalky minerality and high complexity.",
+            "price": "70.-"
+          },
+          {
+            "name": "Humagne 24, La Rodeline",
+            "nameEn": "Humagne 24, La Rodeline",
+            "description": "Humagne blanc élégant, floral aux notes de fleurs de sureau.",
+            "descriptionEn": "Elegant Humagne Blanc, floral with notes of elderflower.",
+            "price": "75.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Autres Cantons",
+        "titleEn": "Bottles - Other Swiss Cantons",
+        "items": [
+          {
+            "name": "Zürich - Riesling 23, Besson-Strasser",
+            "nameEn": "Zürich - Riesling 23, Besson-Strasser",
+            "description": "Riesling ciselé, tension cristalline et notes d'agrumes bio.",
+            "descriptionEn": "Ciseled Riesling, crystalline tension, and organic citrus notes.",
+            "price": "70.-"
+          },
+          {
+            "name": "Lac de Bienne - Sauvignon Blanc, Schott",
+            "nameEn": "Lac de Bienne - Sauvignon Blanc, Schott",
+            "description": "Sauvignon blanc herbacé et frais produit par Anne-Claire Schott.",
+            "descriptionEn": "Herbaceous and fresh Sauvignon Blanc produced by Anne-Claire Schott.",
+            "price": "70.-"
+          },
+          {
+            "name": "Grisons - Completer 23, Roman Hermann",
+            "nameEn": "Grisons - Completer 23, Roman Hermann",
+            "description": "Cépage ancestral grison rare, acidité tranchante et notes de miel sec.",
+            "descriptionEn": "Rare ancestral Grisons grape, sharp acidity and notes of dry honey.",
+            "price": "100.-"
+          },
+          {
+            "name": "Argovie - Riesling-Sylvaner 23, Domaine Sternen",
+            "nameEn": "Argovie - Riesling-Sylvaner 23, Domaine Sternen",
+            "description": "Vin de soif frais aux parfums musqués et fruités.",
+            "descriptionEn": "Fresh, easy-drinking wine with musky and fruity aromas.",
+            "price": "50.-"
+          },
+          {
+            "name": "Argovie - Riesling-Sylvaner 23, Hossli",
+            "nameEn": "Argovie - Riesling-Sylvaner 23, Hossli",
+            "description": "Expression élégante du terroir argovien en culture biologique.",
+            "descriptionEn": "Elegant expression of Argovian terroir in organic cultivation.",
+            "price": "55.-"
+          },
+          {
+            "name": "Argovie - Sauvignon Blanc 23, Hossli",
+            "nameEn": "Argovie - Sauvignon Blanc 23, Hossli",
+            "description": "Sauvignon blanc bio aromatique et minéral.",
+            "descriptionEn": "Aromatic and mineral organic Sauvignon Blanc.",
+            "price": "65.-"
+          },
+          {
+            "name": "Argovie - Sauvignon Bärhalde 22, Hossli",
+            "nameEn": "Argovie - Sauvignon Bärhalde 22, Hossli",
+            "description": "Sélection parcellaire élevée en fûts de chêne.",
+            "descriptionEn": "Single-vineyard selection aged in oak casks.",
+            "price": "90.-"
+          },
+          {
+            "name": "Fribourg - Pinot Gris 22 Beurot, Cru de l'Hôpital",
+            "nameEn": "Fribourg - Pinot Gris 22 Beurot, Cru de l'Hôpital",
+            "description": "Cru de l'Hôpital (Vully). Ample, texture soyeuse et finale fruitée.",
+            "descriptionEn": "Cru de l'Hôpital (Vully). Rich, silky texture, and fruity finish.",
+            "price": "80.-"
+          }
+        ]
+      },
+      {
+        "title": "Vins Orange & Oxydatifs",
+        "titleEn": "Orange & Oxidative Wines",
+        "items": [
+          {
+            "name": "Genève - L'Orangerie 23 Pinot Gris, Domaine de Chambet",
+            "nameEn": "Geneva - L'Orangerie 23 Pinot Gris, Domaine de Chambet",
+            "description": "Macération pelliculaire de pinot gris, tannins légers, robe abricotée.",
+            "descriptionEn": "Skin-contact Pinot Gris, light tannins, apricot color.",
+            "price": "45.-"
+          },
+          {
+            "name": "Vaud - Chasselas Macération 5 jours, La Riva",
+            "nameEn": "Vaud - Chasselas Macération 5 days, La Riva",
+            "description": "Vin orange de Chasselas, notes d'écorces d'oranges et amertume noble.",
+            "descriptionEn": "Chasselas orange wine, orange peel notes, and noble bitterness.",
+            "price": "55.-"
+          },
+          {
+            "name": "Vaud - Petite Arvine Orange, Tyalo",
+            "nameEn": "Vaud - Petite Arvine Orange, Tyalo",
+            "description": "Macération de Petite Arvine, expression sauvage et saline.",
+            "descriptionEn": "Macerated Petite Arvine, wild and saline expression.",
+            "price": "60.-"
+          },
+          {
+            "name": "Valais - Bocons de Gy Sauvignon, Christinat",
+            "nameEn": "Valais - Bocons de Gy Sauvignon, Christinat",
+            "description": "Sauvignon blanc de macération aromatique et complexe.",
+            "descriptionEn": "Complex and aromatic skin-contact Sauvignon Blanc.",
+            "price": "65.-"
+          },
+          {
+            "name": "Lac de Bienne - Pinot Gris Orange, Schott",
+            "nameEn": "Lac de Bienne - Pinot Gris Orange, Schott",
+            "description": "Pinot gris de macération biodynamique par Anne-Claire Schott.",
+            "descriptionEn": "Biodynamic skin-contact Pinot Gris by Anne-Claire Schott.",
+            "price": "75.-"
+          },
+          {
+            "name": "Valais - Fendant 22 Orange, Domaine de Beudon",
+            "nameEn": "Valais - Fendant 22 Orange, Domaine de Beudon",
+            "description": "Fendant de macération biodynamique d'altitude du Domaine de Beudon.",
+            "descriptionEn": "High altitude biodynamic skin-contact Fendant from Domaine de Beudon.",
+            "price": "75.-"
+          },
+          {
+            "name": "Genève - Chardonnay Oxydatif 6 ans, Cave des Chevalières",
+            "nameEn": "Geneva - Oxidative Chardonnay 6 years, Cave des Chevalières",
+            "description": "Chardonnay élevé 6 ans sous voile en barriques (Format 50cl).",
+            "descriptionEn": "Chardonnay aged 6 years under veil in oak casks (50cl format).",
+            "price": "75.-"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "rouge",
+    "title": "Vins Rouges",
+    "titleEn": "Red Wines",
+    "footerNote": "Une sélection axée sur la fraîcheur et l'expression authentique des terroirs suisses.",
+    "footerNoteEn": "A selection focused on freshness and the authentic expression of Swiss terroirs.",
+    "sections": [
+      {
+        "title": "Vins au Verre (1dl)",
+        "titleEn": "Wines by the Glass (1dl)",
+        "items": [
+          {
+            "name": "Soir d'été Rosé, Domaine de la Mermière",
+            "nameEn": "Soir d'été Rosé, Domaine de la Mermière",
+            "description": "Rosé genevois frais et gourmand aux arômes de petits fruits rouges.",
+            "descriptionEn": "Fresh and gourmet Geneva rosé with red berry aromas.",
+            "price": "7.-"
+          },
+          {
+            "name": "Gamay, Domaine du Chambet",
+            "nameEn": "Gamay, Domaine du Chambet",
+            "description": "Gamay de Genève croquant, fruité et gouleyant.",
+            "descriptionEn": "Geneva Gamay, crunchy, fruity, and easy-drinking.",
+            "price": "8.-"
+          },
+          {
+            "name": "Pinot Noir, Domaine de la Mermière",
+            "nameEn": "Pinot Noir, Domaine de la Mermière",
+            "description": "Pinot noir classique genevois aux notes de cerise et tanins souples.",
+            "descriptionEn": "Classic Geneva Pinot Noir with cherry notes and supple tannins.",
+            "price": "8.-"
+          },
+          {
+            "name": "Galotta, La Rodeline",
+            "nameEn": "Galotta, La Rodeline",
+            "description": "Cépage rouge valaisan structuré, épicé et charnu.",
+            "descriptionEn": "Structured, spicy, and fleshy Valais red grape.",
+            "price": "9.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Genève",
+        "titleEn": "Bottles - Geneva",
+        "items": [
+          {
+            "name": "Gamay Merlinge, Domaine de Chambet",
+            "nameEn": "Gamay Merlinge, Domaine de Chambet",
+            "description": "Fruits noirs, poivre noir sauvage et belle fraîcheur.",
+            "descriptionEn": "Dark fruits, wild black pepper, and beautiful freshness.",
+            "price": "45.-"
+          },
+          {
+            "name": "Gamay, Domaine des Allues",
+            "nameEn": "Gamay, Domaine des Allues",
+            "description": "Expression élégante du Gamay genevois issu de vieilles vignes.",
+            "descriptionEn": "Elegant expression of Geneva Gamay from old vines.",
+            "price": "60.-"
+          },
+          {
+            "name": "Merlot du Coin, Domaine de la Mermière",
+            "nameEn": "Merlot du Coin, Domaine de la Mermière",
+            "description": "Notes de prune, de réglisse et tanins fondus bien intégrés.",
+            "descriptionEn": "Plum and licorice notes, well-integrated soft tannins.",
+            "price": "55.-"
+          },
+          {
+            "name": "Pinot Noir, Domaine de la Mermière",
+            "nameEn": "Pinot Noir, Domaine de la Mermière",
+            "description": "Arômes de petits fruits rouges des bois et de sous-bois.",
+            "descriptionEn": "Aromas of wild red berries and undergrowth.",
+            "price": "45.-"
+          },
+          {
+            "name": "Pinot Noir 22, Domaine Grand'Cour",
+            "nameEn": "Pinot Noir 22, Domaine Grand'Cour",
+            "description": "Un des grands pinots noirs genevois, profondeur et complexité remarquable.",
+            "descriptionEn": "One of the great Geneva Pinot Noirs, remarkable depth and complexity.",
+            "price": "100.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Vaud",
+        "titleEn": "Bottles - Vaud",
+        "items": [
+          {
+            "name": "Gamay Magnolia, Tyalo",
+            "nameEn": "Gamay Magnolia, Tyalo",
+            "description": "Gamay nature, fruits noirs croquants et grande buvabilité.",
+            "descriptionEn": "Natural Gamay, crunchy dark fruits, and high drinkability.",
+            "price": "60.-"
+          },
+          {
+            "name": "Pinot Noir Agata, Tyalo",
+            "nameEn": "Pinot Noir Agata, Tyalo",
+            "description": "Pinot noir non filtré, floral, frais et vinifié de manière naturelle.",
+            "descriptionEn": "Unfiltered Pinot Noir, floral, fresh, and naturally vinified.",
+            "price": "60.-"
+          },
+          {
+            "name": "Malbec & Merlot Barrique, La Riva",
+            "nameEn": "Malbec & Merlot Barrique, La Riva",
+            "description": "Assemblage puissant élevé en barriques bâloises.",
+            "descriptionEn": "Powerful blend aged in Basel oak barrels.",
+            "price": "65.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Valais",
+        "titleEn": "Bottles - Valais",
+        "items": [
+          {
+            "name": "Syrah, Maurice Zufferey",
+            "nameEn": "Syrah, Maurice Zufferey",
+            "description": "Syrah classique valaisanne aux arômes de poivre blanc et baies sauvages.",
+            "descriptionEn": "Classic Valais Syrah with white pepper and wild berry aromas.",
+            "price": "70.-"
+          },
+          {
+            "name": "Galotta, La Rodeline",
+            "nameEn": "Galotta, La Rodeline",
+            "description": "Vin charnu, épicé aux notes de fruits noirs mûrs.",
+            "descriptionEn": "Fleshy, spicy wine with ripe dark fruit notes.",
+            "price": "60.-"
+          },
+          {
+            "name": "Cornalin, Maurice Zufferey",
+            "nameEn": "Cornalin, Maurice Zufferey",
+            "description": "Cépage valaisan typique, notes de cerise noire et tanins soyeux.",
+            "descriptionEn": "Typical Valais grape, dark cherry notes, and silky tannins.",
+            "price": "80.-"
+          },
+          {
+            "name": "Humagne Rouge, Christophe Abbet",
+            "nameEn": "Humagne Rouge, Christophe Abbet",
+            "description": "Notes sauvages, cuir, sous-bois et fruits des bois par Christophe Abbet.",
+            "descriptionEn": "Wild notes, leather, undergrowth, and forest fruits by Christophe Abbet.",
+            "price": "90.-"
+          },
+          {
+            "name": "Diolinoir Barrique 20, Domaine de Beudon",
+            "nameEn": "Diolinoir Barrique 20, Domaine de Beudon",
+            "description": "Diolinoir d'altitude biodynamique élevé en barriques, très structuré.",
+            "descriptionEn": "High altitude biodynamic Diolinoir aged in barrels, very structured.",
+            "price": "95.-"
+          },
+          {
+            "name": "La Petite Grange, Marie-Thérèse Chappaz",
+            "nameEn": "La Petite Grange, Marie-Thérèse Chappaz",
+            "description": "Assemblage prestigieux de cépages rouges valaisans par Marie-Thérèse Chappaz.",
+            "descriptionEn": "Prestigious blend of Valais red grapes by Marie-Thérèse Chappaz.",
+            "price": "100.-"
+          }
+        ]
+      },
+      {
+        "title": "Bouteilles - Autres Cantons",
+        "titleEn": "Bottles - Other Swiss Cantons",
+        "items": [
+          {
+            "name": "Neuchâtel - Pinot Noir, Domaine des Landions",
+            "nameEn": "Neuchâtel - Pinot Noir, Domaine des Landions",
+            "description": "Domaine des Landions. Élevage de haute volée, structure veloutée digne de Bourgogne.",
+            "descriptionEn": "Domaine des Landions. High-class barrel aging, velvety structure.",
+            "price": "115.-"
+          },
+          {
+            "name": "Lac de Bienne - Pinot Noir Bonnet du Fou, Schott",
+            "nameEn": "Lac de Bienne - Pinot Noir Bonnet du Fou, Schott",
+            "description": "Pinot noir naturel, frais et digeste d'Anne-Claire Schott.",
+            "descriptionEn": "Natural Pinot Noir, fresh and light by Anne-Claire Schott.",
+            "price": "65.-"
+          },
+          {
+            "name": "Grisons - Pinot Noir, Adank",
+            "nameEn": "Grisons - Pinot Noir, Adank",
+            "description": "Pinot noir grison de référence, fruité croquant et finesse saline.",
+            "descriptionEn": "Reference Grisons Pinot Noir, crunchy fruit, and saline fineness.",
+            "price": "70.-"
+          },
+          {
+            "name": "Grisons - Pinot Noir Village, Weingut Fromm",
+            "nameEn": "Grisons - Pinot Noir Village, Weingut Fromm",
+            "description": "Expression pure et minérale du cépage pinot noir.",
+            "descriptionEn": "Pure and mineral expression of the Pinot Noir grape.",
+            "price": "70.-"
+          },
+          {
+            "name": "Argovie - Pinot Noir, HossliWein",
+            "nameEn": "Argovie - Pinot Noir, HossliWein",
+            "description": "Pinot noir biologique argovien de grande élégance.",
+            "descriptionEn": "Highly elegant organic Argovian Pinot Noir.",
+            "price": "70.-"
+          }
+        ]
+      },
+      {
+        "title": "Rosés & Blouges (Vins Légers)",
+        "titleEn": "Rosés & Light Red Wines",
+        "items": [
+          {
+            "name": "Neuchâtel Rosé - Œil de Perdrix 23, Ruedin",
+            "nameEn": "Neuchâtel Rosé - Œil de Perdrix 23, Ruedin",
+            "description": "Rosé de pinot noir traditionnel neuchâtelois, floral et fruité.",
+            "descriptionEn": "Traditional Neuchâtel Pinot Noir rosé, floral and fruity.",
+            "price": "55.-"
+          },
+          {
+            "name": "Genève Rosé - Soir d'été 24, Domaine de la Mermière",
+            "nameEn": "Genève Rosé - Soir d'été 24, Domaine de la Mermière",
+            "description": "Rosé genevois frais aux arômes de groseille et de pêche de vigne.",
+            "descriptionEn": "Fresh Geneva rosé with redcurrant and vine peach aromas.",
+            "price": "40.-"
+          },
+          {
+            "name": "Valais Blouge - Charlotte Sauvage, Pur Raisin",
+            "nameEn": "Valais Blouge - Charlotte Sauvage, Pur Raisin",
+            "description": "Co-fermentation de raisins blancs et rouges. Frais, perlant et extrêmement fruité.",
+            "descriptionEn": "Co-fermentation of white and red grapes. Fresh, bubbly, and highly fruity.",
+            "price": "60.-"
+          },
+          {
+            "name": "Valais Blouge - M&M, Pur Raisin",
+            "nameEn": "Valais Blouge - M&M, Pur Raisin",
+            "description": "Merlot et Muscat co-fermentés. Arômes de rose, de muscat et grande digestibilité.",
+            "descriptionEn": "Co-fermented Merlot and Muscat. Rose and muscat aromas, highly refreshing.",
+            "price": "60.-"
+          }
+        ]
+      }
+    ]
+  }
+]

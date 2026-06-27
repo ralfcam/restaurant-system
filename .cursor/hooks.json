@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "hooks": {
+    "preToolUse": [
+      {
+        "command": "node .cursor/hooks/tdd-delegation-guard.mjs"
+      }
+    ],
+    "postToolUse": [
+      {
+        "command": "node .cursor/hooks/after-git-commit.mjs",
+        "matcher": "Shell"
+      }
+    ],
+    "subagentStart": [
+      {
+        "command": "node .cursor/hooks/tdd-guard-depth.mjs start"
+      }
+    ],
+    "subagentStop": [
+      {
+        "command": "node .cursor/hooks/tdd-guard-depth.mjs stop"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/stop-docs-sync.mjs",
+        "matcher": "Stop",
+        "loop_limit": 2
+      }
+    ]
+  }
+}

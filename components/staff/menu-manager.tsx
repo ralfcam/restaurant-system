@@ -1,14 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import Image from "next/image"
 import { Plus, Pencil, Trash2, Search, Star, UtensilsCrossed, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import {
-  MENU_CATEGORIES,
-  type MenuCategory,
-  type Allergen,
-} from "@/lib/data"
+import { MENUS, type MenuId } from "@/lib/data"
+import { parsePriceValue } from "@/lib/akta-menu"
 import {
   type MenuItemRow,
   upsertMenuItem,
@@ -39,48 +35,36 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
-const ALL_ALLERGENS: Allergen[] = [
-  "gluten",
-  "dairy",
-  "nuts",
-  "shellfish",
-  "egg",
-  "vegan",
-]
-
-const ALLERGEN_LABEL: Record<Allergen, string> = {
-  gluten: "Gluten",
-  dairy: "Dairy",
-  nuts: "Nuts",
-  shellfish: "Shellfish",
-  egg: "Egg",
-  vegan: "Vegan",
-}
-
-type Filter = "All" | MenuCategory
+type Filter = "All" | MenuId
 
 type Draft = {
   id?: string
   slug?: string
   name: string
+  name_en: string
   description: string
+  description_en: string
   price: string
-  category: MenuCategory
-  allergens: Allergen[]
-  image: string
+  menu_id: MenuId
+  section: string
+  section_en: string
   popular: boolean
   available: boolean
   sort_order: number
 }
 
 function emptyDraft(): Draft {
+  const firstMenu = MENUS[0]
+  const firstSection = firstMenu?.sections[0]
   return {
     name: "",
+    name_en: "",
     description: "",
+    description_en: "",
     price: "",
-    category: "Antipasti",
-    allergens: [],
-    image: "",
+    menu_id: firstMenu?.id ?? "soir",
+    section: firstSection?.title ?? "",
+    section_en: firstSection?.titleEn ?? "",
     popular: false,
     available: true,
     sort_order: 0,
@@ -92,15 +76,21 @@ function toDraft(item: MenuItemRow): Draft {
     id: item.id,
     slug: item.slug,
     name: item.name,
+    name_en: item.name_en,
     description: item.description,
-    price: String(item.price),
-    category: item.category,
-    allergens: item.allergens,
-    image: item.image ?? "",
+    description_en: item.description_en,
+    price: item.price,
+    menu_id: item.menu_id,
+    section: item.section,
+    section_en: item.section_en,
     popular: item.popular,
     available: item.available,
     sort_order: item.sort_order,
   }
+}
+
+function menuLabel(menuId: MenuId) {
+  return MENUS.find((m) => m.id === menuId)?.title ?? menuId
 }
 
 export function MenuManager({
@@ -117,15 +107,21 @@ export function MenuManager({
 
   const filtered = useMemo(() => {
     return items.filter((m) => {
-      const matchCat = filter === "All" || m.category === filter
+      const matchMenu = filter === "All" || m.menu_id === filter
+      const q = query.trim().toLowerCase()
       const matchQuery =
-        query.trim() === "" ||
-        m.name.toLowerCase().includes(query.toLowerCase())
-      return matchCat && matchQuery
+        q === "" ||
+        m.name.toLowerCase().includes(q) ||
+        m.name_en.toLowerCase().includes(q)
+      return matchMenu && matchQuery
     })
   }, [items, filter, query])
 
   const availableCount = items.filter((m) => m.available).length
+  const sectionOptions = useMemo(() => {
+    const menu = MENUS.find((m) => m.id === draft.menu_id)
+    return menu?.sections ?? []
+  }, [draft.menu_id])
 
   function openCreate() {
     setDraft(emptyDraft())
@@ -138,33 +134,62 @@ export function MenuManager({
   }
 
   async function save() {
-    const price = Number.parseFloat(draft.price)
-    if (!draft.name.trim()) { toast.error("Name is required"); return }
-    if (Number.isNaN(price) || price < 0) { toast.error("Enter a valid price"); return }
+    if (!draft.name.trim()) {
+      toast.error("French name is required")
+      return
+    }
+    if (!draft.name_en.trim()) {
+      toast.error("English name is required")
+      return
+    }
+    if (!draft.price.trim()) {
+      toast.error("Enter a price label")
+      return
+    }
+    if (!draft.section.trim() || !draft.section_en.trim()) {
+      toast.error("Section labels are required")
+      return
+    }
 
     setSaving(true)
+    const priceValue = parsePriceValue(draft.price)
     const base = {
       name: draft.name.trim(),
+      name_en: draft.name_en.trim(),
       description: draft.description.trim(),
-      price,
-      category: draft.category,
-      allergens: draft.allergens,
-      image: draft.image.trim() || null,
+      description_en: draft.description_en.trim(),
+      price: draft.price.trim(),
+      price_value: priceValue,
+      menu_id: draft.menu_id,
+      section: draft.section.trim(),
+      section_en: draft.section_en.trim(),
       popular: draft.popular,
       available: draft.available,
       sort_order: draft.sort_order,
     }
 
     if (draft.id && draft.slug) {
-      // Update existing — use the row returned by the server to stay in sync.
-      const { row, error } = await upsertMenuItem({ ...base, id: draft.id, slug: draft.slug })
-      if (error) { toast.error("Could not save", { description: error }); setSaving(false); return }
-      setItems((prev) => prev.map((i) => i.id === draft.id ? (row ?? { ...i, ...base }) : i))
+      const { row, error } = await upsertMenuItem({
+        ...base,
+        id: draft.id,
+        slug: draft.slug,
+      })
+      if (error) {
+        toast.error("Could not save", { description: error })
+        setSaving(false)
+        return
+      }
+      setItems((prev) =>
+        prev.map((i) => (i.id === draft.id ? (row ?? { ...i, ...base }) : i)),
+      )
       toast.success(`Updated ${base.name}`)
     } else {
-      // Create new — replace temp row with the real DB row so id/slug are correct.
       const { row, error } = await createMenuItem(base)
-      if (error) { toast.error("Could not create dish", { description: error }); setSaving(false); return }
+      if (error) {
+        toast.error("Could not create dish", { description: error })
+        setSaving(false)
+        return
+      }
       if (row) {
         setItems((prev) => [row, ...prev])
       }
@@ -175,12 +200,11 @@ export function MenuManager({
   }
 
   async function remove(item: MenuItemRow) {
-    // Optimistic
     setItems((prev) => prev.filter((i) => i.id !== item.id))
     const { error } = await deleteMenuItem(item.id)
     if (error) {
       toast.error("Could not delete", { description: error })
-      setItems((prev) => [...prev, item]) // restore
+      setItems((prev) => [...prev, item])
       return
     }
     toast.success(`Removed ${item.name}`)
@@ -188,34 +212,30 @@ export function MenuManager({
 
   async function handleToggle(item: MenuItemRow) {
     const next = !item.available
-    // Optimistic
-    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, available: next } : i))
+    setItems((prev) =>
+      prev.map((i) => (i.id === item.id ? { ...i, available: next } : i)),
+    )
     const { error } = await toggleMenuItemAvailability(item.id, next)
     if (error) {
       toast.error("Could not update availability", { description: error })
-      setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, available: item.available } : i))
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, available: item.available } : i,
+        ),
+      )
     }
   }
 
-  function toggleAllergen(a: Allergen) {
-    setDraft((d) => ({
-      ...d,
-      allergens: d.allergens.includes(a)
-        ? d.allergens.filter((x) => x !== a)
-        : [...d.allergens, a],
-    }))
-  }
-
-  const tabs: Filter[] = ["All", ...MENU_CATEGORIES]
+  const tabs: Filter[] = ["All", ...MENUS.map((m) => m.id)]
 
   return (
     <div>
-      {/* Toolbar */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 overflow-x-auto">
           {tabs.map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setFilter(t)}
               className={cn(
                 "whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
@@ -224,7 +244,7 @@ export function MenuManager({
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
-              {t}
+              {t === "All" ? "All menus" : menuLabel(t)}
             </button>
           ))}
         </div>
@@ -244,7 +264,6 @@ export function MenuManager({
         </div>
       </div>
 
-      {/* Item list */}
       <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
         <ul className="divide-y divide-border">
           {filtered.length === 0 ? (
@@ -261,20 +280,8 @@ export function MenuManager({
                   !item.available && "opacity-60",
                 )}
               >
-                <div className="relative size-14 shrink-0 overflow-hidden rounded-lg bg-secondary">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      fill
-                      sizes="56px"
-                      className="object-cover"
-                    />
-                  ) : (
-                    <span className="flex size-full items-center justify-center text-muted-foreground">
-                      <UtensilsCrossed className="size-5" />
-                    </span>
-                  )}
+                <div className="flex size-14 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+                  <UtensilsCrossed className="size-5" />
                 </div>
 
                 <div className="min-w-0 flex-1">
@@ -290,7 +297,7 @@ export function MenuManager({
                     ) : null}
                   </div>
                   <p className="truncate text-sm text-muted-foreground">
-                    {item.category} · ${item.price}
+                    {menuLabel(item.menu_id)} · {item.section} · {item.price}
                   </p>
                 </div>
 
@@ -337,7 +344,6 @@ export function MenuManager({
         {availableCount} of {items.length} dishes live on the guest menu
       </p>
 
-      {/* Create / Edit dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -349,95 +355,152 @@ export function MenuManager({
 
           <div className="grid max-h-[60vh] gap-4 overflow-y-auto px-0.5 py-1">
             <div className="grid gap-1.5">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="name">Name (FR)</Label>
               <Input
                 id="name"
                 value={draft.name}
                 onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                placeholder="e.g. Margherita Pizza"
+                placeholder="e.g. Entrecôte de bœuf 350g"
               />
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="name_en">Name (EN)</Label>
+              <Input
+                id="name_en"
+                value={draft.name_en}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, name_en: e.target.value }))
+                }
+                placeholder="e.g. Beef ribeye steak 350g"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="description">Description (FR)</Label>
               <Textarea
                 id="description"
                 value={draft.description}
-                onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, description: e.target.value }))
+                }
                 placeholder="Short, appetizing description"
+                rows={2}
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="description_en">Description (EN)</Label>
+              <Textarea
+                id="description_en"
+                value={draft.description_en}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, description_en: e.target.value }))
+                }
+                placeholder="English description"
                 rows={2}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label htmlFor="price">Price ($)</Label>
+                <Label htmlFor="price">Price (CHF label)</Label>
                 <Input
                   id="price"
-                  inputMode="decimal"
                   value={draft.price}
                   onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
-                  placeholder="0.00"
+                  placeholder="50.-"
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label>Category</Label>
-                <Select
-                  value={draft.category}
-                  onValueChange={(v) =>
-                    setDraft((d) => ({ ...d, category: (v as MenuCategory) ?? d.category }))
+                <Label htmlFor="sort_order">Sort order</Label>
+                <Input
+                  id="sort_order"
+                  inputMode="numeric"
+                  value={String(draft.sort_order)}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      sort_order: Number.parseInt(e.target.value, 10) || 0,
+                    }))
                   }
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label>Menu</Label>
+              <Select
+                value={draft.menu_id}
+                onValueChange={(v) => {
+                  const menuId = (v as MenuId) ?? draft.menu_id
+                  const menu = MENUS.find((m) => m.id === menuId)
+                  const section = menu?.sections[0]
+                  setDraft((d) => ({
+                    ...d,
+                    menu_id: menuId,
+                    section: section?.title ?? d.section,
+                    section_en: section?.titleEn ?? d.section_en,
+                  }))
+                }}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MENUS.map((menu) => (
+                    <SelectItem key={menu.id} value={menu.id}>
+                      {menu.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label>Section (FR)</Label>
+                <Select
+                  value={draft.section}
+                  onValueChange={(v) => {
+                    const section = sectionOptions.find((s) => s.title === v)
+                    setDraft((d) => ({
+                      ...d,
+                      section: v ?? d.section,
+                      section_en: section?.titleEn ?? d.section_en,
+                    }))
+                  }}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {MENU_CATEGORIES.map((c) => (
-                      <SelectItem key={c} value={c}>{c}</SelectItem>
+                    {sectionOptions.map((section) => (
+                      <SelectItem key={section.title} value={section.title}>
+                        {section.title}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="image">Image path</Label>
-              <Input
-                id="image"
-                value={draft.image}
-                onChange={(e) => setDraft((d) => ({ ...d, image: e.target.value }))}
-                placeholder="/images/menu/your-dish.png"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label>Allergens & tags</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {ALL_ALLERGENS.map((a) => {
-                  const active = draft.allergens.includes(a)
-                  return (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => toggleAllergen(a)}
-                      className={cn(
-                        "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                        active
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : "border-border bg-background text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {ALLERGEN_LABEL[a]}
-                    </button>
-                  )
-                })}
+              <div className="grid gap-1.5">
+                <Label htmlFor="section_en">Section (EN)</Label>
+                <Input
+                  id="section_en"
+                  value={draft.section_en}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, section_en: e.target.value }))
+                  }
+                />
               </div>
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div>
                 <p className="text-sm font-medium">Mark as popular</p>
-                <p className="text-xs text-muted-foreground">Shows a highlight badge on the menu.</p>
+                <p className="text-xs text-muted-foreground">
+                  Shows a highlight badge on the menu.
+                </p>
               </div>
               <Switch
                 checked={draft.popular}
@@ -448,7 +511,9 @@ export function MenuManager({
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div>
                 <p className="text-sm font-medium">Available</p>
-                <p className="text-xs text-muted-foreground">Turn off to 86 the dish and hide it from guests.</p>
+                <p className="text-xs text-muted-foreground">
+                  Turn off to 86 the dish and hide it from guests.
+                </p>
               </div>
               <Switch
                 checked={draft.available}
@@ -462,7 +527,15 @@ export function MenuManager({
               Cancel
             </Button>
             <Button onClick={save} disabled={saving}>
-              {saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : draft.id ? "Save changes" : "Add to menu"}
+              {saving ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Saving…
+                </>
+              ) : draft.id ? (
+                "Save changes"
+              ) : (
+                "Add to menu"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

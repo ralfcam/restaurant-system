@@ -5,10 +5,11 @@ import { Plus, Minus, Trash2, Send, Receipt, ChefHat } from "lucide-react"
 import { toast } from "sonner"
 import {
   MENU_ITEMS,
-  MENU_CATEGORIES,
+  MENUS,
   TABLES,
   SERVERS,
   type MenuItem,
+  type MenuId,
   type OrderLine,
 } from "@/lib/data"
 import { addOrder } from "@/lib/order-store"
@@ -22,15 +23,17 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-const TAX_RATE = 0.0875
+const TAX_RATE = 0.077
 
 export function PosTerminal() {
-  const [category, setCategory] = useState(MENU_CATEGORIES[0])
+  const [menuId, setMenuId] = useState<MenuId>(MENUS[0]?.id ?? "soir")
   const [cart, setCart] = useState<OrderLine[]>([])
   const [table, setTable] = useState(TABLES[0]?.label ?? "1")
   const [server, setServer] = useState(SERVERS[0])
 
-  const items = MENU_ITEMS.filter((m) => m.category === category)
+  const items = MENU_ITEMS.filter(
+    (m) => m.menuId === menuId && (m.available ?? true),
+  )
 
   function addItem(item: MenuItem) {
     setCart((prev) => {
@@ -53,7 +56,7 @@ export function PosTerminal() {
   }
 
   function priceOf(itemId: string) {
-    return MENU_ITEMS.find((m) => m.id === itemId)?.price ?? 0
+    return MENU_ITEMS.find((m) => m.id === itemId)?.priceValue ?? 0
   }
 
   const subtotal = cart.reduce((s, l) => s + priceOf(l.itemId) * l.qty, 0)
@@ -71,21 +74,21 @@ export function PosTerminal() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      {/* Menu pad */}
       <div>
         <div className="flex gap-2 overflow-x-auto pb-2">
-          {MENU_CATEGORIES.map((c) => (
+          {MENUS.map((menu) => (
             <button
-              key={c}
-              onClick={() => setCategory(c)}
+              key={menu.id}
+              type="button"
+              onClick={() => setMenuId(menu.id)}
               className={cn(
                 "whitespace-nowrap rounded-full border px-4 py-2 text-sm font-medium transition-colors",
-                category === c
+                menuId === menu.id
                   ? "border-primary bg-primary text-primary-foreground"
                   : "border-border bg-card text-muted-foreground hover:text-foreground",
               )}
             >
-              {c}
+              {menu.title}
             </button>
           ))}
         </div>
@@ -94,19 +97,21 @@ export function PosTerminal() {
           {items.map((item) => (
             <button
               key={item.id}
+              type="button"
               onClick={() => addItem(item)}
               className="flex h-28 flex-col justify-between rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary active:scale-[0.98]"
             >
-              <span className="font-medium leading-tight">{item.name}</span>
+              <span className="line-clamp-2 font-medium leading-tight">
+                {item.name}
+              </span>
               <span className="font-heading text-lg font-semibold text-primary">
-                ${item.price}
+                {item.price}
               </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Order ticket */}
       <div className="flex flex-col rounded-xl border border-border bg-card">
         <div className="border-b border-border p-4">
           <div className="mb-3 flex items-center gap-2 font-heading text-lg font-semibold">
@@ -115,10 +120,7 @@ export function PosTerminal() {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-muted-foreground">Table</label>
-              <Select
-                value={table}
-                onValueChange={(v) => setTable(v ?? "")}
-              >
+              <Select value={table} onValueChange={(v) => setTable(v ?? "")}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -133,10 +135,7 @@ export function PosTerminal() {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Server</label>
-              <Select
-                value={server}
-                onValueChange={(v) => setServer(v ?? "")}
-              >
+              <Select value={server} onValueChange={(v) => setServer(v ?? "")}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -167,7 +166,7 @@ export function PosTerminal() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{line.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      ${priceOf(line.itemId).toFixed(2)}
+                      CHF {priceOf(line.itemId).toFixed(2)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -191,8 +190,8 @@ export function PosTerminal() {
                       <Plus className="size-3.5" />
                     </Button>
                   </div>
-                  <span className="w-14 text-right text-sm font-medium tabular-nums">
-                    ${(priceOf(line.itemId) * line.qty).toFixed(2)}
+                  <span className="w-16 text-right text-sm font-medium tabular-nums">
+                    CHF {(priceOf(line.itemId) * line.qty).toFixed(2)}
                   </span>
                 </li>
               ))}
@@ -204,15 +203,15 @@ export function PosTerminal() {
           <dl className="space-y-1 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <dt>Subtotal</dt>
-              <dd className="tabular-nums">${subtotal.toFixed(2)}</dd>
+              <dd className="tabular-nums">CHF {subtotal.toFixed(2)}</dd>
             </div>
             <div className="flex justify-between text-muted-foreground">
-              <dt>Tax (8.75%)</dt>
-              <dd className="tabular-nums">${tax.toFixed(2)}</dd>
+              <dt>Tax (7.7%)</dt>
+              <dd className="tabular-nums">CHF {tax.toFixed(2)}</dd>
             </div>
             <div className="flex justify-between pt-1 font-heading text-lg font-semibold">
               <dt>Total</dt>
-              <dd className="tabular-nums">${total.toFixed(2)}</dd>
+              <dd className="tabular-nums">CHF {total.toFixed(2)}</dd>
             </div>
           </dl>
           <div className="mt-3 flex gap-2">
@@ -233,8 +232,7 @@ export function PosTerminal() {
             </Button>
           </div>
           <p className="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-            <ChefHat className="size-3.5" /> Fires instantly to the Kitchen
-            Display
+            <ChefHat className="size-3.5" /> Fires instantly to the Kitchen Display
           </p>
         </div>
       </div>

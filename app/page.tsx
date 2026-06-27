@@ -21,13 +21,6 @@ import { ReservationWidget } from "@/components/site/reservation-widget"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 
-// Map featured item ids to their real dish photos
-const DISH_IMAGES: Record<string, string> = {
-  m1: "/images/menu/burrata.png",
-  m3: "/images/menu/tagliatelle.png",
-  m6: "/images/menu/branzino.png",
-}
-
 export default function HomePage() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -220,50 +213,27 @@ export default function HomePage() {
         </div>
 
         <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {featured.map((item) => {
-            const img = DISH_IMAGES[item.id]
-            return (
-              <div
-                key={item.id}
-                className="group relative overflow-hidden rounded-2xl bg-zinc-900 border border-white/10 shadow-sm transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/20 hover:border-white/20"
-              >
-                {/* Dish photo */}
-                {img ? (
-                  <div className="relative h-52 w-full overflow-hidden">
-                    <Image
-                      src={img}
-                      alt={item.name}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
-                    {/* Price pill */}
-                    <span className="absolute right-3.5 top-3.5 rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground backdrop-blur-sm">
-                      ${item.price}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex h-52 items-center justify-center bg-zinc-800">
-                    <span className="text-3xl font-heading text-zinc-700">
-                      {item.name[0]}
-                    </span>
-                    <span className="absolute right-3.5 top-3.5 rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground">
-                      ${item.price}
-                    </span>
-                  </div>
-                )}
-
-                {/* Card body */}
-                <div className="p-5">
-                  <h3 className="font-heading text-lg font-semibold leading-snug tracking-tighter text-white">
-                    {item.name}
-                  </h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-zinc-400 line-clamp-2">
-                    {item.description}
-                  </p>
+          {featured.map((item) => (
+            <div
+              key={item.id}
+              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-sm transition-all duration-300 hover:border-white/20 hover:shadow-lg hover:shadow-amber-500/20"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-zinc-800 font-heading text-xl text-zinc-500">
+                  {item.name[0]}
                 </div>
+                <span className="rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground">
+                  {item.price}
+                </span>
               </div>
-            )
-          })}
+              <h3 className="mt-5 font-heading text-lg font-semibold leading-snug tracking-tighter text-white">
+                {item.name}
+              </h3>
+              <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-zinc-400">
+                {item.description}
+              </p>
+            </div>
+          ))}
         </div>
 
         <div className="mt-8 flex sm:hidden">

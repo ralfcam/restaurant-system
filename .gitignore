@@ -25,3 +25,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# tests
+/playwright-report/
+/test-results/
+
+# supabase cli
+supabase/.branches
+supabase/.temp
+
+# cursor hook runtime state
+.cursor/hooks/state/

@@ -4,14 +4,8 @@ import { useSyncExternalStore } from "react"
 import {
   MENU_ITEMS,
   type MenuItem,
-  type MenuCategory,
+  type MenuId,
 } from "@/lib/data"
-
-// ---------------------------------------------------------------------------
-// Client-side menu store (prototype). Mirrors lib/order-store.ts: an in-memory
-// store backed by localStorage with cross-tab sync via BroadcastChannel, so
-// edits made in /admin/menu reflect live on the guest /menu.
-// ---------------------------------------------------------------------------
 
 const STORAGE_KEY = "tavola.menu.v1"
 
@@ -68,7 +62,6 @@ function setItems(next: MenuItem[], broadcast = true) {
 if (channel) {
   channel.onmessage = (e) => {
     if (e.data?.type === "sync") {
-      // Another tab changed the menu — re-read from storage.
       try {
         const raw =
           typeof window !== "undefined"
@@ -143,4 +136,4 @@ export function toggleAvailability(id: string) {
   )
 }
 
-export type { MenuItem, MenuCategory }
+export type { MenuItem, MenuId }

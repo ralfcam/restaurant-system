@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname } from "next/navigation"
-import { UtensilsCrossed, LockKeyhole, Menu, X } from "lucide-react"
+import { LockKeyhole, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
 import { Button } from "@/components/ui/button"
@@ -42,9 +43,13 @@ export function SiteHeader() {
         {/* Logo — left third */}
         <div className="w-1/3 flex items-center justify-start">
           <Link href="/" className="flex items-center gap-2.5">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-              <UtensilsCrossed className="size-4" strokeWidth={1.75} />
-            </span>
+            <Image
+              src="/images/logo.png"
+              alt={`${RESTAURANT.name} logo`}
+              width={32}
+              height={32}
+              className="size-8 rounded-full object-cover"
+            />
             <span className={cn("font-heading text-lg font-semibold tracking-tight transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
               {RESTAURANT.name}
             </span>

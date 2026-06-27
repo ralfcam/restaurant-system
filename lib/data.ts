@@ -1,160 +1,27 @@
-// Shared mock data for the MVP. This will be replaced by Supabase queries later.
+// Shared mock / seed data for the MVP. Menu content is sourced from lib/akta-menu.json.
+
+export {
+  type MenuId,
+  type MenuItem,
+  type MenuMeta,
+  MENUS,
+  MENU_ITEMS,
+  MENU_IDS,
+  getMenuMeta,
+  getItemsForMenu,
+  slugify,
+  parsePriceValue,
+} from "@/lib/akta-menu"
+
+import { MENU_ITEMS } from "@/lib/akta-menu"
 
 export const RESTAURANT = {
   name: "äkta",
-  tagline: "Seasonal Italian kitchen & wine bar",
-  address: "128 Vine Street, Portland, OR",
-  phone: "(503) 555-0148",
-  hours: "Tue–Sun · 5:00pm – 10:30pm",
+  tagline: "Cuisine de saison & bar à vins · Genève",
+  address: "Boulevard de la Cluse 20, 1205 Genève",
+  phone: "+41 22 566 29 25",
+  hours: "Mar–Ven · 12:00–14:00 & 18:00–23:00 · Sam · 18:00–23:00",
 }
-
-export type MenuCategory =
-  | "Antipasti"
-  | "Pasta"
-  | "Mains"
-  | "Dessert"
-  | "Drinks"
-
-export type Allergen = "gluten" | "dairy" | "nuts" | "shellfish" | "egg" | "vegan"
-
-export interface MenuItem {
-  id: string
-  name: string
-  description: string
-  price: number
-  category: MenuCategory
-  allergens: Allergen[]
-  image?: string
-  popular?: boolean
-  /** When false the dish is "86'd" — hidden from the guest menu. Defaults to available. */
-  available?: boolean
-}
-
-export const MENU_CATEGORIES: MenuCategory[] = [
-  "Antipasti",
-  "Pasta",
-  "Mains",
-  "Dessert",
-  "Drinks",
-]
-
-export const MENU_ITEMS: MenuItem[] = [
-  {
-    id: "m1",
-    name: "Burrata & Heirloom Tomato",
-    description:
-      "Creamy burrata, marinated heirloom tomatoes, basil oil, aged balsamic, grilled sourdough.",
-    price: 16,
-    category: "Antipasti",
-    allergens: ["dairy", "gluten"],
-    image: "/images/menu/burrata.png",
-    popular: true,
-  },
-  {
-    id: "m2",
-    name: "Crispy Calamari",
-    description: "Lightly fried calamari, lemon aioli, pickled chili, herbs.",
-    price: 18,
-    category: "Antipasti",
-    allergens: ["gluten", "shellfish", "egg"],
-    image: "/images/menu/calamari.png",
-  },
-  {
-    id: "m3",
-    name: "Tagliatelle Bolognese",
-    description:
-      "House-made tagliatelle, slow-braised beef and pork ragù, Parmigiano.",
-    price: 26,
-    category: "Pasta",
-    allergens: ["gluten", "dairy", "egg"],
-    image: "/images/menu/tagliatelle.png",
-    popular: true,
-  },
-  {
-    id: "m4",
-    name: "Cacio e Pepe",
-    description: "Spaghetti, Pecorino Romano, toasted black pepper, butter.",
-    price: 22,
-    category: "Pasta",
-    allergens: ["gluten", "dairy"],
-    image: "/images/menu/cacio-e-pepe.png",
-  },
-  {
-    id: "m5",
-    name: "Wild Mushroom Risotto",
-    description: "Carnaroli rice, seasonal mushrooms, white wine, truffle oil.",
-    price: 24,
-    category: "Pasta",
-    allergens: ["dairy", "vegan"],
-    image: "/images/menu/risotto.png",
-  },
-  {
-    id: "m6",
-    name: "Branzino al Forno",
-    description:
-      "Whole roasted Mediterranean sea bass, salsa verde, charred lemon.",
-    price: 34,
-    category: "Mains",
-    allergens: [],
-    image: "/images/menu/branzino.png",
-    popular: true,
-  },
-  {
-    id: "m7",
-    name: "Bistecca alla Fiorentina",
-    description: "28-day dry-aged ribeye, rosemary, olive oil, sea salt.",
-    price: 52,
-    category: "Mains",
-    allergens: [],
-    image: "/images/menu/bistecca.png",
-  },
-  {
-    id: "m8",
-    name: "Tiramisù",
-    description: "Espresso-soaked savoiardi, mascarpone cream, cocoa.",
-    price: 12,
-    category: "Dessert",
-    allergens: ["dairy", "gluten", "egg"],
-    image: "/images/menu/tiramisu.png",
-    popular: true,
-  },
-  {
-    id: "m9",
-    name: "Affogato",
-    description: "Vanilla gelato drowned in a shot of hot espresso.",
-    price: 10,
-    category: "Dessert",
-    allergens: ["dairy"],
-    image: "/images/menu/affogato.png",
-  },
-  {
-    id: "m10",
-    name: "Negroni",
-    description: "Gin, Campari, sweet vermouth, orange peel.",
-    price: 15,
-    category: "Drinks",
-    allergens: [],
-    image: "/images/menu/negroni.png",
-  },
-  {
-    id: "m11",
-    name: "Chianti Classico",
-    description: "Glass of Tuscan red, bright cherry and spice.",
-    price: 14,
-    category: "Drinks",
-    allergens: [],
-    image: "/images/menu/chianti.png",
-  },
-  {
-    id: "m12",
-    name: "San Pellegrino",
-    description: "Sparkling mineral water, 500ml.",
-    price: 6,
-    category: "Drinks",
-    allergens: ["vegan"],
-    image: "/images/menu/sparkling-water.png",
-  },
-]
 
 export type TableStatus = "available" | "seated" | "reserved" | "cleaning"
 
@@ -163,7 +30,7 @@ export interface RestaurantTable {
   label: string
   seats: number
   status: TableStatus
-  x: number // grid position
+  x: number
   y: number
   shape: "round" | "square" | "rect"
 }
@@ -197,8 +64,8 @@ export interface Reservation {
   id: string
   guestName: string
   partySize: number
-  time: string // "18:30"
-  date: string // ISO date
+  time: string
+  date: string
   tableLabel?: string
   status: ReservationStatus
   phone: string
@@ -222,7 +89,6 @@ export const TIME_SLOTS = [
   "19:30", "20:00", "20:30", "21:00", "21:30",
 ]
 
-// A few slots are "full" to demonstrate the availability engine.
 export const UNAVAILABLE_SLOTS = ["18:30", "20:00"]
 
 export type OrderTicketStatus = "new" | "preparing" | "ready"
@@ -238,13 +104,12 @@ export interface OrderTicket {
   id: string
   table: string
   server: string
-  placedAt: string // "19:42"
-  placedAtMs: number // epoch ms, drives live aging on the KDS
+  placedAt: string
+  placedAtMs: number
   status: OrderTicketStatus
   lines: OrderLine[]
 }
 
-// Helper so seeded tickets age realistically relative to "now" on first load.
 function minutesAgo(mins: number): { placedAt: string; placedAtMs: number } {
   const d = new Date(Date.now() - mins * 60_000)
   return {
@@ -255,6 +120,17 @@ function minutesAgo(mins: number): { placedAt: string; placedAtMs: number } {
   }
 }
 
+function findItem(namePart: string) {
+  return MENU_ITEMS.find((m) => m.name.includes(namePart))
+}
+
+const entrecote = findItem("Entrecôte de bœuf 350g")
+const tartinade = findItem("Tartinade chèvre")
+const osMoelle = findItem("Os à moelle")
+const porc = findItem("Porc, patate douce")
+const espresso = findItem("Espresso Martini")
+const cacio = findItem("Millefeuille pomme de terre")
+
 export const INITIAL_TICKETS: OrderTicket[] = [
   {
     id: "ord-201",
@@ -263,8 +139,8 @@ export const INITIAL_TICKETS: OrderTicket[] = [
     ...minutesAgo(3),
     status: "new",
     lines: [
-      { itemId: "m3", name: "Tagliatelle Bolognese", qty: 2 },
-      { itemId: "m1", name: "Burrata & Heirloom Tomato", qty: 1, notes: "no balsamic" },
+      { itemId: entrecote?.id ?? "soir", name: entrecote?.name ?? "Entrecôte de bœuf 350g", qty: 2 },
+      { itemId: tartinade?.id ?? "soir", name: tartinade?.name ?? "Tartinade chèvre, toast de focaccia", qty: 1, notes: "sans gluten" },
     ],
   },
   {
@@ -274,9 +150,9 @@ export const INITIAL_TICKETS: OrderTicket[] = [
     ...minutesAgo(9),
     status: "preparing",
     lines: [
-      { itemId: "m6", name: "Branzino al Forno", qty: 1 },
-      { itemId: "m5", name: "Wild Mushroom Risotto", qty: 1, notes: "vegan" },
-      { itemId: "m11", name: "Chianti Classico", qty: 2 },
+      { itemId: osMoelle?.id ?? "soir", name: osMoelle?.name ?? "Os à moelle, gremolata", qty: 1 },
+      { itemId: porc?.id ?? "soir", name: porc?.name ?? "Porc, patate douce, cacahuète", qty: 1 },
+      { itemId: espresso?.id ?? "boissons", name: espresso?.name ?? "Espresso Martini", qty: 2 },
     ],
   },
   {
@@ -285,7 +161,7 @@ export const INITIAL_TICKETS: OrderTicket[] = [
     server: "Maya",
     ...minutesAgo(14),
     status: "ready",
-    lines: [{ itemId: "m4", name: "Cacio e Pepe", qty: 2 }],
+    lines: [{ itemId: cacio?.id ?? "soir", name: cacio?.name ?? "Millefeuille pomme de terre, mayo paprika", qty: 2 }],
   },
 ]
 
