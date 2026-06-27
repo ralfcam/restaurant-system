@@ -19,3 +19,6 @@ Resolved or filed items (append-only).
 - [x] No assertion that session cookies propagate on localize paths · `tests/unit/i18n/middleware-scope.test.ts` · cookie merge logic untested · med · (found: REAZED-284)
 - [x] Unit test does not assert desktop + mobile switcher regions separately · `tests/unit/i18n/site-header-switcher.test.ts:18` · regex only checks one `<LanguageSwitcher` · low · (found: REAZED-285)
 - [x] `usePathname` active-state may not match localized menu hrefs · `components/site/site-header.tsx:6,63` · on `/en/menu`, active link styling likely wrong · low · (found: REAZED-286)
+- [x] Auth middleware integration not mirrored · `tests/unit/i18n/middleware-scope.test.ts:33-37` · Admin test exercises full middleware()+updateSession; auth test only hits pure helper · low · (found: C1/red) → REAZED-287 (filed)
+- [x] `/auth/error` not covered · `tests/unit/i18n/middleware-scope.test.ts:33-37` · Spec mentions login/callback/error flat routes; test covers login/callback but not `/auth/error` · low · (found: C1/refactor) → REAZED-289 (filed)
+- [x] Prefix startsWith is segment-unaware · `i18n/middleware-scope.ts:9` · `/auth` prefix would skip hypothetical `/authorship` paths · low · (found: C1/refactor) → REAZED-288 (filed)

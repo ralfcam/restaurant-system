@@ -1,6 +1,6 @@
 export type LocaleRoutingDecision = "skip-locale" | "localize"
 
-const LOCALE_EXCLUDED_PREFIXES = ["/admin", "/api"] as const
+const LOCALE_EXCLUDED_PREFIXES = ["/admin", "/api", "/auth"] as const
 
 export function resolveLocaleRoutingDecision(
   pathname: string,

@@ -29,4 +29,10 @@ describe("middleware scope", () => {
     await middleware(menuRequest)
     expect(updateSession).toHaveBeenCalledWith(menuRequest)
   })
+
+  it("auth paths are excluded from localization", () => {
+    expect(resolveLocaleRoutingDecision("/auth")).toBe("skip-locale")
+    expect(resolveLocaleRoutingDecision("/auth/login")).toBe("skip-locale")
+    expect(resolveLocaleRoutingDecision("/auth/callback")).toBe("skip-locale")
+  })
 })

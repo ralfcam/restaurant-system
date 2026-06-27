@@ -5,8 +5,9 @@
 
 ## Scope
 
-Public marketing site: home (`/`), menu (`/menu`). Staff/admin (`/admin/**`) stays
-English-only and is excluded from locale routing. Replaces the per-page EN/FR
+Public marketing site: home (`/`), menu (`/menu`). Staff/admin (`/admin/**`) and
+staff auth (`/auth/**`) stay English-only and are excluded from locale routing.
+Replaces the per-page EN/FR
 toggle in `components/site/menu-browser.tsx` with a navbar language switcher that
 controls all public content.
 
@@ -18,8 +19,9 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
 - **Default locale:** `fr`
 - **Prefix strategy:** `as-needed` — French routes are unprefixed (`/`, `/menu`);
   English routes are prefixed (`/en`, `/en/menu`)
-- **Excluded paths:** `/admin/**`, `/api/**` — no locale segment, no locale
-  middleware redirect; Supabase session middleware still runs
+- **Excluded paths:** `/admin/**`, `/auth/**`, `/api/**` — no locale segment, no
+  locale middleware redirect; Supabase session middleware still runs. `/auth/**`
+  is flat (non-`[locale]`) staff login/callback/error routes like `/admin/**`.
 
 ## Acceptance criteria
 
@@ -28,8 +30,10 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
 2. **Message key parity** — `messages/fr.json` and `messages/en.json` have
    identical key sets; no empty string values.
 3. **Middleware scope** — Locale middleware applies to public paths only;
-   `/admin/**` and `/api/**` skip locale routing; Supabase `updateSession` runs
-   for all paths.
+   `/admin/**`, `/auth/**`, and `/api/**` skip locale routing; Supabase
+   `updateSession` runs for all paths. `/auth/**` must skip locale routing so
+   flat staff auth pages (e.g. `/auth/login`) are not rewritten into a
+   `[locale]` path that has no matching route.
 4. **Switch-path helper** — `localizedPathname(path, targetLocale)` maps paths
    under as-needed rules: `/menu`→`/en/menu`, `/en/menu`→`/menu`, `/`→`/en`,
    `/en`→`/`.
@@ -59,4 +63,4 @@ continue to come from DB `_en` columns keyed by route locale.
 
 - [../architecture/Platform-Overview.md](../architecture/Platform-Overview.md)
 - `components/site/site-header.tsx`, `components/site/menu-browser.tsx`
-- `middleware.ts`, `app/layout.tsx`
+- `middleware.ts`, `i18n/middleware-scope.ts`, `app/layout.tsx`
