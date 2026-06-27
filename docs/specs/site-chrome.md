@@ -29,9 +29,18 @@ Pages: `/` (homepage), `/menu` (digital menu).
    visually readable on dark hero backgrounds at `/` and `/menu` in a real
    browser.
 
+5. **SC-5 — Single homepage source (no duplicate route)** — The `/` route is
+   served exclusively by the localized `app/[locale]/page.tsx`. No flat,
+   non-localized `app/page.tsx` may exist duplicating the homepage body: a static
+   flat route shadows the localized route and reintroduces two-places drift for
+   header/nav/language-switcher changes (the original REAZED-276 risk).
+   Site-chrome structural regression tests target `app/[locale]/page.tsx`.
+
 ## References
 
+- `app/[locale]/page.tsx` (canonical homepage; SC-5)
 - `components/site/site-header.tsx`
 - `lib/site-chrome.ts`
 - `public/images/logo.png`
+- `tests/unit/site-header.test.ts` (SC-5 structural guard)
 - [../PRD/restaurant-system-PRD.md](../PRD/restaurant-system-PRD.md)
