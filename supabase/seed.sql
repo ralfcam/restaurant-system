@@ -1,6 +1,74 @@
 -- Reference data seed (restaurant-system)
 -- Loaded after migrations on db reset
 
+-- ── Staff test account (LOCAL DEV ONLY) ──────────────────────────────────────
+-- Seeds an admin login so /auth/login works after `supabase db reset --local`.
+-- Staff routes (/admin, /pos, /kds) authorize any authenticated user, so this
+-- single confirmed account is sufficient. Credentials: admin@test.local / password123
+-- NEVER seed this against a production database (db reset is local/non-prod only).
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  '11111111-1111-1111-1111-111111111111',
+  'authenticated',
+  'authenticated',
+  'admin@test.local',
+  crypt('password123', gen_salt('bf')),
+  now(),
+  now(),
+  now(),
+  '{"provider":"email","providers":["email"]}',
+  '{}',
+  false,
+  '',
+  '',
+  '',
+  ''
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO auth.identities (
+  provider_id,
+  user_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+VALUES (
+  '11111111-1111-1111-1111-111111111111',
+  '11111111-1111-1111-1111-111111111111',
+  jsonb_build_object(
+    'sub', '11111111-1111-1111-1111-111111111111',
+    'email', 'admin@test.local',
+    'email_verified', true,
+    'phone_verified', false
+  ),
+  'email',
+  now(),
+  now(),
+  now()
+)
+ON CONFLICT (provider_id, provider) DO NOTHING;
+
 -- Default operating hours: Mon-Sat 09:00-22:00, Sunday closed
 INSERT INTO operating_windows (day_of_week, opens_at, closes_at, is_closed)
 VALUES

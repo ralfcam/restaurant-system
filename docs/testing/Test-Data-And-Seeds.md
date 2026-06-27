@@ -10,12 +10,20 @@
   trigger `enforce_booking_rules`.
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
+  - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
   - `menu_items` — 120 rows (äkta menu catalog)
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI
   samples, and POS/KDS tickets not yet persisted in Postgres.
 
-When integration tests need stable IDs, document personas here as suites grow.
+## Personas (stable IDs)
+
+| Persona | Email | Password | User ID | Notes |
+| --- | --- | --- | --- | --- |
+| Staff admin | `admin@test.local` | `password123` | `11111111-1111-1111-1111-111111111111` | **Local dev only.** Signs in at `/auth/login`; grants `/admin`, `/pos`, `/kds` (staff routes authorize any authenticated user). Email pre-confirmed. Never seed against production. |
+
+When integration tests need more stable IDs, document additional personas here as
+suites grow.
 
 ## Local reset
 
