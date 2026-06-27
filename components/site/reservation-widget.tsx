@@ -463,7 +463,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   No availability for this date. Try another day.
                 </p>
               ) : (
-                <div className="mt-2 flex flex-wrap gap-2 max-h-60 overflow-y-auto overscroll-contain pr-2">
+                <div className="mt-2 flex flex-wrap gap-2 max-h-[320px] overflow-y-auto overscroll-contain pr-3" style={{ scrollbarWidth: 'thin' }}>
                   {slots.map(({ time, available }) => (
                     <button
                       key={time}
