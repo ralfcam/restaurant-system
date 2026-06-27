@@ -13,13 +13,12 @@ CREATE TABLE IF NOT EXISTS operating_windows (
 );
 
 -- Create blocked_dates table
--- Stores explicit date overrides (e.g., holidays, special closures)
+-- Stores explicit date overrides (e.g., holidays, special closures).
+-- Standardized column name: `date` (DATE PRIMARY KEY).
 CREATE TABLE IF NOT EXISTS blocked_dates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  blocked_date DATE NOT NULL UNIQUE,
+  date DATE PRIMARY KEY,
   reason TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Enable RLS (Row Level Security)

@@ -37,14 +37,18 @@ function getMinBookableDate(): string {
   const today = getTodayInRestaurantTZ()
   const nowTime = getNowTimeInRestaurantTZ()
   const lastSlotHour = 21
-  
-  // If it's past 21:00 in restaurant timezone, start bookings tomorrow
+
+  // If it's past 21:00 in restaurant timezone, start bookings tomorrow.
+  // Build YYYY-MM-DD from local date components to avoid UTC timezone shift.
   if (nowTime >= `${lastSlotHour}:00`) {
-    const tomorrow = new Date(today)
+    const tomorrow = new Date(today + "T00:00:00")
     tomorrow.setDate(tomorrow.getDate() + 1)
-    return tomorrow.toISOString().split("T")[0]
+    const yy = tomorrow.getFullYear()
+    const mm = String(tomorrow.getMonth() + 1).padStart(2, "0")
+    const dd = String(tomorrow.getDate()).padStart(2, "0")
+    return `${yy}-${mm}-${dd}`
   }
-  
+
   return today
 }
 
@@ -150,17 +154,36 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
     setMounted(true)
     setDate(getMinBookableDate())
 
-    // Fetch the operating windows map once — drives calendar disabled state
-    getAllOperatingWindowsMap().then(setOperatingWindows)
+    // Fetch operating windows and blocked dates in parallel on mount so the
+    // calendar has accurate disabled-date data from its very first open.
+    const today = getTodayInRestaurantTZ()
+    const end = new Date(today + "T00:00:00")
+    end.setMonth(end.getMonth() + 3)
+    const yy = end.getFullYear()
+    const mm = String(end.getMonth() + 1).padStart(2, "0")
+    const dd = String(end.getDate()).padStart(2, "0")
+    const endISO = `${yy}-${mm}-${dd}`
+
+    Promise.all([
+      getAllOperatingWindowsMap(),
+      getBlockedDatesInRange(today, endISO),
+    ]).then(([windows, blocked]) => {
+      setOperatingWindows(windows)
+      setBlockedDates(blocked)
+    })
   }, [])
 
-  // When the calendar dialog opens, refresh blocked dates for the next 3 months
+  // When the calendar dialog opens, refresh blocked dates to pick up any
+  // admin changes made since the component mounted.
   useEffect(() => {
     if (!isCalendarOpen) return
     const today = getTodayInRestaurantTZ()
-    const end = new Date(today)
+    const end = new Date(today + "T00:00:00")
     end.setMonth(end.getMonth() + 3)
-    const endISO = end.toISOString().split("T")[0]
+    const yy = end.getFullYear()
+    const mm = String(end.getMonth() + 1).padStart(2, "0")
+    const dd = String(end.getDate()).padStart(2, "0")
+    const endISO = `${yy}-${mm}-${dd}`
     getBlockedDatesInRange(today, endISO).then(setBlockedDates)
   }, [isCalendarOpen])
 
@@ -418,12 +441,12 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                 <Clock className="size-3.5" /> Available times
               </Label>
               {loadingSlots ? (
-                <div className="mt-2 grid grid-cols-5 gap-2">
-                  {Array.from({ length: 10 }).map((_, i) => (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {Array.from({ length: 18 }).map((_, i) => (
                     <div
                       key={i}
                       className={cn(
-                        "h-9 w-full rounded-full border animate-pulse",
+                        "h-9 w-16 rounded-full border animate-pulse",
                         dark
                           ? "border-white/10 bg-white/5"
                           : "border-border/20 bg-muted/50"
@@ -440,7 +463,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   No availability for this date. Try another day.
                 </p>
               ) : (
-                <div className="mt-2 grid grid-cols-5 gap-2">
+                <div className="mt-2 flex flex-wrap gap-2">
                   {slots.map(({ time, available }) => (
                     <button
                       key={time}
@@ -448,7 +471,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                       disabled={!available}
                       onClick={() => pickSlot(time)}
                       className={cn(
-                        "rounded-full border py-2 text-xs font-medium tracking-wide transition-all duration-150",
+                        "w-16 rounded-full border py-2 text-center text-xs font-medium tracking-wide transition-all duration-150",
                         dark && !available  && "cursor-not-allowed border-white/8 bg-white/4 text-white/20 line-through",
                         dark && available   && "border-white/20 bg-white/8 text-white/80 hover:border-white/50 hover:bg-white/15 hover:text-white active:scale-95",
                         !dark && !available && "cursor-not-allowed border-border bg-muted text-muted-foreground/40 line-through",

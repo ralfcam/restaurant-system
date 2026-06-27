@@ -60,13 +60,13 @@ export async function createReservation(payload: {
     }
   }
 
-  if (
-    payload.time < operatingWindow.opens_at ||
-    payload.time > operatingWindow.closes_at
-  ) {
+  const opensAt = operatingWindow.opens_at ?? "09:00"
+  const closesAt = operatingWindow.closes_at ?? "22:00"
+
+  if (payload.time < opensAt || payload.time > closesAt) {
     return {
       confCode: "",
-      error: `Reservations are only available between ${operatingWindow.opens_at} and ${operatingWindow.closes_at}.`,
+      error: `Reservations are only available between ${opensAt} and ${closesAt}.`,
     }
   }
 
@@ -170,10 +170,14 @@ export async function getAvailableSlots(
   date: string,
   partySize: number,
 ): Promise<SlotAvailability[]> {
-  const TIME_SLOTS = [
-    "17:00", "17:30", "18:00", "18:30", "19:00",
-    "19:30", "20:00", "20:30", "21:00", "21:30",
-  ]
+  // Full-day slot grid: 09:00 → 21:30 in 30-minute increments (last seating
+  // before the 22:00 standard close). The operating-window comparison below
+  // narrows this to each day's actual configured hours.
+  const TIME_SLOTS: string[] = []
+  for (let h = 9; h <= 21; h++) {
+    const hh = String(h).padStart(2, "0")
+    TIME_SLOTS.push(`${hh}:00`, `${hh}:30`)
+  }
   // Total covers the restaurant can seat at once (sum of all table seats).
   const TOTAL_CAPACITY = 38 // 2+2+4+4+6+4+2+8+4+2
 
@@ -192,6 +196,11 @@ export async function getAvailableSlots(
     // Restaurant is closed on this day
     return TIME_SLOTS.map((time) => ({ time, available: false }))
   }
+
+  // Guard against DB rows with null time columns — fall back to the global
+  // 09:00–22:00 baseline so the comparison never evaluates against undefined.
+  const opensAt = operatingWindow.opens_at ?? "09:00"
+  const closesAt = operatingWindow.closes_at ?? "22:00"
 
   // Fetch all confirmed/seated reservations for this date.
   const { data, error } = await supabase
@@ -218,7 +227,7 @@ export async function getAvailableSlots(
 
   return TIME_SLOTS.map((time) => {
     // Block times outside operating hours
-    if (time < operatingWindow.opens_at || time > operatingWindow.closes_at) {
+    if (time < opensAt || time > closesAt) {
       return { time, available: false }
     }
 
