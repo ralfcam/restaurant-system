@@ -30,7 +30,7 @@ VALUES (
   'authenticated',
   'authenticated',
   'admin@test.local',
-  crypt('password123', gen_salt('bf')),
+  extensions.crypt('password123', extensions.gen_salt('bf')),
   now(),
   now(),
   now(),
