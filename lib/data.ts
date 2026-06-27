@@ -1,7 +1,7 @@
 // Shared mock data for the MVP. This will be replaced by Supabase queries later.
 
 export const RESTAURANT = {
-  name: "Tavola",
+  name: "äkta",
   tagline: "Seasonal Italian kitchen & wine bar",
   address: "128 Vine Street, Portland, OR",
   phone: "(503) 555-0148",
