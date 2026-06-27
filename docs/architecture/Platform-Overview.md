@@ -14,16 +14,24 @@
 
 | Path | Audience | Purpose |
 | --- | --- | --- |
-| `/` | Guest | Marketing / home |
-| `/menu` | Guest | Menu browser |
+| `/`, `/menu` | Guest | Marketing home and menu (default locale **fr**, unprefixed) |
+| `/en`, `/en/menu` | Guest | English public site (`localePrefix: as-needed`) |
 | `/auth/login`, `/auth/callback` | Staff | Supabase auth |
-| `/admin/*` | Staff | Menu, reservations, scheduling, floor |
+| `/admin/*` | Staff | Menu, reservations, scheduling, floor (English-only; no locale segment) |
 | `/pos` | Staff | Point of sale |
 | `/kds` | Staff | Kitchen display |
 
+## Localization
+
+Public guest routes live under `app/[locale]/` with **next-intl** (`i18n/routing.ts`,
+`messages/fr.json`, `messages/en.json`). Default locale is **fr**; English uses an
+`/en` prefix. A navbar `LanguageSwitcher` replaces the old in-menu EN/FR toggle.
+Spec: [../specs/site-localization.md](../specs/site-localization.md).
+
 ## Middleware
 
-`middleware.ts` delegates to `lib/supabase/proxy.ts` (`updateSession`). Staff paths
+`middleware.ts` always runs Supabase `updateSession`, then applies next-intl locale
+routing for public paths. `/admin/**` and `/api/**` skip locale middleware. Staff paths
 (`/admin`, `/pos`, `/kds`) redirect unauthenticated users to `/auth/login`.
 
 ## Server actions

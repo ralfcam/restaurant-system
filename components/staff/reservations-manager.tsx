@@ -56,14 +56,6 @@ function offsetDate(iso: string, days: number): string {
   return d.toISOString().slice(0, 10)
 }
 
-function formatDateShort(iso: string): string {
-  return new Date(iso + "T00:00:00").toLocaleDateString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  })
-}
-
 export function ReservationsManager({
   initialReservations = [],
   selectedDate,
@@ -89,7 +81,9 @@ export function ReservationsManager({
   // the service-role client so RLS never filters out rows on the admin side.
   useEffect(() => {
     let cancelled = false
-    setLoadingDate(true)
+    queueMicrotask(() => {
+      if (!cancelled) setLoadingDate(true)
+    })
     getReservationsByDate(currentDate).then((rows) => {
       if (!cancelled) {
         setReservations(rows.map(rowToReservation))

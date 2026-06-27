@@ -45,29 +45,6 @@ export function dateTimeToUTC(dateISO: string, timeString: string): Date {
   // Create a date in UTC, then adjust for timezone offset
   const date = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0))
 
-  // Get the offset between UTC and restaurant timezone
-  const utcFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
-
-  const tzFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: RESTAURANT_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  })
-
   // The offset is the difference between what UTC thinks and TZ thinks the time is
   const offset = new Date(date.toLocaleString("en-US", { timeZone: RESTAURANT_TZ })).getTime() - date.getTime()
 

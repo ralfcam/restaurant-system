@@ -7,8 +7,10 @@ import { usePathname } from "next/navigation"
 import { LockKeyhole, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
+import { SITE_LOGO, shouldRenderSiteHeader } from "@/lib/site-chrome"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
+import { LanguageSwitcher } from "@/components/site/language-switcher"
 
 const LINKS = [
   { href: "/menu", label: "Menu" },
@@ -27,8 +29,7 @@ export function SiteHeader() {
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // The homepage has its own inline header overlaid on the hero.
-  if (pathname === "/") return null
+  if (!shouldRenderSiteHeader(pathname)) return null
 
   return (
     <header
@@ -43,13 +44,7 @@ export function SiteHeader() {
         {/* Logo — left third */}
         <div className="w-1/3 flex items-center justify-start">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image
-              src="/images/logo.png"
-              alt={`${RESTAURANT.name} logo`}
-              width={32}
-              height={32}
-              className="size-8 rounded-full object-cover"
-            />
+            <Image {...SITE_LOGO} alt={SITE_LOGO.alt} />
             <span className={cn("font-heading text-lg font-semibold tracking-tight transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
               {RESTAURANT.name}
             </span>
@@ -75,6 +70,13 @@ export function SiteHeader() {
 
         {/* Desktop Actions — right third */}
         <div className="w-1/3 flex items-center gap-2 justify-end hidden md:flex">
+          <LanguageSwitcher
+            variant={isScrolled ? "outline" : "ghost"}
+            className={cn(
+              "rounded-full text-xs font-medium tracking-wide transition-colors duration-300",
+              isScrolled ? "text-muted-foreground" : "text-white/80",
+            )}
+          />
           <Button
             variant="ghost"
             size="sm"
@@ -111,6 +113,10 @@ export function SiteHeader() {
                   {link.label}
                 </Link>
               ))}
+              <LanguageSwitcher
+                variant="ghost"
+                className="w-full justify-start text-foreground"
+              />
               <div className="border-t pt-4">
                 <Button
                   variant="ghost"

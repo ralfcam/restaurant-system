@@ -14,6 +14,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Auth & RLS | [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md) |
 | Reservations / booking | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md) |
 | Menu / 86 / POS / KDS | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md) |
+| Guest site chrome (header / logo) | [specs/site-chrome.md](./specs/site-chrome.md) |
 | Scheduling / floor | [specs/scheduling.md](./specs/scheduling.md) · [architecture/Floor-Plan.md](./architecture/Floor-Plan.md) |
 | Testing pyramid | [testing/Pyramid-Overview.md](./testing/Pyramid-Overview.md) |
 | Unit tests | [testing/Vitest-Unit-Guide.md](./testing/Vitest-Unit-Guide.md) |
@@ -34,13 +35,14 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Reservation booking rules | `specs/booking-rules.md` | `architecture/Reservation-Flow.md` |
 | Menu availability / 86 | `specs/menu-availability.md` | `architecture/Order-Flow.md` |
 | Staff scheduling / tables | `specs/scheduling.md` | `architecture/Floor-Plan.md` |
+| Guest header / brand logo | `specs/site-chrome.md` | — |
 | Test how-to | `testing/*-Guide.md` | `Design-And-Patterns.md` for promoted recipes |
 
 ## Plan → doc traceability
 
 | Plan | Shipped | Docs updated |
 | --- | --- | --- |
-| _(none yet)_ | — | — |
+| Shared Site Header + 48px Logo | 2026-06-27 | `specs/site-chrome.md`, `specs/README.md`, `testing/Design-And-Patterns.md` |
 
 ## Seed path
 

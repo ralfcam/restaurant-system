@@ -1,0 +1,53 @@
+{
+  "nav": {
+    "menu": "Menu",
+    "staff": "Staff",
+    "staffLogin": "Staff login",
+    "bookTable": "Book a table",
+    "openMenu": "Open menu"
+  },
+  "hero": {
+    "tagline": "Seasonal Italian Kitchen & Wine Bar",
+    "headline": "A seat at the table, reserved in seconds.",
+    "subtext": "Browse our seasonal menu, pick your time, and book instantly. No calls, no waiting — just great food at äkta.",
+    "bookTitle": "Book your table",
+    "bookSubtitle": "Real-time availability · Instant confirmation"
+  },
+  "info": {
+    "hours": "Hours",
+    "location": "Location",
+    "reservations": "Reservations"
+  },
+  "picks": {
+    "label": "Chef's picks",
+    "title": "Tonight's favorites",
+    "fullMenu": "Full menu →",
+    "viewFullMenu": "View full menu"
+  },
+  "experience": {
+    "label": "The experience",
+    "title": "A better night out, end to end",
+    "step1Title": "Reserve online",
+    "step1Body": "Pick your party size and time. We check live capacity so you never double-book.",
+    "step2Title": "Scan the menu",
+    "step2Body": "Mobile-friendly digital menu with prices and allergen info at your table.",
+    "step3Title": "Cooked to order",
+    "step3Body": "Your order flows straight to the kitchen display for fast, accurate service."
+  },
+  "footer": {
+    "staffConsole": "Staff console"
+  },
+  "menuPage": {
+    "badge": "Digital menu",
+    "title": "{name} Menu",
+    "description": "{tagline}. Switch between menus and languages below.",
+    "reserve": "Reserve a table",
+    "footerNote": "Prices in CHF. Please inform your server of any dietary requirements."
+  },
+  "menuBrowser": {
+    "emptyTitle": "Menu coming soon",
+    "emptySubtitle": "Check back shortly — we're updating our dishes.",
+    "noDishes": "No dishes available in this menu right now.",
+    "signature": "Signature"
+  }
+}

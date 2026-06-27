@@ -5,7 +5,7 @@
 
 ## Scope
 
-Guest menu (`app/menu`), staff menu manager (`app/admin/menu`), POS (`app/pos`),
+Guest menu (`app/[locale]/menu`), staff menu manager (`app/admin/menu`), POS (`app/pos`),
 KDS (`app/kds`). Server actions in `app/actions/menu.ts`; stores in
 `lib/menu-store.ts`, `lib/order-store.ts`.
 

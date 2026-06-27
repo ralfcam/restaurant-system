@@ -21,7 +21,6 @@ export default async function AdminDashboardPage() {
     getAuthUser(),
     getReservationsForDate(new Date().toISOString().slice(0, 10)),
   ])
-  const today = new Date().toISOString().slice(0, 10)
   const todays = allReservations.filter((r) => r.status !== "cancelled")
   const covers = todays.reduce((sum, r) => sum + r.party_size, 0)
   const seated = TABLES.filter((t) => t.status === "seated").length

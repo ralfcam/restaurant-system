@@ -1,3 +1,5 @@
+import Link from "next/link"
+
 export default function AuthErrorPage() {
   return (
     <div className="flex min-h-svh items-center justify-center p-6">
@@ -8,12 +10,12 @@ export default function AuthErrorPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Something went wrong during sign-in. Please try again.
         </p>
-        <a
+        <Link
           href="/auth/login"
           className="mt-4 inline-block text-sm text-primary underline underline-offset-4"
         >
           Back to login
-        </a>
+        </Link>
       </div>
     </div>
   )

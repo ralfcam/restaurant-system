@@ -66,6 +66,9 @@ Use `--local` instead of `--linked` when testing against the local stack.
 
 ## Pre-deploy checks
 
+`pnpm lint` uses the flat ESLint config at `eslint.config.mjs` (G-L1 in
+[../specs/dev-toolchain.md](../specs/dev-toolchain.md)).
+
 ```powershell
 pnpm lint
 pnpm typecheck

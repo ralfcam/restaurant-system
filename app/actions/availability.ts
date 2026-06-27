@@ -2,7 +2,7 @@
 
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
-import { getDayOfWeekInRestaurantTZ, getTodayInRestaurantTZ } from "@/lib/timezone"
+import { getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
 
 export type OperatingWindow = {
   day_of_week: number

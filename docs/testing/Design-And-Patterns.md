@@ -9,7 +9,10 @@ Catalog of reusable test recipes promoted from shipped `/sdd-to-tdd` runs.
 
 | Scenario | Mocks | Reference test |
 | --- | --- | --- |
-| _(none yet)_ | — | — |
+| Shared Next.js `<Image>` props in `lib/` | `as const satisfies Pick<ImageProps, …>`; unit-test `src`/dimensions | `tests/unit/site-chrome.test.ts` |
+| Filesystem composition guard (no duplicate chrome) | `readFileSync` + regex on page source | `tests/unit/site-header.test.ts` → "homepage delegates to SiteHeader without inline fixed header" |
+| Source-structure regression (shared chrome ↔ e2e hooks) | `readFileSync` + regex on component source; assert import and JSX presence for chrome wired to `data-testid` hooks exercised in e2e | `tests/unit/i18n/site-header-switcher.test.ts` → "site header renders LanguageSwitcher in shared navbar" |
+| Route visibility helper synced with component | Export `shouldRenderSiteHeader(pathname)` from `lib/`; component calls same helper | `tests/unit/site-header.test.ts` → "SiteHeader is enabled for homepage route" |
 
 ## Integration recipes
 

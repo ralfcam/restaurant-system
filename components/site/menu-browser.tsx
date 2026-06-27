@@ -1,11 +1,11 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Globe, UtensilsCrossed } from "lucide-react"
+import { UtensilsCrossed } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { MENUS, type MenuId } from "@/lib/data"
 import type { MenuItemRow } from "@/app/actions/menu"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 
 type Locale = "fr" | "en"
 
@@ -29,10 +29,12 @@ function groupBySection(items: MenuItemRow[], locale: Locale) {
 
 export function MenuBrowser({
   initialItems = [],
+  locale,
 }: {
   initialItems?: MenuItemRow[]
+  locale: Locale
 }) {
-  const [locale, setLocale] = useState<Locale>("fr")
+  const t = useTranslations("menuBrowser")
   const [menuId, setMenuId] = useState<MenuId>(MENUS[0]?.id ?? "soir")
 
   const menuMeta = MENUS.find((m) => m.id === menuId)
@@ -53,22 +55,6 @@ export function MenuBrowser({
   return (
     <div>
       <div className="sticky top-16 z-20 -mx-4 space-y-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:mx-0 md:rounded-lg md:border">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            {locale === "fr" ? "Carte bilingue" : "Bilingual menu"}
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={() => setLocale((l) => (l === "fr" ? "en" : "fr"))}
-          >
-            <Globe className="size-4" />
-            {locale === "fr" ? "EN" : "FR"}
-          </Button>
-        </div>
-
         <div className="flex gap-2 overflow-x-auto pb-1">
           {tabs.map((tab) => (
             <button
@@ -91,23 +77,15 @@ export function MenuBrowser({
       {initialItems.length === 0 && (
         <div className="mt-12 flex flex-col items-center gap-3 text-center text-muted-foreground">
           <UtensilsCrossed className="size-8" />
-          <p className="font-medium">
-            {locale === "fr" ? "Carte bientôt disponible" : "Menu coming soon"}
-          </p>
-          <p className="text-sm">
-            {locale === "fr"
-              ? "Revenez dans un instant — nous mettons la carte à jour."
-              : "Check back shortly — we're updating our dishes."}
-          </p>
+          <p className="font-medium">{t("emptyTitle")}</p>
+          <p className="text-sm">{t("emptySubtitle")}</p>
         </div>
       )}
 
       <div className="mt-6 space-y-8">
         {menuItems.length === 0 && initialItems.length > 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
-            {locale === "fr"
-              ? "Aucun plat disponible dans cette carte pour le moment."
-              : "No dishes available in this menu right now."}
+            {t("noDishes")}
           </p>
         ) : (
           sections.map((section) => (
@@ -131,7 +109,7 @@ export function MenuBrowser({
                           {name}
                           {item.popular ? (
                             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                              {locale === "fr" ? "Signature" : "Signature"}
+                              {t("signature")}
                             </span>
                           ) : null}
                         </h3>

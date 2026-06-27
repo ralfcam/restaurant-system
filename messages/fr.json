@@ -1,0 +1,53 @@
+{
+  "nav": {
+    "menu": "Menu",
+    "staff": "Personnel",
+    "staffLogin": "Connexion personnel",
+    "bookTable": "Réserver une table",
+    "openMenu": "Ouvrir le menu"
+  },
+  "hero": {
+    "tagline": "Cuisine italienne de saison & bar à vins",
+    "headline": "Une place à table, réservée en quelques secondes.",
+    "subtext": "Parcourez notre carte de saison, choisissez votre horaire et réservez instantanément. Pas d'appels, pas d'attente — juste une excellente cuisine chez äkta.",
+    "bookTitle": "Réservez votre table",
+    "bookSubtitle": "Disponibilité en temps réel · Confirmation instantanée"
+  },
+  "info": {
+    "hours": "Horaires",
+    "location": "Adresse",
+    "reservations": "Réservations"
+  },
+  "picks": {
+    "label": "Sélection du chef",
+    "title": "Les favoris du soir",
+    "fullMenu": "Carte complète →",
+    "viewFullMenu": "Voir la carte complète"
+  },
+  "experience": {
+    "label": "L'expérience",
+    "title": "Une soirée réussie, de bout en bout",
+    "step1Title": "Réserver en ligne",
+    "step1Body": "Choisissez la taille de votre groupe et l'horaire. Nous vérifions la capacité en direct pour éviter les doubles réservations.",
+    "step2Title": "Scanner la carte",
+    "step2Body": "Carte digitale mobile avec prix et informations allergènes à votre table.",
+    "step3Title": "Préparé à la commande",
+    "step3Body": "Votre commande arrive directement à l'écran cuisine pour un service rapide et précis."
+  },
+  "footer": {
+    "staffConsole": "Console personnel"
+  },
+  "menuPage": {
+    "badge": "Carte digitale",
+    "title": "Carte {name}",
+    "description": "{tagline}. Parcourez nos cartes dans la langue de votre choix.",
+    "reserve": "Réserver une table",
+    "footerNote": "Prix en CHF. Veuillez informer votre serveur de toute exigence alimentaire."
+  },
+  "menuBrowser": {
+    "emptyTitle": "Carte bientôt disponible",
+    "emptySubtitle": "Revenez dans un instant — nous mettons la carte à jour.",
+    "noDishes": "Aucun plat disponible dans cette carte pour le moment.",
+    "signature": "Signature"
+  }
+}

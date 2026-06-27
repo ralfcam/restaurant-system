@@ -1,3 +1,3 @@
 # Tech-debt findings (open)
 
-- _(none)_
+- _(none — see [archive.md](./archive.md))_

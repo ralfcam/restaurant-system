@@ -124,6 +124,8 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
 
   const partyNum = Number(party)
   const overCapacity = partyNum > MAX_CAPACITY
+  const displaySlots = overCapacity ? [] : slots
+  const displayLoadingSlots = overCapacity ? false : loadingSlots
 
   const fetchSlots = useCallback(async (d: string, p: number) => {
     const cacheKey = `${d}-${p}`
@@ -151,8 +153,10 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
 
   // Populate the real date and fetch global scheduling rules on mount.
   useEffect(() => {
-    setMounted(true)
-    setDate(getMinBookableDate())
+    queueMicrotask(() => {
+      setMounted(true)
+      setDate(getMinBookableDate())
+    })
 
     // Fetch operating windows and blocked dates in parallel on mount so the
     // calendar has accurate disabled-date data from its very first open.
@@ -189,8 +193,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
 
   // Debounced slot fetching to prevent slamming the server with rapid requests
   useEffect(() => {
-    if (!date) return
-    if (overCapacity) { setSlots([]); setLoadingSlots(false); return }
+    if (!date || overCapacity) return
     
     // Clear any pending debounce timer
     if (debounceTimerRef.current) {
@@ -390,19 +393,21 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               </Label>
               {mounted && (
                 <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                  <DialogTrigger asChild>
-                    <button
-                      type="button"
-                      className={cn(
-                        "w-full h-9 rounded-lg border px-3 flex items-center justify-between text-sm transition-colors",
-                        dark
-                          ? "border-white/15 bg-white/10 text-white hover:bg-white/15 focus:ring-2 focus:ring-white/20 focus:border-white/30"
-                          : "border-input bg-transparent hover:bg-secondary focus:ring-2 focus:ring-ring/20 focus:border-foreground/30",
-                      )}
-                    >
-                      <span>{date ? formatDate(date) : "Select a date"}</span>
-                      <CalendarDays className="size-3.5 opacity-60" />
-                    </button>
+                  <DialogTrigger
+                    render={
+                      <button
+                        type="button"
+                        className={cn(
+                          "w-full h-9 rounded-lg border px-3 flex items-center justify-between text-sm transition-colors",
+                          dark
+                            ? "border-white/15 bg-white/10 text-white hover:bg-white/15 focus:ring-2 focus:ring-white/20 focus:border-white/30"
+                            : "border-input bg-transparent hover:bg-secondary focus:ring-2 focus:ring-ring/20 focus:border-foreground/30",
+                        )}
+                      />
+                    }
+                  >
+                    <span>{date ? formatDate(date) : "Select a date"}</span>
+                    <CalendarDays className="size-3.5 opacity-60" />
                   </DialogTrigger>
                   <DialogContent showCloseButton={true} className={cn(
                     "max-w-sm rounded-sm border border-border/40 bg-background p-6 shadow-none",
@@ -440,7 +445,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
                 <Clock className="size-3.5" /> Available times
               </Label>
-              {loadingSlots ? (
+              {displayLoadingSlots ? (
                 <div className="mt-2 flex flex-wrap gap-2">
                   {Array.from({ length: 18 }).map((_, i) => (
                     <div
@@ -458,13 +463,13 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                     />
                   ))}
                 </div>
-              ) : slots.length === 0 || !slots.some((s) => s.available) ? (
+              ) : displaySlots.length === 0 || !displaySlots.some((s) => s.available) ? (
                 <p className={cn("mt-2 text-sm tracking-wide", dark ? "text-white/50" : "text-muted-foreground")}>
                   No availability for this date. Try another day.
                 </p>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2 max-h-[320px] overflow-y-auto overscroll-contain pr-3" style={{ scrollbarWidth: 'thin' }}>
-                  {slots.map(({ time, available }) => (
+                  {displaySlots.map(({ time, available }) => (
                     <button
                       key={time}
                       type="button"
