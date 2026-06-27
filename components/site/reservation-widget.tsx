@@ -267,7 +267,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
 
   return (
     <div className={cn(
-      "relative h-[380px] overflow-hidden",
+      "relative h-[380px] overflow-hidden pb-4",
       dark ? "bg-transparent" : "bg-card",
     )}>
 
@@ -463,7 +463,7 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                   No availability for this date. Try another day.
                 </p>
               ) : (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-2 max-h-60 overflow-y-auto overscroll-contain pr-2">
                   {slots.map(({ time, available }) => (
                     <button
                       key={time}
