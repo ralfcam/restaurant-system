@@ -1,14 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, Trash2, Minus, Users } from "lucide-react"
 import { toast } from "sonner"
 import {
-  TABLES,
   TABLE_STATUS_META,
   type RestaurantTable,
   type TableStatus,
 } from "@/lib/data"
+import { createTable, deleteTable, getTables, updateTableState } from "@/app/actions/operations"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -20,49 +20,49 @@ const STATUS_ORDER: TableStatus[] = [
 ]
 
 export function FloorPlan() {
-  const [tables, setTables] = useState<RestaurantTable[]>(TABLES)
-  const [selectedId, setSelectedId] = useState<string | null>(TABLES[0]?.id ?? null)
+  const [tables, setTables] = useState<RestaurantTable[]>([])
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    getTables().then((rows) => {
+      setTables(rows as RestaurantTable[])
+      setSelectedId(rows[0]?.id ?? null)
+    })
+  }, [])
 
   const selected = tables.find((t) => t.id === selectedId) ?? null
 
-  function setStatus(id: string, status: TableStatus) {
-    setTables((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, status } : t)),
-    )
+  async function setStatus(id: string, status: TableStatus) {
+    const previous = tables
+    setTables((current) => current.map((t) => (t.id === id ? { ...t, status } : t)))
+    try { await updateTableState({ id, status }) } catch { setTables(previous); toast.error("Could not update table") }
   }
 
-  function adjustSeats(id: string, delta: number) {
-    setTables((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? { ...t, seats: Math.max(1, Math.min(12, t.seats + delta)) }
-          : t,
-      ),
-    )
+  async function adjustSeats(id: string, delta: number) {
+    const selectedTable = tables.find((t) => t.id === id)
+    if (!selectedTable) return
+    const seats = Math.max(1, Math.min(12, selectedTable.seats + delta))
+    const previous = tables
+    setTables((current) => current.map((t) => t.id === id ? { ...t, seats } : t))
+    try { await updateTableState({ id, seats }) } catch { setTables(previous); toast.error("Could not update capacity") }
   }
 
-  function addTable() {
-    const nextNum =
-      Math.max(0, ...tables.map((t) => Number(t.label) || 0)) + 1
-    const newTable: RestaurantTable = {
-      id: `t-${Date.now()}`,
-      label: String(nextNum),
-      seats: 2,
-      status: "available",
-      x: 0,
-      y: 0,
-      shape: "round",
-    }
-    setTables((prev) => [...prev, newTable])
-    setSelectedId(newTable.id)
-    toast.success(`Table ${nextNum} added`)
+  async function addTable() {
+    try {
+      const newTable = await createTable()
+      setTables((prev) => [...prev, newTable as RestaurantTable])
+      setSelectedId(newTable.id)
+      toast.success(`Table ${newTable.label} added`)
+    } catch { toast.error("Could not add table") }
   }
 
-  function removeTable(id: string) {
+  async function removeTable(id: string) {
     const t = tables.find((x) => x.id === id)
+    const previous = tables
     setTables((prev) => prev.filter((x) => x.id !== id))
     if (selectedId === id) setSelectedId(null)
-    if (t) toast.success(`Table ${t.label} removed`)
+    try { await deleteTable(id); if (t) toast.success(`Table ${t.label} removed`) }
+    catch { setTables(previous); toast.error("Could not remove table") }
   }
 
   const totalSeats = tables.reduce((s, t) => s + t.seats, 0)
