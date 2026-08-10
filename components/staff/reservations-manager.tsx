@@ -11,6 +11,7 @@ import {
   assignReservationTable,
   getReservationTables,
   transitionReservationStatus,
+  undoReservationStatus,
   getReservationsByDate,
 } from "@/app/actions/reservations"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
@@ -170,7 +171,29 @@ export function ReservationsManager({
       )
       return
     }
-    toast.success(`Reservation ${labels[status]}`)
+    toast.success(`Reservation ${labels[status]}`, {
+      action: {
+        label: "Undo",
+        onClick: () => { void undoStatus(id, status) },
+      },
+    })
+  }
+
+  async function undoStatus(id: string, changedStatus: ReservationStatus) {
+    const current = reservations.find((r) => r.id === id)
+    if (!current || current.status !== changedStatus) {
+      toast.error("This status change is no longer available to undo.")
+      return
+    }
+    const result = await undoReservationStatus(id)
+    if (result.error || !result.restoredStatus) {
+      toast.error("Undo failed", { description: result.error })
+      return
+    }
+    setReservations((prev) => prev.map((r) => (
+      r.id === id ? { ...r, status: result.restoredStatus as ReservationStatus } : r
+    )))
+    toast.success(`Restored to ${result.restoredStatus.replace("_", " ")}`)
   }
 
   return (
