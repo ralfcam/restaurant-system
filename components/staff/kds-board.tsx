@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react"
 import { Clock, ArrowRight, Check, AlarmClock } from "lucide-react"
 import { type OrderTicketStatus } from "@/lib/data"
 import { getActiveKitchenOrders, updateKitchenOrderStatus, type KdsOrder } from "@/app/actions/operations"
@@ -104,6 +104,7 @@ export function KdsBoard() {
                       order={order}
                       accent={col.accent}
                       now={now}
+                      setOrders={setOrders}
                     />
                   ))
                 )}
@@ -131,6 +132,7 @@ function TicketCard({
   order: KdsOrder
   accent: string
   now: number
+  setOrders: Dispatch<SetStateAction<KdsOrder[]>>
 }) {
   const itemCount = order.lines.reduce((s, l) => s + l.qty, 0)
   const elapsedMs = now - order.placedAtMs
