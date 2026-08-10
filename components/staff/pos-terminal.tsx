@@ -12,7 +12,7 @@ import {
   type MenuId,
   type OrderLine,
 } from "@/lib/data"
-import { addOrder } from "@/lib/order-store"
+import { createKitchenOrder } from "@/app/actions/operations"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,6 +30,7 @@ export function PosTerminal() {
   const [cart, setCart] = useState<OrderLine[]>([])
   const [table, setTable] = useState(TABLES[0]?.label ?? "1")
   const [server, setServer] = useState(SERVERS[0])
+  const [sending, setSending] = useState(false)
 
   const items = MENU_ITEMS.filter(
     (m) => m.menuId === menuId && (m.available ?? true),
@@ -63,13 +64,20 @@ export function PosTerminal() {
   const tax = subtotal * TAX_RATE
   const total = subtotal + tax
 
-  function sendToKitchen() {
-    if (cart.length === 0) return
-    addOrder({ table, server, lines: cart })
-    toast.success(`Order sent to kitchen · Table ${table}`, {
-      description: `${cart.reduce((s, l) => s + l.qty, 0)} items fired`,
-    })
-    setCart([])
+  async function sendToKitchen() {
+    if (cart.length === 0 || sending) return
+    setSending(true)
+    try {
+      const result = await createKitchenOrder({ table, server, lines: cart.map(({ itemId, qty, notes }) => ({ itemId, qty, notes })) })
+      toast.success(`Order #${result.orderNumber} sent to kitchen · Table ${table}`, {
+        description: `${cart.reduce((s, l) => s + l.qty, 0)} items fired`,
+      })
+      setCart([])
+    } catch {
+      toast.error("Could not send order to kitchen")
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -225,10 +233,10 @@ export function PosTerminal() {
             </Button>
             <Button
               className="flex-[2]"
-              disabled={cart.length === 0}
+              disabled={cart.length === 0 || sending}
               onClick={sendToKitchen}
             >
-              <Send className="size-4" /> Send to kitchen
+              <Send className="size-4" /> {sending ? "Sending…" : "Send to kitchen"}
             </Button>
           </div>
           <p className="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground">

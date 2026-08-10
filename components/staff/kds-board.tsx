@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { Clock, ArrowRight, Check, AlarmClock } from "lucide-react"
-import { type OrderTicket, type OrderTicketStatus } from "@/lib/data"
-import { useOrders, advanceOrder, bumpOrder } from "@/lib/order-store"
+import { type OrderTicketStatus } from "@/lib/data"
+import { getActiveKitchenOrders, updateKitchenOrderStatus, type KdsOrder } from "@/app/actions/operations"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -32,8 +32,19 @@ function useNow(intervalMs = 1000) {
 }
 
 export function KdsBoard() {
-  const orders = useOrders()
+  const [orders, setOrders] = useState<KdsOrder[]>([])
   const now = useNow()
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      const next = await getActiveKitchenOrders()
+      if (!cancelled) setOrders(next)
+    }
+    void load()
+    const id = window.setInterval(() => void load(), 5000)
+    return () => { cancelled = true; window.clearInterval(id) }
+  }, [])
 
   const active = orders.filter((o) => o.status !== "ready")
   const lateCount = active.filter(
@@ -117,7 +128,7 @@ function TicketCard({
   accent,
   now,
 }: {
-  order: OrderTicket
+  order: KdsOrder
   accent: string
   now: number
 }) {
@@ -181,12 +192,19 @@ function TicketCard({
           <Button
             variant="outline"
             className="w-full text-accent hover:text-accent"
-            onClick={() => bumpOrder(order.id)}
+            onClick={async () => {
+              await updateKitchenOrderStatus(order.id, "completed")
+              setOrders((current) => current.filter((item) => item.id !== order.id))
+            }}
           >
             <Check className="size-4" /> Picked up
           </Button>
         ) : (
-          <Button className="w-full" onClick={() => advanceOrder(order.id)}>
+          <Button className="w-full" onClick={async () => {
+            const next = order.status === "new" ? "preparing" : "ready"
+            await updateKitchenOrderStatus(order.id, next)
+            setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status: next } : item))
+          }}>
             {order.status === "new" ? "Start preparing" : "Mark ready"}
             <ArrowRight className="size-4" />
           </Button>
