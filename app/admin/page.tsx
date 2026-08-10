@@ -7,8 +7,9 @@ import {
   ArrowRight,
 } from "lucide-react"
 import { TABLES, TABLE_STATUS_META } from "@/lib/data"
-import { getReservationsForDate } from "@/app/actions/reservations"
+import { getReservationsByDate } from "@/app/actions/reservations"
 import { getAuthUser } from "@/app/actions/auth"
+import { getTodayInRestaurantTZ } from "@/lib/timezone"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { StatCard } from "@/components/staff/stat-card"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic"
 export default async function AdminDashboardPage() {
   const [authUser, allReservations] = await Promise.all([
     getAuthUser(),
-    getReservationsForDate(new Date().toISOString().slice(0, 10)),
+    getReservationsByDate(getTodayInRestaurantTZ()),
   ])
   const todays = allReservations.filter((r) => r.status !== "cancelled")
   const covers = todays.reduce((sum, r) => sum + r.party_size, 0)
