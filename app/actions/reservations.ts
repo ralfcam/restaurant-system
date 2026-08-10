@@ -207,6 +207,51 @@ export async function transitionReservationStatus(
   return {}
 }
 
+export async function undoReservationStatus(
+  reservationId: string,
+): Promise<{ error?: string; restoredStatus?: ReservationRow["status"] }> {
+  const db = createServiceClient()
+  const { data: reservation, error: reservationError } = await db
+    .from("reservations")
+    .select("status, table_label")
+    .eq("id", reservationId)
+    .single()
+  if (reservationError || !reservation) return { error: "Reservation not found." }
+
+  const { data: latest, error: eventError } = await db
+    .from("status_events")
+    .select("id, from_status, to_status")
+    .eq("entity_type", "reservation")
+    .eq("entity_id", reservationId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (eventError || !latest) return { error: "There is no status change to undo." }
+  if (latest.to_status !== reservation.status || !latest.from_status) {
+    return { error: "This status change is no longer the latest change." }
+  }
+
+  const restoredStatus = latest.from_status as ReservationRow["status"]
+  const { error: updateError } = await db
+    .from("reservations")
+    .update({ status: restoredStatus })
+    .eq("id", reservationId)
+    .eq("status", reservation.status)
+  if (updateError) return { error: "Could not undo the status change." }
+
+  await db.from("status_events").insert({
+    entity_type: "reservation",
+    entity_id: reservationId,
+    from_status: reservation.status,
+    to_status: restoredStatus,
+    reason: `undo:${latest.id}`,
+  })
+  revalidatePath("/admin/reservations")
+  revalidatePath("/admin/floor")
+  revalidatePath("/admin")
+  return { restoredStatus }
+}
+
 export async function assignReservationTable(
   reservationId: string,
   tableLabel: string | null,
