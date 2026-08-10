@@ -13,7 +13,7 @@ export type ReservationRow = {
   party_size: number
   date: string
   time: string
-  status: "confirmed" | "seated" | "completed" | "cancelled"
+  status: "confirmed" | "seated" | "completed" | "cancelled" | "no_show"
   phone: string
   notes: string | null
   table_label: string | null
@@ -157,7 +157,7 @@ export type ReservationTableOption = {
   id: string
   label: string
   seats: number
-  status: "available" | "seated" | "reserved" | "cleaning"
+  status: "available" | "seated" | "reserved" | "cleaning" | "out_of_service"
 }
 
 export async function getReservationTables(): Promise<ReservationTableOption[]> {
@@ -172,6 +172,39 @@ export async function getReservationTables(): Promise<ReservationTableOption[]> 
   }
 
   return (data ?? []) as ReservationTableOption[]
+}
+
+const RESERVATION_TRANSITIONS: Record<ReservationRow["status"], ReservationRow["status"][]> = {
+  confirmed: ["seated", "cancelled", "no_show"],
+  seated: ["completed"],
+  completed: [],
+  cancelled: [],
+  no_show: [],
+}
+
+export async function transitionReservationStatus(
+  reservationId: string,
+  nextStatus: ReservationRow["status"],
+): Promise<{ error?: string }> {
+  const db = createServiceClient()
+  const { data: current, error: readError } = await db.from("reservations").select("status, table_label").eq("id", reservationId).single()
+  if (readError || !current) return { error: "Reservation not found." }
+  if (!RESERVATION_TRANSITIONS[current.status as ReservationRow["status"]].includes(nextStatus)) {
+    return { error: `Cannot change ${current.status.replace("_", " ")} to ${nextStatus.replace("_", " ")}.` }
+  }
+
+  const patch: Record<string, unknown> = { status: nextStatus }
+  if (nextStatus === "completed" || nextStatus === "cancelled" || nextStatus === "no_show") patch.table_label = null
+  const { error } = await db.from("reservations").update(patch).eq("id", reservationId)
+  if (error) return { error: "Could not update reservation status." }
+  await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: current.status, to_status: nextStatus })
+  if (current.table_label && patch.table_label === null) {
+    await db.from("tables").update({ status: "available", updated_at: new Date().toISOString() }).eq("label", current.table_label).eq("status", "reserved")
+  }
+  revalidatePath("/admin/reservations")
+  revalidatePath("/admin/floor")
+  revalidatePath("/admin")
+  return {}
 }
 
 export async function assignReservationTable(
@@ -191,15 +224,20 @@ export async function assignReservationTable(
     if (tableError || !table) return { error: "That table is no longer available." }
   }
 
-  const { error } = await db
-    .from("reservations")
-    .update({ table_label: label })
-    .eq("id", reservationId)
+  const { data: reservation, error: reservationError } = await db.from("reservations").select("status, table_label").eq("id", reservationId).single()
+  if (reservationError || !reservation) return { error: "Reservation not found." }
+  if (["completed", "cancelled", "no_show"].includes(reservation.status)) return { error: "Closed reservations cannot be assigned." }
+  if (label && reservation.table_label && reservation.table_label !== label) {
+    await db.from("tables").update({ status: "available", updated_at: new Date().toISOString() }).eq("label", reservation.table_label).eq("status", "reserved")
+  }
 
+  const { error } = await db.from("reservations").update({ table_label: label }).eq("id", reservationId)
   if (error) {
     console.error("[reservations] assignReservationTable error:", error.message)
     return { error: "Could not update the table assignment." }
   }
+  if (label) await db.from("tables").update({ status: "reserved", updated_at: new Date().toISOString() }).eq("label", label).in("status", ["available", "reserved"])
+  await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: reservation.table_label, to_status: label ?? "unassigned", reason: "table assignment" })
 
   revalidatePath("/admin/reservations")
   revalidatePath("/admin/floor")

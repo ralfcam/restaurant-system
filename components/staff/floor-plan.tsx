@@ -17,6 +17,7 @@ const STATUS_ORDER: TableStatus[] = [
   "reserved",
   "seated",
   "cleaning",
+  "out_of_service",
 ]
 
 export function FloorPlan() {

@@ -23,7 +23,7 @@ export const RESTAURANT = {
   hours: "Mar–Ven · 12:00–14:00 & 18:00–23:00 · Sam · 18:00–23:00",
 }
 
-export type TableStatus = "available" | "seated" | "reserved" | "cleaning"
+export type TableStatus = "available" | "seated" | "reserved" | "cleaning" | "out_of_service"
 
 export interface RestaurantTable {
   id: string
@@ -56,9 +56,10 @@ export const TABLE_STATUS_META: Record<
   seated: { label: "Seated", color: "bg-primary/10 text-primary border-primary/30", dot: "bg-primary" },
   reserved: { label: "Reserved", color: "bg-chart-3/15 text-chart-3 border-chart-3/30", dot: "bg-chart-3" },
   cleaning: { label: "Cleaning", color: "bg-muted text-muted-foreground border-border", dot: "bg-muted-foreground" },
+  out_of_service: { label: "Out of service", color: "bg-destructive/10 text-destructive border-destructive/30", dot: "bg-destructive" },
 }
 
-export type ReservationStatus = "confirmed" | "seated" | "completed" | "cancelled"
+export type ReservationStatus = "confirmed" | "seated" | "completed" | "cancelled" | "no_show"
 
 export interface Reservation {
   id: string

@@ -26,7 +26,14 @@ export type KdsOrder = {
 }
 
 const TAX_RATE = 0.077
-const TABLE_STATUSES = new Set<TableStatus>(["available", "seated", "reserved", "cleaning"])
+const TABLE_STATUSES = new Set<TableStatus>(["available", "seated", "reserved", "cleaning", "out_of_service"])
+const TABLE_TRANSITIONS: Record<TableStatus, TableStatus[]> = {
+  available: ["reserved", "seated", "cleaning", "out_of_service"],
+  reserved: ["seated", "available", "out_of_service"],
+  seated: ["cleaning", "available", "out_of_service"],
+  cleaning: ["available", "out_of_service"],
+  out_of_service: ["available"],
+}
 
 function mapTable(row: Record<string, unknown>): PersistedTable {
   return {
@@ -43,11 +50,16 @@ export async function getTables(): Promise<PersistedTable[]> {
 }
 
 export async function updateTableState(input: { id: string; status?: TableStatus; seats?: number }) {
+  const db = createServiceClient()
+  const { data: current, error: currentError } = await db.from("tables").select("status").eq("id", input.id).single()
+  if (currentError || !current) throw new Error("Table not found")
+  if (input.status && (!TABLE_STATUSES.has(input.status) || !TABLE_TRANSITIONS[current.status as TableStatus].includes(input.status))) throw new Error(`Invalid table transition: ${current.status} → ${input.status}`)
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (input.status && TABLE_STATUSES.has(input.status)) patch.status = input.status
+  if (input.status) patch.status = input.status
   if (input.seats !== undefined) patch.seats = Math.max(1, Math.min(12, Math.round(input.seats)))
-  const { error } = await createServiceClient().from("tables").update(patch).eq("id", input.id)
+  const { error } = await db.from("tables").update(patch).eq("id", input.id)
   if (error) throw new Error("Unable to update table")
+  if (input.status) await db.from("status_events").insert({ entity_type: "table", entity_id: input.id, from_status: current.status, to_status: input.status })
   revalidatePath("/admin/floor")
   revalidatePath("/pos")
 }
@@ -100,8 +112,18 @@ export async function getActiveKitchenOrders(): Promise<KdsOrder[]> {
   }))
 }
 
-export async function updateKitchenOrderStatus(id: string, status: "preparing" | "ready" | "completed") {
-  const { error } = await createServiceClient().from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id)
+const ORDER_TRANSITIONS: Record<KdsOrder["status"] | "completed" | "cancelled" | "voided", string[]> = {
+  new: ["preparing", "cancelled", "voided"], preparing: ["ready", "cancelled", "voided"], ready: ["completed", "voided"],
+  completed: [], cancelled: [], voided: [],
+}
+
+export async function updateKitchenOrderStatus(id: string, status: "preparing" | "ready" | "completed" | "cancelled" | "voided") {
+  const db = createServiceClient()
+  const { data: current, error: readError } = await db.from("orders").select("status").eq("id", id).single()
+  if (readError || !current) throw new Error("Kitchen order not found")
+  if (!ORDER_TRANSITIONS[current.status as keyof typeof ORDER_TRANSITIONS]?.includes(status)) throw new Error(`Invalid order transition: ${current.status} → ${status}`)
+  const { error } = await db.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id)
   if (error) throw new Error("Unable to update kitchen order")
+  await db.from("status_events").insert({ entity_type: "order", entity_id: id, from_status: current.status, to_status: status })
   revalidatePath("/kds")
 }

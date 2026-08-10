@@ -10,7 +10,7 @@ import {
   type ReservationTableOption,
   assignReservationTable,
   getReservationTables,
-  updateReservationStatus,
+  transitionReservationStatus,
   getReservationsByDate,
 } from "@/app/actions/reservations"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
@@ -55,6 +55,7 @@ const TABS: { value: Tab; label: string }[] = [
   { value: "seated", label: "Seated" },
   { value: "completed", label: "Completed" },
   { value: "cancelled", label: "Cancelled" },
+  { value: "no_show", label: "No-show" },
 ]
 
 function offsetDate(iso: string, days: number): string {
@@ -148,20 +149,22 @@ export function ReservationsManager({
     setReservations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, status } : r)),
     )
+    const previous = reservations.find((r) => r.id === id)?.status
     const labels: Record<ReservationStatus, string> = {
       confirmed: "marked confirmed",
       seated: "seated",
       completed: "completed",
       cancelled: "cancelled",
+      no_show: "marked no-show",
     }
-    const { error } = await updateReservationStatus(id, status)
+    const { error } = await transitionReservationStatus(id, status)
     if (error) {
       toast.error("Update failed", { description: error })
       // Roll back optimistic update
       setReservations((prev) =>
         prev.map((r) =>
           r.id === id
-            ? { ...r, status: r.status }
+            ? { ...r, status: previous ?? r.status }
             : r,
         ),
       )
@@ -376,6 +379,16 @@ function ReservationActions({
           size="icon"
           variant="ghost"
           className="size-8 text-destructive hover:text-destructive"
+          title="Mark no-show"
+          onClick={() => onUpdate(reservation.id, "no_show")}
+        >
+          <X className="size-4" />
+          <span className="sr-only">Mark no-show</span>
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="size-8 text-muted-foreground hover:text-muted-foreground"
           title="Cancel"
           onClick={() => onUpdate(reservation.id, "cancelled")}
         >

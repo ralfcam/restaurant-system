@@ -18,6 +18,10 @@ const META: Record<ReservationStatus, { label: string; className: string }> = {
     label: "Cancelled",
     className: "bg-muted text-muted-foreground border-border",
   },
+  no_show: {
+    label: "No-show",
+    className: "bg-destructive/10 text-destructive border-destructive/30",
+  },
 }
 
 export function ReservationStatusBadge({
