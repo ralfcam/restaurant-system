@@ -5,7 +5,14 @@ import { useRouter } from "next/navigation"
 import { Search, Phone, Check, Armchair, X, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 import { type ReservationStatus } from "@/lib/data"
-import { type ReservationRow, updateReservationStatus, getReservationsByDate } from "@/app/actions/reservations"
+import {
+  type ReservationRow,
+  type ReservationTableOption,
+  assignReservationTable,
+  getReservationTables,
+  updateReservationStatus,
+  getReservationsByDate,
+} from "@/app/actions/reservations"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -76,6 +83,12 @@ export function ReservationsManager({
   const [tab, setTab] = useState<Tab>("all")
   const [query, setQuery] = useState("")
   const [loadingDate, setLoadingDate] = useState(false)
+  const [tables, setTables] = useState<ReservationTableOption[]>([])
+  const [assigningId, setAssigningId] = useState<string | null>(null)
+
+  useEffect(() => {
+    getReservationTables().then(setTables)
+  }, [])
 
   // Refetch whenever the admin navigates to a new date. The server action uses
   // the service-role client so RLS never filters out rows on the admin side.
@@ -109,6 +122,26 @@ export function ReservationsManager({
       return matchTab && matchQuery
     })
   }, [reservations, tab, query])
+
+  async function assignTable(id: string, tableLabel: string) {
+    const nextLabel = tableLabel || undefined
+    const previous = reservations.find((reservation) => reservation.id === id)?.tableLabel
+    setAssigningId(id)
+    setReservations((current) => current.map((reservation) => (
+      reservation.id === id ? { ...reservation, tableLabel: nextLabel } : reservation
+    )))
+
+    const { error } = await assignReservationTable(id, tableLabel || null)
+    setAssigningId(null)
+    if (error) {
+      setReservations((current) => current.map((reservation) => (
+        reservation.id === id ? { ...reservation, tableLabel: previous } : reservation
+      )))
+      toast.error(error)
+      return
+    }
+    toast.success(tableLabel ? `Assigned to Table ${tableLabel}` : "Table assignment cleared")
+  }
 
   async function updateStatus(id: string, status: ReservationStatus) {
     // Optimistic update
@@ -257,13 +290,12 @@ export function ReservationsManager({
                   <span className="md:hidden text-muted-foreground">Party: </span>
                   {r.partySize} guests
                 </span>
-                <span className="text-sm">
-                  {r.tableLabel ? (
-                    `Table ${r.tableLabel}`
-                  ) : (
-                    <span className="text-muted-foreground">Unassigned</span>
-                  )}
-                </span>
+                <TableAssignment
+                  reservation={r}
+                  tables={tables}
+                  assigning={assigningId === r.id}
+                  onAssign={assignTable}
+                />
                 <div className="flex items-center justify-between gap-2 md:justify-start">
                   <ReservationStatusBadge status={r.status} />
                   <ReservationActions
@@ -280,6 +312,43 @@ export function ReservationsManager({
         Showing {filtered.length} of {reservations.length} reservations
       </p>
     </div>
+  )
+}
+
+function TableAssignment({
+  reservation,
+  tables,
+  assigning,
+  onAssign,
+}: {
+  reservation: Reservation
+  tables: ReservationTableOption[]
+  assigning: boolean
+  onAssign: (id: string, tableLabel: string) => void
+}) {
+  const selectableTables = tables.filter((table) => (
+    table.status === "available" || table.label === reservation.tableLabel
+  ))
+
+  return (
+    <label className="flex items-center gap-2 text-sm">
+      <span className="sr-only">Assign table for {reservation.guestName}</span>
+      <select
+        value={reservation.tableLabel ?? ""}
+        disabled={assigning || reservation.status === "cancelled" || reservation.status === "completed"}
+        onChange={(event) => onAssign(reservation.id, event.target.value)}
+        className="h-9 min-w-28 rounded-md border border-border bg-background px-2 text-sm font-medium outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label={`Assign table for ${reservation.guestName}`}
+      >
+        <option value="">Unassigned</option>
+        {selectableTables.map((table) => (
+          <option key={table.id} value={table.label}>
+            Table {table.label} · {table.seats} seats{table.status !== "available" ? ` · ${table.status}` : ""}
+          </option>
+        ))}
+      </select>
+      {assigning ? <RefreshCw className="size-3.5 animate-spin text-muted-foreground" aria-hidden="true" /> : null}
+    </label>
   )
 }
 

@@ -153,6 +153,59 @@ export async function getReservationsByDate(
   return (data ?? []) as ReservationRow[]
 }
 
+export type ReservationTableOption = {
+  id: string
+  label: string
+  seats: number
+  status: "available" | "seated" | "reserved" | "cleaning"
+}
+
+export async function getReservationTables(): Promise<ReservationTableOption[]> {
+  const { data, error } = await createServiceClient()
+    .from("tables")
+    .select("id, label, seats, status")
+    .order("label", { ascending: true })
+
+  if (error) {
+    console.error("[reservations] getReservationTables error:", error.message)
+    return []
+  }
+
+  return (data ?? []) as ReservationTableOption[]
+}
+
+export async function assignReservationTable(
+  reservationId: string,
+  tableLabel: string | null,
+): Promise<{ error?: string }> {
+  const db = createServiceClient()
+  const label = tableLabel?.trim() || null
+
+  if (label) {
+    const { data: table, error: tableError } = await db
+      .from("tables")
+      .select("label")
+      .eq("label", label)
+      .maybeSingle()
+
+    if (tableError || !table) return { error: "That table is no longer available." }
+  }
+
+  const { error } = await db
+    .from("reservations")
+    .update({ table_label: label })
+    .eq("id", reservationId)
+
+  if (error) {
+    console.error("[reservations] assignReservationTable error:", error.message)
+    return { error: "Could not update the table assignment." }
+  }
+
+  revalidatePath("/admin/reservations")
+  revalidatePath("/admin/floor")
+  return {}
+}
+
 /** Fetch reservations across a date range (or all if no bounds given). */
 export async function getReservations(opts?: {
   from?: string
