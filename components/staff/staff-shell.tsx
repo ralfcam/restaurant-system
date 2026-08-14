@@ -15,10 +15,10 @@ import {
   LogOut,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { RESTAURANT } from "@/lib/data"
 import { signOut } from "@/app/actions/auth"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { SidebarLogoManager } from "@/components/staff/sidebar-logo-manager"
 import {
   Sheet,
   SheetContent,
@@ -85,15 +85,7 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <span className="flex size-9 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          <UtensilsCrossed className="size-5" />
-        </span>
-        <div className="leading-tight">
-          <p className="font-heading text-lg font-semibold">{RESTAURANT.name}</p>
-          <p className="text-xs text-sidebar-foreground/60">Staff Console</p>
-        </div>
-      </div>
+      <SidebarLogoManager />
       <NavLinks onNavigate={onNavigate} />
       <div className="mt-auto border-t border-sidebar-border p-3">
         <Link
