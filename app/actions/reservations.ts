@@ -3,9 +3,11 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { revalidatePath } from "next/cache"
 import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
+import { validateReservationPayload } from "@/lib/reservations/validation"
 
 export type ReservationRow = {
   id: string
@@ -26,8 +28,6 @@ function generateConfCode(): string {
   return `TVL-${n}`
 }
 
-const ONLINE_MAX_PARTY = 8
-
 export async function createReservation(payload: {
   guestName: string
   partySize: number
@@ -36,12 +36,9 @@ export async function createReservation(payload: {
   phone: string
   notes?: string
 }): Promise<{ confCode: string; error?: string }> {
-  // Hard server-side cap — cannot be bypassed by client-side manipulation.
-  if (payload.partySize > ONLINE_MAX_PARTY) {
-    return {
-      confCode: "",
-      error: `Online reservations are limited to a maximum of ${ONLINE_MAX_PARTY} people. For larger groups please call us directly.`,
-    }
+  const validationError = validateReservationPayload(payload, getTodayInRestaurantTZ())
+  if (validationError) {
+    return { confCode: "", error: validationError }
   }
 
   // Validate against operating hours and blocked dates (server-side enforcement)
@@ -73,24 +70,44 @@ export async function createReservation(payload: {
 
   // Use a plain anon client (no session required) for public guest bookings.
   const supabase = createAnonClient()
-  const confCode = generateConfCode()
 
-  const { data, error } = await supabase
-    .from("reservations")
-    .insert({
-      guest_name: payload.guestName,
+  // conf_code is a random 4-digit suffix guarded by a DB unique constraint —
+  // collisions are rare but possible, so retry with a fresh code on a
+  // uniqueness violation (Postgres code 23505) instead of failing the whole
+  // booking. The capacity/hours/blocked-date trigger check (P0001) is not
+  // retried since re-running it would just fail again.
+  const MAX_CONF_CODE_ATTEMPTS = 5
+  for (let attempt = 1; attempt <= MAX_CONF_CODE_ATTEMPTS; attempt++) {
+    const confCode = generateConfCode()
+
+    // Note: no `.select()` after insert. The `public` role only has an
+    // INSERT policy on reservations (no SELECT — guest PII must never be
+    // readable by anonymous clients), and PostgREST's `select()` after a
+    // write requires SELECT privileges to return the row, which RLS would
+    // reject with 42501. The confirmation code is generated client-side
+    // before the insert, so there's nothing to read back.
+    const { error } = await supabase.from("reservations").insert({
+      guest_name: payload.guestName.trim(),
       party_size: payload.partySize,
       date: payload.date,
       time: payload.time,
-      phone: payload.phone,
-      notes: payload.notes ?? null,
+      phone: payload.phone.trim(),
+      notes: payload.notes?.trim() || null,
       conf_code: confCode,
     })
-    .select("conf_code")
-    .single()
 
-  if (error) {
+    if (!error) {
+      revalidatePath("/admin/reservations")
+      revalidatePath("/admin")
+      return { confCode }
+    }
+
     console.error("[reservations] createReservation error:", error.message, error.code, error.details)
+
+    if (error.code === "23505") {
+      // Confirmation-code collision — retry with a new random code.
+      continue
+    }
 
     // PostgreSQL trigger raises use ERRCODE P0001 (raise_exception).
     // Supabase surfaces these as code "P0001" on the error object.
@@ -104,39 +121,22 @@ export async function createReservation(payload: {
     return { confCode: "", error: "Could not save your reservation. Please try again." }
   }
 
-  revalidatePath("/admin/reservations")
-  revalidatePath("/admin")
-  return { confCode: data.conf_code }
-}
-
-export async function getReservationsForDate(
-  date: string,
-): Promise<ReservationRow[]> {
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("*")
-    .eq("date", date)
-    .order("time", { ascending: true })
-
-  if (error) {
-    console.error("[reservations] getReservationsForDate error:", error.message)
-    return []
-  }
-
-  return data as ReservationRow[]
+  return { confCode: "", error: "Could not save your reservation. Please try again." }
 }
 
 /**
  * Admin-privileged fetch of all reservations for a given date (YYYY-MM-DD).
- * Uses the service-role client to bypass RLS — safe only in server actions.
+ * Uses the service-role client to bypass RLS — safe only in server actions,
+ * and only after confirming the caller has an authenticated staff session.
  * The `date` column is a native DATE type so simple equality is correct; no
  * timezone boundary arithmetic is needed for this schema.
  */
 export async function getReservationsByDate(
   date: string,
 ): Promise<ReservationRow[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
@@ -161,6 +161,9 @@ export type ReservationTableOption = {
 }
 
 export async function getReservationTables(): Promise<ReservationTableOption[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const { data, error } = await createServiceClient()
     .from("tables")
     .select("id, label, seats, status")
@@ -186,6 +189,9 @@ export async function transitionReservationStatus(
   reservationId: string,
   nextStatus: ReservationRow["status"],
 ): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const db = createServiceClient()
   const { data: current, error: readError } = await db.from("reservations").select("status, table_label").eq("id", reservationId).single()
   if (readError || !current) return { error: "Reservation not found." }
@@ -210,6 +216,9 @@ export async function transitionReservationStatus(
 export async function undoReservationStatus(
   reservationId: string,
 ): Promise<{ error?: string; restoredStatus?: ReservationRow["status"] }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const db = createServiceClient()
   const { data: reservation, error: reservationError } = await db
     .from("reservations")
@@ -256,6 +265,9 @@ export async function assignReservationTable(
   reservationId: string,
   tableLabel: string | null,
 ): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const db = createServiceClient()
   const label = tableLabel?.trim() || null
 
@@ -294,6 +306,9 @@ export async function getReservations(opts?: {
   from?: string
   to?: string
 }): Promise<ReservationRow[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const supabase = await createClient()
 
   let query = supabase
@@ -340,11 +355,6 @@ export async function getAvailableSlots(
     const hh = String(h).padStart(2, "0")
     TIME_SLOTS.push(`${hh}:00`, `${hh}:30`)
   }
-  // Total covers the restaurant can seat at once (sum of all table seats).
-  const TOTAL_CAPACITY = 38 // 2+2+4+4+6+4+2+8+4+2
-
-  const supabase = createAnonClient()
-
   // Check if the requested date is blocked
   const dateIsBlocked = await isDateBlocked(date)
   if (dateIsBlocked) {
@@ -364,8 +374,23 @@ export async function getAvailableSlots(
   const opensAt = operatingWindow.opens_at ?? "09:00"
   const closesAt = operatingWindow.closes_at ?? "22:00"
 
+  // Reservations carry PII (guest name, phone, notes) and are not publicly
+  // readable — RLS only grants anon INSERT, not SELECT. This preview only
+  // needs an aggregated cover count per slot (no PII ever reaches the
+  // client), so it's computed server-side with the service-role client and
+  // reduced to booleans below. This mirrors the same total-seats capacity
+  // rule enforced atomically by the `validate_reservation_availability`
+  // database trigger on insert, keeping both checks in sync.
+  const db = createServiceClient()
+
+  const { data: tableRows, error: tableError } = await db.from("tables").select("seats")
+  if (tableError) {
+    console.error("[reservations] getAvailableSlots table capacity error:", tableError.message)
+  }
+  const totalCapacity = (tableRows ?? []).reduce((sum, row) => sum + (row.seats ?? 0), 0)
+
   // Fetch all confirmed/seated reservations for this date.
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("reservations")
     .select("time, party_size")
     .eq("date", date)
@@ -400,29 +425,8 @@ export async function getAvailableSlots(
 
     // Block if adding this party exceeds capacity.
     const booked = bookedBySlot[time] ?? 0
-    const available = booked + partySize <= TOTAL_CAPACITY
+    const available = booked + partySize <= totalCapacity
 
     return { time, available }
   })
-}
-
-export async function updateReservationStatus(
-  id: string,
-  status: ReservationRow["status"],
-): Promise<{ error?: string }> {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("reservations")
-    .update({ status })
-    .eq("id", id)
-
-  if (error) {
-    console.error("[reservations] updateReservationStatus error:", error.message)
-    return { error: error.message }
-  }
-
-  revalidatePath("/admin/reservations")
-  revalidatePath("/admin")
-  return {}
 }

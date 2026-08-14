@@ -2,6 +2,7 @@
 
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
 
 export type OperatingWindow = {
@@ -168,35 +169,19 @@ export async function getAllOperatingWindows(): Promise<OperatingWindow[]> {
 }
 
 /**
- * Update an operating window (admin action).
- */
-export async function updateOperatingWindow(
-  dayOfWeek: number,
-  updates: Partial<Omit<OperatingWindow, "day_of_week">>,
-): Promise<{ error?: string }> {
-  const supabase = createAnonClient()
-
-  const { error } = await supabase
-    .from("operating_windows")
-    .update(updates)
-    .eq("day_of_week", dayOfWeek)
-
-  if (error) {
-    console.error("[availability] updateOperatingWindow error:", error.message)
-    return { error: error.message }
-  }
-
-  return {}
-}
-
-/**
  * Upsert all 7 operating windows in a single batch (admin Save Changes action).
+ * This is the single canonical write path for operating hours — there is
+ * intentionally no per-day update variant, so hours are always saved as one
+ * atomic, staff-authorized batch.
  * Uses UPSERT so the database values persist and override the client-side seed.
  * Returns a strict { success: true } | { success: false; error: string } contract.
  */
 export async function upsertOperatingWindows(
   windows: OperatingWindow[],
 ): Promise<{ success: true } | { success: false; error: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { success: false, error: "Unauthorized." }
+
   const supabase = createServiceClient()
 
   const { error } = await supabase
@@ -221,11 +206,17 @@ export async function upsertOperatingWindows(
 
 /**
  * Toggle a blocked date — inserts if not present, deletes if already blocked.
+ * This is the single canonical write path for blocked dates — there are
+ * intentionally no separate add/remove variants, since a toggle can't drift
+ * out of sync with the calendar's displayed state.
  * Returns whether the date is now blocked (true) or unblocked (false).
  */
 export async function toggleBlockedDate(
   dateISO: string,
 ): Promise<{ blocked: boolean; error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { blocked: false, error: "Unauthorized." }
+
   // Strictly re-format the incoming string through the restaurant timezone to
   // guarantee the payload is always YYYY-MM-DD in Europe/Zurich, regardless of
   // the caller's locale or clock skew.
@@ -278,37 +269,4 @@ export async function toggleBlockedDate(
   }
 }
 
-/**
- * Add a blocked date (admin action).
- */
-export async function addBlockedDate(dateISO: string, reason?: string): Promise<{ error?: string }> {
-  const supabase = createAnonClient()
 
-  const { error } = await supabase.from("blocked_dates").insert({
-    date: dateISO,
-    reason: reason ?? "Admin blocked",
-  })
-
-  if (error) {
-    console.error("[availability] addBlockedDate error:", error.message)
-    return { error: error.message }
-  }
-
-  return {}
-}
-
-/**
- * Remove a blocked date (admin action).
- */
-export async function removeBlockedDate(dateISO: string): Promise<{ error?: string }> {
-  const supabase = createAnonClient()
-
-  const { error } = await supabase.from("blocked_dates").delete().eq("date", dateISO)
-
-  if (error) {
-    console.error("[availability] removeBlockedDate error:", error.message)
-    return { error: error.message }
-  }
-
-  return {}
-}

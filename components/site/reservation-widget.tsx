@@ -8,6 +8,7 @@ import { TABLES, RESTAURANT } from "@/lib/data"
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
 import { getAllOperatingWindowsMap, getBlockedDatesInRange, type OperatingWindow } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
+import { RESERVATION_ONLINE_MAX_PARTY } from "@/lib/reservations/validation"
 import { ReservationCalendar } from "@/components/site/reservation-calendar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,7 +29,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-const ONLINE_MAX_PARTY = 8
+const ONLINE_MAX_PARTY = RESERVATION_ONLINE_MAX_PARTY
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= ONLINE_MAX_PARTY)
 const MAX_CAPACITY = Math.max(...TABLES.map((t) => t.seats))
 
