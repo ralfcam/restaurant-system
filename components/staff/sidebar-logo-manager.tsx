@@ -49,13 +49,10 @@ export function SidebarLogoManager() {
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.files?.[0]
-    console.log("[v0] handleFileChange fired", next?.name, next?.size, next?.type)
     if (!next) return
     if (preview) URL.revokeObjectURL(preview)
-    const url = URL.createObjectURL(next)
-    console.log("[v0] created blob url", url)
     setFile(next)
-    setPreview(url)
+    setPreview(URL.createObjectURL(next))
   }
 
   async function handleSave() {
@@ -141,7 +138,11 @@ export function SidebarLogoManager() {
         <div className="flex items-center gap-4">
           <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-secondary">
             {preview ? (
-              <Image src={preview} alt="Logo preview" fill className="object-cover" sizes="64px" />
+              // Local blob: URL from the file picker — a plain <img> avoids
+              // next/image's optimization pipeline, which isn't meant for
+              // ephemeral object URLs.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={preview} alt="Logo preview" className="size-full object-cover" />
             ) : activeLogoUrl ? (
               <Image src={activeLogoUrl} alt={`${RESTAURANT.name} logo`} fill className="object-cover" sizes="64px" />
             ) : (
