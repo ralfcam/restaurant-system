@@ -7,6 +7,7 @@ import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { revalidatePath } from "next/cache"
 import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
+import { validateReservationPayload } from "@/lib/reservations/validation"
 
 export type ReservationRow = {
   id: string
@@ -27,8 +28,6 @@ function generateConfCode(): string {
   return `TVL-${n}`
 }
 
-const ONLINE_MAX_PARTY = 8
-
 export async function createReservation(payload: {
   guestName: string
   partySize: number
@@ -37,12 +36,9 @@ export async function createReservation(payload: {
   phone: string
   notes?: string
 }): Promise<{ confCode: string; error?: string }> {
-  // Hard server-side cap — cannot be bypassed by client-side manipulation.
-  if (payload.partySize > ONLINE_MAX_PARTY) {
-    return {
-      confCode: "",
-      error: `Online reservations are limited to a maximum of ${ONLINE_MAX_PARTY} people. For larger groups please call us directly.`,
-    }
+  const validationError = validateReservationPayload(payload, getTodayInRestaurantTZ())
+  if (validationError) {
+    return { confCode: "", error: validationError }
   }
 
   // Validate against operating hours and blocked dates (server-side enforcement)
@@ -74,24 +70,42 @@ export async function createReservation(payload: {
 
   // Use a plain anon client (no session required) for public guest bookings.
   const supabase = createAnonClient()
-  const confCode = generateConfCode()
 
-  const { data, error } = await supabase
-    .from("reservations")
-    .insert({
-      guest_name: payload.guestName,
-      party_size: payload.partySize,
-      date: payload.date,
-      time: payload.time,
-      phone: payload.phone,
-      notes: payload.notes ?? null,
-      conf_code: confCode,
-    })
-    .select("conf_code")
-    .single()
+  // conf_code is a random 4-digit suffix guarded by a DB unique constraint —
+  // collisions are rare but possible, so retry with a fresh code on a
+  // uniqueness violation (Postgres code 23505) instead of failing the whole
+  // booking. The capacity/hours/blocked-date trigger check (P0001) is not
+  // retried since re-running it would just fail again.
+  const MAX_CONF_CODE_ATTEMPTS = 5
+  for (let attempt = 1; attempt <= MAX_CONF_CODE_ATTEMPTS; attempt++) {
+    const confCode = generateConfCode()
 
-  if (error) {
+    const { data, error } = await supabase
+      .from("reservations")
+      .insert({
+        guest_name: payload.guestName.trim(),
+        party_size: payload.partySize,
+        date: payload.date,
+        time: payload.time,
+        phone: payload.phone.trim(),
+        notes: payload.notes?.trim() || null,
+        conf_code: confCode,
+      })
+      .select("conf_code")
+      .single()
+
+    if (!error) {
+      revalidatePath("/admin/reservations")
+      revalidatePath("/admin")
+      return { confCode: data.conf_code }
+    }
+
     console.error("[reservations] createReservation error:", error.message, error.code, error.details)
+
+    if (error.code === "23505") {
+      // Confirmation-code collision — retry with a new random code.
+      continue
+    }
 
     // PostgreSQL trigger raises use ERRCODE P0001 (raise_exception).
     // Supabase surfaces these as code "P0001" on the error object.
@@ -105,9 +119,7 @@ export async function createReservation(payload: {
     return { confCode: "", error: "Could not save your reservation. Please try again." }
   }
 
-  revalidatePath("/admin/reservations")
-  revalidatePath("/admin")
-  return { confCode: data.conf_code }
+  return { confCode: "", error: "Could not save your reservation. Please try again." }
 }
 
 /**
