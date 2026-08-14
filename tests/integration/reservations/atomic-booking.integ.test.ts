@@ -1,7 +1,16 @@
-import { afterEach, beforeAll, describe, expect, it } from "vitest"
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { authEnvReady } from "../helpers/env"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createReservation } from "@/app/actions/reservations"
+
+// createReservation calls revalidatePath on success, which requires a
+// Next.js request-scoped store that only exists inside an actual Next.js
+// request/render lifecycle. These tests invoke the server action directly
+// (outside Next's runtime) to exercise its database interaction and the
+// capacity trigger, so the cache-invalidation side effect is stubbed out.
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}))
 
 // Fixed far-future Wednesday: open 09:00-22:00, never a blocked date by
 // default, isolated from real guest traffic and other test runs.
@@ -20,7 +29,6 @@ describe.skipIf(!authEnvReady)("createReservation — atomic capacity enforcemen
     const supabase = createServiceClient()
     const { data } = await supabase.from("tables").select("seats")
     totalCapacity = (data ?? []).reduce((sum, row) => sum + (row.seats as number), 0)
-    console.log("[v0] totalCapacity computed:", totalCapacity, "rows:", data)
     expect(totalCapacity).toBeGreaterThan(0)
     // Guard against leftover rows from a prior interrupted run of this exact
     // fixed test slot — start every run from a known-empty slate.

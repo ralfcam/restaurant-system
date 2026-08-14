@@ -80,24 +80,26 @@ export async function createReservation(payload: {
   for (let attempt = 1; attempt <= MAX_CONF_CODE_ATTEMPTS; attempt++) {
     const confCode = generateConfCode()
 
-    const { data, error } = await supabase
-      .from("reservations")
-      .insert({
-        guest_name: payload.guestName.trim(),
-        party_size: payload.partySize,
-        date: payload.date,
-        time: payload.time,
-        phone: payload.phone.trim(),
-        notes: payload.notes?.trim() || null,
-        conf_code: confCode,
-      })
-      .select("conf_code")
-      .single()
+    // Note: no `.select()` after insert. The `public` role only has an
+    // INSERT policy on reservations (no SELECT — guest PII must never be
+    // readable by anonymous clients), and PostgREST's `select()` after a
+    // write requires SELECT privileges to return the row, which RLS would
+    // reject with 42501. The confirmation code is generated client-side
+    // before the insert, so there's nothing to read back.
+    const { error } = await supabase.from("reservations").insert({
+      guest_name: payload.guestName.trim(),
+      party_size: payload.partySize,
+      date: payload.date,
+      time: payload.time,
+      phone: payload.phone.trim(),
+      notes: payload.notes?.trim() || null,
+      conf_code: confCode,
+    })
 
     if (!error) {
       revalidatePath("/admin/reservations")
       revalidatePath("/admin")
-      return { confCode: data.conf_code }
+      return { confCode }
     }
 
     console.error("[reservations] createReservation error:", error.message, error.code, error.details)
