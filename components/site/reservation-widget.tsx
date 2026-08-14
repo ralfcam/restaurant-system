@@ -448,45 +448,36 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
                 <Clock className="size-3.5" /> Available times
               </Label>
               {displayLoadingSlots ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {Array.from({ length: 18 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className={cn(
-                        "h-9 w-16 rounded-full border animate-pulse",
-                        dark
-                          ? "border-white/10 bg-white/5"
-                          : "border-border/20 bg-muted/50"
-                      )}
-                      style={{
-                        animationDelay: `${i * 40}ms`,
-                        animationDuration: "1.5s",
-                      }}
-                    />
-                  ))}
-                </div>
+                <div
+                  className={cn(
+                    "mt-2 h-9 w-full animate-pulse rounded-lg border",
+                    dark ? "border-white/10 bg-white/5" : "border-border/20 bg-muted/50",
+                  )}
+                />
               ) : availableSlots.length === 0 ? (
                 <p className={cn("mt-2 text-sm tracking-wide", dark ? "text-white/50" : "text-muted-foreground")}>
                   No availability for this date. Try another day.
                 </p>
               ) : (
-                <div className="mt-2 flex flex-wrap gap-2 max-h-[320px] overflow-y-auto overscroll-contain pr-3" style={{ scrollbarWidth: 'thin' }}>
-                  {availableSlots.map(({ time }) => (
-                    <button
-                      key={time}
-                      type="button"
-                      onClick={() => pickSlot(time)}
-                      className={cn(
-                        "w-16 rounded-full border py-2 text-center text-xs font-medium tracking-wide transition-all duration-150 active:scale-95",
-                        dark
-                          ? "border-white/20 bg-white/8 text-white/80 hover:border-white/50 hover:bg-white/15 hover:text-white"
-                          : "border-border bg-background hover:border-primary/60 hover:text-primary",
-                      )}
-                    >
-                      {time}
-                    </button>
-                  ))}
-                </div>
+                <Select value={slot ?? ""} onValueChange={(v) => v && pickSlot(v)}>
+                  <SelectTrigger className={cn("mt-2 w-full", triggerCls)}>
+                    <SelectValue placeholder="Select a time" />
+                  </SelectTrigger>
+                  <SelectContent className={cn(
+                    "max-h-[280px]",
+                    dark ? "border-white/10 bg-black/80 text-white shadow-2xl shadow-black/60 backdrop-blur-xl" : "",
+                  )}>
+                    {availableSlots.map(({ time }) => (
+                      <SelectItem
+                        key={time}
+                        value={time}
+                        className={cn(dark ? "text-white/90 focus:bg-white/15 focus:text-white data-[state=checked]:text-white [&_svg]:text-white/60" : "")}
+                      >
+                        {time}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
           )}
