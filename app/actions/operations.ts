@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache"
 import { MENU_ITEMS, type TableStatus } from "@/lib/data"
 import { createServiceClient } from "@/lib/supabase/service"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 
 export type PersistedTable = {
   id: string
@@ -44,12 +45,18 @@ function mapTable(row: Record<string, unknown>): PersistedTable {
 }
 
 export async function getTables(): Promise<PersistedTable[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const { data, error } = await createServiceClient().from("tables").select("*").order("label")
   if (error) { console.error("[operations] getTables:", error.message); return [] }
   return (data ?? []).map(mapTable)
 }
 
 export async function updateTableState(input: { id: string; status?: TableStatus; seats?: number }) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
   const db = createServiceClient()
   const { data: current, error: currentError } = await db.from("tables").select("status").eq("id", input.id).single()
   if (currentError || !current) throw new Error("Table not found")
@@ -65,6 +72,9 @@ export async function updateTableState(input: { id: string; status?: TableStatus
 }
 
 export async function createTable() {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
   const db = createServiceClient()
   const { data: existing } = await db.from("tables").select("label").order("label")
   const next = Math.max(0, ...(existing ?? []).map((row) => Number(row.label) || 0)) + 1
@@ -75,12 +85,17 @@ export async function createTable() {
 }
 
 export async function deleteTable(id: string) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
   const { error } = await createServiceClient().from("tables").delete().eq("id", id)
   if (error) throw new Error("Unable to remove table")
   revalidatePath("/admin/floor")
 }
 
 export async function createKitchenOrder(input: { table: string; server: string; lines: { itemId: string; qty: number; notes?: string }[] }) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
   if (!input.lines.length || input.lines.length > 50) throw new Error("Order must contain items")
   const normalized = input.lines.map((line) => {
     const item = MENU_ITEMS.find((candidate) => candidate.id === line.itemId)
@@ -101,6 +116,9 @@ export async function createKitchenOrder(input: { table: string; server: string;
 }
 
 export async function getActiveKitchenOrders(): Promise<KdsOrder[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const db = createServiceClient()
   const { data, error } = await db.from("orders").select("id, order_number, table_label, server_name, status, created_at, order_items(menu_item_id, item_name, quantity, notes)").in("status", ["new", "preparing", "ready"]).order("created_at", { ascending: true })
   if (error) { console.error("[operations] getActiveKitchenOrders:", error.message); return [] }
@@ -118,6 +136,9 @@ const ORDER_TRANSITIONS: Record<KdsOrder["status"] | "completed" | "cancelled" |
 }
 
 export async function updateKitchenOrderStatus(id: string, status: "preparing" | "ready" | "completed" | "cancelled" | "voided") {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
   const db = createServiceClient()
   const { data: current, error: readError } = await db.from("orders").select("status").eq("id", id).single()
   if (readError || !current) throw new Error("Kitchen order not found")

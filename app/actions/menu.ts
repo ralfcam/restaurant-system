@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { revalidatePath } from "next/cache"
 import { MENU_ITEMS, type MenuId, type MenuItem } from "@/lib/data"
 
@@ -73,6 +74,9 @@ export async function getMenuItems(): Promise<MenuItemRow[]> {
 
 /** Staff-only: fetch all items including unavailable ones. */
 export async function getAllMenuItems(): Promise<MenuItemRow[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("menu_items")
@@ -93,6 +97,9 @@ export async function getAllMenuItems(): Promise<MenuItemRow[]> {
 export async function upsertMenuItem(
   item: Omit<MenuItemRow, "created_at">,
 ): Promise<{ row?: MenuItemRow; error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("menu_items")
@@ -111,6 +118,9 @@ export async function upsertMenuItem(
 export async function createMenuItem(
   item: Omit<MenuItemRow, "id" | "slug" | "created_at">,
 ): Promise<{ row?: MenuItemRow; error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const supabase = await createClient()
   const slug = `m-${Date.now()}`
   const { data, error } = await supabase
@@ -128,6 +138,9 @@ export async function createMenuItem(
 }
 
 export async function deleteMenuItem(id: string): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const supabase = await createClient()
   const { error } = await supabase.from("menu_items").delete().eq("id", id)
   if (error) {
@@ -143,6 +156,9 @@ export async function toggleMenuItemAvailability(
   id: string,
   available: boolean,
 ): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const supabase = await createClient()
   const { error } = await supabase
     .from("menu_items")

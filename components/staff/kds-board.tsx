@@ -128,6 +128,7 @@ function TicketCard({
   order,
   accent,
   now,
+  setOrders,
 }: {
   order: KdsOrder
   accent: string

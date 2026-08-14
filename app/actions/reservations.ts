@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { revalidatePath } from "next/cache"
 import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
@@ -109,34 +110,19 @@ export async function createReservation(payload: {
   return { confCode: data.conf_code }
 }
 
-export async function getReservationsForDate(
-  date: string,
-): Promise<ReservationRow[]> {
-  const supabase = await createClient()
-
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("*")
-    .eq("date", date)
-    .order("time", { ascending: true })
-
-  if (error) {
-    console.error("[reservations] getReservationsForDate error:", error.message)
-    return []
-  }
-
-  return data as ReservationRow[]
-}
-
 /**
  * Admin-privileged fetch of all reservations for a given date (YYYY-MM-DD).
- * Uses the service-role client to bypass RLS — safe only in server actions.
+ * Uses the service-role client to bypass RLS — safe only in server actions,
+ * and only after confirming the caller has an authenticated staff session.
  * The `date` column is a native DATE type so simple equality is correct; no
  * timezone boundary arithmetic is needed for this schema.
  */
 export async function getReservationsByDate(
   date: string,
 ): Promise<ReservationRow[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const supabase = createServiceClient()
 
   const { data, error } = await supabase
@@ -161,6 +147,9 @@ export type ReservationTableOption = {
 }
 
 export async function getReservationTables(): Promise<ReservationTableOption[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const { data, error } = await createServiceClient()
     .from("tables")
     .select("id, label, seats, status")
@@ -186,6 +175,9 @@ export async function transitionReservationStatus(
   reservationId: string,
   nextStatus: ReservationRow["status"],
 ): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const db = createServiceClient()
   const { data: current, error: readError } = await db.from("reservations").select("status, table_label").eq("id", reservationId).single()
   if (readError || !current) return { error: "Reservation not found." }
@@ -210,6 +202,9 @@ export async function transitionReservationStatus(
 export async function undoReservationStatus(
   reservationId: string,
 ): Promise<{ error?: string; restoredStatus?: ReservationRow["status"] }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const db = createServiceClient()
   const { data: reservation, error: reservationError } = await db
     .from("reservations")
@@ -256,6 +251,9 @@ export async function assignReservationTable(
   reservationId: string,
   tableLabel: string | null,
 ): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
   const db = createServiceClient()
   const label = tableLabel?.trim() || null
 
@@ -294,6 +292,9 @@ export async function getReservations(opts?: {
   from?: string
   to?: string
 }): Promise<ReservationRow[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
   const supabase = await createClient()
 
   let query = supabase
@@ -340,11 +341,6 @@ export async function getAvailableSlots(
     const hh = String(h).padStart(2, "0")
     TIME_SLOTS.push(`${hh}:00`, `${hh}:30`)
   }
-  // Total covers the restaurant can seat at once (sum of all table seats).
-  const TOTAL_CAPACITY = 38 // 2+2+4+4+6+4+2+8+4+2
-
-  const supabase = createAnonClient()
-
   // Check if the requested date is blocked
   const dateIsBlocked = await isDateBlocked(date)
   if (dateIsBlocked) {
@@ -364,8 +360,23 @@ export async function getAvailableSlots(
   const opensAt = operatingWindow.opens_at ?? "09:00"
   const closesAt = operatingWindow.closes_at ?? "22:00"
 
+  // Reservations carry PII (guest name, phone, notes) and are not publicly
+  // readable — RLS only grants anon INSERT, not SELECT. This preview only
+  // needs an aggregated cover count per slot (no PII ever reaches the
+  // client), so it's computed server-side with the service-role client and
+  // reduced to booleans below. This mirrors the same total-seats capacity
+  // rule enforced atomically by the `validate_reservation_availability`
+  // database trigger on insert, keeping both checks in sync.
+  const db = createServiceClient()
+
+  const { data: tableRows, error: tableError } = await db.from("tables").select("seats")
+  if (tableError) {
+    console.error("[reservations] getAvailableSlots table capacity error:", tableError.message)
+  }
+  const totalCapacity = (tableRows ?? []).reduce((sum, row) => sum + (row.seats ?? 0), 0)
+
   // Fetch all confirmed/seated reservations for this date.
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("reservations")
     .select("time, party_size")
     .eq("date", date)
@@ -400,29 +411,8 @@ export async function getAvailableSlots(
 
     // Block if adding this party exceeds capacity.
     const booked = bookedBySlot[time] ?? 0
-    const available = booked + partySize <= TOTAL_CAPACITY
+    const available = booked + partySize <= totalCapacity
 
     return { time, available }
   })
-}
-
-export async function updateReservationStatus(
-  id: string,
-  status: ReservationRow["status"],
-): Promise<{ error?: string }> {
-  const supabase = await createClient()
-
-  const { error } = await supabase
-    .from("reservations")
-    .update({ status })
-    .eq("id", id)
-
-  if (error) {
-    console.error("[reservations] updateReservationStatus error:", error.message)
-    return { error: error.message }
-  }
-
-  revalidatePath("/admin/reservations")
-  revalidatePath("/admin")
-  return {}
 }
