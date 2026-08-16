@@ -8,6 +8,7 @@ import { LockKeyhole, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
 import { SITE_LOGO, shouldRenderSiteHeader } from "@/lib/site-chrome"
+import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { LanguageSwitcher } from "@/components/site/language-switcher"
@@ -20,6 +21,7 @@ export function SiteHeader() {
   const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const { logoUrl } = useRestaurantLogo()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -44,7 +46,13 @@ export function SiteHeader() {
         {/* Logo — left third */}
         <div className="w-1/3 flex items-center justify-start">
           <Link href="/" className="flex items-center gap-2.5">
-            <Image {...SITE_LOGO} alt={SITE_LOGO.alt} />
+            <Image
+              {...SITE_LOGO}
+              // Prefer the custom logo uploaded via the admin dashboard;
+              // fall back to the bundled default brand mark otherwise.
+              src={logoUrl ?? SITE_LOGO.src}
+              alt={SITE_LOGO.alt}
+            />
             <span className={cn("font-heading text-lg font-semibold tracking-tight transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
               {RESTAURANT.name}
             </span>

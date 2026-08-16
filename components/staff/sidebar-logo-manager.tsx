@@ -2,12 +2,12 @@
 
 import * as React from "react"
 import Image from "next/image"
-import useSWR from "swr"
 import { toast } from "sonner"
 import { ImagePlus, Loader2, Trash2, UtensilsCrossed } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
-import { getRestaurantLogoUrl, removeRestaurantLogo, uploadRestaurantLogo } from "@/app/actions/branding"
+import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
+import { removeRestaurantLogo, uploadRestaurantLogo } from "@/app/actions/branding"
 import {
   Dialog,
   DialogContent,
@@ -27,7 +27,7 @@ const ACCEPTED_TYPES = "image/png,image/jpeg,image/svg+xml,image/webp"
  * previous static brand div, just wrapped in an interactive trigger.
  */
 export function SidebarLogoManager() {
-  const { data: logoUrl, mutate } = useSWR("restaurant-logo", getRestaurantLogoUrl)
+  const { logoUrl, mutate } = useRestaurantLogo()
   const [open, setOpen] = React.useState(false)
   const [preview, setPreview] = React.useState<string | null>(null)
   const [file, setFile] = React.useState<File | null>(null)
