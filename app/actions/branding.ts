@@ -53,6 +53,7 @@ export async function uploadRestaurantLogo(formData: FormData): Promise<{ logoUr
     upsert: true,
   })
   if (uploadError) {
+    console.log("[v0] upload error full:", JSON.stringify(uploadError))
     console.error("[branding] upload error:", uploadError.message)
     return { logoUrl: "", error: "Could not upload the logo. Please try again." }
   }
