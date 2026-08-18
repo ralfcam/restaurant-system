@@ -70,8 +70,12 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     arrangement adds it to that group. Tables that are reserved, seated,
     cleaning, out of service, already merged with a different group, or
     holding a reservation overlay cannot be merged — the UI must not call
-    merge in those cases (that produced a generic “Could not merge tables”
-    error). Combined **seat capacity** is the sum of the members. Duration
+    merge in those cases. The merge server action must **not throw a 500**
+    on `/admin/floor`; it returns `{ error }` for validation failures. If
+    `table_merges` is missing from Postgres or the PostgREST schema cache,
+    the arrangement is still persisted (via `status_events`) so drop-to-merge
+    works before that migration is applied. Combined **seat capacity** is the
+    sum of the members. Duration
     defaults to the **longest** expected time among those tables and can be
     edited on the arrangement. Unused **available** merges expire at that
     duration. Status is shared: changing Available / Reserved / Seated /

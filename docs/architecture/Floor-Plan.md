@@ -14,7 +14,9 @@ member seat capacity and last that expected time by default. Status changes appl
 to every member; Available and Out of service dissolve the arrangement. On
 `/admin/floor`, staff merge by **dropping an available table onto another**
 (`lib/floor/merge-drop.ts`); an available table dropped onto an available
-arrangement is added to that group.
+arrangement is added to that group. `mergeTables` returns `{ error }` instead
+of throwing (a throw became a 500 on the floor POST). If `table_merges` is
+not in the database yet, the arrangement is stored on `status_events`.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. Inventory is persisted in Postgres (`tables`), not
