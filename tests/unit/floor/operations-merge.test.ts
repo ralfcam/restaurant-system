@@ -83,6 +83,12 @@ vi.mock("@/lib/supabase/service", () => ({
         },
         select: () => ({
           eq: () => ({
+            like: () => ({
+              order: async () => ({
+                data: mocks.events.filter((row) => String(row.reason ?? "").startsWith("{")),
+                error: null,
+              }),
+            }),
             order: async () => ({ data: mocks.events, error: null }),
           }),
         }),
@@ -158,7 +164,7 @@ describe("mergeTables", () => {
     })
     expect(mocks.insertEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        entity_type: "table_merge",
+        entity_type: "table",
         to_status: "available",
         reason: expect.stringContaining('"label":"3+4"'),
       }),
@@ -183,7 +189,7 @@ describe("mergeTables", () => {
     })
     expect(mocks.insertEvent).toHaveBeenCalledWith(
       expect.objectContaining({
-        entity_type: "table_merge",
+        entity_type: "table",
         to_status: "available",
         reason: expect.stringContaining('"v":1'),
       }),

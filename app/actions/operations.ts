@@ -100,6 +100,7 @@ async function loadMergeEvents(db: ServiceDb): Promise<FallbackMerge[]> {
     .from("status_events")
     .select("entity_id, to_status, reason, created_at")
     .eq("entity_type", MERGE_EVENT_TYPE)
+    .like("reason", "{%")
     .order("created_at", { ascending: true })
   if (error) {
     console.error("[operations] loadMergeEvents:", error.message)
@@ -167,8 +168,8 @@ async function loadMergeContext(db: ServiceDb, tableId: string): Promise<MergeCo
 }
 
 async function dissolveMerge(db: ServiceDb, mergeId: string, reason = "split") {
-  const toStatus = reason === "expired" ? "expired" : "split"
-  await recordMergeEvent(db, mergeId, toStatus, reason, "merged")
+  // to_status must be a table status — live DBs may also check that column.
+  await recordMergeEvent(db, mergeId, "available", reason)
   const { error } = await db.from("table_merges").delete().eq("id", mergeId)
   if (error && !isMissingRelationError(error)) {
     console.error("[operations] dissolveMerge:", error.message)

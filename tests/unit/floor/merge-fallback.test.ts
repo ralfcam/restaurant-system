@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import {
+  MERGE_EVENT_TYPE,
   activeMergesFromEvents,
   decodeMergeState,
   encodeMergeState,
@@ -48,6 +49,11 @@ describe("merge fallback persistence", () => {
     expect(active).toEqual([
       expect.objectContaining({ id: "m2", label: "5+6", tableIds: ["t5", "t6"] }),
     ])
+  })
+
+  it("uses entity_type table so fallback rows pass status_events_entity_type_check", () => {
+    expect(MERGE_EVENT_TYPE).toBe("table")
+    expect(MERGE_EVENT_TYPE).not.toBe("table_merge")
   })
 
   it("detects a missing table_merges relation so drop-to-merge can fall back", () => {

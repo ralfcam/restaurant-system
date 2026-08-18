@@ -16,7 +16,8 @@ to every member; Available and Out of service dissolve the arrangement. On
 (`lib/floor/merge-drop.ts`); an available table dropped onto an available
 arrangement is added to that group. `mergeTables` returns `{ error }` instead
 of throwing (a throw became a 500 on the floor POST). If `table_merges` is
-not in the database yet, the arrangement is stored on `status_events`.
+not in the database yet, the arrangement is stored on `status_events` as
+`entity_type = table` (`status_events_entity_type_check` rejects `table_merge`).
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. Inventory is persisted in Postgres (`tables`), not

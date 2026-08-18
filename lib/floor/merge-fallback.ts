@@ -2,15 +2,17 @@
  * Merge persistence helpers.
  *
  * Dedicated `table_merges` / `table_merge_members` relations are preferred.
- * When those are missing from Postgres or the PostgREST schema cache (a 500
- * on /admin/floor drop-to-merge), full arrangement state is stored on
- * `status_events` so staff can still combine tables.
+ * When those are missing from Postgres or the PostgREST schema cache, full
+ * arrangement state is stored on `status_events`. Live DBs check
+ * `status_events_entity_type_check` (`table` | `reservation` | `order`), so
+ * fallback rows must use `entity_type = table` — `table_merge` is rejected.
  */
 
 import type { TableStatus } from "@/lib/data"
 import { mergeLabel, mergeSeatCapacity } from "@/lib/floor/table-use"
 
-export const MERGE_EVENT_TYPE = "table_merge"
+/** Must stay inside `status_events_entity_type_check` on the live database. */
+export const MERGE_EVENT_TYPE = "table"
 
 export type MergeStatePayload = {
   v: 1
