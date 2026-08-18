@@ -21,6 +21,19 @@ import { Button } from "@/components/ui/button"
 
 const ACCEPTED_TYPES = "image/png,image/jpeg,image/svg+xml,image/webp"
 
+/** Reads a File into a base64 string (no data URL prefix) using FileReader. */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result as string
+      resolve(result.slice(result.indexOf(",") + 1))
+    }
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
 /**
  * Clickable brand mark in the sidebar header — opens a dialog to upload,
  * replace, or remove the restaurant's logo. Visually identical to the
@@ -58,10 +71,11 @@ export function SidebarLogoManager() {
   async function handleSave() {
     if (!file) return
     setIsSaving(true)
-    const formData = new FormData()
-    formData.set("logo", file)
     try {
-      const result = await uploadRestaurantLogo(formData)
+      // Sent as a base64 string rather than the File directly — see the
+      // comment on uploadRestaurantLogo for why.
+      const base64 = await fileToBase64(file)
+      const result = await uploadRestaurantLogo({ base64, contentType: file.type, size: file.size })
       if (result.error) {
         toast.error(result.error)
         return
@@ -70,7 +84,8 @@ export function SidebarLogoManager() {
       toast.success("Logo updated")
       resetPicker()
       setOpen(false)
-    } catch {
+    } catch (err) {
+      console.log("[v0] handleSave caught error:", err)
       toast.error("Could not upload the logo. Please try again.")
     } finally {
       setIsSaving(false)

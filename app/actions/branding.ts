@@ -26,21 +26,34 @@ export async function getRestaurantLogoUrl(): Promise<string | null> {
   return data?.logo_url ?? null
 }
 
-export async function uploadRestaurantLogo(formData: FormData): Promise<{ logoUrl: string; error?: string }> {
+interface LogoUploadInput {
+  /** Base64-encoded file contents (no data URL prefix). */
+  base64: string
+  contentType: string
+  size: number
+}
+
+// Accepts the file as a base64 string rather than FormData/File. Passing a
+// File through FormData to a Server Action requires a multipart/form-data
+// request body, which this environment's request pipeline mangles ("Error:
+// Unexpected end of form"). Plain string arguments use the RSC flight
+// serialization instead of multipart, sidestepping the issue entirely.
+export async function uploadRestaurantLogo(input: LogoUploadInput): Promise<{ logoUrl: string; error?: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("Unauthorized")
 
-  const file = formData.get("logo")
-  if (!(file instanceof File) || file.size === 0) {
+  if (!input.base64) {
     return { logoUrl: "", error: "Please choose an image file." }
   }
-  const ext = ALLOWED_TYPES[file.type]
+  const ext = ALLOWED_TYPES[input.contentType]
   if (!ext) {
     return { logoUrl: "", error: "Please upload a PNG, JPG, SVG, or WEBP image." }
   }
-  if (file.size > MAX_LOGO_BYTES) {
+  if (input.size > MAX_LOGO_BYTES) {
     return { logoUrl: "", error: "Logo image must be smaller than 2MB." }
   }
+
+  const bytes = Buffer.from(input.base64, "base64")
 
   const db = createServiceClient()
   // Fixed filename per extension keeps the bucket tidy (old logo of a
@@ -48,12 +61,11 @@ export async function uploadRestaurantLogo(formData: FormData): Promise<{ logoUr
   // param is appended to the stored URL so the sidebar picks up changes
   // immediately without needing to invalidate a CDN cache by path.
   const path = `logo.${ext}`
-  const { error: uploadError } = await db.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
+  const { error: uploadError } = await db.storage.from(BUCKET).upload(path, bytes, {
+    contentType: input.contentType,
     upsert: true,
   })
   if (uploadError) {
-    console.log("[v0] upload error full:", JSON.stringify(uploadError))
     console.error("[branding] upload error:", uploadError.message)
     return { logoUrl: "", error: "Could not upload the logo. Please try again." }
   }
