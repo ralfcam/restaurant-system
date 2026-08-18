@@ -1,17 +1,25 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { FloorPlan } from "@/components/staff/floor-plan"
 import { getAuthUser } from "@/app/actions/auth"
+import { getFloorSnapshot } from "@/app/actions/reservations"
+import { getTodayInRestaurantTZ } from "@/lib/timezone"
+
+export const dynamic = "force-dynamic"
 
 export default async function FloorPage() {
-  const authUser = await getAuthUser()
+  const today = getTodayInRestaurantTZ()
+  const [authUser, snapshot] = await Promise.all([
+    getAuthUser(),
+    getFloorSnapshot(today),
+  ])
 
   return (
     <StaffShell
       title="Floor Plan"
-      description="Configure tables, capacity, and live status"
+      description="Live dining room — tables auto-assign as reservations come due"
       user={{ email: authUser?.email }}
     >
-      <FloorPlan />
+      <FloorPlan date={today} fallbackData={snapshot} />
     </StaffShell>
   )
 }

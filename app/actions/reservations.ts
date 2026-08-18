@@ -13,6 +13,11 @@ import {
   formatSegmentsSummary,
   isTimeWithinSegments,
 } from "@/lib/reservations/operating-hours"
+import {
+  planAutoAssignments,
+  type PlannedAssignment,
+} from "@/lib/reservations/auto-assign"
+import { getTables, type PersistedTable } from "@/app/actions/operations"
 
 export type ReservationRow = {
   id: string
@@ -209,8 +214,11 @@ export async function transitionReservationStatus(
   const { error } = await db.from("reservations").update(patch).eq("id", reservationId)
   if (error) return { error: "Could not update reservation status." }
   await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: current.status, to_status: nextStatus })
+  if (nextStatus === "seated" && current.table_label) {
+    await db.from("tables").update({ status: "seated", updated_at: new Date().toISOString() }).eq("label", current.table_label)
+  }
   if (current.table_label && patch.table_label === null) {
-    await db.from("tables").update({ status: "available", updated_at: new Date().toISOString() }).eq("label", current.table_label).eq("status", "reserved")
+    await db.from("tables").update({ status: "available", updated_at: new Date().toISOString() }).eq("label", current.table_label).in("status", ["reserved", "seated"])
   }
   revalidatePath("/admin/reservations")
   revalidatePath("/admin/floor")
@@ -298,12 +306,88 @@ export async function assignReservationTable(
     console.error("[reservations] assignReservationTable error:", error.message)
     return { error: "Could not update the table assignment." }
   }
-  if (label) await db.from("tables").update({ status: "reserved", updated_at: new Date().toISOString() }).eq("label", label).in("status", ["available", "reserved"])
+  if (label) {
+    const tableStatus = reservation.status === "seated" ? "seated" : "reserved"
+    await db.from("tables").update({ status: tableStatus, updated_at: new Date().toISOString() }).eq("label", label).in("status", ["available", "reserved", "seated"])
+  }
   await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: reservation.table_label, to_status: label ?? "unassigned", reason: "table assignment" })
 
   revalidatePath("/admin/reservations")
   revalidatePath("/admin/floor")
   return {}
+}
+
+export type FloorSnapshot = {
+  tables: PersistedTable[]
+  reservations: ReservationRow[]
+  assigned: PlannedAssignment[]
+}
+
+/**
+ * Assigns due, unassigned confirmed reservations to the smallest available
+ * table that fits. Staff-only. Safe to call on every floor-plan refresh.
+ */
+export async function autoAssignDueReservations(): Promise<{
+  assigned: PlannedAssignment[]
+  error?: string
+}> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { assigned: [], error: "Unauthorized." }
+
+  const now = {
+    date: getTodayInRestaurantTZ(),
+    time: getNowTimeInRestaurantTZ(),
+  }
+  const db = createServiceClient()
+
+  const { data: reservations, error: reservationError } = await db
+    .from("reservations")
+    .select("*")
+    .eq("date", now.date)
+    .in("status", ["confirmed", "seated"])
+    .order("time", { ascending: true })
+
+  if (reservationError) {
+    console.error("[reservations] autoAssignDueReservations:", reservationError.message)
+    return { assigned: [], error: "Could not load reservations." }
+  }
+
+  const { data: tables, error: tableError } = await db
+    .from("tables")
+    .select("id, label, seats, status")
+    .order("label", { ascending: true })
+
+  if (tableError) {
+    console.error("[reservations] autoAssignDueReservations tables:", tableError.message)
+    return { assigned: [], error: "Could not load tables." }
+  }
+
+  const planned = planAutoAssignments(reservations ?? [], tables ?? [], now)
+  const assigned: PlannedAssignment[] = []
+  for (const plan of planned) {
+    const result = await assignReservationTable(plan.reservationId, plan.tableLabel)
+    if (!result.error) assigned.push(plan)
+  }
+
+  if (assigned.length > 0) {
+    revalidatePath("/admin/reservations")
+    revalidatePath("/admin/floor")
+    revalidatePath("/admin")
+  }
+  return { assigned }
+}
+
+/** Live floor payload: auto-assign due reservations, then return tables + today's book. */
+export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { tables: [], reservations: [], assigned: [] }
+
+  const { assigned } = await autoAssignDueReservations()
+  const [tables, reservations] = await Promise.all([
+    getTables(),
+    getReservationsByDate(date),
+  ])
+  return { tables, reservations, assigned }
 }
 
 /** Fetch reservations across a date range (or all if no bounds given). */
