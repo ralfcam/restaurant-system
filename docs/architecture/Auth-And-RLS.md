@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
 ## Auth flow
 
@@ -25,7 +25,10 @@ Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (sin
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
 `menu_items`, `restaurant_settings`. Public storage bucket `branding` holds the
-optional custom logo. Reference data (`operating_windows`, `menu_items`,
+optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). Baseline migrations
+create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can call
+`storage.createBucket` when upload returns bucket-not-found, then retry. Reference
+data (`operating_windows`, `menu_items`,
 `restaurant_settings` singleton) loads from `supabase/seed.sql` on `db reset`.
 
 ## Env vars

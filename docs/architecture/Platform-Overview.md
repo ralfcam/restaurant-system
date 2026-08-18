@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
 ## Stack
 
@@ -44,6 +44,12 @@ routing for public paths. `/admin/**`, `/auth/**`, and `/api/**` skip locale mid
 | Reservations | `app/actions/reservations.ts` |
 | Availability | `app/actions/availability.ts` |
 | Branding | `app/actions/branding.ts` |
+
+Logo uploads use base64 on a Server Action (not multipart). `next.config.mjs` sets
+`experimental.serverActions.bodySizeLimit` to `4mb` (`LOGO_UPLOAD_BODY_SIZE_LIMIT` in
+`lib/branding.ts`) so a file at the 2MB validation cap still fits after encoding.
+If storage reports the public `branding` bucket missing, the action creates it and
+retries. Spec: [../specs/branding-cms.md](../specs/branding-cms.md) (BC-8, BC-9).
 
 ## Supabase clients
 

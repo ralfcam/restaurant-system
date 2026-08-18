@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
 ## Current state
 
@@ -16,6 +16,13 @@
   - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo)
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
   - `menu_items` — 120 rows (äkta menu catalog)
+- **Branding bucket runtime:** Migrations define the public `branding` bucket and
+  storage policies. If storage still reports bucket-not-found on first logo upload,
+  `uploadRestaurantLogo` creates the bucket (public, 2MB, allowed image MIME types)
+  via the service role and retries — see BC-9 in
+  [../specs/branding-cms.md](../specs/branding-cms.md).
+- **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
+  retry), MIME alias validation, and a `next.config.mjs` `bodySizeLimit` schema guard.
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI
   samples, and POS/KDS tickets not yet persisted in Postgres.
 

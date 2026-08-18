@@ -1,13 +1,15 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
 ## Layout
 
 - Config: `vitest.unit.config.ts`
 - Setup: `tests/unit/setup.ts`
 - Tests: `tests/unit/**/*.test.ts`
+- Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`
+  bodySizeLimit schema guard)
 
 ## Conventions
 
