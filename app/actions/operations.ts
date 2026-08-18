@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache"
 import { MENU_ITEMS, type TableStatus } from "@/lib/data"
+import { tableShapeForSeats } from "@/lib/table-shape"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 
@@ -37,10 +38,11 @@ const TABLE_TRANSITIONS: Record<TableStatus, TableStatus[]> = {
 }
 
 function mapTable(row: Record<string, unknown>): PersistedTable {
+  const seats = Number(row.seats)
   return {
-    id: String(row.id), label: String(row.label), seats: Number(row.seats),
+    id: String(row.id), label: String(row.label), seats,
     status: row.status as TableStatus, x: Number(row.x), y: Number(row.y),
-    shape: row.shape as PersistedTable["shape"],
+    shape: tableShapeForSeats(seats),
   }
 }
 
@@ -63,7 +65,11 @@ export async function updateTableState(input: { id: string; status?: TableStatus
   if (input.status && (!TABLE_STATUSES.has(input.status) || !TABLE_TRANSITIONS[current.status as TableStatus].includes(input.status))) throw new Error(`Invalid table transition: ${current.status} → ${input.status}`)
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (input.status) patch.status = input.status
-  if (input.seats !== undefined) patch.seats = Math.max(1, Math.min(12, Math.round(input.seats)))
+  if (input.seats !== undefined) {
+    const seats = Math.max(1, Math.min(12, Math.round(input.seats)))
+    patch.seats = seats
+    patch.shape = tableShapeForSeats(seats)
+  }
   const { error } = await db.from("tables").update(patch).eq("id", input.id)
   if (error) throw new Error("Unable to update table")
   if (input.status) await db.from("status_events").insert({ entity_type: "table", entity_id: input.id, from_status: current.status, to_status: input.status })
@@ -78,7 +84,8 @@ export async function createTable() {
   const db = createServiceClient()
   const { data: existing } = await db.from("tables").select("label").order("label")
   const next = Math.max(0, ...(existing ?? []).map((row) => Number(row.label) || 0)) + 1
-  const { data, error } = await db.from("tables").insert({ label: String(next), seats: 2, status: "available", x: 0, y: 0, shape: "round" }).select("*").single()
+  const seats = 2
+  const { data, error } = await db.from("tables").insert({ label: String(next), seats, status: "available", x: 0, y: 0, shape: tableShapeForSeats(seats) }).select("*").single()
   if (error) throw new Error("Unable to add table")
   revalidatePath("/admin/floor")
   return mapTable(data)
