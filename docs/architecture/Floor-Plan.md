@@ -18,6 +18,8 @@ arrangement is added to that group. `mergeTables` returns `{ error }` instead
 of throwing (a throw became a 500 on the floor POST). If `table_merges` is
 not in the database yet, the arrangement is stored on `status_events` as
 `entity_type = table` (`status_events_entity_type_check` rejects `table_merge`).
+Split (inspector button or drag a member onto the floor) writes a dissolved
+JSON event so the fallback reader drops the arrangement.
 
 Tables sit on a persisted grid (`tables.x`, `tables.y`). `/admin/floor`
 renders that grid as a canvas (`lib/floor/layout.ts`). Each chip has a

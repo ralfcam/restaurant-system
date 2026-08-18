@@ -67,7 +67,11 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     **available** tables into a temporary arrangement. On `/admin/floor`,
     **dragging one available table onto another** is the favoured merge UX
     (drop-to-merge). Dropping an available table onto an **available**
-    arrangement adds it to that group. Tables that are reserved, seated,
+    arrangement adds it to that group. **Dragging a merged table out onto
+    the floor** (or the inspector **Split tables** action) dissolves the
+    arrangement. Split must **not throw a 500**; it returns `{ error }` and
+    writes a dissolved `status_events` payload (`dissolved: true`, still
+    JSON so it is visible to the fallback reader). Tables that are reserved, seated,
     cleaning, out of service, already merged with a different group, or
     holding a reservation overlay cannot be merged — the UI must not call
     merge in those cases. The merge server action must **not throw a 500**
@@ -91,13 +95,15 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     on a persisted grid (`tables.x`, `tables.y`) so the canvas matches the
     dining room. Each chip has a **move-lock** (default locked) so a table
     cannot be dragged by accident. Unlocking a table lets staff drag it to
-    a new cell; the new coordinates persist. Dropping an unlocked table on
-    another available table still merges (FP-8). Locked tables stay put and
+    a new cell; the new coordinates persist via `updateTableState`. Dropping an
+    unlocked table on another available table still merges (FP-8). Dropping a
+    merged table on an empty cell still splits. Locked tables stay put and
     are only selectable. Creating a table occupies the next free cell.
 
 ## References
 
 - [../architecture/Floor-Plan.md](../architecture/Floor-Plan.md)
+- `lib/floor/layout.ts`
 - `lib/reservations/auto-assign.ts`
 - `hooks/use-floor-plan.ts`
 - `components/staff/floor-plan.tsx`

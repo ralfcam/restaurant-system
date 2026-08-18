@@ -50,10 +50,12 @@ describe("floor tables schema and live surfaces", () => {
     expect(floor).toMatch(/Expected time/)
     expect(floor).toMatch(/Merge tables/)
     expect(floor).toMatch(/Unlock a table/)
+    expect(floor).toMatch(/Drag a merged table/)
     expect(floor).toMatch(/onPointerDown/)
     expect(floor).toMatch(/clientToFloorCell/)
     expect(floor).toMatch(/resolveMergeDrop/)
-    expect(floor).toMatch(/LockOpen|move-lock/)
+    expect(floor).toMatch(/resolveSplitDrop/)
+    expect(floor).toMatch(/LockOpen|floor-move-lock/)
     expect(floor).not.toMatch(/t\.shape ===/)
   })
 

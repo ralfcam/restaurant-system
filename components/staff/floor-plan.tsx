@@ -31,7 +31,9 @@ import {
 import { groupTablesForDisplay } from "@/lib/floor/floor-units"
 import {
   isDragMergeable,
+  isDragSplittable,
   resolveMergeDrop,
+  resolveSplitDrop,
   type MergeDropTable,
 } from "@/lib/floor/merge-drop"
 import {
@@ -380,18 +382,46 @@ export function FloorPlan({
       return
     }
 
+    const source = dropTables.find((table) => table.id === drag.id)
+    if (source && isDragSplittable(source)) {
+      const split = resolveSplitDrop(drag.id, dropTables)
+      if (!split.mergeId) {
+        clearDraft(drag.id)
+        toast.error("Could not split tables", { description: split.error })
+        return
+      }
+      const sourceTable = tables.find((table) => table.id === drag.id)
+      const splitOk = await splitArrangement(split.mergeId, sourceTable?.merge?.label)
+      if (!splitOk) {
+        clearDraft(drag.id)
+        return
+      }
+    }
+
     await persistPosition(drag.id, cell)
+  }
+
+  async function splitArrangement(mergeId: string, label?: string) {
+    try {
+      const result = await splitMerge(mergeId)
+      if (result.error) {
+        toast.error("Could not split tables", { description: result.error })
+        return false
+      }
+      await mutate()
+      toast.success(`Split tables ${label ?? ""}`.trim())
+      return true
+    } catch (error) {
+      toast.error("Could not split tables", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+      return false
+    }
   }
 
   async function splitSelected() {
     if (!selected?.merge) return
-    try {
-      await splitMerge(selected.merge.id)
-      await mutate()
-      toast.success(`Split tables ${selected.merge.label}`)
-    } catch {
-      toast.error("Could not split tables")
-    }
+    await splitArrangement(selected.merge.id, selected.merge.label)
   }
 
   return (
@@ -431,10 +461,14 @@ export function FloorPlan({
             </div>
           </div>
 
-          <p className="mb-3 text-xs text-muted-foreground">
-            Unlock a table (padlock) to drag it to a new cell. Drop an unlocked
-            available table onto another to merge. Locked tables stay put.
-          </p>
+          <div className="mb-3 flex items-start gap-2 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs text-foreground">
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+            <p>
+              Unlock a table (padlock) to drag it. Drop an available table onto
+              another to merge. Drag a merged table onto an empty cell to split.
+              Locked tables stay put.
+            </p>
+          </div>
           <div className="overflow-auto rounded-lg border border-dashed border-border bg-secondary/30 p-3">
             <div
               ref={canvasRef}
@@ -501,14 +535,16 @@ export function FloorPlan({
                   >
                     <span
                       data-floor-lock
+                      data-testid="floor-move-lock"
                       role="button"
                       tabIndex={0}
                       aria-label={unlocked ? `Lock table ${t.label}` : `Unlock table ${t.label}`}
+                      title={unlocked ? "Lock this table" : "Unlock to rearrange"}
                       className={cn(
-                        "absolute left-1 top-1 z-20 flex size-6 items-center justify-center rounded-full border bg-card/95 shadow-sm",
+                        "absolute left-0.5 top-0.5 z-20 flex size-8 items-center justify-center rounded-full border-2 bg-card shadow-md",
                         unlocked
-                          ? "border-accent/40 text-accent"
-                          : "border-border text-muted-foreground hover:text-foreground",
+                          ? "border-accent text-accent"
+                          : "border-foreground/30 text-foreground hover:border-foreground",
                       )}
                       onPointerDown={(event) => event.stopPropagation()}
                       onClick={(event) => {
@@ -522,14 +558,16 @@ export function FloorPlan({
                         toggleUnlock(t.id)
                       }}
                     >
-                      {unlocked ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />}
+                      {unlocked ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
                     </span>
                     <button
                       type="button"
                       title={
                         canMove
-                          ? "Drag to a new cell, or onto another available table to merge"
-                          : "Unlock the padlock to move this table"
+                          ? isDragSplittable(toMergeDropTable(t))
+                            ? "Drag onto an empty cell to split, or onto another table to merge"
+                            : "Drag to a new cell, or onto another available table to merge"
+                          : "Unlock the padlock to rearrange this table"
                       }
                       onClick={() => {
                         if (skipClickAfterDrag.current) {
@@ -809,7 +847,8 @@ export function FloorPlan({
                     {formatDurationMinutes(selected.merge.expectedMinutes)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Unlock another available table and drop it on this group to add it.
+                    Unlock a member and drag it onto an empty cell to split, or
+                    drop another available table here to add it.
                   </p>
                   <Button variant="outline" className="w-full" onClick={() => void splitSelected()}>
                     <Unlink className="size-4" /> Split tables
