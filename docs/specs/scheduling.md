@@ -58,6 +58,23 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
    Chips stay circular or square (equal width and height); they do not stretch
    into rectangles.
 
+10. **FP-7 — Expected time use** — Admin can set each table’s max/expected
+    turn time on `/admin/floor` (`expected_minutes`, default **90**, stepped
+    **15**, range **30–240**). The inspector shows and persists this value.
+    Creating a table starts at 90 minutes.
+
+11. **FP-8 — Temporary table merges** — Admin can merge two or more
+    **available** tables into a temporary arrangement. Combined **seat
+    capacity** is the sum of the members. Duration defaults to the **longest**
+    expected time among those tables and can be edited on the arrangement.
+    Unused **available** merges expire at that duration. Status is shared:
+    changing Available / Reserved / Seated / Cleaning / Out of service on any
+    member updates every member. **Available** and **Out of service** dissolve
+    the merge; **Reserved** and **Seated** refresh the expected-use clock;
+    **Cleaning** keeps the group. Auto-assign treats a merge as one table
+    (primary = lowest label, seats = sum). A reservation on the primary
+    overlays every member.
+
 ## References
 
 - [../architecture/Floor-Plan.md](../architecture/Floor-Plan.md)

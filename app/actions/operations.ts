@@ -5,15 +5,49 @@ import { MENU_ITEMS, type TableStatus } from "@/lib/data"
 import { tableShapeForSeats } from "@/lib/table-shape"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
+import {
+  canMergeTables,
+  clampExpectedMinutes,
+  DEFAULT_EXPECTED_MINUTES,
+  defaultMergeExpectedMinutes,
+  dissolvesMerge,
+  mergeExpiresAt,
+  mergeLabel,
+  mergeSeatCapacity,
+  restartsMergeClock,
+  shouldExpireMerge,
+} from "@/lib/floor/table-use"
 
 export type PersistedTable = {
   id: string
   label: string
   seats: number
   status: TableStatus
+  expectedMinutes: number
   x: number
   y: number
   shape: "round" | "square" | "rect"
+  mergeId: string | null
+}
+
+export type PersistedMerge = {
+  id: string
+  expectedMinutes: number
+  expiresAt: string
+  status: TableStatus
+  tableIds: string[]
+  seats: number
+  label: string
+}
+
+type ServiceDb = ReturnType<typeof createServiceClient>
+
+type MergeContext = {
+  mergeId: string
+  expectedMinutes: number
+  status: TableStatus
+  expiresAt: string
+  tableIds: string[]
 }
 
 export type KdsOrder = {
@@ -37,12 +71,68 @@ const TABLE_TRANSITIONS: Record<TableStatus, TableStatus[]> = {
   out_of_service: ["available"],
 }
 
-function mapTable(row: Record<string, unknown>): PersistedTable {
+function mapTable(row: Record<string, unknown>, mergeId: string | null = null): PersistedTable {
   const seats = Number(row.seats)
   return {
-    id: String(row.id), label: String(row.label), seats,
-    status: row.status as TableStatus, x: Number(row.x), y: Number(row.y),
+    id: String(row.id),
+    label: String(row.label),
+    seats,
+    status: row.status as TableStatus,
+    expectedMinutes: clampExpectedMinutes(Number(row.expected_minutes ?? DEFAULT_EXPECTED_MINUTES)),
+    x: Number(row.x),
+    y: Number(row.y),
     shape: tableShapeForSeats(seats),
+    mergeId,
+  }
+}
+
+async function loadMergeContext(db: ServiceDb, tableId: string): Promise<MergeContext | null> {
+  const { data: membership } = await db
+    .from("table_merge_members")
+    .select("merge_id")
+    .eq("table_id", tableId)
+    .maybeSingle()
+  if (!membership?.merge_id) return null
+
+  const { data: merge } = await db.from("table_merges").select("*").eq("id", membership.merge_id).maybeSingle()
+  const { data: members } = await db
+    .from("table_merge_members")
+    .select("table_id")
+    .eq("merge_id", membership.merge_id)
+  if (!merge) return null
+
+  return {
+    mergeId: String(merge.id),
+    expectedMinutes: clampExpectedMinutes(Number(merge.expected_minutes ?? DEFAULT_EXPECTED_MINUTES)),
+    status: merge.status as TableStatus,
+    expiresAt: String(merge.expires_at),
+    tableIds: (members ?? []).map((row) => String(row.table_id)),
+  }
+}
+
+async function dissolveMerge(db: ServiceDb, mergeId: string, reason = "split") {
+  await db.from("status_events").insert({
+    entity_type: "table_merge",
+    entity_id: mergeId,
+    from_status: "merged",
+    to_status: "split",
+    reason,
+  })
+  await db.from("table_merges").delete().eq("id", mergeId)
+}
+
+function mapMerge(
+  row: Record<string, unknown>,
+  members: Array<{ id: string; label: string; seats: number }>,
+): PersistedMerge {
+  return {
+    id: String(row.id),
+    expectedMinutes: clampExpectedMinutes(Number(row.expected_minutes ?? DEFAULT_EXPECTED_MINUTES)),
+    expiresAt: String(row.expires_at),
+    status: row.status as TableStatus,
+    tableIds: members.map((member) => member.id),
+    seats: mergeSeatCapacity(members),
+    label: mergeLabel(members),
   }
 }
 
@@ -50,31 +140,233 @@ export async function getTables(): Promise<PersistedTable[]> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return []
 
-  const { data, error } = await createServiceClient().from("tables").select("*").order("label")
+  const db = createServiceClient()
+  const { data, error } = await db.from("tables").select("*").order("label")
   if (error) { console.error("[operations] getTables:", error.message); return [] }
-  return (data ?? []).map(mapTable)
+  const { data: members } = await db.from("table_merge_members").select("merge_id, table_id")
+  const mergeByTable = new Map((members ?? []).map((row) => [String(row.table_id), String(row.merge_id)]))
+  return (data ?? []).map((row) => mapTable(row, mergeByTable.get(String(row.id)) ?? null))
 }
 
-export async function updateTableState(input: { id: string; status?: TableStatus; seats?: number }) {
+export async function getActiveMerges(): Promise<PersistedMerge[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
+  const db = createServiceClient()
+  const { data: merges, error } = await db.from("table_merges").select("*")
+  if (error) { console.error("[operations] getActiveMerges:", error.message); return [] }
+  const { data: members } = await db.from("table_merge_members").select("merge_id, table_id")
+  const { data: tables } = await db.from("tables").select("id, label, seats")
+  const tableById = new Map((tables ?? []).map((row) => [String(row.id), row]))
+
+  return (merges ?? []).flatMap((merge) => {
+    const mergeMembers = (members ?? [])
+      .filter((row) => row.merge_id === merge.id)
+      .map((row) => tableById.get(String(row.table_id)))
+      .filter((row): row is { id: string; label: string; seats: number } => Boolean(row))
+      .map((row) => ({ id: String(row.id), label: String(row.label), seats: Number(row.seats) }))
+    if (mergeMembers.length < 2) return []
+    return [mapMerge(merge, mergeMembers)]
+  })
+}
+
+export async function expireDueMerges(now = new Date()): Promise<number> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return 0
+
+  const merges = await getActiveMerges()
+  const db = createServiceClient()
+  let expired = 0
+  for (const merge of merges) {
+    if (!shouldExpireMerge(merge, now)) continue
+    await dissolveMerge(db, merge.id, "expired")
+    expired += 1
+  }
+  if (expired > 0) revalidatePath("/admin/floor")
+  return expired
+}
+
+async function applyStatusToIds(
+  db: ServiceDb,
+  ids: string[],
+  fromStatus: string,
+  status: TableStatus,
+) {
+  const now = new Date().toISOString()
+  for (const id of ids) {
+    const { error } = await db.from("tables").update({ status, updated_at: now }).eq("id", id)
+    if (error) throw new Error("Unable to update table")
+    await db.from("status_events").insert({
+      entity_type: "table",
+      entity_id: id,
+      from_status: fromStatus,
+      to_status: status,
+    })
+  }
+}
+
+export async function updateTableState(input: {
+  id: string
+  status?: TableStatus
+  seats?: number
+  expectedMinutes?: number
+}) {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("Unauthorized")
 
   const db = createServiceClient()
   const { data: current, error: currentError } = await db.from("tables").select("status").eq("id", input.id).single()
   if (currentError || !current) throw new Error("Table not found")
-  if (input.status && (!TABLE_STATUSES.has(input.status) || !TABLE_TRANSITIONS[current.status as TableStatus].includes(input.status))) throw new Error(`Invalid table transition: ${current.status} → ${input.status}`)
-  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (input.status) patch.status = input.status
+  if (input.status && (!TABLE_STATUSES.has(input.status) || !TABLE_TRANSITIONS[current.status as TableStatus].includes(input.status))) {
+    throw new Error(`Invalid table transition: ${current.status} → ${input.status}`)
+  }
+
+  const merge = input.status !== undefined || input.expectedMinutes !== undefined
+    ? await loadMergeContext(db, input.id)
+    : null
+  const targetIds = merge?.tableIds.length ? merge.tableIds : [input.id]
+  const now = new Date()
+
   if (input.seats !== undefined) {
     const seats = Math.max(1, Math.min(12, Math.round(input.seats)))
-    patch.seats = seats
-    patch.shape = tableShapeForSeats(seats)
+    const { error } = await db.from("tables").update({
+      seats,
+      shape: tableShapeForSeats(seats),
+      updated_at: now.toISOString(),
+    }).eq("id", input.id)
+    if (error) throw new Error("Unable to update table")
   }
-  const { error } = await db.from("tables").update(patch).eq("id", input.id)
-  if (error) throw new Error("Unable to update table")
-  if (input.status) await db.from("status_events").insert({ entity_type: "table", entity_id: input.id, from_status: current.status, to_status: input.status })
+
+  if (input.expectedMinutes !== undefined) {
+    const expectedMinutes = clampExpectedMinutes(input.expectedMinutes)
+    if (merge) {
+      const expiresAt = mergeExpiresAt(now, expectedMinutes).toISOString()
+      const { error } = await db.from("table_merges").update({
+        expected_minutes: expectedMinutes,
+        expires_at: expiresAt,
+        updated_at: now.toISOString(),
+      }).eq("id", merge.mergeId)
+      if (error) throw new Error("Unable to update expected time")
+    } else {
+      const { error } = await db.from("tables").update({
+        expected_minutes: expectedMinutes,
+        updated_at: now.toISOString(),
+      }).eq("id", input.id)
+      if (error) throw new Error("Unable to update expected time")
+    }
+  }
+
+  if (input.status) {
+    await applyStatusToIds(db, targetIds, String(current.status), input.status)
+    if (merge) {
+      if (dissolvesMerge(input.status)) {
+        await dissolveMerge(db, merge.mergeId, `status:${input.status}`)
+      } else {
+        const patch: Record<string, unknown> = { status: input.status, updated_at: now.toISOString() }
+        if (restartsMergeClock(input.status)) {
+          patch.expires_at = mergeExpiresAt(now, merge.expectedMinutes).toISOString()
+        }
+        const { error } = await db.from("table_merges").update(patch).eq("id", merge.mergeId)
+        if (error) throw new Error("Unable to update arrangement")
+      }
+    }
+  }
+
   revalidatePath("/admin/floor")
   revalidatePath("/pos")
+}
+
+export async function syncTableGroupStatus(label: string, status: TableStatus) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+  if (!TABLE_STATUSES.has(status)) throw new Error("Invalid table status")
+
+  const db = createServiceClient()
+  const { data: table, error } = await db.from("tables").select("id, status").eq("label", label).maybeSingle()
+  if (error || !table) return
+
+  const merge = await loadMergeContext(db, String(table.id))
+  const targetIds = merge?.tableIds.length ? merge.tableIds : [String(table.id)]
+  const now = new Date()
+  await applyStatusToIds(db, targetIds, String(table.status), status)
+
+  if (merge) {
+    if (dissolvesMerge(status)) {
+      await dissolveMerge(db, merge.mergeId, `status:${status}`)
+    } else {
+      const patch: Record<string, unknown> = { status, updated_at: now.toISOString() }
+      if (restartsMergeClock(status)) {
+        patch.expires_at = mergeExpiresAt(now, merge.expectedMinutes).toISOString()
+      }
+      await db.from("table_merges").update(patch).eq("id", merge.mergeId)
+    }
+  }
+
+  revalidatePath("/admin/floor")
+  revalidatePath("/pos")
+}
+
+export async function mergeTables(input: { tableIds: string[]; expectedMinutes?: number }) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
+  const ids = [...new Set(input.tableIds)]
+  const db = createServiceClient()
+  const { data: rows, error } = await db.from("tables").select("*").in("id", ids)
+  if (error || !rows || rows.length !== ids.length) throw new Error("Tables not found")
+
+  const { data: existing } = await db.from("table_merge_members").select("table_id").in("table_id", ids)
+  if (existing?.length) throw new Error("A selected table is already in an arrangement.")
+
+  const mapped = rows.map((row) => mapTable(row))
+  const reason = canMergeTables(mapped)
+  if (reason) throw new Error(reason)
+
+  const expectedMinutes = clampExpectedMinutes(
+    input.expectedMinutes ?? defaultMergeExpectedMinutes(mapped),
+  )
+  const now = new Date()
+  const expiresAt = mergeExpiresAt(now, expectedMinutes).toISOString()
+  const { data: merge, error: mergeError } = await db
+    .from("table_merges")
+    .insert({
+      expected_minutes: expectedMinutes,
+      expires_at: expiresAt,
+      status: "available",
+    })
+    .select("*")
+    .single()
+  if (mergeError || !merge) throw new Error("Unable to merge tables")
+
+  const { error: memberError } = await db
+    .from("table_merge_members")
+    .insert(ids.map((table_id) => ({ merge_id: merge.id, table_id })))
+  if (memberError) {
+    await db.from("table_merges").delete().eq("id", merge.id)
+    throw new Error("Unable to merge tables")
+  }
+
+  await db.from("status_events").insert({
+    entity_type: "table_merge",
+    entity_id: merge.id,
+    from_status: null,
+    to_status: "available",
+    reason: `merge:${mergeLabel(mapped)}`,
+  })
+
+  revalidatePath("/admin/floor")
+  return mapMerge(merge, mapped)
+}
+
+export async function splitMerge(mergeId: string) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
+  const db = createServiceClient()
+  const { data: merge } = await db.from("table_merges").select("id").eq("id", mergeId).maybeSingle()
+  if (!merge) throw new Error("Arrangement not found")
+  await dissolveMerge(db, mergeId, "split")
+  revalidatePath("/admin/floor")
 }
 
 export async function createTable() {
@@ -85,7 +377,15 @@ export async function createTable() {
   const { data: existing } = await db.from("tables").select("label").order("label")
   const next = Math.max(0, ...(existing ?? []).map((row) => Number(row.label) || 0)) + 1
   const seats = 2
-  const { data, error } = await db.from("tables").insert({ label: String(next), seats, status: "available", x: 0, y: 0, shape: tableShapeForSeats(seats) }).select("*").single()
+  const { data, error } = await db.from("tables").insert({
+    label: String(next),
+    seats,
+    status: "available",
+    expected_minutes: DEFAULT_EXPECTED_MINUTES,
+    x: 0,
+    y: 0,
+    shape: tableShapeForSeats(seats),
+  }).select("*").single()
   if (error) throw new Error("Unable to add table")
   revalidatePath("/admin/floor")
   return mapTable(data)
@@ -95,7 +395,10 @@ export async function deleteTable(id: string) {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("Unauthorized")
 
-  const { error } = await createServiceClient().from("tables").delete().eq("id", id)
+  const db = createServiceClient()
+  const merge = await loadMergeContext(db, id)
+  if (merge) await dissolveMerge(db, merge.mergeId, "table-removed")
+  const { error } = await db.from("tables").delete().eq("id", id)
   if (error) throw new Error("Unable to remove table")
   revalidatePath("/admin/floor")
 }

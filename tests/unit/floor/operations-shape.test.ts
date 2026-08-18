@@ -20,7 +20,20 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
     from: (name: string) => {
-      if (name !== "tables") return { insert: async () => ({ error: null }) }
+      if (name !== "tables") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: null, error: null }),
+              single: async () => ({ data: null, error: null }),
+            }),
+            in: async () => ({ data: [], error: null }),
+          }),
+          insert: async () => ({ error: null }),
+          update: () => ({ eq: async () => ({ error: null }) }),
+          delete: () => ({ eq: async () => ({ error: null }) }),
+        }
+      }
       return {
         select: () => ({
           order: async () => mocks.selectExisting(),
@@ -64,7 +77,18 @@ describe("table create and seat updates persist parity shape", () => {
     const table = await createTable()
     expect(table.shape).toBe("square")
     expect(table.seats).toBe(2)
-    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ seats: 2, shape: "square" }))
+    expect(mocks.insert).toHaveBeenCalledWith(
+      expect.objectContaining({ seats: 2, shape: "square", expected_minutes: 90 }),
+    )
+    expect(table.expectedMinutes).toBe(90)
+  })
+
+  it("persists expected turn time on a standalone table", async () => {
+    const { updateTableState } = await import("@/app/actions/operations")
+    await updateTableState({ id: "t1", expectedMinutes: 120 })
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ expected_minutes: 120 }),
+    )
   })
 
   it("writes round when capacity becomes odd and square when even", async () => {

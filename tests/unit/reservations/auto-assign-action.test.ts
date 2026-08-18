@@ -139,7 +139,10 @@ describe("autoAssignDueReservations", () => {
         }
       }
       return {
+        select: () => thenable({ data: [], error: null }),
         insert: async () => ({ error: null }),
+        update: () => thenable({ error: null }),
+        delete: () => ({ eq: () => thenable({ error: null }) }),
       }
     })
 

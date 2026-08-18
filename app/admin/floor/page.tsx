@@ -16,7 +16,7 @@ export default async function FloorPage() {
   return (
     <StaffShell
       title="Floor Plan"
-      description="Live dining room — tables auto-assign as reservations come due"
+      description="Live dining room — expected turn time, temporary merges, and auto-assign"
       user={{ email: authUser?.email }}
     >
       <FloorPlan date={today} fallbackData={snapshot} />

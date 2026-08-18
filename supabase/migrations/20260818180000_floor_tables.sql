@@ -14,9 +14,13 @@ CREATE TABLE IF NOT EXISTS tables (
   y INT NOT NULL DEFAULT 0,
   shape TEXT NOT NULL DEFAULT 'round'
     CHECK (shape IN ('round', 'square', 'rect')),
+  expected_minutes INT NOT NULL DEFAULT 90
+    CHECK (expected_minutes BETWEEN 30 AND 240),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE tables ADD COLUMN IF NOT EXISTS expected_minutes INT NOT NULL DEFAULT 90;
 
 ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
 

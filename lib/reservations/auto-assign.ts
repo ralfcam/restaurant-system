@@ -8,6 +8,7 @@
  */
 
 import type { ReservationStatus, TableStatus } from "@/lib/data"
+import { labelsInSameMerge } from "@/lib/floor/table-use"
 
 export const TABLE_ASSIGNMENT_LEAD_MINUTES = 15
 
@@ -157,18 +158,22 @@ export function overlayReservationsOnTables<T extends AssignableTable>(
     status: ReservationStatus
     table_label: string | null
   }>,
+  merges: Array<{ tableIds: string[] }> = [],
 ): FloorTableView<T>[] {
   const byLabel = new Map<string, FloorReservationOverlay>()
   for (const reservation of reservations) {
     if (!reservation.table_label) continue
     if (!ACTIVE_RESERVATION_STATUSES.includes(reservation.status)) continue
-    byLabel.set(reservation.table_label, {
+    const overlay: FloorReservationOverlay = {
       id: reservation.id,
       guestName: reservation.guest_name,
       partySize: reservation.party_size,
       time: reservation.time,
       status: reservation.status,
-    })
+    }
+    for (const label of labelsInSameMerge(reservation.table_label, tables, merges)) {
+      byLabel.set(label, overlay)
+    }
   }
 
   return tables.map((table) => {

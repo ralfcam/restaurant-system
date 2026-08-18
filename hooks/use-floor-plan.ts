@@ -6,6 +6,7 @@ import {
   type FloorSnapshot,
 } from "@/app/actions/reservations"
 import { overlayReservationsOnTables } from "@/lib/reservations/auto-assign"
+import { attachMergesToTables } from "@/lib/floor/floor-units"
 
 /**
  * Shared SWR key so the dining-room grid and any other live floor surface
@@ -27,10 +28,15 @@ export function useFloorPlan(date: string, fallbackData?: FloorSnapshot) {
     { refreshInterval: FLOOR_REFRESH_MS, fallbackData },
   )
 
-  const tables = overlayReservationsOnTables(data?.tables ?? [], data?.reservations ?? [])
+  const merges = data?.merges ?? []
+  const tables = attachMergesToTables(
+    overlayReservationsOnTables(data?.tables ?? [], data?.reservations ?? [], merges),
+    merges,
+  )
 
   return {
     tables,
+    merges,
     reservations: data?.reservations ?? [],
     assigned: data?.assigned ?? [],
     isLoading: isLoading && !data,
