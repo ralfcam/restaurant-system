@@ -6,6 +6,7 @@ import { tableShapeForSeats } from "@/lib/table-shape"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import {
+  canAddTablesToMerge,
   canMergeTables,
   clampExpectedMinutes,
   DEFAULT_EXPECTED_MINUTES,
@@ -306,6 +307,17 @@ export async function syncTableGroupStatus(label: string, status: TableStatus) {
   revalidatePath("/pos")
 }
 
+async function membersForMerge(db: ServiceDb, mergeId: string) {
+  const { data: members } = await db
+    .from("table_merge_members")
+    .select("table_id")
+    .eq("merge_id", mergeId)
+  const memberIds = (members ?? []).map((row) => String(row.table_id))
+  if (memberIds.length === 0) return []
+  const { data: rows } = await db.from("tables").select("*").in("id", memberIds)
+  return (rows ?? []).map((row) => mapTable(row, mergeId))
+}
+
 export async function mergeTables(input: { tableIds: string[]; expectedMinutes?: number }) {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("Unauthorized")
@@ -315,10 +327,70 @@ export async function mergeTables(input: { tableIds: string[]; expectedMinutes?:
   const { data: rows, error } = await db.from("tables").select("*").in("id", ids)
   if (error || !rows || rows.length !== ids.length) throw new Error("Tables not found")
 
-  const { data: existing } = await db.from("table_merge_members").select("table_id").in("table_id", ids)
-  if (existing?.length) throw new Error("A selected table is already in an arrangement.")
+  const { data: existing } = await db
+    .from("table_merge_members")
+    .select("merge_id, table_id")
+    .in("table_id", ids)
+  const mergeIds = [...new Set((existing ?? []).map((row) => String(row.merge_id)))]
+  if (mergeIds.length > 1) {
+    throw new Error("Split an arrangement before combining it with another.")
+  }
 
-  const mapped = rows.map((row) => mapTable(row))
+  const mapped = rows.map((row) => {
+    const membership = (existing ?? []).find((member) => String(member.table_id) === String(row.id))
+    return mapTable(row, membership ? String(membership.merge_id) : null)
+  })
+
+  if (mergeIds.length === 1) {
+    const mergeId = mergeIds[0]!
+    const { data: merge, error: mergeReadError } = await db
+      .from("table_merges")
+      .select("*")
+      .eq("id", mergeId)
+      .maybeSingle()
+    if (mergeReadError || !merge) throw new Error("Arrangement not found")
+
+    const newcomers = mapped.filter((table) => !table.mergeId)
+    const reason = canAddTablesToMerge({ status: merge.status as TableStatus }, newcomers)
+    if (reason) throw new Error(reason)
+
+    const { error: memberError } = await db
+      .from("table_merge_members")
+      .insert(newcomers.map((table) => ({ merge_id: mergeId, table_id: table.id })))
+    if (memberError) {
+      console.error("[operations] mergeTables add:", memberError.message)
+      throw new Error("Unable to merge tables")
+    }
+
+    const allMembers = await membersForMerge(db, mergeId)
+    const expectedMinutes = clampExpectedMinutes(
+      input.expectedMinutes ?? defaultMergeExpectedMinutes(
+        allMembers.length ? allMembers : [...mapped, ...allMembers],
+      ),
+    )
+    const now = new Date()
+    const { error: updateError } = await db.from("table_merges").update({
+      expected_minutes: expectedMinutes,
+      expires_at: mergeExpiresAt(now, expectedMinutes).toISOString(),
+      updated_at: now.toISOString(),
+    }).eq("id", mergeId)
+    if (updateError) {
+      console.error("[operations] mergeTables update:", updateError.message)
+      throw new Error("Unable to merge tables")
+    }
+
+    await db.from("status_events").insert({
+      entity_type: "table_merge",
+      entity_id: mergeId,
+      from_status: merge.status,
+      to_status: merge.status,
+      reason: `merge:${mergeLabel(allMembers)}`,
+    })
+
+    revalidatePath("/admin/floor")
+    return mapMerge({ ...merge, expected_minutes: expectedMinutes }, allMembers)
+  }
+
   const reason = canMergeTables(mapped)
   if (reason) throw new Error(reason)
 
@@ -336,12 +408,16 @@ export async function mergeTables(input: { tableIds: string[]; expectedMinutes?:
     })
     .select("*")
     .single()
-  if (mergeError || !merge) throw new Error("Unable to merge tables")
+  if (mergeError || !merge) {
+    console.error("[operations] mergeTables:", mergeError?.message)
+    throw new Error("Unable to merge tables")
+  }
 
   const { error: memberError } = await db
     .from("table_merge_members")
     .insert(ids.map((table_id) => ({ merge_id: merge.id, table_id })))
   if (memberError) {
+    console.error("[operations] mergeTables members:", memberError.message)
     await db.from("table_merges").delete().eq("id", merge.id)
     throw new Error("Unable to merge tables")
   }

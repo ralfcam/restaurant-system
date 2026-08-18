@@ -71,6 +71,23 @@ export function canMergeTables(
   return null
 }
 
+export function canAddTablesToMerge(
+  merge: { status: TableStatus },
+  newcomers: Array<{ status: TableStatus; mergeId?: string | null }>,
+): string | null {
+  if (merge.status !== "available") {
+    return "Only available arrangements can take another table."
+  }
+  if (newcomers.length === 0) return "A selected table is already in an arrangement."
+  if (newcomers.some((table) => table.mergeId)) {
+    return "A selected table is already in an arrangement."
+  }
+  if (newcomers.some((table) => table.status !== "available")) {
+    return "Only available tables can be merged."
+  }
+  return null
+}
+
 /** Unused available arrangements expire when their expected time elapses. */
 export function shouldExpireMerge(
   merge: { status: TableStatus; expiresAt: string | Date },
