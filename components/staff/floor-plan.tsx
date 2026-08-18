@@ -1,13 +1,19 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Plus, Trash2, Minus, Users, Armchair } from "lucide-react"
+import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink } from "lucide-react"
 import { toast } from "sonner"
 import {
   TABLE_STATUS_META,
   type TableStatus,
 } from "@/lib/data"
-import { createTable, deleteTable, updateTableState } from "@/app/actions/operations"
+import {
+  createTable,
+  deleteTable,
+  mergeTables,
+  splitMerge,
+  updateTableState,
+} from "@/app/actions/operations"
 import {
   transitionReservationStatus,
   type FloorSnapshot,
@@ -15,6 +21,13 @@ import {
 } from "@/app/actions/reservations"
 import { useFloorPlan } from "@/hooks/use-floor-plan"
 import { tableChipSizeClass, tableShapeForSeats } from "@/lib/table-shape"
+import {
+  clampExpectedMinutes,
+  EXPECTED_MINUTES_STEP,
+  formatDurationMinutes,
+  remainingMinutes,
+} from "@/lib/floor/table-use"
+import { groupTablesForDisplay } from "@/lib/floor/floor-units"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -39,9 +52,13 @@ export function FloorPlan({
     fallbackData?.tables[0]?.id ?? null,
   )
   const [seating, setSeating] = useState(false)
+  const [mergePick, setMergePick] = useState<string[]>([])
+  const [merging, setMerging] = useState(false)
 
   const selected = tables.find((t) => t.id === selectedId) ?? tables[0] ?? null
   const totalSeats = tables.reduce((sum, table) => sum + table.seats, 0)
+  const mergeCount = new Set(tables.flatMap((table) => (table.merge ? [table.merge.id] : []))).size
+  const groups = useMemo(() => groupTablesForDisplay(tables), [tables])
   const upcoming = useMemo(
     () =>
       reservations
@@ -49,6 +66,14 @@ export function FloorPlan({
         .slice()
         .sort((a, b) => a.time.localeCompare(b.time)),
     [reservations],
+  )
+
+  const mergePartners = tables.filter(
+    (table) =>
+      table.id !== selected?.id &&
+      table.displayStatus === "available" &&
+      !table.merge &&
+      !table.reservation,
   )
 
   async function setStatus(id: string, status: TableStatus) {
@@ -62,13 +87,25 @@ export function FloorPlan({
 
   async function adjustSeats(id: string, delta: number) {
     const selectedTable = tables.find((t) => t.id === id)
-    if (!selectedTable) return
+    if (!selectedTable || selectedTable.merge) return
     const seats = Math.max(1, Math.min(12, selectedTable.seats + delta))
     try {
       await updateTableState({ id, seats })
       await mutate()
     } catch {
       toast.error("Could not update capacity")
+    }
+  }
+
+  async function adjustExpected(id: string, delta: number) {
+    const selectedTable = tables.find((t) => t.id === id)
+    if (!selectedTable) return
+    const current = selectedTable.merge?.expectedMinutes ?? selectedTable.expectedMinutes
+    try {
+      await updateTableState({ id, expectedMinutes: clampExpectedMinutes(current + delta) })
+      await mutate()
+    } catch {
+      toast.error("Could not update expected time")
     }
   }
 
@@ -107,6 +144,42 @@ export function FloorPlan({
     await mutate()
   }
 
+  function toggleMergePick(id: string) {
+    setMergePick((current) =>
+      current.includes(id) ? current.filter((row) => row !== id) : [...current, id],
+    )
+  }
+
+  async function combineSelected() {
+    if (!selected) return
+    setMerging(true)
+    try {
+      const arrangement = await mergeTables({ tableIds: [selected.id, ...mergePick] })
+      await mutate()
+      setMergePick([])
+      toast.success(`Merged tables ${arrangement.label}`, {
+        description: `${arrangement.seats} seats · ${formatDurationMinutes(arrangement.expectedMinutes)}`,
+      })
+    } catch (error) {
+      toast.error("Could not merge tables", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    } finally {
+      setMerging(false)
+    }
+  }
+
+  async function splitSelected() {
+    if (!selected?.merge) return
+    try {
+      await splitMerge(selected.merge.id)
+      await mutate()
+      toast.success(`Split tables ${selected.merge.label}`)
+    } catch {
+      toast.error("Could not split tables")
+    }
+  }
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
       <div className="space-y-6">
@@ -127,7 +200,9 @@ export function FloorPlan({
                 ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
-                {tables.length} tables · {totalSeats} seats · reservations update automatically
+                {tables.length} tables · {totalSeats} seats
+                {mergeCount > 0 ? ` · ${mergeCount} merged` : ""}
+                {" · "}reservations update automatically
               </p>
             </div>
             <Button size="sm" onClick={addTable}>
@@ -136,43 +211,69 @@ export function FloorPlan({
           </div>
 
           <div className="flex flex-wrap gap-4 rounded-lg border border-dashed border-border bg-secondary/30 p-5">
-            {tables.map((t) => {
-              const meta = TABLE_STATUS_META[t.displayStatus]
-              const isSelected = t.id === (selected?.id ?? selectedId)
-              const silhouette = tableShapeForSeats(t.seats)
+            {groups.map((group) => {
+              const merge = group.tables[0]?.merge
+              const chips = group.tables.map((t) => {
+                const meta = TABLE_STATUS_META[t.displayStatus]
+                const isSelected = t.id === (selected?.id ?? selectedId)
+                const silhouette = tableShapeForSeats(t.seats)
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedId(t.id)
+                      setMergePick([])
+                    }}
+                    className={cn(
+                      "relative flex flex-col items-center justify-center border-2 text-center transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-105 active:scale-100",
+                      silhouette === "round" ? "rounded-full" : "rounded-lg",
+                      tableChipSizeClass(t.seats),
+                      meta.color,
+                      isSelected
+                        ? "z-10 scale-105 ring-2 ring-primary ring-offset-2 ring-offset-card"
+                        : "hover:brightness-95 hover:shadow-md",
+                    )}
+                  >
+                    {t.displayStatus === "seated" ? (
+                      <span className="absolute right-1.5 top-1.5 flex size-2.5">
+                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
+                        <span className="relative inline-flex size-2.5 rounded-full bg-current" />
+                      </span>
+                    ) : null}
+                    <span className="font-heading text-lg font-semibold leading-none">
+                      {t.label}
+                    </span>
+                    <span className="mt-1 flex items-center gap-0.5 text-xs">
+                      <Users className="size-3" /> {t.reservation?.partySize ?? t.seats}
+                    </span>
+                    {t.reservation ? (
+                      <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
+                        {t.reservation.guestName}
+                      </span>
+                    ) : null}
+                  </button>
+                )
+              })
+
+              if (!merge) return chips
+
               return (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setSelectedId(t.id)}
-                  className={cn(
-                    "relative flex flex-col items-center justify-center border-2 text-center transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-105 active:scale-100",
-                    silhouette === "round" ? "rounded-full" : "rounded-lg",
-                    tableChipSizeClass(t.seats),
-                    meta.color,
-                    isSelected
-                      ? "z-10 scale-105 ring-2 ring-primary ring-offset-2 ring-offset-card"
-                      : "hover:brightness-95 hover:shadow-md",
-                  )}
+                <div
+                  key={merge.id}
+                  role="group"
+                  aria-label={`Merged tables ${merge.label}, ${merge.seats} seats`}
+                  className="flex flex-wrap items-end gap-2 rounded-2xl border-2 border-dashed border-primary/35 bg-primary/5 p-2"
                 >
-                  {t.displayStatus === "seated" ? (
-                    <span className="absolute right-1.5 top-1.5 flex size-2.5">
-                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
-                      <span className="relative inline-flex size-2.5 rounded-full bg-current" />
-                    </span>
-                  ) : null}
-                  <span className="font-heading text-lg font-semibold leading-none">
-                    {t.label}
-                  </span>
-                  <span className="mt-1 flex items-center gap-0.5 text-xs">
-                    <Users className="size-3" /> {t.reservation?.partySize ?? t.seats}
-                  </span>
-                  {t.reservation ? (
-                    <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
-                      {t.reservation.guestName}
-                    </span>
-                  ) : null}
-                </button>
+                  {chips}
+                  <div className="px-1 pb-1 text-[10px] leading-tight text-muted-foreground">
+                    <p className="font-medium text-foreground">{merge.seats} seats</p>
+                    <p className="flex items-center gap-0.5">
+                      <Clock className="size-2.5" />
+                      {formatDurationMinutes(remainingMinutes(merge.expiresAt, new Date()))} left
+                    </p>
+                  </div>
+                </div>
               )
             })}
           </div>
@@ -231,8 +332,13 @@ export function FloorPlan({
                 Selected
               </p>
               <h3 className="font-heading text-2xl font-semibold">
-                Table {selected.label}
+                {selected.merge ? `Tables ${selected.merge.label}` : `Table ${selected.label}`}
               </h3>
+              {selected.merge ? (
+                <p className="text-sm text-muted-foreground">
+                  Temporary arrangement · {selected.merge.seats} seats
+                </p>
+              ) : null}
             </div>
 
             {selected.reservation ? (
@@ -286,29 +392,136 @@ export function FloorPlan({
                   </button>
                 ))}
               </div>
+              {selected.merge ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Status updates every table in {selected.merge.label}. Available and Out of
+                  service split the arrangement.
+                </p>
+              ) : null}
             </div>
 
             <div>
               <p className="mb-2 text-sm font-medium">Seat capacity</p>
+              {selected.merge ? (
+                <p className="font-heading text-2xl font-semibold tabular-nums">
+                  {selected.merge.seats}
+                  <span className="ml-2 text-sm font-normal text-muted-foreground">
+                    {selected.merge.memberLabels
+                      .map((label) => {
+                        const member = tables.find((row) => row.label === label)
+                        return `${label} (${member?.seats ?? "?"})`
+                      })
+                      .join(" + ")}
+                  </span>
+                </p>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => adjustSeats(selected.id, -1)}
+                  >
+                    <Minus className="size-4" />
+                  </Button>
+                  <span className="min-w-10 text-center font-heading text-2xl font-semibold tabular-nums">
+                    {selected.seats}
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => adjustSeats(selected.id, 1)}
+                  >
+                    <Plus className="size-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium">Expected time</p>
               <div className="flex items-center gap-3">
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => adjustSeats(selected.id, -1)}
+                  onClick={() => adjustExpected(selected.id, -EXPECTED_MINUTES_STEP)}
                 >
                   <Minus className="size-4" />
                 </Button>
-                <span className="min-w-10 text-center font-heading text-2xl font-semibold tabular-nums">
-                  {selected.seats}
+                <span className="min-w-16 text-center font-heading text-2xl font-semibold tabular-nums">
+                  {selected.merge?.expectedMinutes ?? selected.expectedMinutes}
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">min</span>
                 </span>
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => adjustSeats(selected.id, 1)}
+                  onClick={() => adjustExpected(selected.id, EXPECTED_MINUTES_STEP)}
                 >
                   <Plus className="size-4" />
                 </Button>
               </div>
+              {selected.merge ? (
+                <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="size-3" />
+                  {formatDurationMinutes(remainingMinutes(selected.merge.expiresAt, new Date()))} left
+                  on this arrangement
+                </p>
+              ) : (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Max / expected turn time. Merges last this long by default.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <p className="mb-2 text-sm font-medium">Merge tables</p>
+              {selected.merge ? (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    {selected.merge.label} · {selected.merge.seats} seats ·{" "}
+                    {formatDurationMinutes(selected.merge.expectedMinutes)}
+                  </p>
+                  <Button variant="outline" className="w-full" onClick={() => void splitSelected()}>
+                    <Unlink className="size-4" /> Split tables
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {mergePartners.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No other available tables to merge right now.
+                    </p>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {mergePartners.map((table) => {
+                        const picked = mergePick.includes(table.id)
+                        return (
+                          <button
+                            key={table.id}
+                            type="button"
+                            onClick={() => toggleMergePick(table.id)}
+                            className={cn(
+                              "rounded-md border px-2 py-1 text-sm font-medium transition-colors",
+                              picked
+                                ? "border-primary bg-primary text-primary-foreground"
+                                : "border-border bg-background text-muted-foreground hover:text-foreground",
+                            )}
+                          >
+                            {table.label} · {table.seats}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <Button
+                    className="w-full"
+                    variant="outline"
+                    disabled={mergePick.length === 0 || merging}
+                    onClick={() => void combineSelected()}
+                  >
+                    <Combine className="size-4" /> Merge tables
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Button
@@ -321,7 +534,7 @@ export function FloorPlan({
           </div>
         ) : (
           <p className="py-10 text-center text-sm text-muted-foreground">
-            Select a table to edit its status and capacity.
+            Select a table to edit its status, expected time, and capacity.
           </p>
         )}
       </div>

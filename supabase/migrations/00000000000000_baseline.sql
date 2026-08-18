@@ -255,6 +255,9 @@ CREATE TABLE IF NOT EXISTS tables (
   seats INT NOT NULL CHECK (seats BETWEEN 1 AND 12),
   status TEXT NOT NULL DEFAULT 'available'
     CHECK (status IN ('available', 'seated', 'reserved', 'cleaning', 'out_of_service')),
+  -- FP-7: max/expected turn time in minutes (admin-managed on /admin/floor).
+  expected_minutes INT NOT NULL DEFAULT 90
+    CHECK (expected_minutes BETWEEN 30 AND 240),
   x INT NOT NULL DEFAULT 0,
   y INT NOT NULL DEFAULT 0,
   shape TEXT NOT NULL DEFAULT 'round'
@@ -262,6 +265,17 @@ CREATE TABLE IF NOT EXISTS tables (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE tables ADD COLUMN IF NOT EXISTS expected_minutes INT NOT NULL DEFAULT 90;
+
+DO $$
+BEGIN
+  ALTER TABLE tables
+    ADD CONSTRAINT tables_expected_minutes_check
+    CHECK (expected_minutes BETWEEN 30 AND 240);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
 
@@ -281,6 +295,63 @@ CREATE POLICY "Allow service_role full access to tables"
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE tables TO authenticated;
 GRANT ALL ON TABLE tables TO service_role;
+
+-- FP-8: temporary table arrangements (combined seat capacity + expected time).
+CREATE TABLE IF NOT EXISTS table_merges (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  expected_minutes INT NOT NULL DEFAULT 90
+    CHECK (expected_minutes BETWEEN 30 AND 240),
+  expires_at TIMESTAMPTZ NOT NULL,
+  status TEXT NOT NULL DEFAULT 'available'
+    CHECK (status IN ('available', 'seated', 'reserved', 'cleaning', 'out_of_service')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS table_merge_members (
+  merge_id UUID NOT NULL REFERENCES table_merges(id) ON DELETE CASCADE,
+  table_id UUID NOT NULL REFERENCES tables(id) ON DELETE CASCADE,
+  PRIMARY KEY (merge_id, table_id)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS table_merge_members_table_id_uidx
+  ON table_merge_members (table_id);
+
+ALTER TABLE table_merges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE table_merge_members ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated full access to table_merges" ON table_merges;
+CREATE POLICY "Allow authenticated full access to table_merges"
+  ON table_merges FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow service_role full access to table_merges" ON table_merges;
+CREATE POLICY "Allow service_role full access to table_merges"
+  ON table_merges FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated full access to table_merge_members" ON table_merge_members;
+CREATE POLICY "Allow authenticated full access to table_merge_members"
+  ON table_merge_members FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow service_role full access to table_merge_members" ON table_merge_members;
+CREATE POLICY "Allow service_role full access to table_merge_members"
+  ON table_merge_members FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE table_merges TO authenticated;
+GRANT ALL ON TABLE table_merges TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE table_merge_members TO authenticated;
+GRANT ALL ON TABLE table_merge_members TO service_role;
 
 -- ── status_events (assignment / transition audit) ────────────────────────────
 CREATE TABLE IF NOT EXISTS status_events (
@@ -316,6 +387,12 @@ DO $$
 BEGIN
   BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE tables;
+  EXCEPTION
+    WHEN duplicate_object THEN NULL;
+    WHEN undefined_object THEN NULL;
+  END;
+  BEGIN
+    ALTER PUBLICATION supabase_realtime ADD TABLE table_merges;
   EXCEPTION
     WHEN duplicate_object THEN NULL;
     WHEN undefined_object THEN NULL;

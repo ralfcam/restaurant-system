@@ -30,22 +30,25 @@ export interface RestaurantTable {
   label: string
   seats: number
   status: TableStatus
+  expectedMinutes: number
   x: number
   y: number
   shape: "round" | "square" | "rect"
 }
 
+const DEFAULT_TABLE_MINUTES = 90
+
 export const TABLES: RestaurantTable[] = [
-  { id: "t1", label: "1", seats: 2, status: "available", x: 0, y: 0, shape: "square" },
-  { id: "t2", label: "2", seats: 2, status: "seated", x: 1, y: 0, shape: "square" },
-  { id: "t3", label: "3", seats: 4, status: "reserved", x: 2, y: 0, shape: "square" },
-  { id: "t4", label: "4", seats: 4, status: "available", x: 3, y: 0, shape: "square" },
-  { id: "t5", label: "5", seats: 6, status: "seated", x: 0, y: 1, shape: "square" },
-  { id: "t6", label: "6", seats: 4, status: "cleaning", x: 2, y: 1, shape: "square" },
-  { id: "t7", label: "7", seats: 2, status: "available", x: 3, y: 1, shape: "square" },
-  { id: "t8", label: "8", seats: 8, status: "reserved", x: 0, y: 2, shape: "square" },
-  { id: "t9", label: "9", seats: 4, status: "available", x: 2, y: 2, shape: "square" },
-  { id: "t10", label: "10", seats: 2, status: "seated", x: 3, y: 2, shape: "square" },
+  { id: "t1", label: "1", seats: 2, status: "available", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 0, y: 0, shape: "square" },
+  { id: "t2", label: "2", seats: 2, status: "seated", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 1, y: 0, shape: "square" },
+  { id: "t3", label: "3", seats: 4, status: "reserved", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 2, y: 0, shape: "square" },
+  { id: "t4", label: "4", seats: 4, status: "available", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 3, y: 0, shape: "square" },
+  { id: "t5", label: "5", seats: 6, status: "seated", expectedMinutes: 120, x: 0, y: 1, shape: "square" },
+  { id: "t6", label: "6", seats: 4, status: "cleaning", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 2, y: 1, shape: "square" },
+  { id: "t7", label: "7", seats: 2, status: "available", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 3, y: 1, shape: "square" },
+  { id: "t8", label: "8", seats: 8, status: "reserved", expectedMinutes: 120, x: 0, y: 2, shape: "square" },
+  { id: "t9", label: "9", seats: 4, status: "available", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 2, y: 2, shape: "square" },
+  { id: "t10", label: "10", seats: 2, status: "seated", expectedMinutes: DEFAULT_TABLE_MINUTES, x: 3, y: 2, shape: "square" },
 ]
 
 export const TABLE_STATUS_META: Record<

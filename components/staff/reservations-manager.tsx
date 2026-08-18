@@ -369,7 +369,7 @@ function TableAssignment({
         <option value="">Unassigned</option>
         {selectableTables.map((table) => (
           <option key={table.id} value={table.label}>
-            Table {table.label} · {table.seats} seats{table.status !== "available" ? ` · ${table.status}` : ""}
+            Table {table.groupLabel ?? table.label} · {table.seats} seats{table.status !== "available" ? ` · ${table.status}` : ""}
           </option>
         ))}
       </select>

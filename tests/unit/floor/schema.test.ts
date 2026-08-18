@@ -15,6 +15,9 @@ describe("floor tables schema and live surfaces", () => {
     expect(baseline).toMatch(/status TEXT NOT NULL DEFAULT 'available'/)
     expect(baseline).toMatch(/out_of_service/)
     expect(baseline).toMatch(/Allow authenticated full access to tables/)
+    expect(baseline).toMatch(/expected_minutes/)
+    expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS table_merges/)
+    expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS table_merge_members/)
 
     const seed = read("supabase/seed.sql")
     expect(seed).toMatch(/INSERT INTO tables/)
@@ -41,7 +44,16 @@ describe("floor tables schema and live surfaces", () => {
     expect(floor).toMatch(/Live/)
     expect(floor).toMatch(/tableShapeForSeats/)
     expect(floor).toMatch(/tableChipSizeClass/)
+    expect(floor).toMatch(/Expected time/)
+    expect(floor).toMatch(/Merge tables/)
     expect(floor).not.toMatch(/t\.shape ===/)
+  })
+
+  it("forward migration adds expected time and merge tables", () => {
+    const migration = read("supabase/migrations/20260818193000_table_expected_minutes_and_merges.sql")
+    expect(migration).toMatch(/expected_minutes/)
+    expect(migration).toMatch(/CREATE TABLE IF NOT EXISTS table_merges/)
+    expect(migration).toMatch(/table_merge_members/)
   })
 })
 

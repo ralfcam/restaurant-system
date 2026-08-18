@@ -17,7 +17,15 @@ import {
   planAutoAssignments,
   type PlannedAssignment,
 } from "@/lib/reservations/auto-assign"
-import { getTables, type PersistedTable } from "@/app/actions/operations"
+import {
+  expireDueMerges,
+  getActiveMerges,
+  getTables,
+  syncTableGroupStatus,
+  type PersistedMerge,
+  type PersistedTable,
+} from "@/app/actions/operations"
+import { toAssignableTables } from "@/lib/floor/floor-units"
 
 export type ReservationRow = {
   id: string
@@ -168,23 +176,24 @@ export type ReservationTableOption = {
   label: string
   seats: number
   status: "available" | "seated" | "reserved" | "cleaning" | "out_of_service"
+  groupLabel?: string
 }
 
 export async function getReservationTables(): Promise<ReservationTableOption[]> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return []
 
-  const { data, error } = await createServiceClient()
-    .from("tables")
-    .select("id, label, seats, status")
-    .order("label", { ascending: true })
-
-  if (error) {
-    console.error("[reservations] getReservationTables error:", error.message)
-    return []
-  }
-
-  return (data ?? []) as ReservationTableOption[]
+  const [tables, merges] = await Promise.all([getTables(), getActiveMerges()])
+  return toAssignableTables(tables, merges).map((table) => {
+    const merge = merges.find((row) => row.tableIds.includes(table.id))
+    return {
+      id: table.id,
+      label: table.label,
+      seats: table.seats,
+      status: table.status,
+      groupLabel: merge?.label,
+    }
+  })
 }
 
 const RESERVATION_TRANSITIONS: Record<ReservationRow["status"], ReservationRow["status"][]> = {
@@ -215,10 +224,10 @@ export async function transitionReservationStatus(
   if (error) return { error: "Could not update reservation status." }
   await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: current.status, to_status: nextStatus })
   if (nextStatus === "seated" && current.table_label) {
-    await db.from("tables").update({ status: "seated", updated_at: new Date().toISOString() }).eq("label", current.table_label)
+    await syncTableGroupStatus(current.table_label, "seated")
   }
   if (current.table_label && patch.table_label === null) {
-    await db.from("tables").update({ status: "available", updated_at: new Date().toISOString() }).eq("label", current.table_label).in("status", ["reserved", "seated"])
+    await syncTableGroupStatus(current.table_label, "available")
   }
   revalidatePath("/admin/reservations")
   revalidatePath("/admin/floor")
@@ -298,7 +307,7 @@ export async function assignReservationTable(
   if (reservationError || !reservation) return { error: "Reservation not found." }
   if (["completed", "cancelled", "no_show"].includes(reservation.status)) return { error: "Closed reservations cannot be assigned." }
   if (label && reservation.table_label && reservation.table_label !== label) {
-    await db.from("tables").update({ status: "available", updated_at: new Date().toISOString() }).eq("label", reservation.table_label).eq("status", "reserved")
+    await syncTableGroupStatus(reservation.table_label, "available")
   }
 
   const { error } = await db.from("reservations").update({ table_label: label }).eq("id", reservationId)
@@ -308,7 +317,9 @@ export async function assignReservationTable(
   }
   if (label) {
     const tableStatus = reservation.status === "seated" ? "seated" : "reserved"
-    await db.from("tables").update({ status: tableStatus, updated_at: new Date().toISOString() }).eq("label", label).in("status", ["available", "reserved", "seated"])
+    await syncTableGroupStatus(label, tableStatus)
+  } else if (reservation.table_label) {
+    await syncTableGroupStatus(reservation.table_label, "available")
   }
   await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: reservation.table_label, to_status: label ?? "unassigned", reason: "table assignment" })
 
@@ -321,6 +332,7 @@ export type FloorSnapshot = {
   tables: PersistedTable[]
   reservations: ReservationRow[]
   assigned: PlannedAssignment[]
+  merges: PersistedMerge[]
 }
 
 /**
@@ -362,7 +374,9 @@ export async function autoAssignDueReservations(): Promise<{
     return { assigned: [], error: "Could not load tables." }
   }
 
-  const planned = planAutoAssignments(reservations ?? [], tables ?? [], now)
+  const merges = await getActiveMerges()
+  const assignable = toAssignableTables(tables ?? [], merges)
+  const planned = planAutoAssignments(reservations ?? [], assignable, now)
   const assigned: PlannedAssignment[] = []
   for (const plan of planned) {
     const result = await assignReservationTable(plan.reservationId, plan.tableLabel)
@@ -380,14 +394,16 @@ export async function autoAssignDueReservations(): Promise<{
 /** Live floor payload: auto-assign due reservations, then return tables + today's book. */
 export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { tables: [], reservations: [], assigned: [] }
+  if (!staffUser) return { tables: [], reservations: [], assigned: [], merges: [] }
 
+  await expireDueMerges()
   const { assigned } = await autoAssignDueReservations()
-  const [tables, reservations] = await Promise.all([
+  const [tables, reservations, merges] = await Promise.all([
     getTables(),
     getReservationsByDate(date),
+    getActiveMerges(),
   ])
-  return { tables, reservations, assigned }
+  return { tables, reservations, assigned, merges }
 }
 
 /** Fetch reservations across a date range (or all if no bounds given). */
