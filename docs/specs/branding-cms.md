@@ -6,9 +6,10 @@
 ## Scope
 
 Minimal content-management surface for guest-facing brand content. The first
-managed asset is the restaurant logo. Staff replace or restore the default
-bundled mark (`SITE_LOGO` in `lib/site-chrome.ts`) from `/admin/settings` or the
-staff-sidebar brand dialog.
+managed asset is the restaurant logo. The template ships with **no bundled
+logo**. Staff upload or remove a mark from `/admin/settings` or the
+staff-sidebar brand dialog. Without a custom logo, every surface shows the
+restaurant name only.
 
 ## Acceptance criteria
 
@@ -29,11 +30,11 @@ staff-sidebar brand dialog.
 4. **BC-4 — Persist and display** — A successful upload stores the object,
    writes a cache-busted public URL to `restaurant_settings.logo_url`, and
    that URL is what the guest header, staff login, and staff sidebar render
-   in place of `SITE_LOGO`.
+   via `BrandMark`. With no URL, `BrandMark` renders nothing.
 
-5. **BC-5 — Restore default** — Removing the custom logo deletes stored
-   `logo.*` objects, nulls `logo_url`, and every surface falls back to
-   `SITE_LOGO.src` (`/images/logo.png`).
+5. **BC-5 — Empty default / remove logo** — Removing the custom logo deletes
+   stored `logo.*` objects, nulls `logo_url`, and every surface shows the
+   restaurant name only (no bundled `/images/logo.png`).
 
 6. **BC-6 — Revalidate surfaces** — Upload and remove revalidate staff
    (`/admin` layout, `/admin/settings`, `/pos`, `/kds`), guest (`/`, `/menu`,

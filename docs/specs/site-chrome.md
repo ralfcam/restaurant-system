@@ -1,22 +1,26 @@
 # Site chrome (guest header & brand)
 
 **Status:** Draft  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
 ## Scope
 
-Guest-facing site chrome: fixed header/nav and brand logo on public routes.
-Component: `components/site/site-header.tsx`. Shared config: `lib/site-chrome.ts`.
-Pages: `/` (homepage), `/menu` (digital menu).
+Guest-facing site chrome: fixed header/nav and optional brand logo on public
+routes. Component: `components/site/site-header.tsx`. Shared config:
+`lib/site-chrome.ts`. Pages: `/` (homepage), `/menu` (digital menu).
+
+The platform is a **Restaurant Link** bootstrapping template: the restaurant
+name comes from `RESTAURANT` in `lib/data.ts`, and there is **no bundled
+default logo**.
 
 ## Acceptance criteria
 
-1. **SC-1 — Shared logo config** — `lib/site-chrome.ts` exports `SITE_LOGO` with
-   `src="/images/logo.png"`, `width=48`, `height=48`, and `alt` text that
-   includes the restaurant name. This is the **default** brand mark when no
-   custom logo is stored. `SiteHeader` uses `SITE_LOGO` dimensions/alt and
-   `src={customLogoUrl ?? SITE_LOGO.src}` — no hard-coded 32px logo
-   dimensions. Custom upload / restore: [branding-cms.md](./branding-cms.md).
+1. **SC-1 — Shared logo config, empty by default** — `lib/site-chrome.ts`
+   exports `SITE_LOGO` with `width=48`, `height=48`, and `alt` text that
+   includes the restaurant name. It does **not** set `src`. When no custom
+   logo is stored, `SiteHeader` and login render `BrandMark` (null) and the
+   restaurant name only — no `/images/logo.png` fallback. Custom upload /
+   remove: [branding-cms.md](./branding-cms.md).
 
 2. **SC-2 — Homepage header** — `SiteHeader` renders on `/`. There is no
    pathname early-return that hides the header on the homepage.
@@ -27,9 +31,9 @@ Pages: `/` (homepage), `/menu` (digital menu).
    switcher, Staff login, Book a table. Language switcher wiring:
    [site-localization.md](./site-localization.md) criterion 10.
 
-4. **SC-4 — Visual readability (manual-UAT)** — The 48×48 px circular logo is
-   visually readable on dark hero backgrounds at `/` and `/menu` in a real
-   browser.
+4. **SC-4 — Visual readability (manual-UAT)** — When a custom logo is set, the
+   48×48 px circular mark is visually readable on dark hero backgrounds at
+   `/` and `/menu`. When none is set, the restaurant name alone is readable.
 
 5. **SC-5 — Single homepage source (no duplicate route)** — The `/` route is
    served exclusively by the localized `app/[locale]/page.tsx`. No flat,
@@ -43,6 +47,6 @@ Pages: `/` (homepage), `/menu` (digital menu).
 - `app/[locale]/page.tsx` (canonical homepage; SC-5)
 - `components/site/site-header.tsx`
 - `lib/site-chrome.ts`
-- `public/images/logo.png`
+- `components/site/brand-mark.tsx`
 - `tests/unit/site-header.test.ts` (SC-5 structural guard)
 - [../PRD/restaurant-system-PRD.md](../PRD/restaurant-system-PRD.md)

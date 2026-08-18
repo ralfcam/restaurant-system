@@ -6,7 +6,6 @@ import { toast } from "sonner"
 import { ImagePlus, Loader2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
-import { SITE_LOGO } from "@/lib/site-chrome"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { removeRestaurantLogo, uploadRestaurantLogo } from "@/app/actions/branding"
 import { resolveLogoContentType } from "@/lib/branding"
@@ -91,7 +90,7 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
         return
       }
       await mutate(null)
-      toast.success("Default logo restored")
+      toast.success("Logo removed")
       resetPicker()
     } catch {
       toast.error("Could not remove the logo. Please try again.")
@@ -100,7 +99,7 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
     }
   }
 
-  const displaySrc = preview ?? logoUrl ?? SITE_LOGO.src
+  const displaySrc = preview ?? logoUrl
   const hasCustomLogo = Boolean(logoUrl) && !preview
 
   return (
@@ -113,7 +112,7 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             // ephemeral object URLs.
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview} alt="Logo preview" className="size-full object-cover" />
-          ) : (
+          ) : displaySrc ? (
             <Image
               src={displaySrc}
               alt={`${RESTAURANT.name} logo`}
@@ -121,7 +120,7 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
               className="object-cover"
               sizes="64px"
             />
-          )}
+          ) : null}
         </span>
 
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -164,7 +163,7 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             disabled={isRemoving}
           >
             {isRemoving ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-            Restore default
+            Remove logo
           </Button>
         ) : null}
         <Button type="button" onClick={handleSave} disabled={!file || isSaving}>

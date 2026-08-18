@@ -1,4 +1,5 @@
-// Shared mock / seed data for the MVP. Menu content is sourced from lib/akta-menu.json.
+// Shared mock / seed data for the MVP template. Menu content is sourced from
+// lib/menu-catalog.json (sample catalog — replace with the restaurant's own).
 
 export {
   type MenuId,
@@ -11,16 +12,16 @@ export {
   getItemsForMenu,
   slugify,
   parsePriceValue,
-} from "@/lib/akta-menu"
+} from "@/lib/menu-catalog"
 
-import { MENU_ITEMS } from "@/lib/akta-menu"
+import { MENU_ITEMS } from "@/lib/menu-catalog"
 
 export const RESTAURANT = {
-  name: "äkta",
-  tagline: "Cuisine de saison & bar à vins · Genève",
-  address: "Boulevard de la Cluse 20, 1205 Genève",
-  phone: "+41 22 566 29 25",
-  hours: "Mar–Ven · 12:00–14:00 & 18:00–23:00 · Sam · 18:00–23:00",
+  name: "Restaurant Link",
+  tagline: "Reservations, menu, and service — one platform",
+  address: "123 Main Street",
+  phone: "+1 555 0100",
+  hours: "Mon–Sat · 11:00–22:00",
 }
 
 export type TableStatus = "available" | "seated" | "reserved" | "cleaning" | "out_of_service"

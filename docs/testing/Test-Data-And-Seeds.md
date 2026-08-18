@@ -15,7 +15,7 @@
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)
   - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo)
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
-  - `menu_items` — 120 rows (äkta menu catalog)
+  - `menu_items` — 120 rows (sample `lib/menu-catalog.json` catalog)
 - **Branding bucket runtime:** Migrations define the public `branding` bucket and
   storage policies. If storage still reports bucket-not-found on first logo upload,
   `uploadRestaurantLogo` creates the bucket (public, 2MB, allowed image MIME types)

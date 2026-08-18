@@ -26,14 +26,18 @@ describe("branding CMS schema and surfaces", () => {
     expect(existsSync(path.join(root, "public/test-logo-sync.png"))).toBe(false)
     expect(existsSync(path.join(root, "public/test-logo-tiny.png"))).toBe(false)
     expect(existsSync(path.join(root, "public/test-logo-upload.png"))).toBe(false)
+    expect(existsSync(path.join(root, "public/images/logo.png"))).toBe(false)
+    expect(existsSync(path.join(root, "public/images/logo.jpg"))).toBe(false)
   })
 
-  it("guest header and login fall back to SITE_LOGO when no custom url is set", () => {
+  it("guest header and login render BrandMark only when a custom url is set", () => {
     const header = readFileSync(path.join(root, "components/site/site-header.tsx"), "utf8")
     const login = readFileSync(path.join(root, "app/auth/login/page.tsx"), "utf8")
     expect(header).toMatch(/useRestaurantLogo/)
-    expect(header).toMatch(/logoUrl \?\? SITE_LOGO\.src/)
+    expect(header).toMatch(/<BrandMark src=\{logoUrl\}/)
+    expect(header).not.toMatch(/SITE_LOGO\.src/)
     expect(login).toMatch(/useRestaurantLogo/)
-    expect(login).toMatch(/logoUrl \?\? SITE_LOGO\.src/)
+    expect(login).toMatch(/<BrandMark src=\{logoUrl\}/)
+    expect(login).not.toMatch(/SITE_LOGO\.src/)
   })
 })

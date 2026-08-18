@@ -19,9 +19,10 @@ export default async function AdminSettingsPage() {
         <CardHeader className="border-b">
           <CardTitle>Restaurant logo</CardTitle>
           <CardDescription>
-            Replace the default brand mark for {RESTAURANT.name} on the guest
-            header, staff login, and console. PNG, JPG, SVG, or WEBP, up to 2MB.
-            Restoring default brings back the bundled logo.
+            Upload a logo for {RESTAURANT.name} on the guest header, staff
+            login, and console. PNG, JPG, SVG, or WEBP, up to 2MB. The
+            platform ships with no default mark — removing a logo leaves
+            the name only.
           </CardDescription>
         </CardHeader>
         <CardContent>

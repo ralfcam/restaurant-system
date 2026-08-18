@@ -1,4 +1,4 @@
-import aktaMenuRaw from "./akta-menu.json"
+import menuCatalogRaw from "./menu-catalog.json"
 
 export type MenuId = "midi" | "soir" | "boissons" | "blanc" | "rouge"
 
@@ -137,7 +137,7 @@ function buildFromRaw(rawMenus: RawMenu[]): {
   return { menus, items }
 }
 
-const built = buildFromRaw(aktaMenuRaw as RawMenu[])
+const built = buildFromRaw(menuCatalogRaw as RawMenu[])
 
 export const MENUS: MenuMeta[] = built.menus
 export const MENU_ITEMS: MenuItem[] = built.items
