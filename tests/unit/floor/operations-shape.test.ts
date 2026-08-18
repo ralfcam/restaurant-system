@@ -65,9 +65,9 @@ describe("table create and seat updates persist parity shape", () => {
     mocks.selectCurrent.mockReset()
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
     mocks.selectExisting.mockResolvedValue({ data: [] })
-    mocks.selectCurrent.mockResolvedValue({ data: { status: "available" }, error: null })
+    mocks.selectCurrent.mockResolvedValue({ data: { status: "available", x: 0, y: 0 }, error: null })
     mocks.insert.mockImplementation((row: Record<string, unknown>) => ({
-      data: { id: "t-new", ...row, x: 0, y: 0 },
+      data: { id: "t-new", ...row },
       error: null,
     }))
   })
@@ -78,9 +78,21 @@ describe("table create and seat updates persist parity shape", () => {
     expect(table.shape).toBe("square")
     expect(table.seats).toBe(2)
     expect(mocks.insert).toHaveBeenCalledWith(
-      expect.objectContaining({ seats: 2, shape: "square", expected_minutes: 90 }),
+      expect.objectContaining({ seats: 2, shape: "square", expected_minutes: 90, x: 0, y: 0 }),
     )
     expect(table.expectedMinutes).toBe(90)
+  })
+
+  it("places a new table on the next free floor cell", async () => {
+    mocks.selectExisting.mockResolvedValue({
+      data: [
+        { label: "1", x: 0, y: 0 },
+        { label: "2", x: 1, y: 0 },
+      ],
+    })
+    const { createTable } = await import("@/app/actions/operations")
+    await createTable()
+    expect(mocks.insert).toHaveBeenCalledWith(expect.objectContaining({ x: 2, y: 0 }))
   })
 
   it("persists expected turn time on a standalone table", async () => {
@@ -97,5 +109,13 @@ describe("table create and seat updates persist parity shape", () => {
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ seats: 3, shape: "round" }))
     await updateTableState({ id: "t1", seats: 4 })
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ seats: 4, shape: "square" }))
+  })
+
+  it("persists clamped floor coordinates", async () => {
+    const { updateTableState } = await import("@/app/actions/operations")
+    await updateTableState({ id: "t1", x: 3, y: 1 })
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ x: 3, y: 1 }))
+    await updateTableState({ id: "t1", x: 99, y: -4 })
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ x: 11, y: 0 }))
   })
 })

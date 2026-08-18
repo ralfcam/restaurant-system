@@ -19,6 +19,13 @@ of throwing (a throw became a 500 on the floor POST). If `table_merges` is
 not in the database yet, the arrangement is stored on `status_events` as
 `entity_type = table` (`status_events_entity_type_check` rejects `table_merge`).
 
+Tables sit on a persisted grid (`tables.x`, `tables.y`). `/admin/floor`
+renders that grid as a canvas (`lib/floor/layout.ts`). Each chip has a
+**move-lock** (default locked) so a click does not drag. Unlocking a table
+lets staff drag it to a new cell; coordinates persist through
+`updateTableState`. Dropping an unlocked available table on another still
+merges (FP-8). New tables take the next free cell.
+
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. Inventory is persisted in Postgres (`tables`), not
 mock-only. Operating hours: `operating_windows` in
