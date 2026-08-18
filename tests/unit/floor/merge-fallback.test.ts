@@ -3,6 +3,7 @@ import {
   MERGE_EVENT_TYPE,
   activeMergesFromEvents,
   decodeMergeState,
+  dissolvedMergeState,
   encodeMergeState,
   isMissingRelationError,
   mergeStateFromTables,
@@ -35,8 +36,8 @@ describe("merge fallback persistence", () => {
       },
       {
         entity_id: "m1",
-        to_status: "split",
-        reason: "split",
+        to_status: "available",
+        reason: encodeMergeState(dissolvedMergeState(payload)),
         created_at: "2026-08-18T18:10:00.000Z",
       },
       {

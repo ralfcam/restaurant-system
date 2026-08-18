@@ -21,6 +21,7 @@ import {
 import {
   MERGE_EVENT_TYPE,
   activeMergesFromEvents,
+  dissolvedMergeState,
   encodeMergeState,
   isMissingRelationError,
   mergeStateFromTables,
@@ -167,13 +168,24 @@ async function loadMergeContext(db: ServiceDb, tableId: string): Promise<MergeCo
   }
 }
 
-async function dissolveMerge(db: ServiceDb, mergeId: string, reason = "split") {
-  // to_status must be a table status — live DBs may also check that column.
-  await recordMergeEvent(db, mergeId, "available", reason)
+async function dissolveMerge(db: ServiceDb, mergeId: string, _reason = "split") {
+  const current = (await loadMergeEvents(db)).find((merge) => merge.id === mergeId)
+  const eventError = await recordMergeEvent(
+    db,
+    mergeId,
+    "available",
+    encodeMergeState(dissolvedMergeState(current)),
+  )
+  if (eventError) {
+    console.error("[operations] dissolveMerge event:", eventError.message)
+    return eventError
+  }
   const { error } = await db.from("table_merges").delete().eq("id", mergeId)
   if (error && !isMissingRelationError(error)) {
     console.error("[operations] dissolveMerge:", error.message)
+    return error
   }
+  return null
 }
 
 function mapMerge(
@@ -621,18 +633,31 @@ async function mergeUsingEvents(
   return persistMergeViaEvents(db, mapped, ids, expectedMinutes, expiresAt)
 }
 
-export async function splitMerge(mergeId: string) {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+export async function splitMerge(mergeId: string): Promise<{ error?: string }> {
+  try {
+    const staffUser = await requireStaffUser()
+    if (!staffUser) return { error: "Unauthorized" }
 
-  const db = createServiceClient()
-  const { data: merge, error } = await db.from("table_merges").select("id").eq("id", mergeId).maybeSingle()
-  if (error || !merge) {
-    const fallback = (await loadMergeEvents(db)).find((row) => row.id === mergeId)
-    if (!fallback) throw new Error("Arrangement not found")
+    const db = createServiceClient()
+    let merge: { id: string } | null = null
+    try {
+      const result = await db.from("table_merges").select("id").eq("id", mergeId).maybeSingle()
+      merge = result.data
+    } catch (error) {
+      console.error("[operations] splitMerge lookup:", error)
+    }
+    if (!merge) {
+      const fallback = (await loadMergeEvents(db)).find((row) => row.id === mergeId)
+      if (!fallback) return { error: "Arrangement not found" }
+    }
+    const dissolveError = await dissolveMerge(db, mergeId, "split")
+    if (dissolveError) return { error: dissolveError.message || "Unable to split tables" }
+    revalidatePath("/admin/floor")
+    return {}
+  } catch (error) {
+    console.error("[operations] splitMerge unexpected:", error)
+    return { error: error instanceof Error ? error.message : "Unable to split tables" }
   }
-  await dissolveMerge(db, mergeId, "split")
-  revalidatePath("/admin/floor")
 }
 
 export async function createTable() {

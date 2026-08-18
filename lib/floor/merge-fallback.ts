@@ -22,6 +22,7 @@ export type MergeStatePayload = {
   status: TableStatus
   label: string
   seats: number
+  dissolved?: boolean
 }
 
 export type MergeEventRow = {
@@ -53,18 +54,19 @@ export function decodeMergeState(reason: string | null | undefined): MergeStateP
   if (!reason?.startsWith("{")) return null
   try {
     const parsed = JSON.parse(reason) as Partial<MergeStatePayload>
-    if (parsed.v !== 1 || !Array.isArray(parsed.tableIds) || parsed.tableIds.length < 2) {
-      return null
-    }
-    if (!parsed.expiresAt || !parsed.status) return null
+    if (parsed.v !== 1) return null
+    const tableIds = Array.isArray(parsed.tableIds) ? parsed.tableIds.map(String) : []
+    if (!parsed.dissolved && tableIds.length < 2) return null
+    if (!parsed.dissolved && (!parsed.expiresAt || !parsed.status)) return null
     return {
       v: 1,
-      tableIds: parsed.tableIds.map(String),
+      tableIds,
       expectedMinutes: Number(parsed.expectedMinutes) || 90,
-      expiresAt: String(parsed.expiresAt),
-      status: parsed.status,
+      expiresAt: String(parsed.expiresAt ?? ""),
+      status: (parsed.status ?? "available") as TableStatus,
       label: String(parsed.label ?? ""),
       seats: Number(parsed.seats) || 0,
+      ...(parsed.dissolved === true ? { dissolved: true } : {}),
     }
   } catch {
     return null
@@ -90,6 +92,19 @@ export function mergeStateFromTables(
   }
 }
 
+export function dissolvedMergeState(current?: MergeStatePayload | FallbackMerge | null): MergeStatePayload {
+  return {
+    v: 1,
+    tableIds: current?.tableIds ?? [],
+    expectedMinutes: current?.expectedMinutes ?? 90,
+    expiresAt: current?.expiresAt ?? new Date(0).toISOString(),
+    status: current?.status ?? "available",
+    label: current?.label ?? "",
+    seats: current?.seats ?? 0,
+    dissolved: true,
+  }
+}
+
 const DISSOLVED = new Set(["split", "expired"])
 
 export type FallbackMerge = MergeStatePayload & { id: string }
@@ -108,7 +123,7 @@ export function activeMergesFromEvents(events: MergeEventRow[]): FallbackMerge[]
   for (const [id, event] of latest) {
     if (DISSOLVED.has(String(event.to_status))) continue
     const payload = decodeMergeState(event.reason)
-    if (!payload) continue
+    if (!payload || payload.dissolved) continue
     active.push({ ...payload, id })
   }
   return active

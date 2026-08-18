@@ -31,8 +31,11 @@ import {
 import { groupTablesForDisplay } from "@/lib/floor/floor-units"
 import {
   FLOOR_TABLE_DRAG_MIME,
+  canDragFloorTable,
   isDragMergeable,
+  isDragSplittable,
   resolveMergeDrop,
+  resolveSplitDrop,
   type MergeDropTable,
 } from "@/lib/floor/merge-drop"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
@@ -251,15 +254,36 @@ export function FloorPlan({
     await combineTables(result.tableIds)
   }
 
+  async function splitArrangement(mergeId: string, label?: string) {
+    try {
+      const result = await splitMerge(mergeId)
+      if (result.error) {
+        toast.error("Could not split tables", { description: result.error })
+        return
+      }
+      await mutate()
+      toast.success(`Split tables ${label ?? ""}`.trim())
+    } catch (error) {
+      toast.error("Could not split tables", {
+        description: error instanceof Error ? error.message : undefined,
+      })
+    }
+  }
+
   async function splitSelected() {
     if (!selected?.merge) return
-    try {
-      await splitMerge(selected.merge.id)
-      await mutate()
-      toast.success(`Split tables ${selected.merge.label}`)
-    } catch {
-      toast.error("Could not split tables")
-    }
+    await splitArrangement(selected.merge.id, selected.merge.label)
+  }
+
+  async function splitFromFloorDrop(event: DragEvent) {
+    event.preventDefault()
+    const sourceId = draggingId ?? readDraggedTableId(event)
+    setDraggingId(null)
+    setDropTargetKey(null)
+    const result = resolveSplitDrop(sourceId, dropTables)
+    if (!result.mergeId) return
+    const source = tables.find((table) => table.id === sourceId)
+    await splitArrangement(result.mergeId, source?.merge?.label)
   }
 
   return (
@@ -293,9 +317,22 @@ export function FloorPlan({
           </div>
 
           <p className="mb-3 text-xs text-muted-foreground">
-            Drag an available table onto another to merge them.
+            Drag an available table onto another to merge. Drag a merged table
+            onto the floor to split.
           </p>
-          <div className="flex flex-wrap gap-4 rounded-lg border border-dashed border-border bg-secondary/30 p-5">
+          <div
+            className="flex flex-wrap gap-4 rounded-lg border border-dashed border-border bg-secondary/30 p-5"
+            onDragOver={(event) => {
+              if (!draggingId) return
+              const source = dropTables.find((table) => table.id === draggingId)
+              if (!source || !isDragSplittable(source)) return
+              event.preventDefault()
+              event.dataTransfer.dropEffect = "move"
+            }}
+            onDrop={(event) => {
+              void splitFromFloorDrop(event)
+            }}
+          >
             {groups.map((group) => {
               const merge = group.tables[0]?.merge
               const groupDropKey = merge ? `merge:${merge.id}` : null
@@ -304,7 +341,7 @@ export function FloorPlan({
                 const isSelected = t.id === (selected?.id ?? selectedId)
                 const silhouette = tableShapeForSeats(t.seats)
                 const dragTable = toMergeDropTable(t)
-                const canDrag = isDragMergeable(dragTable) && !merging
+                const canDrag = canDragFloorTable(dragTable) && !merging
                 const targetKey = dropKeyFor(t)
                 const isDropTarget = dropTargetKey === targetKey
                 const acceptsDrag =
@@ -318,7 +355,9 @@ export function FloorPlan({
                     draggable={canDrag}
                     title={
                       canDrag
-                        ? "Drag onto another available table to merge"
+                        ? isDragSplittable(dragTable)
+                          ? "Drag onto the floor to split this arrangement"
+                          : "Drag onto another available table to merge"
                         : undefined
                     }
                     onClick={() => {
@@ -638,7 +677,7 @@ export function FloorPlan({
                     {formatDurationMinutes(selected.merge.expectedMinutes)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Drop another available table on this group to add it.
+                    Drag a table out onto the floor to split, or use the button.
                   </p>
                   <Button variant="outline" className="w-full" onClick={() => void splitSelected()}>
                     <Unlink className="size-4" /> Split tables
