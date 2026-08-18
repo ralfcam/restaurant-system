@@ -90,6 +90,25 @@ FROM (
 ) AS v(day_of_week, opens_at, closes_at, is_closed, label, sort_order)
 WHERE NOT EXISTS (SELECT 1 FROM operating_windows);
 
+-- Dining-room inventory (matches lib/data.ts labels / capacities). All start
+-- available so auto-assign can hold tables when a reservation becomes due.
+INSERT INTO tables (label, seats, status, x, y, shape)
+SELECT v.label, v.seats, 'available', v.x, v.y, v.shape::TEXT
+FROM (
+  VALUES
+    ('1',  2, 0, 0, 'round'),
+    ('2',  2, 1, 0, 'round'),
+    ('3',  4, 2, 0, 'square'),
+    ('4',  4, 3, 0, 'square'),
+    ('5',  6, 0, 1, 'rect'),
+    ('6',  4, 2, 1, 'square'),
+    ('7',  2, 3, 1, 'round'),
+    ('8',  8, 0, 2, 'rect'),
+    ('9',  4, 2, 2, 'square'),
+    ('10', 2, 3, 2, 'round')
+) AS v(label, seats, x, y, shape)
+WHERE NOT EXISTS (SELECT 1 FROM tables);
+
 INSERT INTO menu_items (id, slug, name, name_en, description, description_en, price, price_value, menu_id, section, section_en, popular, available, sort_order)
 VALUES
   ('midi-les-entrees-au-choix-veloute-froid-de-petits-pois-menthe-et-mousse-de','midi-les-entrees-au-choix-veloute-froid-de-petits-pois-menthe-et-mousse-de','Velouté froid de petits pois, menthe et mousse de brebis','Chilled green pea soup, mint and ewe''s milk cheese mousse','Velouté rafraîchissant de petits pois frais, menthe du potager et émulsion crémeuse de brebis','Refreshing cold green pea soup, garden mint, and creamy sheep''s milk cheese emulsion','11.-',11,'midi','Les Entrées (au choix)','Starters (choose one)',false,true,0),
