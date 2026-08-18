@@ -9,6 +9,7 @@ import { RESTAURANT } from "@/lib/data"
 import { SITE_LOGO } from "@/lib/site-chrome"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { removeRestaurantLogo, uploadRestaurantLogo } from "@/app/actions/branding"
+import { resolveLogoContentType } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 
 const ACCEPTED_TYPES = "image/png,image/jpeg,image/svg+xml,image/webp"
@@ -58,10 +59,12 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
     setIsSaving(true)
     try {
       const base64 = await fileToBase64(file)
+      const contentType = resolveLogoContentType(file.type, file.name) ?? file.type
       const result = await uploadRestaurantLogo({
         base64,
-        contentType: file.type,
+        contentType,
         size: file.size,
+        fileName: file.name,
       })
       if (result.error) {
         toast.error(result.error)

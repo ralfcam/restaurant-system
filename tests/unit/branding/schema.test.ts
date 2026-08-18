@@ -16,6 +16,11 @@ describe("branding CMS schema and surfaces", () => {
     expect(baseline).toMatch(/'branding'/)
   })
 
+  it("raises the Server Action body limit so a 2MB logo fits as base64", () => {
+    const config = readFileSync(path.join(root, "next.config.mjs"), "utf8")
+    expect(config).toMatch(/bodySizeLimit:\s*["']4mb["']/)
+  })
+
   it("staff branding page exists and leftover test fixtures are gone", () => {
     expect(existsSync(path.join(root, "app/admin/settings/page.tsx"))).toBe(true)
     expect(existsSync(path.join(root, "public/test-logo-sync.png"))).toBe(false)

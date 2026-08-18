@@ -44,6 +44,18 @@ staff-sidebar brand dialog.
    to the same editor. Neither page ships leftover `public/test-logo-*.png`
    fixtures.
 
+8. **BC-8 — Upload payload size** — The logo is sent as a base64 string on a
+   Server Action (not multipart). `next.config` sets
+   `experimental.serverActions.bodySizeLimit` to `4mb` so a file at the 2MB
+   validation cap still fits after base64 + RSC framing. The default 1MB
+   limit must not reject a valid logo.
+
+9. **BC-9 — Type aliases and missing bucket** — `image/jpg` (and other JPEG /
+   PNG aliases) and an empty browser `type` with a `.png` / `.jpg` / `.svg` /
+   `.webp` file name are accepted. If the public `branding` bucket is missing
+   at upload time, the action creates it (public, 2MB, allowed image MIME
+   types) and then stores the object.
+
 ## References
 
 - `app/admin/settings/page.tsx`

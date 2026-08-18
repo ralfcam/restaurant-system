@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   upsert: vi.fn(),
   maybeSingle: vi.fn(),
+  createBucket: vi.fn(),
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -37,6 +38,7 @@ vi.mock("@/lib/supabase/service", () => ({
         getPublicUrl: mocks.getPublicUrl,
         remove: mocks.remove,
       }),
+      createBucket: mocks.createBucket,
     },
   }),
 }))
@@ -56,10 +58,12 @@ describe("uploadRestaurantLogo", () => {
     mocks.getPublicUrl.mockReset()
     mocks.remove.mockReset()
     mocks.upsert.mockReset()
+    mocks.createBucket.mockReset()
     mocks.requireStaffUser.mockResolvedValue(staff)
     mocks.upload.mockResolvedValue({ error: null })
     mocks.remove.mockResolvedValue({ error: null })
     mocks.upsert.mockResolvedValue({ error: null })
+    mocks.createBucket.mockResolvedValue({ data: { name: "branding" }, error: null })
     mocks.getPublicUrl.mockReturnValue({ data: { publicUrl: "https://cdn.example/logo.png" } })
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000)
   })
@@ -83,9 +87,10 @@ describe("uploadRestaurantLogo", () => {
     const result = await uploadRestaurantLogo(pngUpload)
     expect(result.error).toBeUndefined()
     expect(result.logoUrl).toBe("https://cdn.example/logo.png?v=1700000000000")
+    expect(mocks.createBucket).not.toHaveBeenCalled()
     expect(mocks.upload).toHaveBeenCalledWith(
       "logo.png",
-      expect.any(Buffer),
+      expect.any(Uint8Array),
       expect.objectContaining({ contentType: "image/png", upsert: true }),
     )
     expect(mocks.remove).toHaveBeenCalledWith(["logo.jpg", "logo.svg", "logo.webp"])
@@ -97,6 +102,41 @@ describe("uploadRestaurantLogo", () => {
     )
     const paths = mocks.revalidatePath.mock.calls.map((call) => call[0])
     expect(paths).toEqual(expect.arrayContaining(["/admin", "/", "/menu", "/auth/login"]))
+  })
+
+  it("creates the branding bucket when it is missing, then uploads", async () => {
+    mocks.upload
+      .mockResolvedValueOnce({ error: { message: "Bucket not found" } })
+      .mockResolvedValueOnce({ error: null })
+    const result = await uploadRestaurantLogo(pngUpload)
+    expect(result.error).toBeUndefined()
+    expect(mocks.createBucket).toHaveBeenCalledWith(
+      "branding",
+      expect.objectContaining({ public: true, fileSizeLimit: 2 * 1024 * 1024 }),
+    )
+    expect(mocks.upload).toHaveBeenCalledTimes(2)
+  })
+
+  it("returns the upload error when the branding bucket cannot be created", async () => {
+    mocks.upload.mockResolvedValue({ error: { message: "Bucket not found" } })
+    mocks.createBucket.mockResolvedValue({ error: { message: "permission denied" } })
+    const result = await uploadRestaurantLogo(pngUpload)
+    expect(result.error).toBe("Could not upload the logo. Please try again.")
+    expect(mocks.upload).toHaveBeenCalledTimes(1)
+  })
+
+  it("accepts image/jpg as JPEG and stores logo.jpg", async () => {
+    const result = await uploadRestaurantLogo({
+      ...pngUpload,
+      contentType: "image/jpg",
+      fileName: "mark.jpg",
+    })
+    expect(result.error).toBeUndefined()
+    expect(mocks.upload).toHaveBeenCalledWith(
+      "logo.jpg",
+      expect.any(Uint8Array),
+      expect.objectContaining({ contentType: "image/jpeg", upsert: true }),
+    )
   })
 })
 
