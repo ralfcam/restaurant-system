@@ -6,11 +6,14 @@
 ## Current state
 
 - **Schema:** `supabase/migrations/00000000000000_baseline.sql` — idempotent DDL for
-  `operating_windows`, `blocked_dates`, `reservations`, `menu_items`, and booking
-  trigger `enforce_booking_rules`.
+  `operating_windows`, `blocked_dates`, `reservations`, `menu_items`,
+  `restaurant_settings`, public `branding` storage bucket, and booking
+  trigger `enforce_booking_rules`. Linked/remote also has
+  `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)
+  - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo)
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
   - `menu_items` — 120 rows (äkta menu catalog)
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI

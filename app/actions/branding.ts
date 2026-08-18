@@ -3,15 +3,14 @@
 import { revalidatePath } from "next/cache"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
-
-const BUCKET = "branding"
-const MAX_LOGO_BYTES = 2 * 1024 * 1024 // 2MB
-const ALLOWED_TYPES: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/svg+xml": "svg",
-  "image/webp": "webp",
-}
+import {
+  BRANDING_BUCKET,
+  BRANDING_REVALIDATE_PATHS,
+  LOGO_STORAGE_PATHS,
+  type LogoUploadInput,
+  logoStoragePath,
+  validateLogoUpload,
+} from "@/lib/branding"
 
 export async function getRestaurantLogoUrl(): Promise<string | null> {
   const { data, error } = await createServiceClient()
@@ -26,11 +25,25 @@ export async function getRestaurantLogoUrl(): Promise<string | null> {
   return data?.logo_url ?? null
 }
 
-interface LogoUploadInput {
-  /** Base64-encoded file contents (no data URL prefix). */
-  base64: string
-  contentType: string
-  size: number
+function revalidateBrandingSurfaces() {
+  for (const entry of BRANDING_REVALIDATE_PATHS) {
+    if (entry.type) {
+      revalidatePath(entry.path, entry.type)
+    } else {
+      revalidatePath(entry.path)
+    }
+  }
+}
+
+async function removeStoredLogos(
+  db: ReturnType<typeof createServiceClient>,
+): Promise<{ error?: string }> {
+  const { error } = await db.storage.from(BRANDING_BUCKET).remove(LOGO_STORAGE_PATHS)
+  if (error) {
+    console.error("[branding] storage remove:", error.message)
+    return { error: "Could not remove the stored logo. Please try again." }
+  }
+  return {}
 }
 
 // Accepts the file as a base64 string rather than FormData/File. Passing a
@@ -38,30 +51,22 @@ interface LogoUploadInput {
 // request body, which this environment's request pipeline mangles ("Error:
 // Unexpected end of form"). Plain string arguments use the RSC flight
 // serialization instead of multipart, sidestepping the issue entirely.
-export async function uploadRestaurantLogo(input: LogoUploadInput): Promise<{ logoUrl: string; error?: string }> {
+export async function uploadRestaurantLogo(
+  input: LogoUploadInput,
+): Promise<{ logoUrl: string; error?: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("Unauthorized")
 
-  if (!input.base64) {
-    return { logoUrl: "", error: "Please choose an image file." }
-  }
-  const ext = ALLOWED_TYPES[input.contentType]
-  if (!ext) {
-    return { logoUrl: "", error: "Please upload a PNG, JPG, SVG, or WEBP image." }
-  }
-  if (input.size > MAX_LOGO_BYTES) {
-    return { logoUrl: "", error: "Logo image must be smaller than 2MB." }
+  const validationError = validateLogoUpload(input)
+  if (validationError) {
+    return { logoUrl: "", error: validationError }
   }
 
   const bytes = Buffer.from(input.base64, "base64")
-
+  const path = logoStoragePath(input.contentType)
   const db = createServiceClient()
-  // Fixed filename per extension keeps the bucket tidy (old logo of a
-  // different format is orphaned but harmless); a cache-busting query
-  // param is appended to the stored URL so the sidebar picks up changes
-  // immediately without needing to invalidate a CDN cache by path.
-  const path = `logo.${ext}`
-  const { error: uploadError } = await db.storage.from(BUCKET).upload(path, bytes, {
+
+  const { error: uploadError } = await db.storage.from(BRANDING_BUCKET).upload(path, bytes, {
     contentType: input.contentType,
     upsert: true,
   })
@@ -70,7 +75,15 @@ export async function uploadRestaurantLogo(input: LogoUploadInput): Promise<{ lo
     return { logoUrl: "", error: "Could not upload the logo. Please try again." }
   }
 
-  const { data: publicUrlData } = db.storage.from(BUCKET).getPublicUrl(path)
+  const stalePaths = LOGO_STORAGE_PATHS.filter((stored) => stored !== path)
+  if (stalePaths.length > 0) {
+    const { error: cleanupError } = await db.storage.from(BRANDING_BUCKET).remove(stalePaths)
+    if (cleanupError) {
+      console.error("[branding] stale logo cleanup:", cleanupError.message)
+    }
+  }
+
+  const { data: publicUrlData } = db.storage.from(BRANDING_BUCKET).getPublicUrl(path)
   const logoUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`
 
   const { error: settingsError } = await db
@@ -81,9 +94,7 @@ export async function uploadRestaurantLogo(input: LogoUploadInput): Promise<{ lo
     return { logoUrl: "", error: "Logo uploaded but could not be saved. Please try again." }
   }
 
-  revalidatePath("/admin", "layout")
-  revalidatePath("/pos")
-  revalidatePath("/kds")
+  revalidateBrandingSurfaces()
   return { logoUrl }
 }
 
@@ -92,6 +103,9 @@ export async function removeRestaurantLogo(): Promise<{ error?: string }> {
   if (!staffUser) throw new Error("Unauthorized")
 
   const db = createServiceClient()
+  const stored = await removeStoredLogos(db)
+  if (stored.error) return stored
+
   const { error } = await db.from("restaurant_settings").upsert({
     id: 1,
     logo_url: null,
@@ -102,8 +116,6 @@ export async function removeRestaurantLogo(): Promise<{ error?: string }> {
     return { error: "Could not remove the logo. Please try again." }
   }
 
-  revalidatePath("/admin", "layout")
-  revalidatePath("/pos")
-  revalidatePath("/kds")
+  revalidateBrandingSurfaces()
   return {}
 }

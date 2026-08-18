@@ -23,9 +23,10 @@ Every guest-facing table must have RLS **enabled** and **forced** where specs re
 
 Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (single
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
-Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`, `menu_items`.
-Reference data (`operating_windows`, `menu_items` rows) loads from `supabase/seed.sql`
-on `db reset`.
+Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
+`menu_items`, `restaurant_settings`. Public storage bucket `branding` holds the
+optional custom logo. Reference data (`operating_windows`, `menu_items`,
+`restaurant_settings` singleton) loads from `supabase/seed.sql` on `db reset`.
 
 ## Env vars
 
