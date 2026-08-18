@@ -66,8 +66,12 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 11. **FP-8 — Temporary table merges** — Admin can merge two or more
     **available** tables into a temporary arrangement. On `/admin/floor`,
     **dragging one available table onto another** is the favoured merge UX
-    (drop-to-merge). Dropping an available table onto an **available**
-    arrangement adds it to that group. Tables that are reserved, seated,
+    (drop-to-merge).     Dropping an available table onto an **available**
+    arrangement adds it to that group. **Dragging a merged table out onto
+    the floor** (or the inspector **Split tables** action) dissolves the
+    arrangement. Split must **not throw a 500**; it returns `{ error }` and
+    writes a dissolved `status_events` payload (`dissolved: true`, still
+    JSON so it is visible to the fallback reader). Tables that are reserved, seated,
     cleaning, out of service, already merged with a different group, or
     holding a reservation overlay cannot be merged — the UI must not call
     merge in those cases. The merge server action must **not throw a 500**

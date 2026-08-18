@@ -10,6 +10,10 @@ const mocks = vi.hoisted(() => ({
   members: [] as Array<{ merge_id: string; table_id: string }>,
   events: [] as Array<Record<string, unknown>>,
   membersSelectError: null as { code: string; message: string } | null,
+  mergeLookup: {
+    data: { id: "merge-1", expected_minutes: 120, expires_at: "2026-08-18T19:30:00.000Z", status: "available" } as Record<string, unknown> | null,
+    error: null as { code: string; message: string } | null,
+  },
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -50,7 +54,7 @@ vi.mock("@/lib/supabase/service", () => ({
           delete: () => ({ eq: async () => ({ error: null }) }),
           select: () => ({
             eq: () => ({
-              maybeSingle: async () => ({ data: { id: "merge-1", expected_minutes: 120, expires_at: "2026-08-18T19:30:00.000Z", status: "available" }, error: null }),
+              maybeSingle: async () => mocks.mergeLookup,
             }),
           }),
         }
@@ -112,6 +116,10 @@ describe("mergeTables", () => {
     mocks.members = []
     mocks.events = []
     mocks.membersSelectError = null
+    mocks.mergeLookup = {
+      data: { id: "merge-1", expected_minutes: 120, expires_at: "2026-08-18T19:30:00.000Z", status: "available" },
+      error: null,
+    }
     mocks.insertMerge.mockImplementation((row: Record<string, unknown>) => ({
       data: { id: "merge-1", ...row },
       error: null,
@@ -220,5 +228,39 @@ describe("mergeTables", () => {
     expect(mocks.insertMembers).toHaveBeenCalledWith([
       { merge_id: "merge-1", table_id: "t5" },
     ])
+  })
+
+  it("splits a fallback arrangement without throwing when table_merges is missing", async () => {
+    const { encodeMergeState } = await import("@/lib/floor/merge-fallback")
+    mocks.mergeLookup = {
+      data: null,
+      error: {
+        code: "PGRST205",
+        message: "Could not find the table 'public.table_merges' in the schema cache",
+      },
+    }
+    mocks.events.push({
+      entity_id: "merge-1",
+      to_status: "available",
+      reason: encodeMergeState({
+        v: 1,
+        tableIds: ["t3", "t4"],
+        expectedMinutes: 120,
+        expiresAt: "2026-08-18T19:30:00.000Z",
+        status: "available",
+        label: "3+4",
+        seats: 6,
+      }),
+    })
+    const { splitMerge } = await import("@/app/actions/operations")
+    await expect(splitMerge("merge-1")).resolves.toEqual({})
+    expect(mocks.insertEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity_type: "table",
+        entity_id: "merge-1",
+        to_status: "available",
+        reason: expect.stringContaining('"dissolved":true'),
+      }),
+    )
   })
 })

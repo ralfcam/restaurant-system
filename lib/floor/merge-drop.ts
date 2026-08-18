@@ -36,14 +36,40 @@ function floorStatus(table: MergeDropTable): TableStatus {
   return table.displayStatus ?? table.status
 }
 
-/** Available, unassigned, and not already in an arrangement — safe to drag. */
-export function isDragMergeable(table: MergeDropTable): boolean {
+function isAvailableUnassigned(table: MergeDropTable): boolean {
   return (
     table.status === "available" &&
     floorStatus(table) === "available" &&
-    !arrangementId(table) &&
     !table.reservation
   )
+}
+
+/** Available, unassigned, and not already in an arrangement — safe to merge. */
+export function isDragMergeable(table: MergeDropTable): boolean {
+  return isAvailableUnassigned(table) && !arrangementId(table)
+}
+
+/** Available member of an arrangement — drag out onto the floor to split. */
+export function isDragSplittable(table: MergeDropTable): boolean {
+  return isAvailableUnassigned(table) && Boolean(arrangementId(table))
+}
+
+export function canDragFloorTable(table: MergeDropTable): boolean {
+  return isDragMergeable(table) || isDragSplittable(table)
+}
+
+export function resolveSplitDrop(
+  sourceId: string,
+  tables: MergeDropTable[],
+): { mergeId: string; error?: undefined } | { mergeId?: undefined; error: string } {
+  const source = tables.find((table) => table.id === sourceId)
+  if (!source) return { error: "Tables not found." }
+  const mergeId = arrangementId(source)
+  if (!mergeId) return { error: "That table is not in an arrangement." }
+  if (!isDragSplittable(source)) {
+    return { error: "Only available arrangements can be split." }
+  }
+  return { mergeId }
 }
 
 function idsForDrop(table: MergeDropTable): string[] {

@@ -18,6 +18,8 @@ arrangement is added to that group. `mergeTables` returns `{ error }` instead
 of throwing (a throw became a 500 on the floor POST). If `table_merges` is
 not in the database yet, the arrangement is stored on `status_events` as
 `entity_type = table` (`status_events_entity_type_check` rejects `table_merge`).
+Split (inspector button or drag a member onto the floor) writes a dissolved
+JSON event so the fallback reader drops the arrangement.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. Inventory is persisted in Postgres (`tables`), not
