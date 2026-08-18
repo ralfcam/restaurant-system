@@ -51,6 +51,13 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
    `table_label` and returns a `reserved` or `seated` table to `available`.
    Staff can still assign or clear a table manually from `/admin/reservations`.
 
+9. **FP-6 — Seat capacity drives table shape** — On `/admin/floor`, **odd**
+   seat capacity is depicted as a **round** table; **even** seat capacity is
+   depicted as a **square** table (`tableShapeForSeats` in `lib/table-shape.ts`).
+   Creating a table or changing seat capacity persists the matching shape.
+   Chips stay circular or square (equal width and height); they do not stretch
+   into rectangles.
+
 ## References
 
 - [../architecture/Floor-Plan.md](../architecture/Floor-Plan.md)

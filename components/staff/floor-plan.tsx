@@ -14,6 +14,7 @@ import {
   type ReservationRow,
 } from "@/app/actions/reservations"
 import { useFloorPlan } from "@/hooks/use-floor-plan"
+import { tableChipSizeClass, tableShapeForSeats } from "@/lib/table-shape"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -138,6 +139,7 @@ export function FloorPlan({
             {tables.map((t) => {
               const meta = TABLE_STATUS_META[t.displayStatus]
               const isSelected = t.id === (selected?.id ?? selectedId)
+              const silhouette = tableShapeForSeats(t.seats)
               return (
                 <button
                   key={t.id}
@@ -145,10 +147,8 @@ export function FloorPlan({
                   onClick={() => setSelectedId(t.id)}
                   className={cn(
                     "relative flex flex-col items-center justify-center border-2 text-center transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-105 active:scale-100",
-                    t.shape === "round" && "rounded-full",
-                    t.shape === "square" && "rounded-lg",
-                    t.shape === "rect" && "rounded-lg",
-                    t.seats <= 2 ? "size-20" : t.seats <= 4 ? "size-24" : "h-24 w-32",
+                    silhouette === "round" ? "rounded-full" : "rounded-lg",
+                    tableChipSizeClass(t.seats),
                     meta.color,
                     isSelected
                       ? "z-10 scale-105 ring-2 ring-primary ring-offset-2 ring-offset-card"

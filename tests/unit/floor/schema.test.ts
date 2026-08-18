@@ -39,5 +39,9 @@ describe("floor tables schema and live surfaces", () => {
     expect(floor).toMatch(/useFloorPlan/)
     expect(floor).toMatch(/overlayReservationsOnTables|displayStatus/)
     expect(floor).toMatch(/Live/)
+    expect(floor).toMatch(/tableShapeForSeats/)
+    expect(floor).toMatch(/tableChipSizeClass/)
+    expect(floor).not.toMatch(/t\.shape ===/)
   })
 })
+

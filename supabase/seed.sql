@@ -92,20 +92,21 @@ WHERE NOT EXISTS (SELECT 1 FROM operating_windows);
 
 -- Dining-room inventory (matches lib/data.ts labels / capacities). All start
 -- available so auto-assign can hold tables when a reservation becomes due.
+-- Even seat counts are square (FP-6); seed tables are all even-tops.
 INSERT INTO tables (label, seats, status, x, y, shape)
 SELECT v.label, v.seats, 'available', v.x, v.y, v.shape::TEXT
 FROM (
   VALUES
-    ('1',  2, 0, 0, 'round'),
-    ('2',  2, 1, 0, 'round'),
+    ('1',  2, 0, 0, 'square'),
+    ('2',  2, 1, 0, 'square'),
     ('3',  4, 2, 0, 'square'),
     ('4',  4, 3, 0, 'square'),
-    ('5',  6, 0, 1, 'rect'),
+    ('5',  6, 0, 1, 'square'),
     ('6',  4, 2, 1, 'square'),
-    ('7',  2, 3, 1, 'round'),
-    ('8',  8, 0, 2, 'rect'),
+    ('7',  2, 3, 1, 'square'),
+    ('8',  8, 0, 2, 'square'),
     ('9',  4, 2, 2, 'square'),
-    ('10', 2, 3, 2, 'round')
+    ('10', 2, 3, 2, 'square')
 ) AS v(label, seats, x, y, shape)
 WHERE NOT EXISTS (SELECT 1 FROM tables);
 
