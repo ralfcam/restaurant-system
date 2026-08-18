@@ -17,7 +17,7 @@
 | `/`, `/menu` | Guest | Marketing home and menu (default locale **fr**, unprefixed) |
 | `/en`, `/en/menu` | Guest | English public site (`localePrefix: as-needed`) |
 | `/auth/login`, `/auth/callback`, `/auth/error` | Staff | Supabase auth (flat routes; no locale segment) |
-| `/admin/*` | Staff | Menu, reservations, scheduling, floor (English-only; no locale segment) |
+| `/admin/*` | Staff | Menu, reservations, scheduling, floor, branding (English-only; no locale segment) |
 | `/pos` | Staff | Point of sale |
 | `/kds` | Staff | Kitchen display |
 
@@ -43,6 +43,7 @@ routing for public paths. `/admin/**`, `/auth/**`, and `/api/**` skip locale mid
 | Menu | `app/actions/menu.ts` |
 | Reservations | `app/actions/reservations.ts` |
 | Availability | `app/actions/availability.ts` |
+| Branding | `app/actions/branding.ts` |
 
 ## Supabase clients
 

@@ -8,7 +8,7 @@ MVP for **äkta** — seasonal Italian kitchen & wine bar (see `lib/data.ts`).
 ## Goals
 
 1. Guest-facing menu and online reservations.
-2. Staff admin: menu, reservations, scheduling, floor plan.
+2. Staff admin: menu, reservations, scheduling, floor plan, branding (logo).
 3. In-service tools: POS and KDS.
 
 ## Out of scope (MVP)

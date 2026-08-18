@@ -69,6 +69,11 @@ VALUES (
 )
 ON CONFLICT (provider_id, provider) DO NOTHING;
 
+-- CMS singleton: default (no custom logo) so guest chrome falls back to SITE_LOGO
+INSERT INTO restaurant_settings (id, logo_url)
+VALUES (1, NULL)
+ON CONFLICT (id) DO NOTHING;
+
 -- Default operating hours: Mon-Sat 09:00-22:00, Sunday closed
 INSERT INTO operating_windows (day_of_week, opens_at, closes_at, is_closed)
 VALUES

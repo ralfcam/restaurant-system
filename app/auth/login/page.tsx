@@ -1,9 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { UtensilsCrossed, Loader2, AlertCircle } from "lucide-react"
+import Image from "next/image"
+import { Loader2, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { RESTAURANT } from "@/lib/data"
+import { SITE_LOGO } from "@/lib/site-chrome"
+import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,6 +16,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const { logoUrl } = useRestaurantLogo()
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -34,8 +38,14 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Brand mark */}
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <UtensilsCrossed className="size-6" />
+          <span className="relative flex size-12 items-center justify-center overflow-hidden rounded-xl bg-primary text-primary-foreground">
+            <Image
+              src={logoUrl ?? SITE_LOGO.src}
+              alt={`${RESTAURANT.name} logo`}
+              fill
+              className="object-cover"
+              sizes="48px"
+            />
           </span>
           <div>
             <h1 className="font-heading text-2xl font-semibold">{RESTAURANT.name}</h1>
