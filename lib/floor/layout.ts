@@ -24,6 +24,77 @@ export function clampFloorCell(cell: FloorCell): FloorCell {
   }
 }
 
+/** Seed / mock dining-room cells (`supabase/seed.sql`, `lib/data.ts`). */
+export const SEED_FLOOR_LAYOUT: Record<string, FloorCell> = {
+  "1": { x: 0, y: 0 },
+  "2": { x: 1, y: 0 },
+  "3": { x: 2, y: 0 },
+  "4": { x: 3, y: 0 },
+  "5": { x: 0, y: 1 },
+  "6": { x: 2, y: 1 },
+  "7": { x: 3, y: 1 },
+  "8": { x: 0, y: 2 },
+  "9": { x: 2, y: 2 },
+  "10": { x: 3, y: 2 },
+}
+
+function cellKey(cell: FloorCell): string {
+  return `${cell.x},${cell.y}`
+}
+
+function isCellTaken(cell: FloorCell, occupied: FloorCell[]): boolean {
+  const key = cellKey(cell)
+  return occupied.some((row) => cellKey(row) === key)
+}
+
+/**
+ * Give each table its own cell. Stage/default rows often share 0,0 because
+ * `tables.x/y` default to 0 and older creates always wrote the origin.
+ * Unique cells are kept; collisions prefer the seed cell for that label.
+ */
+export function spreadOverlappingTables<T extends FloorCell & { id: string; label: string }>(
+  tables: T[],
+): T[] {
+  if (tables.length <= 1) return tables
+
+  const groups = new Map<string, T[]>()
+  for (const table of tables) {
+    const key = cellKey(clampFloorCell(table))
+    const group = groups.get(key)
+    if (group) group.push(table)
+    else groups.set(key, [table])
+  }
+  if ([...groups.values()].every((group) => group.length === 1)) return tables
+
+  const nextById = new Map<string, FloorCell>()
+  const occupied: FloorCell[] = []
+
+  for (const group of groups.values()) {
+    if (group.length !== 1) continue
+    const cell = clampFloorCell(group[0])
+    nextById.set(group[0].id, cell)
+    occupied.push(cell)
+  }
+
+  const colliding = [...groups.values()]
+    .filter((group) => group.length > 1)
+    .flat()
+    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+
+  for (const table of colliding) {
+    const seed = SEED_FLOOR_LAYOUT[table.label]
+    const cell =
+      seed && !isCellTaken(seed, occupied) ? seed : nextFreeCell(occupied)
+    nextById.set(table.id, cell)
+    occupied.push(cell)
+  }
+
+  return tables.map((table) => {
+    const cell = nextById.get(table.id)
+    return cell ? { ...table, x: cell.x, y: cell.y } : table
+  })
+}
+
 export function nextFreeCell(occupied: FloorCell[]): FloorCell {
   const taken = new Set(occupied.map((cell) => `${cell.x},${cell.y}`))
   for (let y = 0; y < FLOOR_MAX_ROWS; y += 1) {

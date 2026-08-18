@@ -111,6 +111,22 @@ describe("table create and seat updates persist parity shape", () => {
     expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ seats: 4, shape: "square" }))
   })
 
+  it("persists a spread when stacked tables share the origin cell", async () => {
+    mocks.selectExisting.mockResolvedValue({
+      data: [
+        { id: "t1", label: "1", seats: 2, status: "available", expected_minutes: 90, x: 0, y: 0, shape: "square" },
+        { id: "t2", label: "2", seats: 2, status: "available", expected_minutes: 90, x: 0, y: 0, shape: "square" },
+      ],
+    })
+    const { getTables } = await import("@/app/actions/operations")
+    const tables = await getTables()
+    expect(tables.map((table) => ({ label: table.label, x: table.x, y: table.y }))).toEqual([
+      { label: "1", x: 0, y: 0 },
+      { label: "2", x: 1, y: 0 },
+    ])
+    expect(mocks.update).toHaveBeenCalledWith(expect.objectContaining({ x: 1, y: 0 }))
+  })
+
   it("persists clamped floor coordinates", async () => {
     const { updateTableState } = await import("@/app/actions/operations")
     await updateTableState({ id: "t1", x: 3, y: 1 })

@@ -43,6 +43,7 @@ import {
   floorCanvasCells,
   floorCellStyle,
   mergeCellBounds,
+  spreadOverlappingTables,
   tableAtCell,
   type FloorCell,
 } from "@/lib/floor/layout"
@@ -94,7 +95,8 @@ export function FloorPlan({
   date: string
   fallbackData?: FloorSnapshot
 }) {
-  const { tables, reservations, mutate, isValidating } = useFloorPlan(date, fallbackData)
+  const { tables: loadedTables, reservations, mutate, isValidating } = useFloorPlan(date, fallbackData)
+  const tables = useMemo(() => spreadOverlappingTables(loadedTables), [loadedTables])
   const [selectedId, setSelectedId] = useState<string | null>(
     fallbackData?.tables[0]?.id ?? null,
   )
