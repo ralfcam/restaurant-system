@@ -64,16 +64,22 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     Creating a table starts at 90 minutes.
 
 11. **FP-8 — Temporary table merges** — Admin can merge two or more
-    **available** tables into a temporary arrangement. Combined **seat
-    capacity** is the sum of the members. Duration defaults to the **longest**
-    expected time among those tables and can be edited on the arrangement.
-    Unused **available** merges expire at that duration. Status is shared:
-    changing Available / Reserved / Seated / Cleaning / Out of service on any
-    member updates every member. **Available** and **Out of service** dissolve
-    the merge; **Reserved** and **Seated** refresh the expected-use clock;
-    **Cleaning** keeps the group. Auto-assign treats a merge as one table
-    (primary = lowest label, seats = sum). A reservation on the primary
-    overlays every member.
+    **available** tables into a temporary arrangement. On `/admin/floor`,
+    **dragging one available table onto another** is the favoured merge UX
+    (drop-to-merge). Dropping an available table onto an **available**
+    arrangement adds it to that group. Tables that are reserved, seated,
+    cleaning, out of service, already merged with a different group, or
+    holding a reservation overlay cannot be merged — the UI must not call
+    merge in those cases (that produced a generic “Could not merge tables”
+    error). Combined **seat capacity** is the sum of the members. Duration
+    defaults to the **longest** expected time among those tables and can be
+    edited on the arrangement. Unused **available** merges expire at that
+    duration. Status is shared: changing Available / Reserved / Seated /
+    Cleaning / Out of service on any member updates every member.
+    **Available** and **Out of service** dissolve the merge; **Reserved**
+    and **Seated** refresh the expected-use clock; **Cleaning** keeps the
+    group. Auto-assign treats a merge as one table (primary = lowest label,
+    seats = sum). A reservation on the primary overlays every member.
 
 ## References
 

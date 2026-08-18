@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useRef, useState, type DragEvent } from "react"
 import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -22,12 +22,19 @@ import {
 import { useFloorPlan } from "@/hooks/use-floor-plan"
 import { tableChipSizeClass, tableShapeForSeats } from "@/lib/table-shape"
 import {
+  canMergeTables,
   clampExpectedMinutes,
   EXPECTED_MINUTES_STEP,
   formatDurationMinutes,
   remainingMinutes,
 } from "@/lib/floor/table-use"
 import { groupTablesForDisplay } from "@/lib/floor/floor-units"
+import {
+  FLOOR_TABLE_DRAG_MIME,
+  isDragMergeable,
+  resolveMergeDrop,
+  type MergeDropTable,
+} from "@/lib/floor/merge-drop"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -39,6 +46,26 @@ const STATUS_ORDER: TableStatus[] = [
   "cleaning",
   "out_of_service",
 ]
+
+function toMergeDropTable(table: {
+  id: string
+  status: TableStatus
+  displayStatus?: TableStatus
+  mergeId?: string | null
+  merge?: { id: string; status: TableStatus; memberIds: string[] } | null
+  reservation?: unknown | null
+}): MergeDropTable {
+  return {
+    id: table.id,
+    status: table.status,
+    displayStatus: table.displayStatus,
+    mergeId: table.merge?.id ?? table.mergeId ?? null,
+    merge: table.merge
+      ? { id: table.merge.id, status: table.merge.status, memberIds: table.merge.memberIds }
+      : null,
+    reservation: table.reservation,
+  }
+}
 
 export function FloorPlan({
   date,
@@ -54,6 +81,9 @@ export function FloorPlan({
   const [seating, setSeating] = useState(false)
   const [mergePick, setMergePick] = useState<string[]>([])
   const [merging, setMerging] = useState(false)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
+  const skipClickAfterDrag = useRef(false)
 
   const selected = tables.find((t) => t.id === selectedId) ?? tables[0] ?? null
   const totalSeats = tables.reduce((sum, table) => sum + table.seats, 0)
@@ -68,13 +98,15 @@ export function FloorPlan({
     [reservations],
   )
 
-  const mergePartners = tables.filter(
-    (table) =>
-      table.id !== selected?.id &&
-      table.displayStatus === "available" &&
-      !table.merge &&
-      !table.reservation,
+  const dropTables = useMemo(
+    () => tables.map((table) => toMergeDropTable(table)),
+    [tables],
   )
+
+  const mergePartners = tables.filter(
+    (table) => table.id !== selected?.id && isDragMergeable(toMergeDropTable(table)),
+  )
+  const selectedMergeable = selected ? isDragMergeable(toMergeDropTable(selected)) : false
 
   async function setStatus(id: string, status: TableStatus) {
     try {
@@ -150,11 +182,10 @@ export function FloorPlan({
     )
   }
 
-  async function combineSelected() {
-    if (!selected) return
+  async function combineTables(tableIds: string[]) {
     setMerging(true)
     try {
-      const arrangement = await mergeTables({ tableIds: [selected.id, ...mergePick] })
+      const arrangement = await mergeTables({ tableIds })
       await mutate()
       setMergePick([])
       toast.success(`Merged tables ${arrangement.label}`, {
@@ -167,6 +198,53 @@ export function FloorPlan({
     } finally {
       setMerging(false)
     }
+  }
+
+  function inspectorMergeError(): string | null {
+    if (!selected || mergePick.length === 0) return "Select at least two tables to merge."
+    const picked = dropTables.filter(
+      (table) => table.id === selected.id || mergePick.includes(table.id),
+    )
+    if (picked.length !== 1 + mergePick.length) return "Tables not found."
+    if (picked.some((table) => !isDragMergeable(table))) {
+      return "Only available tables can be merged."
+    }
+    return canMergeTables(picked)
+  }
+
+  async function combineSelected() {
+    const reason = inspectorMergeError()
+    if (reason) {
+      toast.error("Could not merge tables", { description: reason })
+      return
+    }
+    if (!selected) return
+    await combineTables([selected.id, ...mergePick])
+  }
+
+  function readDraggedTableId(event: DragEvent) {
+    return (
+      event.dataTransfer.getData(FLOOR_TABLE_DRAG_MIME) ||
+      event.dataTransfer.getData("text/plain")
+    )
+  }
+
+  function dropKeyFor(table: (typeof tables)[number]) {
+    return table.merge ? `merge:${table.merge.id}` : table.id
+  }
+
+  async function mergeFromDrop(targetId: string, event: DragEvent) {
+    event.preventDefault()
+    event.stopPropagation()
+    const sourceId = draggingId ?? readDraggedTableId(event)
+    setDraggingId(null)
+    setDropTargetKey(null)
+    const result = resolveMergeDrop(sourceId, targetId, dropTables)
+    if (!result.tableIds) {
+      toast.error("Could not merge tables", { description: result.error })
+      return
+    }
+    await combineTables(result.tableIds)
   }
 
   async function splitSelected() {
@@ -210,29 +288,83 @@ export function FloorPlan({
             </Button>
           </div>
 
+          <p className="mb-3 text-xs text-muted-foreground">
+            Drag an available table onto another to merge them.
+          </p>
           <div className="flex flex-wrap gap-4 rounded-lg border border-dashed border-border bg-secondary/30 p-5">
             {groups.map((group) => {
               const merge = group.tables[0]?.merge
+              const groupDropKey = merge ? `merge:${merge.id}` : null
               const chips = group.tables.map((t) => {
                 const meta = TABLE_STATUS_META[t.displayStatus]
                 const isSelected = t.id === (selected?.id ?? selectedId)
                 const silhouette = tableShapeForSeats(t.seats)
+                const dragTable = toMergeDropTable(t)
+                const canDrag = isDragMergeable(dragTable) && !merging
+                const targetKey = dropKeyFor(t)
+                const isDropTarget = dropTargetKey === targetKey
+                const acceptsDrag =
+                  Boolean(draggingId) &&
+                  draggingId !== t.id &&
+                  !resolveMergeDrop(draggingId!, t.id, dropTables).error
                 return (
                   <button
                     key={t.id}
                     type="button"
+                    draggable={canDrag}
+                    title={
+                      canDrag
+                        ? "Drag onto another available table to merge"
+                        : undefined
+                    }
                     onClick={() => {
+                      if (skipClickAfterDrag.current) return
                       setSelectedId(t.id)
                       setMergePick([])
+                    }}
+                    onDragStart={(event) => {
+                      if (!canDrag) {
+                        event.preventDefault()
+                        return
+                      }
+                      skipClickAfterDrag.current = true
+                      event.dataTransfer.setData(FLOOR_TABLE_DRAG_MIME, t.id)
+                      event.dataTransfer.setData("text/plain", t.id)
+                      event.dataTransfer.effectAllowed = "link"
+                      setDraggingId(t.id)
+                    }}
+                    onDragEnd={() => {
+                      setDraggingId(null)
+                      setDropTargetKey(null)
+                      window.setTimeout(() => {
+                        skipClickAfterDrag.current = false
+                      }, 0)
+                    }}
+                    onDragOver={(event) => {
+                      if (!acceptsDrag) return
+                      event.preventDefault()
+                      event.dataTransfer.dropEffect = "link"
+                      setDropTargetKey(targetKey)
+                    }}
+                    onDragLeave={() => {
+                      setDropTargetKey((current) => (current === targetKey ? null : current))
+                    }}
+                    onDrop={(event) => {
+                      void mergeFromDrop(t.id, event)
                     }}
                     className={cn(
                       "relative flex flex-col items-center justify-center border-2 text-center transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-105 active:scale-100",
                       silhouette === "round" ? "rounded-full" : "rounded-lg",
                       tableChipSizeClass(t.seats),
                       meta.color,
+                      canDrag ? "cursor-grab active:cursor-grabbing" : null,
+                      draggingId === t.id ? "opacity-50" : null,
                       isSelected
                         ? "z-10 scale-105 ring-2 ring-primary ring-offset-2 ring-offset-card"
                         : "hover:brightness-95 hover:shadow-md",
+                      isDropTarget
+                        ? "z-10 scale-105 ring-2 ring-accent ring-offset-2 ring-offset-card"
+                        : null,
                     )}
                   >
                     {t.displayStatus === "seated" ? (
@@ -258,12 +390,33 @@ export function FloorPlan({
 
               if (!merge) return chips
 
+              const groupAcceptsDrag =
+                Boolean(draggingId) &&
+                Boolean(group.tables[0]?.id) &&
+                !group.tables.some((table) => table.id === draggingId) &&
+                !resolveMergeDrop(draggingId!, group.tables[0]!.id, dropTables).error
+
               return (
                 <div
                   key={merge.id}
                   role="group"
                   aria-label={`Merged tables ${merge.label}, ${merge.seats} seats`}
-                  className="flex flex-wrap items-end gap-2 rounded-2xl border-2 border-dashed border-primary/35 bg-primary/5 p-2"
+                  onDragOver={(event) => {
+                    if (!groupAcceptsDrag || !group.tables[0]) return
+                    event.preventDefault()
+                    event.dataTransfer.dropEffect = "link"
+                    setDropTargetKey(groupDropKey)
+                  }}
+                  onDrop={(event) => {
+                    const targetId = group.tables[0]?.id
+                    if (targetId) void mergeFromDrop(targetId, event)
+                  }}
+                  className={cn(
+                    "flex flex-wrap items-end gap-2 rounded-2xl border-2 border-dashed border-primary/35 bg-primary/5 p-2",
+                    dropTargetKey === groupDropKey
+                      ? "border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-card"
+                      : null,
+                  )}
                 >
                   {chips}
                   <div className="px-1 pb-1 text-[10px] leading-tight text-muted-foreground">
@@ -480,12 +633,19 @@ export function FloorPlan({
                     {selected.merge.label} · {selected.merge.seats} seats ·{" "}
                     {formatDurationMinutes(selected.merge.expectedMinutes)}
                   </p>
+                  <p className="text-xs text-muted-foreground">
+                    Drop another available table on this group to add it.
+                  </p>
                   <Button variant="outline" className="w-full" onClick={() => void splitSelected()}>
                     <Unlink className="size-4" /> Split tables
                   </Button>
                 </div>
-              ) : (
+              ) : selectedMergeable ? (
                 <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    Drag this table onto another available table to merge. The picker
+                    below is a fallback.
+                  </p>
                   {mergePartners.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
                       No other available tables to merge right now.
@@ -521,6 +681,11 @@ export function FloorPlan({
                     <Combine className="size-4" /> Merge tables
                   </Button>
                 </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Only available tables without a reservation can be merged. Drag one
+                  onto another on the floor.
+                </p>
               )}
             </div>
 

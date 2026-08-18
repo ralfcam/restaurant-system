@@ -57,9 +57,16 @@ vi.mock("@/lib/supabase/service", () => ({
         return {
           select: () => ({
             in: async () => ({ data: mocks.members, error: null }),
-            eq: () => ({
-              maybeSingle: async () => ({ data: mocks.members[0] ?? null, error: null }),
-            }),
+            eq: (column: string, value: string) => {
+              const data = mocks.members.filter(
+                (row) => String(row[column as keyof typeof row]) === value,
+              )
+              return {
+                then: (resolve: (value: unknown) => unknown) =>
+                  Promise.resolve({ data, error: null }).then(resolve),
+                maybeSingle: async () => ({ data: data[0] ?? null, error: null }),
+              }
+            },
           }),
           insert: async (rows: unknown) => mocks.insertMembers(rows),
         }
@@ -88,7 +95,10 @@ describe("mergeTables", () => {
       data: { id: "merge-1", ...row },
       error: null,
     }))
-    mocks.insertMembers.mockResolvedValue({ error: null })
+    mocks.insertMembers.mockImplementation(async (rows: Array<{ merge_id: string; table_id: string }>) => {
+      if (Array.isArray(rows)) mocks.members.push(...rows)
+      return { error: null }
+    })
     mocks.insertEvent.mockResolvedValue({ error: null })
   })
 
@@ -116,5 +126,31 @@ describe("mergeTables", () => {
     await expect(mergeTables({ tableIds: ["t3", "t4"] })).rejects.toThrow(
       "Only available tables can be merged.",
     )
+  })
+
+  it("adds an available table to an existing available arrangement", async () => {
+    mocks.tables.push({
+      id: "t5",
+      label: "5",
+      seats: 4,
+      status: "available",
+      expected_minutes: 90,
+      x: 2,
+      y: 0,
+    })
+    mocks.members = [
+      { merge_id: "merge-1", table_id: "t3" },
+      { merge_id: "merge-1", table_id: "t4" },
+    ]
+    const { mergeTables } = await import("@/app/actions/operations")
+    const merge = await mergeTables({ tableIds: ["t3", "t5"] })
+    expect(merge).toMatchObject({
+      id: "merge-1",
+      label: "3+4+5",
+      seats: 10,
+    })
+    expect(mocks.insertMembers).toHaveBeenCalledWith([
+      { merge_id: "merge-1", table_id: "t5" },
+    ])
   })
 })

@@ -11,7 +11,10 @@ Table statuses: `available` | `reserved` | `seated` | `cleaning` | `out_of_servi
 Each table has an admin-managed **expected turn time** (`tables.expected_minutes`,
 default 90). Temporary **merges** (`table_merges` / `table_merge_members`) add up
 member seat capacity and last that expected time by default. Status changes apply
-to every member; Available and Out of service dissolve the arrangement.
+to every member; Available and Out of service dissolve the arrangement. On
+`/admin/floor`, staff merge by **dropping an available table onto another**
+(`lib/floor/merge-drop.ts`); an available table dropped onto an available
+arrangement is added to that group.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. Inventory is persisted in Postgres (`tables`), not

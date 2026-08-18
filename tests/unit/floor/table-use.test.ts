@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { TableStatus } from "@/lib/data"
 import {
+  canAddTablesToMerge,
   canMergeTables,
   clampExpectedMinutes,
   DEFAULT_EXPECTED_MINUTES,
@@ -66,6 +67,12 @@ describe("merge status coherence", () => {
         { status: "available" },
       ]),
     ).toBeNull()
+    expect(
+      canAddTablesToMerge({ status: "available" }, [{ status: "available" }]),
+    ).toBeNull()
+    expect(
+      canAddTablesToMerge({ status: "seated" }, [{ status: "available" }]),
+    ).toBe("Only available arrangements can take another table.")
   })
 
   it("dissolves on Available or Out of service and restarts the clock when held", () => {
