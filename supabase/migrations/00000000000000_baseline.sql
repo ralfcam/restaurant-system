@@ -11,9 +11,11 @@ CREATE TABLE IF NOT EXISTS operating_windows (
   opens_at TIME NOT NULL,
   closes_at TIME NOT NULL,
   is_closed BOOLEAN NOT NULL DEFAULT FALSE,
+  -- Opening-hour segments: multiple open rows per day (morning / lunch / dinner).
+  label TEXT,
+  sort_order INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(day_of_week)
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 ALTER TABLE operating_windows ENABLE ROW LEVEL SECURITY;
@@ -160,7 +162,10 @@ CREATE POLICY "Allow service_role full access to menu_items"
 CREATE OR REPLACE FUNCTION validate_reservation_availability()
 RETURNS TRIGGER AS $$
 DECLARE
-  v_window RECORD;
+  v_dow INT;
+  v_has_rows BOOLEAN;
+  v_has_open BOOLEAN;
+  v_in_segment BOOLEAN;
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -171,20 +176,36 @@ BEGIN
       USING ERRCODE = 'P0001';
   END IF;
 
-  SELECT *
-    INTO v_window
-    FROM operating_windows
-   WHERE day_of_week = EXTRACT(DOW FROM NEW.date::DATE)::INT
-   LIMIT 1;
+  v_dow := EXTRACT(DOW FROM NEW.date::DATE)::INT;
 
-  IF FOUND THEN
-    IF v_window.is_closed THEN
+  SELECT EXISTS (
+    SELECT 1 FROM operating_windows WHERE day_of_week = v_dow
+  ) INTO v_has_rows;
+
+  -- No rows for this weekday: fail open (legacy / unseeded).
+  IF v_has_rows THEN
+    SELECT EXISTS (
+      SELECT 1
+        FROM operating_windows
+       WHERE day_of_week = v_dow
+         AND is_closed = false
+    ) INTO v_has_open;
+
+    IF NOT v_has_open THEN
       RAISE EXCEPTION 'Booking denied: Restaurant is closed on this day.'
         USING ERRCODE = 'P0001';
     END IF;
 
-    IF NEW.time::TIME < v_window.opens_at::TIME OR
-       NEW.time::TIME > v_window.closes_at::TIME THEN
+    SELECT EXISTS (
+      SELECT 1
+        FROM operating_windows
+       WHERE day_of_week = v_dow
+         AND is_closed = false
+         AND NEW.time::TIME >= opens_at::TIME
+         AND NEW.time::TIME <= closes_at::TIME
+    ) INTO v_in_segment;
+
+    IF NOT v_in_segment THEN
       RAISE EXCEPTION 'Booking denied: Outside operating hours.'
         USING ERRCODE = 'P0001';
     END IF;
@@ -193,6 +214,31 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Atomic replace of the full weekly opening-hour schedule (staff / service role).
+CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  DELETE FROM operating_windows;
+
+  INSERT INTO operating_windows (
+    day_of_week, opens_at, closes_at, is_closed, label, sort_order
+  )
+  SELECT
+    (w->>'day_of_week')::INT,
+    (w->>'opens_at')::TIME,
+    (w->>'closes_at')::TIME,
+    COALESCE((w->>'is_closed')::BOOLEAN, false),
+    NULLIF(BTRIM(w->>'label'), ''),
+    COALESCE((w->>'sort_order')::INT, 0)
+  FROM jsonb_array_elements(p_windows) AS w;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
 
 DROP TRIGGER IF EXISTS enforce_booking_rules ON reservations;
 

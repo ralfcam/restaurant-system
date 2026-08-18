@@ -27,7 +27,7 @@ export default async function SchedulingPage() {
   return (
     <StaffShell
       title="Scheduling"
-      description="Configure operating hours and block specific dates"
+      description="Configure opening-hour segments and block specific dates"
       user={{ email: authUser?.email }}
     >
       <SchedulingManager

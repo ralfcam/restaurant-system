@@ -4,13 +4,25 @@ import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
+import {
+  type OperatingDay,
+  type OperatingWindow,
+  type OperatingWindowRow,
+  DEFAULT_OPERATING_DAYS,
+  daysToWindowsMap,
+  flattenDaysToRows,
+  groupRowsByDay,
+  validateOperatingDays,
+} from "@/lib/reservations/operating-hours"
 
-export type OperatingWindow = {
-  day_of_week: number
-  opens_at: string
-  closes_at: string
-  is_closed: boolean
-}
+export type {
+  OperatingDay,
+  OperatingSegment,
+  OperatingWindow,
+  OperatingWindowRow,
+} from "@/lib/reservations/operating-hours"
+
+const WINDOW_COLUMNS = "day_of_week, opens_at, closes_at, is_closed, label, sort_order"
 
 /**
  * Detects PostgREST schema-cache / missing-table errors. These occur when the
@@ -27,38 +39,29 @@ function isSchemaCacheError(error: { code?: string; message?: string } | null): 
   )
 }
 
-/**
- * Fetch the operating window for a specific day of the week.
- * Falls back to default if not configured.
- */
-export async function getOperatingWindowForDate(dateISO: string): Promise<OperatingWindow | null> {
-  const dayOfWeek = getDayOfWeekInRestaurantTZ(dateISO)
+function defaultDay(dayOfWeek: number): OperatingDay {
+  return DEFAULT_OPERATING_DAYS[dayOfWeek] ?? DEFAULT_OPERATING_DAYS[0]
+}
 
-  // Default operating hours if not configured in database.
-  // Global standard baseline: 09:00–22:00, matching the admin scheduling seed.
-  const DEFAULT_HOURS: Record<number, OperatingWindow> = {
-    0: { day_of_week: 0, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Sunday
-    1: { day_of_week: 1, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Monday
-    2: { day_of_week: 2, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Tuesday
-    3: { day_of_week: 3, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Wednesday
-    4: { day_of_week: 4, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Thursday
-    5: { day_of_week: 5, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Friday
-    6: { day_of_week: 6, opens_at: "09:00", closes_at: "22:00", is_closed: false }, // Saturday
-  }
+/**
+ * Fetch the operating day (closed flag + opening-hour segments) for a date.
+ * Falls back to the seeded default if not configured.
+ */
+export async function getOperatingWindowForDate(dateISO: string): Promise<OperatingDay> {
+  const dayOfWeek = getDayOfWeekInRestaurantTZ(dateISO)
 
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("operating_windows")
-    .select("day_of_week, opens_at, closes_at, is_closed")
+    .select(WINDOW_COLUMNS)
     .eq("day_of_week", dayOfWeek)
-    .single()
+    .order("sort_order", { ascending: true })
 
-  // If table doesn't exist or no data, use defaults
-  if (error || !data) {
-    return DEFAULT_HOURS[dayOfWeek] || DEFAULT_HOURS[0]
+  if (error || !data || data.length === 0) {
+    return defaultDay(dayOfWeek)
   }
 
-  return data as OperatingWindow
+  return groupRowsByDay(data as OperatingWindowRow[])[dayOfWeek] ?? defaultDay(dayOfWeek)
 }
 
 /**
@@ -103,35 +106,22 @@ export async function getBlockedDatesInMonth(year: number, month: number): Promi
 }
 
 /**
- * Fetch all operating windows as a map keyed by day_of_week.
+ * Fetch all operating days as a map keyed by day_of_week.
  * Used by the calendar to evaluate disabled dates without per-date server calls.
- * Falls back to safe defaults (all days open) if the table doesn't exist yet.
+ * Falls back to safe defaults if the table doesn't exist yet.
  */
 export async function getAllOperatingWindowsMap(): Promise<Record<number, OperatingWindow>> {
-  const DEFAULT_HOURS: Record<number, OperatingWindow> = {
-    0: { day_of_week: 0, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-    1: { day_of_week: 1, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-    2: { day_of_week: 2, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-    3: { day_of_week: 3, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-    4: { day_of_week: 4, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-    5: { day_of_week: 5, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-    6: { day_of_week: 6, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-  }
-
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("operating_windows")
-    .select("day_of_week, opens_at, closes_at, is_closed")
+    .select(WINDOW_COLUMNS)
+    .order("sort_order", { ascending: true })
 
   if (error || !data || data.length === 0) {
-    return DEFAULT_HOURS
+    return daysToWindowsMap(DEFAULT_OPERATING_DAYS)
   }
 
-  const map: Record<number, OperatingWindow> = { ...DEFAULT_HOURS }
-  for (const row of data) {
-    map[row.day_of_week] = row as OperatingWindow
-  }
-  return map
+  return daysToWindowsMap(groupRowsByDay(data as OperatingWindowRow[]))
 }
 
 /**
@@ -151,50 +141,44 @@ export async function getBlockedDatesInRange(startISO: string, endISO: string): 
 }
 
 /**
- * Fetch all operating windows (for admin configuration page).
+ * Fetch all operating days (for admin configuration page).
  */
-export async function getAllOperatingWindows(): Promise<OperatingWindow[]> {
+export async function getAllOperatingWindows(): Promise<OperatingDay[]> {
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("operating_windows")
-    .select("day_of_week, opens_at, closes_at, is_closed")
+    .select(WINDOW_COLUMNS)
     .order("day_of_week", { ascending: true })
+    .order("sort_order", { ascending: true })
 
   if (error) {
     console.error("[availability] getAllOperatingWindows error:", error.message)
     return []
   }
 
-  return data as OperatingWindow[]
+  return groupRowsByDay((data ?? []) as OperatingWindowRow[])
 }
 
 /**
- * Upsert all 7 operating windows in a single batch (admin Save Changes action).
- * This is the single canonical write path for operating hours — there is
- * intentionally no per-day update variant, so hours are always saved as one
- * atomic, staff-authorized batch.
- * Uses UPSERT so the database values persist and override the client-side seed.
+ * Replace the full weekly opening-hour schedule in one staff-authorized batch.
+ * Accepts seven `OperatingDay` values (closed flag + segments).
  * Returns a strict { success: true } | { success: false; error: string } contract.
  */
 export async function upsertOperatingWindows(
-  windows: OperatingWindow[],
+  days: OperatingDay[],
 ): Promise<{ success: true } | { success: false; error: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { success: false, error: "Unauthorized." }
 
-  const supabase = createServiceClient()
+  const validationError = validateOperatingDays(days)
+  if (validationError) return { success: false, error: validationError }
 
-  const { error } = await supabase
-    .from("operating_windows")
-    .upsert(
-      windows.map((w) => ({
-        day_of_week: w.day_of_week,
-        opens_at: w.opens_at,
-        closes_at: w.closes_at,
-        is_closed: w.is_closed,
-      })),
-      { onConflict: "day_of_week" },
-    )
+  const supabase = createServiceClient()
+  const rows = flattenDaysToRows(days)
+
+  const { error } = await supabase.rpc("replace_operating_windows", {
+    p_windows: rows,
+  })
 
   if (error) {
     console.error("[availability] upsertOperatingWindows error:", error.message)
@@ -268,5 +252,3 @@ export async function toggleBlockedDate(
     return { blocked: true }
   }
 }
-
-

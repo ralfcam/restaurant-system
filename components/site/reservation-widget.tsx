@@ -6,8 +6,12 @@ import { toast } from "sonner"
 import { TABLES, RESTAURANT } from "@/lib/data"
 
 import { createReservation, getAvailableSlots, type SlotAvailability } from "@/app/actions/reservations"
-import { getAllOperatingWindowsMap, getBlockedDatesInRange, type OperatingWindow } from "@/app/actions/availability"
-import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
+import { getAllOperatingWindowsMap, getBlockedDatesInRange } from "@/app/actions/availability"
+import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ, getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
+import {
+  type OperatingWindow,
+  lastBookableTime,
+} from "@/lib/reservations/operating-hours"
 import { RESERVATION_ONLINE_MAX_PARTY } from "@/lib/reservations/validation"
 import { ReservationCalendar } from "@/components/site/reservation-calendar"
 import { Button } from "@/components/ui/button"
@@ -33,24 +37,44 @@ const ONLINE_MAX_PARTY = RESERVATION_ONLINE_MAX_PARTY
 const PARTY_SIZES = [1, 2, 3, 4, 5, 6, 7, 8].filter((n) => n <= ONLINE_MAX_PARTY)
 const MAX_CAPACITY = Math.max(...TABLES.map((t) => t.seats))
 
-/** Get the minimum bookable date (today or tomorrow, in restaurant timezone). */
-function getMinBookableDate(): string {
+function addDaysISO(iso: string, days: number): string {
+  const next = new Date(iso + "T00:00:00")
+  next.setDate(next.getDate() + days)
+  const yy = next.getFullYear()
+  const mm = String(next.getMonth() + 1).padStart(2, "0")
+  const dd = String(next.getDate()).padStart(2, "0")
+  return `${yy}-${mm}-${dd}`
+}
+
+/** Get the minimum bookable date (today or later, in restaurant timezone). */
+function getMinBookableDate(windows?: Record<number, OperatingWindow> | null): string {
   const today = getTodayInRestaurantTZ()
   const nowTime = getNowTimeInRestaurantTZ()
-  const lastSlotHour = 21
 
-  // If it's past 21:00 in restaurant timezone, start bookings tomorrow.
-  // Build YYYY-MM-DD from local date components to avoid UTC timezone shift.
-  if (nowTime >= `${lastSlotHour}:00`) {
-    const tomorrow = new Date(today + "T00:00:00")
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    const yy = tomorrow.getFullYear()
-    const mm = String(tomorrow.getMonth() + 1).padStart(2, "0")
-    const dd = String(tomorrow.getDate()).padStart(2, "0")
-    return `${yy}-${mm}-${dd}`
+  let candidate = today
+  for (let i = 0; i < 8; i++) {
+    const dow = getDayOfWeekInRestaurantTZ(candidate)
+    const day = windows?.[dow]
+    const isToday = candidate === today
+    const lastClose = lastBookableTime(day)
+
+    if (day?.is_closed) {
+      candidate = addDaysISO(candidate, 1)
+      continue
+    }
+
+    // Without loaded windows, keep the historic 21:00 cutoff so first paint
+    // still advances past a spent dinner service.
+    const cutoff = lastClose ?? (windows ? null : "21:00")
+    if (isToday && cutoff && nowTime >= cutoff) {
+      candidate = addDaysISO(candidate, 1)
+      continue
+    }
+
+    return candidate
   }
 
-  return today
+  return candidate
 }
 
 function formatDate(iso: string) {
@@ -176,6 +200,10 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
     ]).then(([windows, blocked]) => {
       setOperatingWindows(windows)
       setBlockedDates(blocked)
+      setDate((current) => {
+        const min = getMinBookableDate(windows)
+        return !current || current < min ? min : current
+      })
     })
   }, [])
 

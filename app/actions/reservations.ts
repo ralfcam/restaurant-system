@@ -8,6 +8,11 @@ import { revalidatePath } from "next/cache"
 import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
 import { validateReservationPayload } from "@/lib/reservations/validation"
+import {
+  bookableTimesForDay,
+  formatSegmentsSummary,
+  isTimeWithinSegments,
+} from "@/lib/reservations/operating-hours"
 
 export type ReservationRow = {
   id: string
@@ -58,13 +63,13 @@ export async function createReservation(payload: {
     }
   }
 
-  const opensAt = operatingWindow.opens_at ?? "09:00"
-  const closesAt = operatingWindow.closes_at ?? "22:00"
-
-  if (payload.time < opensAt || payload.time > closesAt) {
+  if (!isTimeWithinSegments(payload.time, operatingWindow.segments)) {
+    const summary = formatSegmentsSummary(operatingWindow.segments)
     return {
       confCode: "",
-      error: `Reservations are only available between ${opensAt} and ${closesAt}.`,
+      error: summary
+        ? `Reservations are only available during ${summary}.`
+        : "This time is outside operating hours.",
     }
   }
 
@@ -347,32 +352,18 @@ export async function getAvailableSlots(
   date: string,
   partySize: number,
 ): Promise<SlotAvailability[]> {
-  // Full-day slot grid: 09:00 → 21:30 in 30-minute increments (last seating
-  // before the 22:00 standard close). The operating-window comparison below
-  // narrows this to each day's actual configured hours.
-  const TIME_SLOTS: string[] = []
-  for (let h = 9; h <= 21; h++) {
-    const hh = String(h).padStart(2, "0")
-    TIME_SLOTS.push(`${hh}:00`, `${hh}:30`)
-  }
   // Check if the requested date is blocked
   const dateIsBlocked = await isDateBlocked(date)
-  if (dateIsBlocked) {
-    // Entire date is unavailable
-    return TIME_SLOTS.map((time) => ({ time, available: false }))
-  }
-
-  // Check operating window for the day of week
   const operatingWindow = await getOperatingWindowForDate(date)
-  if (!operatingWindow || operatingWindow.is_closed) {
-    // Restaurant is closed on this day
+  const TIME_SLOTS = bookableTimesForDay(
+    dateIsBlocked || !operatingWindow || operatingWindow.is_closed
+      ? { day_of_week: 0, is_closed: true, segments: [] }
+      : operatingWindow,
+  )
+
+  if (dateIsBlocked || !operatingWindow || operatingWindow.is_closed || TIME_SLOTS.length === 0) {
     return TIME_SLOTS.map((time) => ({ time, available: false }))
   }
-
-  // Guard against DB rows with null time columns — fall back to the global
-  // 09:00–22:00 baseline so the comparison never evaluates against undefined.
-  const opensAt = operatingWindow.opens_at ?? "09:00"
-  const closesAt = operatingWindow.closes_at ?? "22:00"
 
   // Reservations carry PII (guest name, phone, notes) and are not publicly
   // readable — RLS only grants anon INSERT, not SELECT. This preview only
@@ -413,8 +404,8 @@ export async function getAvailableSlots(
   const nowTime = getNowTimeInRestaurantTZ()
 
   return TIME_SLOTS.map((time) => {
-    // Block times outside operating hours
-    if (time < opensAt || time > closesAt) {
+    // Slots are generated from segments; keep a defensive in-segment check.
+    if (!isTimeWithinSegments(time, operatingWindow.segments)) {
       return { time, available: false }
     }
 

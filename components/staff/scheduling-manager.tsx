@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useMemo, useState, useCallback } from "react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -8,17 +8,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import {
-  type OperatingWindow,
+  type OperatingDay,
   upsertOperatingWindows,
   toggleBlockedDate,
 } from "@/app/actions/availability"
 import { ReservationCalendar } from "@/components/site/reservation-calendar"
-import { Save } from "lucide-react"
+import {
+  DAY_NAMES,
+  daysToWindowsMap,
+  groupRowsByDay,
+  nextSuggestedSegment,
+  validateOperatingDays,
+  type OperatingSegment,
+  type OperatingWindowRow,
+} from "@/lib/reservations/operating-hours"
+import { Copy, Plus, Save, Trash2 } from "lucide-react"
 
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-
-// Detects PostgREST schema-cache / missing-table errors surfaced by the server
-// action (it prefixes these with the PGRST116 code).
 function isSchemaCacheError(error: string): boolean {
   const e = error.toLowerCase()
   return (
@@ -29,60 +34,151 @@ function isSchemaCacheError(error: string): boolean {
   )
 }
 
-// Mandatory baseline seed — Mon-Sat open 09:00-22:00, Sunday closed.
-const SEED_WINDOWS: OperatingWindow[] = [
-  { day_of_week: 0, opens_at: "09:00", closes_at: "22:00", is_closed: true },
-  { day_of_week: 1, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-  { day_of_week: 2, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-  { day_of_week: 3, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-  { day_of_week: 4, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-  { day_of_week: 5, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-  { day_of_week: 6, opens_at: "09:00", closes_at: "22:00", is_closed: false },
-]
+type SegmentDraft = OperatingSegment & { key: string }
+type DayDraft = { day_of_week: number; is_closed: boolean; segments: SegmentDraft[] }
 
-function hydrateWindows(initial: OperatingWindow[]): OperatingWindow[] {
-  // If the DB returned nothing, use the mandatory seed.
-  if (!initial || initial.length === 0) return SEED_WINDOWS
-
-  // Fill any missing days from the seed so we always have all 7.
-  const byDay: Record<number, OperatingWindow> = {}
-  for (const w of initial) byDay[w.day_of_week] = w
-  return SEED_WINDOWS.map((seed) => byDay[seed.day_of_week] ?? seed)
+let segmentKeySeq = 0
+function nextSegmentKey(): string {
+  segmentKeySeq += 1
+  return `seg-${segmentKeySeq}`
 }
+
+function toDraftDays(initial: OperatingDay[]): DayDraft[] {
+  const grouped =
+    initial.length === 7 && initial.every((day) => Array.isArray(day.segments))
+      ? initial
+      : groupRowsByDay(initial as unknown as OperatingWindowRow[])
+
+  return grouped.map((day) => ({
+    day_of_week: day.day_of_week,
+    is_closed: day.is_closed,
+    segments: day.segments.map((segment) => ({ ...segment, key: nextSegmentKey() })),
+  }))
+}
+
+function toOperatingDays(drafts: DayDraft[]): OperatingDay[] {
+  return drafts.map((day) => ({
+    day_of_week: day.day_of_week,
+    is_closed: day.is_closed,
+    segments: day.segments.map((segment, index) => ({
+      opens_at: segment.opens_at,
+      closes_at: segment.closes_at,
+      label: segment.label,
+      sort_order: index,
+    })),
+  }))
+}
+
+const TIME_INPUT_CLS = cn(
+  "h-7 w-[6.5rem] rounded-sm border border-border/60 bg-transparent px-2 text-xs",
+  "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
+)
+
+const LABEL_INPUT_CLS = cn(
+  "h-7 w-24 rounded-sm border border-border/60 bg-transparent px-2 text-xs",
+  "placeholder:text-muted-foreground/70",
+  "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
+)
 
 export function SchedulingManager({
   initialOperatingWindows,
   initialBlockedDates = [],
 }: {
-  initialOperatingWindows: OperatingWindow[]
+  initialOperatingWindows: OperatingDay[]
   initialBlockedDates?: string[]
 }) {
-  const [windows, setWindows] = useState<OperatingWindow[]>(() =>
-    hydrateWindows(initialOperatingWindows),
-  )
+  const [days, setDays] = useState<DayDraft[]>(() => toDraftDays(initialOperatingWindows))
   const [blockedDates, setBlockedDates] = useState<string[]>(initialBlockedDates)
   const [savingHours, setSavingHours] = useState(false)
   const [togglingDate, setTogglingDate] = useState<string | null>(null)
 
-  // Build the windows map for the calendar's disabled-date logic
-  const windowsMap: Record<number, OperatingWindow> = {}
-  for (const w of windows) windowsMap[w.day_of_week] = w
+  const operatingDays = useMemo(() => toOperatingDays(days), [days])
+  const windowsMap = useMemo(() => daysToWindowsMap(operatingDays), [operatingDays])
+  const hoursError = useMemo(() => validateOperatingDays(operatingDays), [operatingDays])
 
-  const handleWindowChange = useCallback(
-    (dayOfWeek: number, patch: Partial<Omit<OperatingWindow, "day_of_week">>) => {
-      setWindows((prev) =>
-        prev.map((w) => (w.day_of_week === dayOfWeek ? { ...w, ...patch } : w)),
-      )
-    },
-    [],
-  )
+  const patchDay = useCallback((dayOfWeek: number, patch: (day: DayDraft) => DayDraft) => {
+    setDays((prev) => prev.map((day) => (day.day_of_week === dayOfWeek ? patch(day) : day)))
+  }, [])
+
+  const handleToggleOpen = (dayOfWeek: number, open: boolean) => {
+    patchDay(dayOfWeek, (day) => {
+      if (!open) return { ...day, is_closed: true }
+      return {
+        ...day,
+        is_closed: false,
+        segments:
+          day.segments.length > 0
+            ? day.segments
+            : [{ ...nextSuggestedSegment([]), key: nextSegmentKey() }],
+      }
+    })
+  }
+
+  const handleSegmentChange = (
+    dayOfWeek: number,
+    key: string,
+    patch: Partial<Pick<OperatingSegment, "label" | "opens_at" | "closes_at">>,
+  ) => {
+    patchDay(dayOfWeek, (day) => ({
+      ...day,
+      segments: day.segments.map((segment) =>
+        segment.key === key ? { ...segment, ...patch } : segment,
+      ),
+    }))
+  }
+
+  const handleAddSegment = (dayOfWeek: number) => {
+    patchDay(dayOfWeek, (day) => ({
+      ...day,
+      is_closed: false,
+      segments: [
+        ...day.segments,
+        { ...nextSuggestedSegment(day.segments), key: nextSegmentKey() },
+      ],
+    }))
+  }
+
+  const handleRemoveSegment = (dayOfWeek: number, key: string) => {
+    patchDay(dayOfWeek, (day) => {
+      const segments = day.segments.filter((segment) => segment.key !== key)
+      return {
+        ...day,
+        is_closed: segments.length === 0 ? true : day.is_closed,
+        segments,
+      }
+    })
+  }
+
+  const handleCopyToWeekdays = (sourceDay: number) => {
+    const source = days.find((day) => day.day_of_week === sourceDay)
+    if (!source) return
+    setDays((prev) =>
+      prev.map((day) => {
+        if (day.day_of_week === 0 || day.day_of_week === sourceDay) return day
+        return {
+          ...day,
+          is_closed: source.is_closed,
+          segments: source.segments.map((segment) => ({
+            ...segment,
+            key: nextSegmentKey(),
+          })),
+        }
+      }),
+    )
+    toast.success(`Copied ${DAY_NAMES[sourceDay]} hours to Mon–Sat.`)
+  }
 
   const handleSaveHours = async () => {
+    if (hoursError) {
+      toast.error("Cannot save opening hours", { description: hoursError })
+      return
+    }
+
     setSavingHours(true)
     try {
-      const result = await upsertOperatingWindows(windows)
+      const result = await upsertOperatingWindows(operatingDays)
       if (result.success) {
-        toast.success("Operating hours updated successfully.")
+        toast.success("Opening hours updated successfully.")
       } else {
         toast.error("Failed to save", { description: result.error })
       }
@@ -95,17 +191,11 @@ export function SchedulingManager({
     }
   }
 
-  // Called by the calendar in adminMode — toggles the date in DB and local state.
-  // Guard: skip if the day-of-week is marked is_closed in the live windows state
-  // (the calendar already prevents the click visually, but this is a safety net).
   const handleCalendarDateClick = async (dateISO: string) => {
     const dow = new Date(dateISO + "T00:00:00").getDay()
     if (windowsMap[dow]?.is_closed) return
 
-    // Snapshot current state before optimistic update for rollback
     const previousDates = blockedDates
-
-    // Optimistically update UI immediately
     const isCurrentlyBlocked = blockedDates.includes(dateISO)
     setBlockedDates((prev) =>
       isCurrentlyBlocked ? prev.filter((d) => d !== dateISO) : [...prev, dateISO],
@@ -117,10 +207,7 @@ export function SchedulingManager({
       setTogglingDate(null)
 
       if (result.error) {
-        // Rollback optimistic update on error
         setBlockedDates(previousDates)
-        // Separate configuration errors (missing table / schema cache) from
-        // runtime network failures with an action-oriented description.
         if (isSchemaCacheError(result.error)) {
           toast.error("Database not configured", {
             description:
@@ -134,14 +221,12 @@ export function SchedulingManager({
         return
       }
 
-      // Reconcile with server truth in case our optimistic guess was wrong
       setBlockedDates((prev) =>
         result.blocked
           ? prev.includes(dateISO) ? prev : [...prev, dateISO]
           : prev.filter((d) => d !== dateISO),
       )
     } catch (err) {
-      // Rollback on unexpected network / server error
       setTogglingDate(null)
       setBlockedDates(previousDates)
       toast.error("Failed to update blocked date", {
@@ -152,78 +237,132 @@ export function SchedulingManager({
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
-      {/* ── Left column: Operating Hours ── */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-semibold tracking-wide">Standard Operating Hours</CardTitle>
+          <CardTitle className="text-sm font-semibold tracking-wide">Opening hours</CardTitle>
           <CardDescription className="text-xs">
-            Set opening and closing times for each day of the week. Changes are batched — click
-            &ldquo;Save Changes&rdquo; to persist.
+            Set one or more service segments per day — for example morning 09:00–11:00,
+            lunch 12:00–14:00, dinner 18:00–22:00. Guests can only book inside these
+            windows. Changes are batched — click &ldquo;Save Changes&rdquo; to persist.
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-4">
           <div className="divide-y divide-border/40">
-            {windows.map((w) => (
-              <div
-                key={w.day_of_week}
-                className="flex items-center justify-between gap-4 py-3 last:pb-0 first:pt-0"
-              >
-                {/* Day name + open/close toggle */}
-                <div className="flex w-28 shrink-0 items-center gap-3">
-                  <Switch
-                    checked={!w.is_closed}
-                    onCheckedChange={(checked) =>
-                      handleWindowChange(w.day_of_week, { is_closed: !checked })
-                    }
-                    size="sm"
-                  />
-                  <Label
-                    className={cn(
-                      "text-xs font-medium",
-                      w.is_closed ? "text-muted-foreground" : "text-foreground",
-                    )}
-                  >
-                    {DAYS[w.day_of_week]}
-                  </Label>
+            {days.map((day) => (
+              <div key={day.day_of_week} className="py-3 first:pt-0 last:pb-0" data-day={day.day_of_week}>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex w-28 shrink-0 items-center gap-3">
+                    <Switch
+                      checked={!day.is_closed}
+                      onCheckedChange={(checked) => handleToggleOpen(day.day_of_week, checked)}
+                      size="sm"
+                      aria-label={`${DAY_NAMES[day.day_of_week]} open`}
+                    />
+                    <Label
+                      className={cn(
+                        "text-xs font-medium",
+                        day.is_closed ? "text-muted-foreground" : "text-foreground",
+                      )}
+                    >
+                      {DAY_NAMES[day.day_of_week]}
+                    </Label>
+                  </div>
+                  {day.is_closed ? (
+                    <span className="text-xs text-muted-foreground">Closed</span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleCopyToWeekdays(day.day_of_week)}
+                      className="inline-flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      <Copy className="size-3" />
+                      Copy to weekdays
+                    </button>
+                  )}
                 </div>
 
-                {/* Time inputs — hidden when closed */}
-                {w.is_closed ? (
-                  <span className="text-xs text-muted-foreground">Closed</span>
-                ) : (
-                  <div className="flex items-center gap-1.5">
-                    <input
-                      type="time"
-                      value={w.opens_at}
-                      onChange={(e) =>
-                        handleWindowChange(w.day_of_week, { opens_at: e.target.value })
-                      }
-                      className={cn(
-                        "h-7 w-24 rounded-sm border border-border/60 bg-transparent px-2 text-xs",
-                        "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
-                      )}
-                    />
-                    <span className="text-[10px] text-muted-foreground">–</span>
-                    <input
-                      type="time"
-                      value={w.closes_at}
-                      onChange={(e) =>
-                        handleWindowChange(w.day_of_week, { closes_at: e.target.value })
-                      }
-                      className={cn(
-                        "h-7 w-24 rounded-sm border border-border/60 bg-transparent px-2 text-xs",
-                        "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
-                      )}
-                    />
+                {!day.is_closed && (
+                  <div className="mt-2 space-y-1.5 pl-10">
+                    {day.segments.map((segment, index) => (
+                      <div
+                        key={segment.key}
+                        data-testid="scheduling-segment-row"
+                        className="flex flex-wrap items-center gap-1.5"
+                      >
+                        <span className="w-3 shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                          {index + 1}.
+                        </span>
+                        <input
+                          type="text"
+                          value={segment.label ?? ""}
+                          placeholder={["Morning", "Lunch", "Dinner"][index] ?? "Segment"}
+                          onChange={(e) =>
+                            handleSegmentChange(day.day_of_week, segment.key, {
+                              label: e.target.value || null,
+                            })
+                          }
+                          aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} label`}
+                          className={LABEL_INPUT_CLS}
+                        />
+                        <input
+                          type="time"
+                          value={segment.opens_at}
+                          onChange={(e) =>
+                            handleSegmentChange(day.day_of_week, segment.key, {
+                              opens_at: e.target.value,
+                            })
+                          }
+                          aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} opens`}
+                          className={TIME_INPUT_CLS}
+                        />
+                        <span className="text-[10px] text-muted-foreground">–</span>
+                        <input
+                          type="time"
+                          value={segment.closes_at}
+                          onChange={(e) =>
+                            handleSegmentChange(day.day_of_week, segment.key, {
+                              closes_at: e.target.value,
+                            })
+                          }
+                          aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} closes`}
+                          className={TIME_INPUT_CLS}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSegment(day.day_of_week, segment.key)}
+                          className="ml-0.5 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          aria-label={`Remove ${DAY_NAMES[day.day_of_week]} segment ${index + 1}`}
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleAddSegment(day.day_of_week)}
+                      className="h-7 px-2 text-xs text-muted-foreground"
+                      data-testid="add-segment"
+                    >
+                      <Plus className="size-3.5" />
+                      Add segment
+                    </Button>
                   </div>
                 )}
               </div>
             ))}
           </div>
 
+          {hoursError && (
+            <p className="mt-3 text-xs text-destructive" role="alert">
+              {hoursError}
+            </p>
+          )}
+
           <Button
             onClick={handleSaveHours}
-            disabled={savingHours}
+            disabled={savingHours || Boolean(hoursError)}
             size="sm"
             className="mt-5 w-full gap-1.5"
           >
@@ -233,7 +372,6 @@ export function SchedulingManager({
         </CardContent>
       </Card>
 
-      {/* ── Right column: Blocked Dates calendar ── */}
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-semibold tracking-wide">Blocked Dates</CardTitle>
@@ -254,7 +392,6 @@ export function SchedulingManager({
             adminMode={true}
           />
 
-          {/* Blocked dates list */}
           {blockedDates.length > 0 && (
             <div className="mt-4 space-y-1 border-t border-border/40 pt-4">
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
@@ -275,7 +412,7 @@ export function SchedulingManager({
                   <button
                     type="button"
                     onClick={() => handleCalendarDateClick(d)}
-                    className="text-[10px] text-destructive/60 hover:text-destructive transition-colors"
+                    className="text-[10px] text-destructive/60 transition-colors hover:text-destructive"
                   >
                     Remove
                   </button>
