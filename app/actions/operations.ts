@@ -18,7 +18,7 @@ import {
   restartsMergeClock,
   shouldExpireMerge,
 } from "@/lib/floor/table-use"
-import { clampFloorCell, nextFreeCell } from "@/lib/floor/layout"
+import { clampFloorCell, nextFreeCell, spreadOverlappingTables } from "@/lib/floor/layout"
 import {
   MERGE_EVENT_TYPE,
   activeMergesFromEvents,
@@ -219,7 +219,19 @@ export async function getTables(): Promise<PersistedTable[]> {
       (await loadMergeEvents(db)).flatMap((merge) => merge.tableIds.map((id) => [id, merge.id] as const)),
     )
   }
-  return (data ?? []).map((row) => mapTable(row, mergeByTable.get(String(row.id)) ?? null))
+  const mapped = (data ?? []).map((row) => mapTable(row, mergeByTable.get(String(row.id)) ?? null))
+  const spread = spreadOverlappingTables(mapped)
+  const now = new Date().toISOString()
+  for (const table of spread) {
+    const prev = mapped.find((row) => row.id === table.id)
+    if (!prev || (prev.x === table.x && prev.y === table.y)) continue
+    const { error: layoutError } = await db
+      .from("tables")
+      .update({ x: table.x, y: table.y, updated_at: now })
+      .eq("id", table.id)
+    if (layoutError) console.error("[operations] spread layout:", layoutError.message)
+  }
+  return spread
 }
 
 export async function getActiveMerges(): Promise<PersistedMerge[]> {
