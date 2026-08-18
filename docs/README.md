@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -37,7 +37,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Menu availability / 86 | `specs/menu-availability.md` | `architecture/Order-Flow.md` |
 | Staff scheduling / tables | `specs/scheduling.md` | `architecture/Floor-Plan.md` |
 | Guest header / brand logo | `specs/site-chrome.md` | `specs/branding-cms.md` (custom override) |
-| Admin-managed logo / branding CMS | `specs/branding-cms.md` | `specs/site-chrome.md` (default mark) |
+| Admin-managed logo / branding CMS | `specs/branding-cms.md` | `specs/site-chrome.md` (empty-by-default mark) |
 | Test how-to | `testing/*-Guide.md` | `Design-And-Patterns.md` for promoted recipes |
 
 ## Plan → doc traceability
@@ -46,6 +46,8 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | --- | --- | --- |
 | Shared Site Header + 48px Logo | 2026-06-27 | `specs/site-chrome.md`, `specs/README.md`, `testing/Design-And-Patterns.md` |
 | REAZED-276 single homepage (SC-5) | 2026-06-27 | `specs/site-chrome.md` (SC-5), `testing/Design-And-Patterns.md`; removes flat `app/page.tsx` |
+| Logo upload reliability (BC-8, BC-9) | 2026-08-18 | `specs/branding-cms.md`, `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `testing/Test-Data-And-Seeds.md`, `testing/Design-And-Patterns.md`, `runbooks/deploy.md` |
+| Restaurant Link template + empty default logo | 2026-08-18 | `specs/site-chrome.md`, `specs/branding-cms.md`, `PRD/restaurant-system-PRD.md`, `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md` |
 
 ## Seed path
 
@@ -57,7 +59,8 @@ enabled = true
 sql_paths = ["./seed.sql"]
 ```
 
-Reference data: `supabase/seed.sql` (`operating_windows`, `menu_items`). Schema:
+Reference data: `supabase/seed.sql` (`restaurant_settings`, `operating_windows`,
+`menu_items`). Schema:
 `supabase/migrations/00000000000000_baseline.sql`. Details in
 [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md) and
 [runbooks/deploy.md](./runbooks/deploy.md).

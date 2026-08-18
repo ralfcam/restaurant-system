@@ -12,8 +12,8 @@ export const RESTAURANT_LOGO_SWR_KEY = "restaurant-logo"
 
 /**
  * Fetches the restaurant's custom logo URL (set via the admin dashboard).
- * Returns `null` while loading or when no custom logo has been uploaded —
- * callers should fall back to their own default brand mark in that case.
+ * Returns `null` while loading or when no logo has been uploaded —
+ * callers should render the restaurant name only in that case.
  */
 export function useRestaurantLogo() {
   const { data, mutate, isLoading } = useSWR(RESTAURANT_LOGO_SWR_KEY, getRestaurantLogoUrl)

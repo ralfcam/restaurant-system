@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
 ## Stack
 
@@ -9,6 +9,17 @@
 - **Data:** Supabase (Postgres, Auth, RLS) via `@supabase/ssr` and `@supabase/supabase-js`
 - **Deploy:** Vercel ([GitHub](https://github.com/ralfcam/restaurant-system))
 - **Tracking:** Linear — [restaurant-system](https://linear.app/realized/project/restaurant-system-a19062c2799e) (`REAZED-###`)
+
+## Restaurant identity
+
+Bootstrapping template (**Restaurant Link**): name, tagline, and contact
+fixtures live in `lib/data.ts`. Sample menu catalog: `lib/menu-catalog.json`
+(`lib/menu-catalog.ts`). There is **no bundled logo** in `public/` — guest
+header, login, and staff chrome show the restaurant name only until staff
+upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
+`SITE_LOGO` dimensions/alt only (no `src`). Spec:
+[../specs/site-chrome.md](../specs/site-chrome.md),
+[../specs/branding-cms.md](../specs/branding-cms.md).
 
 ## Route map
 
@@ -44,6 +55,12 @@ routing for public paths. `/admin/**`, `/auth/**`, and `/api/**` skip locale mid
 | Reservations | `app/actions/reservations.ts` |
 | Availability | `app/actions/availability.ts` |
 | Branding | `app/actions/branding.ts` |
+
+Custom logo uploads use base64 on a Server Action (not multipart). `next.config.mjs` sets
+`experimental.serverActions.bodySizeLimit` to `4mb` (`LOGO_UPLOAD_BODY_SIZE_LIMIT` in
+`lib/branding.ts`) so a file at the 2MB validation cap still fits after encoding.
+If storage reports the public `branding` bucket missing, the action creates it and
+retries. Spec: [../specs/branding-cms.md](../specs/branding-cms.md) (BC-8, BC-9).
 
 ## Supabase clients
 

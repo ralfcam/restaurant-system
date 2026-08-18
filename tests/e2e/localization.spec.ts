@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test"
 
 const FRENCH_HEADLINE =
-  "Une cuisine suisse moderne mariée à la pureté et la rigueur de la philosophie nordique."
+  "Votre restaurant en ligne — réservations, carte et salle au même endroit."
 const ENGLISH_HEADLINE =
-  "Modern Swiss cuisine married to the purity and rigor of Nordic philosophy."
+  "Your restaurant, online — reservations, menu, and the floor in one place."
 
 test.describe("site localization", () => {
   test("admin stays unlocalized", async ({ page }) => {

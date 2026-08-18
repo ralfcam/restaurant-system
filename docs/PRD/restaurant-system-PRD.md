@@ -1,9 +1,10 @@
 # restaurant-system PRD
 
 **Status:** Draft  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-18
 
-MVP for **äkta** — seasonal Italian kitchen & wine bar (see `lib/data.ts`).
+MVP for **Restaurant Link** — a bootstrapping restaurant-operations template
+(see `lib/data.ts`). Replace the name, copy, and menu catalog for a new venue.
 
 ## Goals
 

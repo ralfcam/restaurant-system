@@ -8,7 +8,11 @@ import {
   BRANDING_REVALIDATE_PATHS,
   LOGO_STORAGE_PATHS,
   type LogoUploadInput,
+  brandingBucketOptions,
+  isMissingBucketError,
+  logoBytesFromBase64,
   logoStoragePath,
+  resolveLogoContentType,
   validateLogoUpload,
 } from "@/lib/branding"
 
@@ -35,11 +39,23 @@ function revalidateBrandingSurfaces() {
   }
 }
 
-async function removeStoredLogos(
-  db: ReturnType<typeof createServiceClient>,
-): Promise<{ error?: string }> {
+type ServiceDb = ReturnType<typeof createServiceClient>
+
+async function createBrandingBucketIfMissing(db: ServiceDb): Promise<{ error?: string }> {
+  const { error: createError } = await db.storage.createBucket(
+    BRANDING_BUCKET,
+    brandingBucketOptions(),
+  )
+  if (createError && !/already exists/i.test(createError.message)) {
+    console.error("[branding] createBucket:", createError.message)
+    return { error: "Could not upload the logo. Please try again." }
+  }
+  return {}
+}
+
+async function removeStoredLogos(db: ServiceDb): Promise<{ error?: string }> {
   const { error } = await db.storage.from(BRANDING_BUCKET).remove(LOGO_STORAGE_PATHS)
-  if (error) {
+  if (error && !isMissingBucketError(error)) {
     console.error("[branding] storage remove:", error.message)
     return { error: "Could not remove the stored logo. Please try again." }
   }
@@ -62,14 +78,26 @@ export async function uploadRestaurantLogo(
     return { logoUrl: "", error: validationError }
   }
 
-  const bytes = Buffer.from(input.base64, "base64")
-  const path = logoStoragePath(input.contentType)
+  const contentType = resolveLogoContentType(input.contentType, input.fileName)
+  if (!contentType) {
+    return { logoUrl: "", error: "Please upload a PNG, JPG, SVG, or WEBP image." }
+  }
+
+  const bytes = logoBytesFromBase64(input.base64)
+  const path = logoStoragePath(contentType)
   const db = createServiceClient()
 
-  const { error: uploadError } = await db.storage.from(BRANDING_BUCKET).upload(path, bytes, {
-    contentType: input.contentType,
-    upsert: true,
-  })
+  const uploadOptions = { contentType, upsert: true }
+  let { error: uploadError } = await db.storage
+    .from(BRANDING_BUCKET)
+    .upload(path, bytes, uploadOptions)
+  if (uploadError && isMissingBucketError(uploadError)) {
+    const created = await createBrandingBucketIfMissing(db)
+    if (created.error) return { logoUrl: "", error: created.error }
+    ;({ error: uploadError } = await db.storage
+      .from(BRANDING_BUCKET)
+      .upload(path, bytes, uploadOptions))
+  }
   if (uploadError) {
     console.error("[branding] upload error:", uploadError.message)
     return { logoUrl: "", error: "Could not upload the logo. Please try again." }

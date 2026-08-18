@@ -11,7 +11,7 @@ Resolved or filed items (append-only).
 - [x] typescript.ignoreBuildErrors masks type errors · `next.config.mjs:3` · low · (found: REAZED-278)
 - [x] Homepage Chef's picks uses static English MENU_ITEMS · `app/page.tsx:27` · localized featured-dish names/descriptions not sourced from DB · low · (found: REAZED-279)
 - [x] `/pos` and `/kds` locale exclusion unspecified · `docs/specs/site-localization.md` vs staffPaths · spec excludes only `/admin/**` and `/api/**`; unclear if locale middleware should skip staff POS/KDS routes too · med · (found: REAZED-280)
-- [x] Auth login uses UtensilsCrossed placeholder instead of brand logo · `app/auth/login/page.tsx` · Inconsistent brand mark vs guest header · low · (found: REAZED-281)
+- [x] Auth login uses UtensilsCrossed placeholder instead of brand logo · `app/auth/login/page.tsx` · Inconsistent brand mark vs guest header · low · (found: REAZED-281) → resolved 2026-08-18: login and guest header both use `BrandMark` (null) + restaurant name until staff upload
 - [x] ESLint missing from toolchain · `package.json:9` · `pnpm lint` invoked `eslint .` but eslint was not in devDependencies · high · (found: G-L1/green — resolved in-run)
 - [x] Pre-existing typecheck failure · `components/site/reservation-widget.tsx:393` · `asChild` prop rejected by `@base-ui/react` types · med · (found: G-T1/green — resolved in-run)
 - [x] Nav links use plain `next/link` instead of locale-aware Link · `components/site/site-header.tsx:57-67,107-114` · EN users on `/en/**` clicking Menu may navigate to unprefixed `/menu` · med · (found: REAZED-282)

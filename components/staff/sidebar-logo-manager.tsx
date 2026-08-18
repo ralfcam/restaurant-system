@@ -1,10 +1,9 @@
 "use client"
 
-import Image from "next/image"
 import { ImagePlus } from "lucide-react"
 import { RESTAURANT } from "@/lib/data"
-import { SITE_LOGO } from "@/lib/site-chrome"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
+import { BrandMark } from "@/components/site/brand-mark"
 import { RestaurantLogoEditor } from "@/components/staff/restaurant-logo-editor"
 import {
   Dialog,
@@ -17,8 +16,8 @@ import {
 import * as React from "react"
 
 /**
- * Clickable brand mark in the sidebar header — opens a dialog to upload,
- * replace, or restore the restaurant's logo.
+ * Clickable brand slot in the sidebar header — opens a dialog to upload
+ * or remove the restaurant's logo.
  */
 export function SidebarLogoManager() {
   const { logoUrl } = useRestaurantLogo()
@@ -35,13 +34,7 @@ export function SidebarLogoManager() {
         }
       >
         <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          <Image
-            src={logoUrl ?? SITE_LOGO.src}
-            alt={`${RESTAURANT.name} logo`}
-            fill
-            className="object-cover"
-            sizes="36px"
-          />
+          <BrandMark src={logoUrl} size={36} className="rounded-md" />
         </span>
         <div className="min-w-0 flex-1 leading-tight">
           <p className="font-heading text-lg font-semibold">{RESTAURANT.name}</p>

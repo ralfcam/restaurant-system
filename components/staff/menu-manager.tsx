@@ -4,7 +4,7 @@ import { useMemo, useState } from "react"
 import { Plus, Pencil, Trash2, Search, Star, UtensilsCrossed, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { MENUS, type MenuId } from "@/lib/data"
-import { parsePriceValue } from "@/lib/akta-menu"
+import { parsePriceValue } from "@/lib/menu-catalog"
 import {
   type MenuItemRow,
   upsertMenuItem,
