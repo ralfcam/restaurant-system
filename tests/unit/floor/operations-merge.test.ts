@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   insertEvent: vi.fn(),
   tables: [] as Array<Record<string, unknown>>,
   members: [] as Array<{ merge_id: string; table_id: string }>,
+  events: [] as Array<Record<string, unknown>>,
+  membersSelectError: null as { code: string; message: string } | null,
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -56,7 +58,10 @@ vi.mock("@/lib/supabase/service", () => ({
       if (name === "table_merge_members") {
         return {
           select: () => ({
-            in: async () => ({ data: mocks.members, error: null }),
+            in: async () => ({
+              data: mocks.membersSelectError ? null : mocks.members,
+              error: mocks.membersSelectError,
+            }),
             eq: (column: string, value: string) => {
               const data = mocks.members.filter(
                 (row) => String(row[column as keyof typeof row]) === value,
@@ -72,7 +77,21 @@ vi.mock("@/lib/supabase/service", () => ({
         }
       }
       return {
-        insert: async (row: unknown) => mocks.insertEvent(row),
+        insert: async (row: Record<string, unknown>) => {
+          mocks.events.push(row)
+          return mocks.insertEvent(row)
+        },
+        select: () => ({
+          eq: () => ({
+            like: () => ({
+              order: async () => ({
+                data: mocks.events.filter((row) => String(row.reason ?? "").startsWith("{")),
+                error: null,
+              }),
+            }),
+            order: async () => ({ data: mocks.events, error: null }),
+          }),
+        }),
       }
     },
   }),
@@ -91,6 +110,8 @@ describe("mergeTables", () => {
       { id: "t4", label: "4", seats: 4, status: "available", expected_minutes: 120, x: 1, y: 0 },
     ]
     mocks.members = []
+    mocks.events = []
+    mocks.membersSelectError = null
     mocks.insertMerge.mockImplementation((row: Record<string, unknown>) => ({
       data: { id: "merge-1", ...row },
       error: null,
@@ -120,11 +141,58 @@ describe("mergeTables", () => {
     ])
   })
 
-  it("rejects reserved tables", async () => {
+  it("rejects reserved tables without throwing (avoids a 500 on the floor action)", async () => {
     mocks.tables[1]!.status = "reserved"
     const { mergeTables } = await import("@/app/actions/operations")
-    await expect(mergeTables({ tableIds: ["t3", "t4"] })).rejects.toThrow(
-      "Only available tables can be merged.",
+    await expect(mergeTables({ tableIds: ["t3", "t4"] })).resolves.toEqual({
+      error: "Only available tables can be merged.",
+    })
+  })
+
+  it("persists via status_events when table_merge_members is missing (live UAT path)", async () => {
+    mocks.membersSelectError = {
+      code: "PGRST205",
+      message: "Could not find the table 'public.table_merge_members' in the schema cache",
+    }
+    const { mergeTables } = await import("@/app/actions/operations")
+    const merge = await mergeTables({ tableIds: ["t3", "t4"] })
+    expect(merge).toMatchObject({
+      label: "3+4",
+      seats: 6,
+      expectedMinutes: 120,
+      tableIds: ["t3", "t4"],
+    })
+    expect(mocks.insertEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity_type: "table",
+        to_status: "available",
+        reason: expect.stringContaining('"label":"3+4"'),
+      }),
+    )
+  })
+
+  it("persists via status_events when table_merges is missing from the schema cache", async () => {
+    mocks.insertMerge.mockResolvedValue({
+      data: null,
+      error: {
+        code: "PGRST205",
+        message: "Could not find the table 'public.table_merges' in the schema cache",
+      },
+    })
+    const { mergeTables } = await import("@/app/actions/operations")
+    const merge = await mergeTables({ tableIds: ["t3", "t4"] })
+    expect(merge).toMatchObject({
+      label: "3+4",
+      seats: 6,
+      expectedMinutes: 120,
+      tableIds: ["t3", "t4"],
+    })
+    expect(mocks.insertEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity_type: "table",
+        to_status: "available",
+        reason: expect.stringContaining('"v":1'),
+      }),
     )
   })
 

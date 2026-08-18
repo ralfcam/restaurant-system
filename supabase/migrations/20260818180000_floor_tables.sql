@@ -51,6 +51,15 @@ CREATE TABLE IF NOT EXISTS status_events (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+DO $$
+BEGIN
+  ALTER TABLE status_events
+    ADD CONSTRAINT status_events_entity_type_check
+    CHECK (entity_type IN ('table', 'reservation', 'order'));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
 ALTER TABLE status_events ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow authenticated full access to status_events" ON status_events;

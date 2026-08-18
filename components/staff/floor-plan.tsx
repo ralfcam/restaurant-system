@@ -186,6 +186,10 @@ export function FloorPlan({
     setMerging(true)
     try {
       const arrangement = await mergeTables({ tableIds })
+      if ("error" in arrangement) {
+        toast.error("Could not merge tables", { description: arrangement.error })
+        return
+      }
       await mutate()
       setMergePick([])
       toast.success(`Merged tables ${arrangement.label}`, {
