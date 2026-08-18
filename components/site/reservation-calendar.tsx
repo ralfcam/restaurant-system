@@ -4,18 +4,15 @@ import { useState, useMemo } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getTodayInRestaurantTZ, getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
-import type { OperatingWindow } from "@/app/actions/availability"
+import {
+  type OperatingWindow,
+  DEFAULT_OPERATING_DAYS,
+  daysToWindowsMap,
+} from "@/lib/reservations/operating-hours"
 
-// Safe fallback: Mon–Sat open, Sunday closed — matches the most common restaurant schedule
-const FALLBACK_OPERATING_WINDOWS: Record<number, OperatingWindow> = {
-  0: { day_of_week: 0, opens_at: "17:00", closes_at: "22:00", is_closed: true },  // Sunday — closed
-  1: { day_of_week: 1, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-  2: { day_of_week: 2, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-  3: { day_of_week: 3, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-  4: { day_of_week: 4, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-  5: { day_of_week: 5, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-  6: { day_of_week: 6, opens_at: "17:00", closes_at: "22:00", is_closed: false },
-}
+// Safe fallback: Mon–Sat open, Sunday closed — matches the seeded schedule
+const FALLBACK_OPERATING_WINDOWS: Record<number, OperatingWindow> =
+  daysToWindowsMap(DEFAULT_OPERATING_DAYS)
 
 interface ReservationCalendarProps {
   value: string

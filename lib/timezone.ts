@@ -85,12 +85,18 @@ export function isTimeInPastRestaurantTZ(dateISO: string, timeString: string): b
  * Validate that a booking time falls within the restaurant's operating hours
  * and is not on a blocked date.
  *
+ * Accepts either a segmented operating day or a legacy single window.
  * Returns { valid: boolean, reason?: string }
  */
 export function isTimeWithinOperatingHours(
   dateISO: string,
   timeString: string,
-  operatingWindow?: { opens_at: string; closes_at: string; is_closed: boolean },
+  operatingWindow?: {
+    opens_at?: string
+    closes_at?: string
+    is_closed: boolean
+    segments?: { opens_at: string; closes_at: string; label?: string | null }[]
+  },
   isBlockedDate?: boolean,
 ): { valid: boolean; reason?: string } {
   if (isBlockedDate) {
@@ -103,6 +109,27 @@ export function isTimeWithinOperatingHours(
 
   if (operatingWindow.is_closed) {
     return { valid: false, reason: "Restaurant is closed on this day" }
+  }
+
+  const segments = operatingWindow.segments ?? []
+  if (segments.length > 0) {
+    const inSegment = segments.some(
+      (segment) => timeString >= segment.opens_at && timeString <= segment.closes_at,
+    )
+    if (!inSegment) {
+      const summary = segments
+        .map((segment) => `${segment.opens_at}–${segment.closes_at}`)
+        .join(", ")
+      return {
+        valid: false,
+        reason: `Reservations are only available during ${summary}`,
+      }
+    }
+    return { valid: true }
+  }
+
+  if (!operatingWindow.opens_at || !operatingWindow.closes_at) {
+    return { valid: false, reason: "Unable to verify operating hours" }
   }
 
   if (timeString < operatingWindow.opens_at || timeString > operatingWindow.closes_at) {

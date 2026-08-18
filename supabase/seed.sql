@@ -74,17 +74,21 @@ INSERT INTO restaurant_settings (id, logo_url)
 VALUES (1, NULL)
 ON CONFLICT (id) DO NOTHING;
 
--- Default operating hours: Mon-Sat 09:00-22:00, Sunday closed
-INSERT INTO operating_windows (day_of_week, opens_at, closes_at, is_closed)
-VALUES
-  (0, '00:00'::TIME, '00:00'::TIME, true),
-  (1, '09:00'::TIME, '22:00'::TIME, false),
-  (2, '09:00'::TIME, '22:00'::TIME, false),
-  (3, '09:00'::TIME, '22:00'::TIME, false),
-  (4, '09:00'::TIME, '22:00'::TIME, false),
-  (5, '09:00'::TIME, '22:00'::TIME, false),
-  (6, '09:00'::TIME, '22:00'::TIME, false)
-ON CONFLICT (day_of_week) DO NOTHING;
+-- Default operating hours: Mon-Sat 09:00-22:00 (one segment), Sunday closed.
+-- Re-run safe: skip when any schedule already exists (no unique day_of_week).
+INSERT INTO operating_windows (day_of_week, opens_at, closes_at, is_closed, label, sort_order)
+SELECT v.day_of_week, v.opens_at, v.closes_at, v.is_closed, v.label, v.sort_order
+FROM (
+  VALUES
+    (0, '00:00'::TIME, '00:00'::TIME, true,  NULL, 0),
+    (1, '09:00'::TIME, '22:00'::TIME, false, NULL, 0),
+    (2, '09:00'::TIME, '22:00'::TIME, false, NULL, 0),
+    (3, '09:00'::TIME, '22:00'::TIME, false, NULL, 0),
+    (4, '09:00'::TIME, '22:00'::TIME, false, NULL, 0),
+    (5, '09:00'::TIME, '22:00'::TIME, false, NULL, 0),
+    (6, '09:00'::TIME, '22:00'::TIME, false, NULL, 0)
+) AS v(day_of_week, opens_at, closes_at, is_closed, label, sort_order)
+WHERE NOT EXISTS (SELECT 1 FROM operating_windows);
 
 INSERT INTO menu_items (id, slug, name, name_en, description, description_en, price, price_value, menu_id, section, section_en, popular, available, sort_order)
 VALUES
