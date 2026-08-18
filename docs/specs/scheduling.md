@@ -66,7 +66,7 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 11. **FP-8 — Temporary table merges** — Admin can merge two or more
     **available** tables into a temporary arrangement. On `/admin/floor`,
     **dragging one available table onto another** is the favoured merge UX
-    (drop-to-merge).     Dropping an available table onto an **available**
+    (drop-to-merge). Dropping an available table onto an **available**
     arrangement adds it to that group. **Dragging a merged table out onto
     the floor** (or the inspector **Split tables** action) dissolves the
     arrangement. Split must **not throw a 500**; it returns `{ error }` and
@@ -91,9 +91,19 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     group. Auto-assign treats a merge as one table (primary = lowest label,
     seats = sum). A reservation on the primary overlays every member.
 
+12. **FP-9 — Room layout and move-lock** — `/admin/floor` places each table
+    on a persisted grid (`tables.x`, `tables.y`) so the canvas matches the
+    dining room. Each chip has a **move-lock** (default locked) so a table
+    cannot be dragged by accident. Unlocking a table lets staff drag it to
+    a new cell; the new coordinates persist via `updateTableState`. Dropping an
+    unlocked table on another available table still merges (FP-8). Dropping a
+    merged table on an empty cell still splits. Locked tables stay put and
+    are only selectable. Creating a table occupies the next free cell.
+
 ## References
 
 - [../architecture/Floor-Plan.md](../architecture/Floor-Plan.md)
+- `lib/floor/layout.ts`
 - `lib/reservations/auto-assign.ts`
 - `hooks/use-floor-plan.ts`
 - `components/staff/floor-plan.tsx`

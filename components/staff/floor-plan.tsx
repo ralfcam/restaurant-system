@@ -1,7 +1,7 @@
 "use client"
 
-import { useMemo, useRef, useState, type DragEvent } from "react"
-import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink } from "lucide-react"
+import { useMemo, useRef, useState, type PointerEvent } from "react"
+import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink, Lock, LockOpen } from "lucide-react"
 import { toast } from "sonner"
 import {
   TABLE_STATUS_META,
@@ -30,14 +30,22 @@ import {
 } from "@/lib/floor/table-use"
 import { groupTablesForDisplay } from "@/lib/floor/floor-units"
 import {
-  FLOOR_TABLE_DRAG_MIME,
-  canDragFloorTable,
   isDragMergeable,
   isDragSplittable,
   resolveMergeDrop,
   resolveSplitDrop,
   type MergeDropTable,
 } from "@/lib/floor/merge-drop"
+import {
+  FLOOR_CELL_PX,
+  FLOOR_DRAG_THRESHOLD_PX,
+  clientToFloorCell,
+  floorCanvasCells,
+  floorCellStyle,
+  mergeCellBounds,
+  tableAtCell,
+  type FloorCell,
+} from "@/lib/floor/layout"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -70,6 +78,15 @@ function toMergeDropTable(table: {
   }
 }
 
+type FloorDrag = {
+  id: string
+  pointerId: number
+  startClientX: number
+  startClientY: number
+  origin: FloorCell
+  moved: boolean
+}
+
 export function FloorPlan({
   date,
   fallbackData,
@@ -84,14 +101,29 @@ export function FloorPlan({
   const [seating, setSeating] = useState(false)
   const [mergePick, setMergePick] = useState<string[]>([])
   const [merging, setMerging] = useState(false)
+  const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
+  const [draftPositions, setDraftPositions] = useState<Record<string, FloorCell>>({})
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
+  const canvasRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<FloorDrag | null>(null)
   const skipClickAfterDrag = useRef(false)
 
   const selected = tables.find((t) => t.id === selectedId) ?? tables[0] ?? null
-  const totalSeats = tables.reduce((sum, table) => sum + table.seats, 0)
+  const totalSeats = tables.reduce((sum, table) => table.seats + sum, 0)
   const mergeCount = new Set(tables.flatMap((table) => (table.merge ? [table.merge.id] : []))).size
-  const groups = useMemo(() => groupTablesForDisplay(tables), [tables])
+
+  const displayedTables = useMemo(
+    () =>
+      tables.map((table) => {
+        const draft = draftPositions[table.id]
+        return draft ? { ...table, x: draft.x, y: draft.y } : table
+      }),
+    [tables, draftPositions],
+  )
+
+  const groups = useMemo(() => groupTablesForDisplay(displayedTables), [displayedTables])
+  const canvas = useMemo(() => floorCanvasCells(displayedTables), [displayedTables])
   const upcoming = useMemo(
     () =>
       reservations
@@ -110,6 +142,42 @@ export function FloorPlan({
     (table) => table.id !== selected?.id && isDragMergeable(toMergeDropTable(table)),
   )
   const selectedMergeable = selected ? isDragMergeable(toMergeDropTable(selected)) : false
+  const selectedUnlocked = selected ? unlockedIds.has(selected.id) : false
+
+  function dropKeyFor(table: (typeof tables)[number]) {
+    return table.merge ? `merge:${table.merge.id}` : table.id
+  }
+
+  function cellOf(table: { id: string; x: number; y: number }): FloorCell {
+    return draftPositions[table.id] ?? { x: table.x, y: table.y }
+  }
+
+  function clearDraft(id: string) {
+    setDraftPositions((current) => {
+      if (!(id in current)) return current
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
+  }
+
+  function toggleUnlock(id: string) {
+    setUnlockedIds((current) => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function lockTable(id: string) {
+    setUnlockedIds((current) => {
+      if (!current.has(id)) return current
+      const next = new Set(current)
+      next.delete(id)
+      return next
+    })
+  }
 
   async function setStatus(id: string, status: TableStatus) {
     try {
@@ -161,6 +229,7 @@ export function FloorPlan({
       await deleteTable(id)
       await mutate()
       if (selectedId === id) setSelectedId(null)
+      lockTable(id)
       if (table) toast.success(`Table ${table.label} removed`)
     } catch {
       toast.error("Could not remove table")
@@ -229,29 +298,107 @@ export function FloorPlan({
     await combineTables([selected.id, ...mergePick])
   }
 
-  function readDraggedTableId(event: DragEvent) {
-    return (
-      event.dataTransfer.getData(FLOOR_TABLE_DRAG_MIME) ||
-      event.dataTransfer.getData("text/plain")
+  async function persistPosition(id: string, cell: FloorCell) {
+    try {
+      await updateTableState({ id, x: cell.x, y: cell.y })
+      await mutate()
+    } catch {
+      toast.error("Could not move table")
+    } finally {
+      clearDraft(id)
+    }
+  }
+
+  function pointerCell(event: PointerEvent<HTMLElement>): FloorCell | null {
+    const rect = canvasRef.current?.getBoundingClientRect()
+    if (!rect) return null
+    return clientToFloorCell(event.clientX, event.clientY, rect)
+  }
+
+  function onChipPointerDown(table: (typeof tables)[number], event: PointerEvent<HTMLButtonElement>) {
+    if (!unlockedIds.has(table.id) || merging) return
+    if ((event.target as HTMLElement).closest("[data-floor-lock]")) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const origin = cellOf(table)
+    dragRef.current = {
+      id: table.id,
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      origin,
+      moved: false,
+    }
+    setDraggingId(table.id)
+  }
+
+  function onChipPointerMove(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    const distance = Math.hypot(
+      event.clientX - drag.startClientX,
+      event.clientY - drag.startClientY,
     )
+    if (!drag.moved && distance < FLOOR_DRAG_THRESHOLD_PX) return
+    if (!drag.moved) {
+      drag.moved = true
+      skipClickAfterDrag.current = true
+    }
+    const cell = pointerCell(event)
+    if (!cell) return
+    setDraftPositions((current) => ({ ...current, [drag.id]: cell }))
+    const occupant = tableAtCell(cell, displayedTables, drag.id)
+    setDropTargetKey(occupant ? dropKeyFor(occupant) : null)
   }
 
-  function dropKeyFor(table: (typeof tables)[number]) {
-    return table.merge ? `merge:${table.merge.id}` : table.id
-  }
-
-  async function mergeFromDrop(targetId: string, event: DragEvent) {
-    event.preventDefault()
-    event.stopPropagation()
-    const sourceId = draggingId ?? readDraggedTableId(event)
+  async function finishPointerDrag(event: PointerEvent<HTMLButtonElement>) {
+    const drag = dragRef.current
+    if (!drag || drag.pointerId !== event.pointerId) return
+    dragRef.current = null
     setDraggingId(null)
     setDropTargetKey(null)
-    const result = resolveMergeDrop(sourceId, targetId, dropTables)
-    if (!result.tableIds) {
-      toast.error("Could not merge tables", { description: result.error })
+
+    if (!drag.moved) {
+      clearDraft(drag.id)
       return
     }
-    await combineTables(result.tableIds)
+
+    lockTable(drag.id)
+    const cell = pointerCell(event) ?? draftPositions[drag.id] ?? drag.origin
+    const occupant = tableAtCell(cell, displayedTables, drag.id)
+
+    if (occupant) {
+      const result = resolveMergeDrop(drag.id, occupant.id, dropTables)
+      clearDraft(drag.id)
+      if (!result.tableIds) {
+        toast.error("Could not merge tables", { description: result.error })
+        return
+      }
+      await combineTables(result.tableIds)
+      return
+    }
+
+    if (cell.x === drag.origin.x && cell.y === drag.origin.y) {
+      clearDraft(drag.id)
+      return
+    }
+
+    const source = dropTables.find((table) => table.id === drag.id)
+    if (source && isDragSplittable(source)) {
+      const split = resolveSplitDrop(drag.id, dropTables)
+      if (!split.mergeId) {
+        clearDraft(drag.id)
+        toast.error("Could not split tables", { description: split.error })
+        return
+      }
+      const sourceTable = tables.find((table) => table.id === drag.id)
+      const splitOk = await splitArrangement(split.mergeId, sourceTable?.merge?.label)
+      if (!splitOk) {
+        clearDraft(drag.id)
+        return
+      }
+    }
+
+    await persistPosition(drag.id, cell)
   }
 
   async function splitArrangement(mergeId: string, label?: string) {
@@ -259,31 +406,22 @@ export function FloorPlan({
       const result = await splitMerge(mergeId)
       if (result.error) {
         toast.error("Could not split tables", { description: result.error })
-        return
+        return false
       }
       await mutate()
       toast.success(`Split tables ${label ?? ""}`.trim())
+      return true
     } catch (error) {
       toast.error("Could not split tables", {
         description: error instanceof Error ? error.message : undefined,
       })
+      return false
     }
   }
 
   async function splitSelected() {
     if (!selected?.merge) return
     await splitArrangement(selected.merge.id, selected.merge.label)
-  }
-
-  async function splitFromFloorDrop(event: DragEvent) {
-    event.preventDefault()
-    const sourceId = draggingId ?? readDraggedTableId(event)
-    setDraggingId(null)
-    setDropTargetKey(null)
-    const result = resolveSplitDrop(sourceId, dropTables)
-    if (!result.mergeId) return
-    const source = tables.find((table) => table.id === sourceId)
-    await splitArrangement(result.mergeId, source?.merge?.label)
   }
 
   return (
@@ -311,167 +449,184 @@ export function FloorPlan({
                 {" · "}reservations update automatically
               </p>
             </div>
-            <Button size="sm" onClick={addTable}>
-              <Plus className="size-4" /> Add table
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {unlockedIds.size > 0 ? (
+                <Button size="sm" variant="outline" onClick={() => setUnlockedIds(new Set())}>
+                  <Lock className="size-4" /> Lock all
+                </Button>
+              ) : null}
+              <Button size="sm" onClick={addTable}>
+                <Plus className="size-4" /> Add table
+              </Button>
+            </div>
           </div>
 
-          <p className="mb-3 text-xs text-muted-foreground">
-            Drag an available table onto another to merge. Drag a merged table
-            onto the floor to split.
-          </p>
-          <div
-            className="flex flex-wrap gap-4 rounded-lg border border-dashed border-border bg-secondary/30 p-5"
-            onDragOver={(event) => {
-              if (!draggingId) return
-              const source = dropTables.find((table) => table.id === draggingId)
-              if (!source || !isDragSplittable(source)) return
-              event.preventDefault()
-              event.dataTransfer.dropEffect = "move"
-            }}
-            onDrop={(event) => {
-              void splitFromFloorDrop(event)
-            }}
-          >
-            {groups.map((group) => {
-              const merge = group.tables[0]?.merge
-              const groupDropKey = merge ? `merge:${merge.id}` : null
-              const chips = group.tables.map((t) => {
+          <div className="mb-3 flex items-start gap-2 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs text-foreground">
+            <Lock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+            <p>
+              Unlock a table (padlock) to drag it. Drop an available table onto
+              another to merge. Drag a merged table onto an empty cell to split.
+              Locked tables stay put.
+            </p>
+          </div>
+          <div className="overflow-auto rounded-lg border border-dashed border-border bg-secondary/30 p-3">
+            <div
+              ref={canvasRef}
+              className="relative"
+              style={{
+                width: canvas.cols * FLOOR_CELL_PX,
+                height: canvas.rows * FLOOR_CELL_PX,
+                backgroundImage:
+                  "linear-gradient(to right, hsl(var(--border) / 0.45) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.45) 1px, transparent 1px)",
+                backgroundSize: `${FLOOR_CELL_PX}px ${FLOOR_CELL_PX}px`,
+              }}
+            >
+              {groups.map((group) => {
+                const merge = group.tables[0]?.merge
+                if (!merge) return null
+                const bounds = mergeCellBounds(group.tables)
+                if (!bounds) return null
+                const groupDropKey = `merge:${merge.id}`
+                return (
+                  <div
+                    key={merge.id}
+                    role="group"
+                    aria-label={`Merged tables ${merge.label}, ${merge.seats} seats`}
+                    className={cn(
+                      "pointer-events-none absolute rounded-2xl border-2 border-dashed border-primary/35 bg-primary/5",
+                      dropTargetKey === groupDropKey
+                        ? "border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-card"
+                        : null,
+                    )}
+                    style={bounds}
+                  >
+                    <div className="absolute bottom-1 left-2 text-[10px] leading-tight text-muted-foreground">
+                      <p className="font-medium text-foreground">{merge.seats} seats</p>
+                      <p className="flex items-center gap-0.5">
+                        <Clock className="size-2.5" />
+                        {formatDurationMinutes(remainingMinutes(merge.expiresAt, new Date()))} left
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {displayedTables.map((t) => {
                 const meta = TABLE_STATUS_META[t.displayStatus]
                 const isSelected = t.id === (selected?.id ?? selectedId)
                 const silhouette = tableShapeForSeats(t.seats)
-                const dragTable = toMergeDropTable(t)
-                const canDrag = canDragFloorTable(dragTable) && !merging
+                const unlocked = unlockedIds.has(t.id)
+                const canMove = unlocked && !merging
                 const targetKey = dropKeyFor(t)
                 const isDropTarget = dropTargetKey === targetKey
-                const acceptsDrag =
-                  Boolean(draggingId) &&
-                  draggingId !== t.id &&
-                  !resolveMergeDrop(draggingId!, t.id, dropTables).error
+                const cell = { x: t.x, y: t.y }
                 return (
-                  <button
+                  <div
                     key={t.id}
-                    type="button"
-                    draggable={canDrag}
-                    title={
-                      canDrag
-                        ? isDragSplittable(dragTable)
-                          ? "Drag onto the floor to split this arrangement"
-                          : "Drag onto another available table to merge"
-                        : undefined
-                    }
-                    onClick={() => {
-                      if (skipClickAfterDrag.current) return
-                      setSelectedId(t.id)
-                      setMergePick([])
-                    }}
-                    onDragStart={(event) => {
-                      if (!canDrag) {
-                        event.preventDefault()
-                        return
-                      }
-                      skipClickAfterDrag.current = true
-                      event.dataTransfer.setData(FLOOR_TABLE_DRAG_MIME, t.id)
-                      event.dataTransfer.setData("text/plain", t.id)
-                      event.dataTransfer.effectAllowed = "link"
-                      setDraggingId(t.id)
-                    }}
-                    onDragEnd={() => {
-                      setDraggingId(null)
-                      setDropTargetKey(null)
-                      window.setTimeout(() => {
-                        skipClickAfterDrag.current = false
-                      }, 0)
-                    }}
-                    onDragOver={(event) => {
-                      if (!acceptsDrag) return
-                      event.preventDefault()
-                      event.dataTransfer.dropEffect = "link"
-                      setDropTargetKey(targetKey)
-                    }}
-                    onDragLeave={() => {
-                      setDropTargetKey((current) => (current === targetKey ? null : current))
-                    }}
-                    onDrop={(event) => {
-                      void mergeFromDrop(t.id, event)
-                    }}
                     className={cn(
-                      "relative flex flex-col items-center justify-center border-2 text-center transition-all duration-200 ease-out hover:-translate-y-0.5 hover:scale-105 active:scale-100",
-                      silhouette === "round" ? "rounded-full" : "rounded-lg",
-                      tableChipSizeClass(t.seats),
-                      meta.color,
-                      canDrag ? "cursor-grab active:cursor-grabbing" : null,
-                      draggingId === t.id ? "opacity-50" : null,
-                      isSelected
-                        ? "z-10 scale-105 ring-2 ring-primary ring-offset-2 ring-offset-card"
-                        : "hover:brightness-95 hover:shadow-md",
-                      isDropTarget
-                        ? "z-10 scale-105 ring-2 ring-accent ring-offset-2 ring-offset-card"
-                        : null,
+                      "absolute flex items-center justify-center",
+                      draggingId === t.id || isDropTarget || isSelected ? "z-20" : "z-10",
                     )}
+                    style={{
+                      ...floorCellStyle(cell),
+                      width: FLOOR_CELL_PX,
+                      height: FLOOR_CELL_PX,
+                    }}
                   >
-                    {t.displayStatus === "seated" ? (
-                      <span className="absolute right-1.5 top-1.5 flex size-2.5">
-                        <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
-                        <span className="relative inline-flex size-2.5 rounded-full bg-current" />
-                      </span>
-                    ) : null}
-                    <span className="font-heading text-lg font-semibold leading-none">
-                      {t.label}
+                    <span
+                      data-floor-lock
+                      data-testid="floor-move-lock"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={unlocked ? `Lock table ${t.label}` : `Unlock table ${t.label}`}
+                      title={unlocked ? "Lock this table" : "Unlock to rearrange"}
+                      className={cn(
+                        "absolute left-0.5 top-0.5 z-20 flex size-8 items-center justify-center rounded-full border-2 bg-card shadow-md",
+                        unlocked
+                          ? "border-accent text-accent"
+                          : "border-foreground/30 text-foreground hover:border-foreground",
+                      )}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        toggleUnlock(t.id)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return
+                        event.preventDefault()
+                        event.stopPropagation()
+                        toggleUnlock(t.id)
+                      }}
+                    >
+                      {unlocked ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
                     </span>
-                    <span className="mt-1 flex items-center gap-0.5 text-xs">
-                      <Users className="size-3" /> {t.reservation?.partySize ?? t.seats}
-                    </span>
-                    {t.reservation ? (
-                      <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
-                        {t.reservation.guestName}
+                    <button
+                      type="button"
+                      title={
+                        canMove
+                          ? isDragSplittable(toMergeDropTable(t))
+                            ? "Drag onto an empty cell to split, or onto another table to merge"
+                            : "Drag to a new cell, or onto another available table to merge"
+                          : "Unlock the padlock to rearrange this table"
+                      }
+                      onClick={() => {
+                        if (skipClickAfterDrag.current) {
+                          skipClickAfterDrag.current = false
+                          return
+                        }
+                        setSelectedId(t.id)
+                        setMergePick([])
+                      }}
+                      onPointerDown={(event) => onChipPointerDown(t, event)}
+                      onPointerMove={onChipPointerMove}
+                      onPointerUp={(event) => {
+                        void finishPointerDrag(event)
+                      }}
+                      onPointerCancel={(event) => {
+                        const drag = dragRef.current
+                        if (!drag || drag.pointerId !== event.pointerId) return
+                        dragRef.current = null
+                        setDraggingId(null)
+                        setDropTargetKey(null)
+                        clearDraft(drag.id)
+                      }}
+                      className={cn(
+                        "relative flex flex-col items-center justify-center border-2 text-center transition-shadow duration-200 ease-out",
+                        silhouette === "round" ? "rounded-full" : "rounded-lg",
+                        tableChipSizeClass(t.seats),
+                        meta.color,
+                        canMove ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+                        draggingId === t.id ? "opacity-80" : null,
+                        isSelected
+                          ? "ring-2 ring-primary ring-offset-2 ring-offset-card"
+                          : "hover:brightness-95 hover:shadow-md",
+                        isDropTarget
+                          ? "ring-2 ring-accent ring-offset-2 ring-offset-card"
+                          : null,
+                      )}
+                    >
+                      {t.displayStatus === "seated" ? (
+                        <span className="absolute right-1.5 top-1.5 flex size-2.5">
+                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
+                          <span className="relative inline-flex size-2.5 rounded-full bg-current" />
+                        </span>
+                      ) : null}
+                      <span className="font-heading text-lg font-semibold leading-none">
+                        {t.label}
                       </span>
-                    ) : null}
-                  </button>
-                )
-              })
-
-              if (!merge) return chips
-
-              const groupAcceptsDrag =
-                Boolean(draggingId) &&
-                Boolean(group.tables[0]?.id) &&
-                !group.tables.some((table) => table.id === draggingId) &&
-                !resolveMergeDrop(draggingId!, group.tables[0]!.id, dropTables).error
-
-              return (
-                <div
-                  key={merge.id}
-                  role="group"
-                  aria-label={`Merged tables ${merge.label}, ${merge.seats} seats`}
-                  onDragOver={(event) => {
-                    if (!groupAcceptsDrag || !group.tables[0]) return
-                    event.preventDefault()
-                    event.dataTransfer.dropEffect = "link"
-                    setDropTargetKey(groupDropKey)
-                  }}
-                  onDrop={(event) => {
-                    const targetId = group.tables[0]?.id
-                    if (targetId) void mergeFromDrop(targetId, event)
-                  }}
-                  className={cn(
-                    "flex flex-wrap items-end gap-2 rounded-2xl border-2 border-dashed border-primary/35 bg-primary/5 p-2",
-                    dropTargetKey === groupDropKey
-                      ? "border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-card"
-                      : null,
-                  )}
-                >
-                  {chips}
-                  <div className="px-1 pb-1 text-[10px] leading-tight text-muted-foreground">
-                    <p className="font-medium text-foreground">{merge.seats} seats</p>
-                    <p className="flex items-center gap-0.5">
-                      <Clock className="size-2.5" />
-                      {formatDurationMinutes(remainingMinutes(merge.expiresAt, new Date()))} left
-                    </p>
+                      <span className="mt-1 flex items-center gap-0.5 text-xs">
+                        <Users className="size-3" /> {t.reservation?.partySize ?? t.seats}
+                      </span>
+                      {t.reservation ? (
+                        <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
+                          {t.reservation.guestName}
+                        </span>
+                      ) : null}
+                    </button>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
 
           <div className="mt-4 flex flex-wrap gap-4">
@@ -568,6 +723,21 @@ export function FloorPlan({
                 No reservation on this table right now.
               </p>
             )}
+
+            <div>
+              <p className="mb-2 text-sm font-medium">Position</p>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => toggleUnlock(selected.id)}
+              >
+                {selectedUnlocked ? <Lock className="size-4" /> : <LockOpen className="size-4" />}
+                {selectedUnlocked ? "Lock position" : "Unlock to move"}
+              </Button>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Cell {selected.x + 1}, {selected.y + 1}. Unlock, then drag on the floor plan.
+              </p>
+            </div>
 
             <div>
               <p className="mb-2 text-sm font-medium">Status</p>
@@ -677,7 +847,8 @@ export function FloorPlan({
                     {formatDurationMinutes(selected.merge.expectedMinutes)}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Drag a table out onto the floor to split, or use the button.
+                    Unlock a member and drag it onto an empty cell to split, or
+                    drop another available table here to add it.
                   </p>
                   <Button variant="outline" className="w-full" onClick={() => void splitSelected()}>
                     <Unlink className="size-4" /> Split tables
@@ -686,8 +857,8 @@ export function FloorPlan({
               ) : selectedMergeable ? (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Drag this table onto another available table to merge. The picker
-                    below is a fallback.
+                    Unlock this table, then drag it onto another available table to merge.
+                    The picker below is a fallback.
                   </p>
                   {mergePartners.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
@@ -726,8 +897,8 @@ export function FloorPlan({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Only available tables without a reservation can be merged. Drag one
-                  onto another on the floor.
+                  Only available tables without a reservation can be merged. Unlock one
+                  and drop it onto another on the floor.
                 </p>
               )}
             </div>

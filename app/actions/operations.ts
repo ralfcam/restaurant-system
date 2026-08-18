@@ -18,6 +18,7 @@ import {
   restartsMergeClock,
   shouldExpireMerge,
 } from "@/lib/floor/table-use"
+import { clampFloorCell, nextFreeCell } from "@/lib/floor/layout"
 import {
   MERGE_EVENT_TYPE,
   activeMergesFromEvents,
@@ -294,12 +295,14 @@ export async function updateTableState(input: {
   status?: TableStatus
   seats?: number
   expectedMinutes?: number
+  x?: number
+  y?: number
 }) {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("Unauthorized")
 
   const db = createServiceClient()
-  const { data: current, error: currentError } = await db.from("tables").select("status").eq("id", input.id).single()
+  const { data: current, error: currentError } = await db.from("tables").select("status, x, y").eq("id", input.id).single()
   if (currentError || !current) throw new Error("Table not found")
   if (input.status && (!TABLE_STATUSES.has(input.status) || !TABLE_TRANSITIONS[current.status as TableStatus].includes(input.status))) {
     throw new Error(`Invalid table transition: ${current.status} → ${input.status}`)
@@ -354,6 +357,19 @@ export async function updateTableState(input: {
         if (error) throw new Error("Unable to update arrangement")
       }
     }
+  }
+
+  if (input.x !== undefined || input.y !== undefined) {
+    const next = clampFloorCell({
+      x: input.x ?? Number(current.x) ?? 0,
+      y: input.y ?? Number(current.y) ?? 0,
+    })
+    const { error } = await db.from("tables").update({
+      x: next.x,
+      y: next.y,
+      updated_at: now.toISOString(),
+    }).eq("id", input.id)
+    if (error) throw new Error("Unable to update table")
   }
 
   revalidatePath("/admin/floor")
@@ -665,16 +681,22 @@ export async function createTable() {
   if (!staffUser) throw new Error("Unauthorized")
 
   const db = createServiceClient()
-  const { data: existing } = await db.from("tables").select("label").order("label")
+  const { data: existing } = await db.from("tables").select("label, x, y").order("label")
   const next = Math.max(0, ...(existing ?? []).map((row) => Number(row.label) || 0)) + 1
+  const cell = nextFreeCell(
+    (existing ?? []).map((row) => ({
+      x: Number(row.x) || 0,
+      y: Number(row.y) || 0,
+    })),
+  )
   const seats = 2
   const { data, error } = await db.from("tables").insert({
     label: String(next),
     seats,
     status: "available",
     expected_minutes: DEFAULT_EXPECTED_MINUTES,
-    x: 0,
-    y: 0,
+    x: cell.x,
+    y: cell.y,
     shape: tableShapeForSeats(seats),
   }).select("*").single()
   if (error) throw new Error("Unable to add table")
