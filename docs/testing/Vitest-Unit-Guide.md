@@ -10,6 +10,8 @@
 - Tests: `tests/unit/**/*.test.ts`
 - Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`
   bodySizeLimit schema guard)
+- Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
+  `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard)
 
 ## Conventions
 

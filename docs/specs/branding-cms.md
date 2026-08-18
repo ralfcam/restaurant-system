@@ -65,5 +65,5 @@ restaurant name only.
 - `components/staff/restaurant-logo-editor.tsx`
 - `components/staff/sidebar-logo-manager.tsx`
 - `hooks/use-restaurant-logo.ts`
-- [site-chrome.md](./site-chrome.md) (default mark + custom override)
+- [site-chrome.md](./site-chrome.md) (empty-by-default mark + custom override)
 - [../architecture/Auth-And-RLS.md](../architecture/Auth-And-RLS.md)

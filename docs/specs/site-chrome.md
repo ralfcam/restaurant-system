@@ -49,4 +49,5 @@ default logo**.
 - `lib/site-chrome.ts`
 - `components/site/brand-mark.tsx`
 - `tests/unit/site-header.test.ts` (SC-5 structural guard)
+- `tests/unit/site-chrome.test.ts` (SC-1 empty-by-default `SITE_LOGO`)
 - [../PRD/restaurant-system-PRD.md](../PRD/restaurant-system-PRD.md)

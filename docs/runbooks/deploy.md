@@ -31,9 +31,11 @@ Never expose the service role key to the client bundle.
 | Reference data | `supabase/seed.sql` | Yes — when `[db.seed] enabled = true` in `supabase/config.toml` |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
-`operating_windows` (7 rows), and `menu_items` (120 rows). The public `branding`
-storage bucket is created by migrations, not seed. Schema DDL must not live in seed
-files.
+`operating_windows` (7 rows), and `menu_items` (120 rows from the sample
+`lib/menu-catalog.json` catalog). The public `branding` storage bucket is created
+by migrations, not seed. The template does not ship static logo assets under
+`public/images/`; guest and staff surfaces show the restaurant name only until a
+logo is uploaded via the branding CMS. Schema DDL must not live in seed files.
 
 ### Migration policy
 

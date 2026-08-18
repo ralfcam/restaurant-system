@@ -47,7 +47,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Shared Site Header + 48px Logo | 2026-06-27 | `specs/site-chrome.md`, `specs/README.md`, `testing/Design-And-Patterns.md` |
 | REAZED-276 single homepage (SC-5) | 2026-06-27 | `specs/site-chrome.md` (SC-5), `testing/Design-And-Patterns.md`; removes flat `app/page.tsx` |
 | Logo upload reliability (BC-8, BC-9) | 2026-08-18 | `specs/branding-cms.md`, `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `testing/Test-Data-And-Seeds.md`, `testing/Design-And-Patterns.md`, `runbooks/deploy.md` |
-| Restaurant Link template + empty default logo | 2026-08-18 | `specs/site-chrome.md`, `specs/branding-cms.md`, `PRD/restaurant-system-PRD.md` |
+| Restaurant Link template + empty default logo | 2026-08-18 | `specs/site-chrome.md`, `specs/branding-cms.md`, `PRD/restaurant-system-PRD.md`, `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md` |
 
 ## Seed path
 
