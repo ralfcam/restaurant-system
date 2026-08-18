@@ -168,7 +168,7 @@ async function loadMergeContext(db: ServiceDb, tableId: string): Promise<MergeCo
   }
 }
 
-async function dissolveMerge(db: ServiceDb, mergeId: string, _reason = "split") {
+async function dissolveMerge(db: ServiceDb, mergeId: string) {
   const current = (await loadMergeEvents(db)).find((merge) => merge.id === mergeId)
   const eventError = await recordMergeEvent(
     db,
@@ -263,7 +263,7 @@ export async function expireDueMerges(now = new Date()): Promise<number> {
   let expired = 0
   for (const merge of merges) {
     if (!shouldExpireMerge(merge, now)) continue
-    await dissolveMerge(db, merge.id, "expired")
+    await dissolveMerge(db, merge.id)
     expired += 1
   }
   if (expired > 0) revalidatePath("/admin/floor")
@@ -344,7 +344,7 @@ export async function updateTableState(input: {
     await applyStatusToIds(db, targetIds, String(current.status), input.status)
     if (merge) {
       if (dissolvesMerge(input.status)) {
-        await dissolveMerge(db, merge.mergeId, `status:${input.status}`)
+        await dissolveMerge(db, merge.mergeId)
       } else {
         const patch: Record<string, unknown> = { status: input.status, updated_at: now.toISOString() }
         if (restartsMergeClock(input.status)) {
@@ -376,7 +376,7 @@ export async function syncTableGroupStatus(label: string, status: TableStatus) {
 
   if (merge) {
     if (dissolvesMerge(status)) {
-      await dissolveMerge(db, merge.mergeId, `status:${status}`)
+      await dissolveMerge(db, merge.mergeId)
     } else {
       const patch: Record<string, unknown> = { status, updated_at: now.toISOString() }
       if (restartsMergeClock(status)) {
@@ -650,7 +650,7 @@ export async function splitMerge(mergeId: string): Promise<{ error?: string }> {
       const fallback = (await loadMergeEvents(db)).find((row) => row.id === mergeId)
       if (!fallback) return { error: "Arrangement not found" }
     }
-    const dissolveError = await dissolveMerge(db, mergeId, "split")
+    const dissolveError = await dissolveMerge(db, mergeId)
     if (dissolveError) return { error: dissolveError.message || "Unable to split tables" }
     revalidatePath("/admin/floor")
     return {}
@@ -688,7 +688,7 @@ export async function deleteTable(id: string) {
 
   const db = createServiceClient()
   const merge = await loadMergeContext(db, id)
-  if (merge) await dissolveMerge(db, merge.mergeId, "table-removed")
+  if (merge) await dissolveMerge(db, merge.mergeId)
   const { error } = await db.from("tables").delete().eq("id", id)
   if (error) throw new Error("Unable to remove table")
   revalidatePath("/admin/floor")
