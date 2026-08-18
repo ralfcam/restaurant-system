@@ -10,6 +10,7 @@ import {
   Receipt,
   ChefHat,
   UtensilsCrossed,
+  ImageIcon,
   ExternalLink,
   Menu,
   LogOut,
@@ -34,6 +35,7 @@ const NAV = [
   { href: "/admin/scheduling", label: "Scheduling", icon: Clock, role: "Admin" },
   { href: "/admin/floor", label: "Floor Plan", icon: LayoutGrid, role: "Admin" },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, role: "Admin" },
+  { href: "/admin/settings", label: "Branding", icon: ImageIcon, role: "Admin" },
   { href: "/pos", label: "Point of Sale", icon: Receipt, role: "Cashier" },
   { href: "/kds", label: "Kitchen Display", icon: ChefHat, role: "Kitchen" },
 ]

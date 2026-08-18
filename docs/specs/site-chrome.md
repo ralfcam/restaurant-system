@@ -13,8 +13,10 @@ Pages: `/` (homepage), `/menu` (digital menu).
 
 1. **SC-1 — Shared logo config** — `lib/site-chrome.ts` exports `SITE_LOGO` with
    `src="/images/logo.png"`, `width=48`, `height=48`, and `alt` text that
-   includes the restaurant name. `SiteHeader` uses this config as the single
-   source of truth (no hard-coded 32px logo dimensions).
+   includes the restaurant name. This is the **default** brand mark when no
+   custom logo is stored. `SiteHeader` uses `SITE_LOGO` dimensions/alt and
+   `src={customLogoUrl ?? SITE_LOGO.src}` — no hard-coded 32px logo
+   dimensions. Custom upload / restore: [branding-cms.md](./branding-cms.md).
 
 2. **SC-2 — Homepage header** — `SiteHeader` renders on `/`. There is no
    pathname early-return that hides the header on the homepage.

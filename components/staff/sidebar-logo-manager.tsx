@@ -1,119 +1,31 @@
 "use client"
 
-import * as React from "react"
 import Image from "next/image"
-import { toast } from "sonner"
-import { ImagePlus, Loader2, Trash2, UtensilsCrossed } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { ImagePlus } from "lucide-react"
 import { RESTAURANT } from "@/lib/data"
+import { SITE_LOGO } from "@/lib/site-chrome"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
-import { removeRestaurantLogo, uploadRestaurantLogo } from "@/app/actions/branding"
+import { RestaurantLogoEditor } from "@/components/staff/restaurant-logo-editor"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-
-const ACCEPTED_TYPES = "image/png,image/jpeg,image/svg+xml,image/webp"
-
-/** Reads a File into a base64 string (no data URL prefix) using FileReader. */
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = reader.result as string
-      resolve(result.slice(result.indexOf(",") + 1))
-    }
-    reader.onerror = () => reject(reader.error)
-    reader.readAsDataURL(file)
-  })
-}
+import * as React from "react"
 
 /**
  * Clickable brand mark in the sidebar header — opens a dialog to upload,
- * replace, or remove the restaurant's logo. Visually identical to the
- * previous static brand div, just wrapped in an interactive trigger.
+ * replace, or restore the restaurant's logo.
  */
 export function SidebarLogoManager() {
-  const { logoUrl, mutate } = useRestaurantLogo()
+  const { logoUrl } = useRestaurantLogo()
   const [open, setOpen] = React.useState(false)
-  const [preview, setPreview] = React.useState<string | null>(null)
-  const [file, setFile] = React.useState<File | null>(null)
-  const [isSaving, setIsSaving] = React.useState(false)
-  const [isRemoving, setIsRemoving] = React.useState(false)
-  const fileInputRef = React.useRef<HTMLInputElement>(null)
-
-  function resetPicker() {
-    setFile(null)
-    if (preview) URL.revokeObjectURL(preview)
-    setPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ""
-  }
-
-  function handleOpenChange(next: boolean) {
-    setOpen(next)
-    if (!next) resetPicker()
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const next = e.target.files?.[0]
-    if (!next) return
-    if (preview) URL.revokeObjectURL(preview)
-    setFile(next)
-    setPreview(URL.createObjectURL(next))
-  }
-
-  async function handleSave() {
-    if (!file) return
-    setIsSaving(true)
-    try {
-      // Sent as a base64 string rather than the File directly — see the
-      // comment on uploadRestaurantLogo for why.
-      const base64 = await fileToBase64(file)
-      const result = await uploadRestaurantLogo({ base64, contentType: file.type, size: file.size })
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      await mutate(result.logoUrl)
-      toast.success("Logo updated")
-      resetPicker()
-      setOpen(false)
-    } catch (err) {
-      console.log("[v0] handleSave caught error:", err)
-      toast.error("Could not upload the logo. Please try again.")
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  async function handleRemove() {
-    setIsRemoving(true)
-    try {
-      const result = await removeRestaurantLogo()
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      await mutate(null)
-      toast.success("Logo removed")
-      resetPicker()
-    } catch {
-      toast.error("Could not remove the logo. Please try again.")
-    } finally {
-      setIsRemoving(false)
-    }
-  }
-
-  const activeLogoUrl = logoUrl ?? null
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
           <button
@@ -123,17 +35,13 @@ export function SidebarLogoManager() {
         }
       >
         <span className="relative flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          {activeLogoUrl ? (
-            <Image
-              src={activeLogoUrl}
-              alt={`${RESTAURANT.name} logo`}
-              fill
-              className="object-cover"
-              sizes="36px"
-            />
-          ) : (
-            <UtensilsCrossed className="size-5" />
-          )}
+          <Image
+            src={logoUrl ?? SITE_LOGO.src}
+            alt={`${RESTAURANT.name} logo`}
+            fill
+            className="object-cover"
+            sizes="36px"
+          />
         </span>
         <div className="min-w-0 flex-1 leading-tight">
           <p className="font-heading text-lg font-semibold">{RESTAURANT.name}</p>
@@ -146,72 +54,11 @@ export function SidebarLogoManager() {
         <DialogHeader>
           <DialogTitle>Restaurant logo</DialogTitle>
           <DialogDescription>
-            Upload a square image to represent {RESTAURANT.name} across the staff console. PNG, JPG, SVG, or WEBP, up to 2MB.
+            Upload a square image to represent {RESTAURANT.name} on the guest site
+            and staff console. PNG, JPG, SVG, or WEBP, up to 2MB.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="flex items-center gap-4">
-          <span className="relative flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-secondary">
-            {preview ? (
-              // Local blob: URL from the file picker — a plain <img> avoids
-              // next/image's optimization pipeline, which isn't meant for
-              // ephemeral object URLs.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={preview} alt="Logo preview" className="size-full object-cover" />
-            ) : activeLogoUrl ? (
-              <Image src={activeLogoUrl} alt={`${RESTAURANT.name} logo`} fill className="object-cover" sizes="64px" />
-            ) : (
-              <UtensilsCrossed className="size-6 text-muted-foreground" />
-            )}
-          </span>
-
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_TYPES}
-              onChange={handleFileChange}
-              className="sr-only"
-              id="logo-upload-input"
-            />
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="justify-start"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <ImagePlus className="size-4" />
-              {activeLogoUrl ? "Choose a different image" : "Choose an image"}
-            </Button>
-            {file ? (
-              <p className="truncate text-xs text-muted-foreground">{file.name}</p>
-            ) : null}
-          </div>
-        </div>
-
-        <DialogFooter
-          className={cn(
-            activeLogoUrl && !file ? "sm:justify-between" : undefined,
-          )}
-        >
-          {activeLogoUrl && !file ? (
-            <Button
-              type="button"
-              variant="ghost"
-              className="text-destructive hover:text-destructive"
-              onClick={handleRemove}
-              disabled={isRemoving}
-            >
-              {isRemoving ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-              Remove logo
-            </Button>
-          ) : null}
-          <Button type="button" onClick={handleSave} disabled={!file || isSaving}>
-            {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
-            Save logo
-          </Button>
-        </DialogFooter>
+        <RestaurantLogoEditor onSaved={() => setOpen(false)} />
       </DialogContent>
     </Dialog>
   )
