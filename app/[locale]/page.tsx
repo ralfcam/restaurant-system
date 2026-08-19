@@ -17,75 +17,139 @@ import { Link } from "@/i18n/navigation"
 import { SiteHeader } from "@/components/site/site-header"
 import { ReservationWidget } from "@/components/site/reservation-widget"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { useRestaurantHeroImage } from "@/hooks/use-restaurant-hero-image"
 
 export default function HomePage() {
   const t = useTranslations()
   const featured = MENU_ITEMS.filter((m) => m.popular).slice(0, 3)
+  const { heroImageUrl } = useRestaurantHeroImage()
+  const hasHero = Boolean(heroImageUrl)
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <section className="relative flex min-h-screen flex-col overflow-hidden">
         <div className="absolute inset-0">
-          <Image
-            src="/images/hero-dining.png"
-            alt="Warm restaurant dining room at golden hour"
-            fill
-            priority
-            className="object-cover brightness-[0.48] saturate-[0.90] animate-slow-zoom"
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-black/10 via-black/45 to-black/75" />
-          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
+          {hasHero ? (
+            <>
+              <Image
+                src={heroImageUrl!}
+                alt={`${RESTAURANT.name} dining room`}
+                fill
+                priority
+                className="object-cover brightness-[0.48] saturate-[0.90] animate-slow-zoom"
+              />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-black/10 via-black/45 to-black/75" />
+              <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/40 to-transparent" />
+            </>
+          ) : (
+            <div className="absolute inset-0 bg-background" />
+          )}
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col justify-center mx-auto max-w-6xl px-5 pb-20 pt-24 md:px-8 md:pt-32 md:pb-28">
           <div className="max-w-xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/90 backdrop-blur-sm">
-              <Star className="size-2.5 fill-white text-white" />
+            <span
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] backdrop-blur-sm",
+                hasHero
+                  ? "border-white/20 bg-white/10 text-white/90"
+                  : "border-border bg-secondary text-foreground/80",
+              )}
+            >
+              <Star className={cn("size-2.5", hasHero ? "fill-white text-white" : "fill-primary text-primary")} />
               {t("hero.tagline")}
             </span>
 
-            <div className="mt-6 rounded-2xl bg-black/30 px-5 py-5 backdrop-blur-sm ring-1 ring-inset ring-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]">
-              <h1 className="font-heading text-4xl font-semibold leading-[1.08] tracking-tighter text-white text-balance md:text-5xl lg:text-6xl [text-shadow:0_1px_2px_rgb(0_0_0/0.85),0_4px_16px_rgb(0_0_0/0.55)]">
+            <div
+              className={cn(
+                "mt-6 rounded-2xl px-5 py-5",
+                hasHero &&
+                  "bg-black/30 backdrop-blur-sm ring-1 ring-inset ring-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
+              )}
+            >
+              <h1
+                className={cn(
+                  "font-heading text-4xl font-semibold leading-[1.08] tracking-tighter text-balance md:text-5xl lg:text-6xl",
+                  hasHero
+                    ? "text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.85),0_4px_16px_rgb(0_0_0/0.55)]"
+                    : "text-foreground",
+                )}
+              >
                 {t("hero.headline")}
               </h1>
 
-              <p className="mt-5 max-w-sm text-pretty text-base leading-relaxed text-white/80 md:text-[17px] [text-shadow:0_1px_2px_rgb(0_0_0/0.8),0_2px_8px_rgb(0_0_0/0.45)]">
+              <p
+                className={cn(
+                  "mt-5 max-w-sm text-pretty text-base leading-relaxed md:text-[17px]",
+                  hasHero
+                    ? "text-white/80 [text-shadow:0_1px_2px_rgb(0_0_0/0.8),0_2px_8px_rgb(0_0_0/0.45)]"
+                    : "text-muted-foreground",
+                )}
+              >
                 {t("hero.subtext")}
               </p>
             </div>
 
             <div
               id="reserve"
-              className="relative mt-10 scroll-mt-8 rounded-2xl border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-2xl shadow-black/40 backdrop-blur-2xl hover:scale-[1.01] transition-transform duration-500 focus-within:border-amber-500/50"
+              className={cn(
+                "relative mt-10 scroll-mt-8 rounded-2xl shadow-2xl backdrop-blur-2xl hover:scale-[1.01] transition-transform duration-500",
+                hasHero
+                  ? "border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-black/40 focus-within:border-amber-500/50"
+                  : "border border-border bg-card shadow-black/5 focus-within:border-primary/40",
+              )}
             >
               <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-                <BotanicalWatermark className="absolute -right-4 -top-4 size-44 rotate-12 opacity-[0.07] text-white" />
-                <BotanicalWatermark className="absolute -bottom-6 -left-6 size-44 -rotate-12 scale-x-[-1] opacity-[0.07] text-white" />
+                <BotanicalWatermark
+                  className={cn(
+                    "absolute -right-4 -top-4 size-44 rotate-12 opacity-[0.07]",
+                    hasHero ? "text-white" : "text-foreground",
+                  )}
+                />
+                <BotanicalWatermark
+                  className={cn(
+                    "absolute -bottom-6 -left-6 size-44 -rotate-12 scale-x-[-1] opacity-[0.07]",
+                    hasHero ? "text-white" : "text-foreground",
+                  )}
+                />
               </div>
 
               <div className="relative px-6 pt-5 pb-1">
-                <h2 className="font-heading text-xl font-semibold text-white">
+                <h2 className={cn("font-heading text-xl font-semibold", hasHero ? "text-white" : "text-foreground")}>
                   {t("hero.bookTitle")}
                 </h2>
-                <p className="mt-0.5 text-xs tracking-wide text-white/50">
+                <p className={cn("mt-0.5 text-xs tracking-wide", hasHero ? "text-white/50" : "text-muted-foreground")}>
                   {t("hero.bookSubtitle")}
                 </p>
               </div>
 
-              <ReservationWidget dark />
+              <ReservationWidget dark={hasHero} />
             </div>
           </div>
         </div>
 
-        <FourPointedStar className="absolute bottom-8 right-8 size-10 text-white/80" />
+        <FourPointedStar
+          className={cn("absolute bottom-8 right-8 size-10", hasHero ? "text-white/80" : "text-primary/50")}
+        />
 
-        <div className="relative z-20 w-full border-t border-white/10 bg-black/20 backdrop-blur-md">
+        <div
+          className={cn(
+            "relative z-20 w-full border-t backdrop-blur-md",
+            hasHero ? "border-white/10 bg-black/20" : "border-border bg-secondary/40",
+          )}
+        >
           <div className="mx-auto max-w-6xl">
-            <div className="grid gap-0 divide-y divide-white/10 md:grid-cols-3 md:divide-x md:divide-y-0">
-              <InfoItem icon={Clock} label={t("info.hours")} value={RESTAURANT.hours} />
-              <InfoItem icon={MapPin} label={t("info.location")} value={RESTAURANT.address} />
-              <InfoItem icon={Phone} label={t("info.reservations")} value={RESTAURANT.phone} />
+            <div
+              className={cn(
+                "grid gap-0 md:grid-cols-3 md:divide-x md:divide-y-0",
+                hasHero ? "divide-y divide-white/10" : "divide-y divide-border",
+              )}
+            >
+              <InfoItem icon={Clock} label={t("info.hours")} value={RESTAURANT.hours} dark={hasHero} />
+              <InfoItem icon={MapPin} label={t("info.location")} value={RESTAURANT.address} dark={hasHero} />
+              <InfoItem icon={Phone} label={t("info.reservations")} value={RESTAURANT.phone} dark={hasHero} />
             </div>
           </div>
         </div>
@@ -202,21 +266,33 @@ function InfoItem({
   icon: Icon,
   label,
   value,
+  dark = false,
 }: {
   icon: React.ElementType
   label: string
   value: string
+  dark?: boolean
 }) {
   return (
     <div className="flex flex-col items-center text-center md:flex-row md:text-left gap-3 md:gap-4 px-6 py-6 md:px-8">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-white/20">
-        <Icon className="size-4 text-white/70" strokeWidth={1.5} />
+      <span
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-full border",
+          dark ? "border-white/20" : "border-border",
+        )}
+      >
+        <Icon className={cn("size-4", dark ? "text-white/70" : "text-foreground/70")} strokeWidth={1.5} />
       </span>
       <div>
-        <p className="text-[10px] font-medium uppercase tracking-[0.14em] text-white/70">
+        <p
+          className={cn(
+            "text-[10px] font-medium uppercase tracking-[0.14em]",
+            dark ? "text-white/70" : "text-muted-foreground",
+          )}
+        >
           {label}
         </p>
-        <p className="mt-0.5 text-sm font-medium text-white">{value}</p>
+        <p className={cn("mt-0.5 text-sm font-medium", dark ? "text-white" : "text-foreground")}>{value}</p>
       </div>
     </div>
   )

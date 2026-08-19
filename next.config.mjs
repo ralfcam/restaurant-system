@@ -8,12 +8,14 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  // Logos travel as base64 on a Server Action. Default body limit is 1MB;
-  // a 2MB file encodes to ~2.7MB plus RSC framing. Keep in sync with
-  // LOGO_UPLOAD_BODY_SIZE_LIMIT in lib/branding.ts.
+  // Logos and hero photos travel as base64 on a Server Action. Default body
+  // limit is 1MB; a 4MB hero file encodes to ~5.4MB plus RSC framing. This
+  // limit is shared across all Server Actions, so it must cover the larger
+  // of the two. Keep in sync with HERO_UPLOAD_BODY_SIZE_LIMIT in
+  // lib/branding.ts.
   experimental: {
     serverActions: {
-      bodySizeLimit: "4mb",
+      bodySizeLimit: "8mb",
     },
   },
 }
