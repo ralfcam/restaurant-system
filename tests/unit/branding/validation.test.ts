@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest"
 import {
   BRANDING_REVALIDATE_PATHS,
+  HERO_UPLOAD_BODY_SIZE_LIMIT,
   LOGO_UPLOAD_BODY_SIZE_LIMIT,
+  MAX_HERO_BYTES,
   MAX_LOGO_BYTES,
+  heroStoragePath,
   isMissingBucketError,
   logoBytesFromBase64,
   logoStoragePath,
+  resolveHeroContentType,
   resolveLogoContentType,
+  validateHeroUpload,
   validateLogoUpload,
 } from "@/lib/branding"
 
@@ -89,6 +94,61 @@ describe("logoStoragePath", () => {
     expect(logoStoragePath("image/jpeg")).toBe("logo.jpg")
     expect(logoStoragePath("image/svg+xml")).toBe("logo.svg")
     expect(logoStoragePath("image/webp")).toBe("logo.webp")
+  })
+})
+
+describe("validateHeroUpload", () => {
+  it("accepts a PNG under the size limit", () => {
+    expect(validateHeroUpload(valid)).toBeNull()
+  })
+
+  it("rejects a missing file", () => {
+    expect(validateHeroUpload({ ...valid, base64: "" })).toBe("Please choose an image file.")
+    expect(validateHeroUpload({ ...valid, size: 0 })).toBe("Please choose an image file.")
+  })
+
+  it("rejects an unsupported content type, including SVG (logo-only)", () => {
+    expect(validateHeroUpload({ ...valid, contentType: "image/gif" })).toBe(
+      "Please upload a PNG, JPG, or WEBP image.",
+    )
+    expect(validateHeroUpload({ ...valid, contentType: "image/svg+xml" })).toBe(
+      "Please upload a PNG, JPG, or WEBP image.",
+    )
+  })
+
+  it("rejects a file larger than 4MB", () => {
+    expect(validateHeroUpload({ ...valid, size: MAX_HERO_BYTES + 1 })).toBe(
+      "Hero image must be smaller than 4MB.",
+    )
+  })
+
+  it("accepts a file at exactly 4MB", () => {
+    expect(validateHeroUpload({ ...valid, size: MAX_HERO_BYTES })).toBeNull()
+  })
+})
+
+describe("resolveHeroContentType", () => {
+  it("maps aliases and file extensions to canonical image types, excluding SVG", () => {
+    expect(resolveHeroContentType("image/jpg")).toBe("image/jpeg")
+    expect(resolveHeroContentType("image/x-png")).toBe("image/png")
+    expect(resolveHeroContentType("", "hero.webp")).toBe("image/webp")
+    expect(resolveHeroContentType("", "hero.svg")).toBeNull()
+    expect(resolveHeroContentType("image/svg+xml")).toBeNull()
+  })
+})
+
+describe("heroStoragePath", () => {
+  it("maps each allowed type to a stable hero.* object key", () => {
+    expect(heroStoragePath("image/png")).toBe("hero.png")
+    expect(heroStoragePath("image/jpg")).toBe("hero.jpg")
+    expect(heroStoragePath("image/jpeg")).toBe("hero.jpg")
+    expect(heroStoragePath("image/webp")).toBe("hero.webp")
+  })
+})
+
+describe("hero upload body size", () => {
+  it("documents an 8mb Server Action limit for a 4MB base64 payload", () => {
+    expect(HERO_UPLOAD_BODY_SIZE_LIMIT).toBe("8mb")
   })
 })
 

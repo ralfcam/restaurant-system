@@ -58,14 +58,17 @@ function revalidateBrandingSurfaces() {
 
 type ServiceDb = ReturnType<typeof createServiceClient>
 
-async function createBrandingBucketIfMissing(db: ServiceDb): Promise<{ error?: string }> {
+async function createBrandingBucketIfMissing(
+  db: ServiceDb,
+  assetLabel: "logo" | "hero image",
+): Promise<{ error?: string }> {
   const { error: createError } = await db.storage.createBucket(
     BRANDING_BUCKET,
     brandingBucketOptions(),
   )
   if (createError && !/already exists/i.test(createError.message)) {
     console.error("[branding] createBucket:", createError.message)
-    return { error: "Could not upload the logo. Please try again." }
+    return { error: `Could not upload the ${assetLabel}. Please try again.` }
   }
   return {}
 }
@@ -109,7 +112,7 @@ export async function uploadRestaurantLogo(
     .from(BRANDING_BUCKET)
     .upload(path, bytes, uploadOptions)
   if (uploadError && isMissingBucketError(uploadError)) {
-    const created = await createBrandingBucketIfMissing(db)
+    const created = await createBrandingBucketIfMissing(db, "logo")
     if (created.error) return { logoUrl: "", error: created.error }
     ;({ error: uploadError } = await db.storage
       .from(BRANDING_BUCKET)
@@ -201,7 +204,7 @@ export async function uploadRestaurantHeroImage(
     .from(BRANDING_BUCKET)
     .upload(path, bytes, uploadOptions)
   if (uploadError && isMissingBucketError(uploadError)) {
-    const created = await createBrandingBucketIfMissing(db)
+    const created = await createBrandingBucketIfMissing(db, "hero image")
     if (created.error) return { heroImageUrl: "", error: created.error }
     ;({ error: uploadError } = await db.storage
       .from(BRANDING_BUCKET)
