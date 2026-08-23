@@ -19,11 +19,13 @@ import { ReservationWidget } from "@/components/site/reservation-widget"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useRestaurantHeroImage } from "@/hooks/use-restaurant-hero-image"
+import { useRestaurantInfoBar } from "@/hooks/use-restaurant-info-bar"
 
 export default function HomePage() {
   const t = useTranslations()
   const featured = MENU_ITEMS.filter((m) => m.popular).slice(0, 3)
   const { heroImageUrl } = useRestaurantHeroImage()
+  const restaurantInfo = useRestaurantInfoBar()
   const hasHero = Boolean(heroImageUrl)
 
   return (
@@ -125,7 +127,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <ReservationWidget dark={hasHero} />
+              <ReservationWidget dark={hasHero} phone={restaurantInfo.phone} />
             </div>
           </div>
         </div>
@@ -147,9 +149,9 @@ export default function HomePage() {
                 hasHero ? "divide-y divide-white/10" : "divide-y divide-border",
               )}
             >
-              <InfoItem icon={Clock} label={t("info.hours")} value={RESTAURANT.hours} dark={hasHero} />
-              <InfoItem icon={MapPin} label={t("info.location")} value={RESTAURANT.address} dark={hasHero} />
-              <InfoItem icon={Phone} label={t("info.reservations")} value={RESTAURANT.phone} dark={hasHero} />
+              <InfoItem icon={Clock} label={t("info.hours")} value={restaurantInfo.hours} dark={hasHero} />
+              <InfoItem icon={MapPin} label={t("info.location")} value={restaurantInfo.address} dark={hasHero} />
+              <InfoItem icon={Phone} label={t("info.reservations")} value={restaurantInfo.phone} dark={hasHero} />
             </div>
           </div>
         </div>

@@ -106,6 +106,45 @@ export function formatSegmentsSummary(segments: OperatingSegment[]): string {
     .join(", ")
 }
 
+const DAY_LABELS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
+const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0] as const
+
+/**
+ * Builds a compact, guest-facing weekly summary from the operational schedule.
+ * Consecutive Monday-first days with identical hours are grouped together.
+ */
+export function summarizeOperatingDays(days: OperatingDay[]): string {
+  if (days.length === 0) return "Hours unavailable"
+
+  const byDay = new Map(days.map((day) => [day.day_of_week, day]))
+  const ordered = MONDAY_FIRST.map((dayOfWeek) => {
+    const day = byDay.get(dayOfWeek)
+    const summary = !day || day.is_closed || day.segments.length === 0
+      ? "Closed"
+      : formatSegmentsSummary(day.segments)
+    return { dayOfWeek, summary }
+  })
+
+  const groups: Array<{ start: number; end: number; summary: string }> = []
+  for (const entry of ordered) {
+    const previous = groups.at(-1)
+    if (previous?.summary === entry.summary) {
+      previous.end = entry.dayOfWeek
+    } else {
+      groups.push({ start: entry.dayOfWeek, end: entry.dayOfWeek, summary: entry.summary })
+    }
+  }
+
+  return groups
+    .map(({ start, end, summary }) => {
+      const daysLabel = start === end
+        ? DAY_LABELS_SHORT[start]
+        : `${DAY_LABELS_SHORT[start]}–${DAY_LABELS_SHORT[end]}`
+      return `${daysLabel} · ${summary}`
+    })
+    .join("; ")
+}
+
 export function generateSlotsForSegments(
   segments: OperatingSegment[],
   stepMinutes = 30,

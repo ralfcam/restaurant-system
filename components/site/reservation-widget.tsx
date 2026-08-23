@@ -121,7 +121,13 @@ function StepPanel({
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
-export function ReservationWidget({ dark = false }: { dark?: boolean }) {
+export function ReservationWidget({
+  dark = false,
+  phone: restaurantPhone = RESTAURANT.phone,
+}: {
+  dark?: boolean
+  phone?: string
+}) {
   const [party, setParty] = useState("2")
   // Date is intentionally empty on first render (server + first client paint)
   // to avoid a hydration mismatch — `firstAvailableDate()` depends on the
@@ -407,10 +413,10 @@ export function ReservationWidget({ dark = false }: { dark?: boolean }) {
               <p className={cn("border-t pt-3 mt-1 text-sm leading-relaxed tracking-wide", dark ? "border-white/10 text-white/50" : "border-border/40 text-muted-foreground")}>
                 For groups of more than {ONLINE_MAX_PARTY}, please call us directly at{" "}
                 <a
-                  href={`tel:${RESTAURANT.phone}`}
+                  href={`tel:${restaurantPhone}`}
                   className={cn("underline underline-offset-2 transition-colors", dark ? "text-white/70 hover:text-white" : "text-foreground hover:text-primary")}
                 >
-                  {RESTAURANT.phone}
+                  {restaurantPhone}
                 </a>
                 .
               </p>

@@ -5,8 +5,10 @@ import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
+import { updateRestaurantContactInfo } from "@/app/actions/restaurant-info"
 import {
   type OperatingDay,
   upsertOperatingWindows,
@@ -18,6 +20,7 @@ import {
   daysToWindowsMap,
   groupRowsByDay,
   nextSuggestedSegment,
+  summarizeOperatingDays,
   validateOperatingDays,
   type OperatingSegment,
   type OperatingWindowRow,
@@ -83,17 +86,25 @@ const LABEL_INPUT_CLS = cn(
 export function SchedulingManager({
   initialOperatingWindows,
   initialBlockedDates = [],
+  initialAddress,
+  initialPhone,
 }: {
   initialOperatingWindows: OperatingDay[]
   initialBlockedDates?: string[]
+  initialAddress: string
+  initialPhone: string
 }) {
   const [days, setDays] = useState<DayDraft[]>(() => toDraftDays(initialOperatingWindows))
   const [blockedDates, setBlockedDates] = useState<string[]>(initialBlockedDates)
+  const [address, setAddress] = useState(initialAddress)
+  const [phone, setPhone] = useState(initialPhone)
+  const [savingContact, setSavingContact] = useState(false)
   const [savingHours, setSavingHours] = useState(false)
   const [togglingDate, setTogglingDate] = useState<string | null>(null)
 
   const operatingDays = useMemo(() => toOperatingDays(days), [days])
   const windowsMap = useMemo(() => daysToWindowsMap(operatingDays), [operatingDays])
+  const hoursSummary = useMemo(() => summarizeOperatingDays(operatingDays), [operatingDays])
   const hoursError = useMemo(() => validateOperatingDays(operatingDays), [operatingDays])
 
   const patchDay = useCallback((dayOfWeek: number, patch: (day: DayDraft) => DayDraft) => {
@@ -168,6 +179,24 @@ export function SchedulingManager({
     toast.success(`Copied ${DAY_NAMES[sourceDay]} hours to Mon–Sat.`)
   }
 
+  const handleSaveContact = async () => {
+    setSavingContact(true)
+    try {
+      const result = await updateRestaurantContactInfo({ address, phone })
+      if (result.error) {
+        toast.error("Could not save contact information", { description: result.error })
+        return
+      }
+      toast.success("Homepage contact information updated.")
+    } catch (err) {
+      toast.error("Could not save contact information", {
+        description: err instanceof Error ? err.message : "An unexpected error occurred.",
+      })
+    } finally {
+      setSavingContact(false)
+    }
+  }
+
   const handleSaveHours = async () => {
     if (hoursError) {
       toast.error("Cannot save opening hours", { description: hoursError })
@@ -236,7 +265,64 @@ export function SchedulingManager({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+    <div className="flex flex-col gap-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm font-semibold tracking-wide">Homepage info bar</CardTitle>
+          <CardDescription className="text-xs">
+            Control the address and reservation number shown beneath the homepage hero. Hours are generated automatically from the opening-hour segments below.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Hours preview
+            </p>
+            <p className="mt-1 text-sm font-medium leading-relaxed text-foreground">
+              {hoursSummary}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Auto-generated from opening hours below. Save those hours to publish changes.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="restaurant-address">Address</Label>
+              <Input
+                id="restaurant-address"
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                maxLength={240}
+                placeholder="Restaurant address"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="restaurant-phone">Reservation phone</Label>
+              <Input
+                id="restaurant-phone"
+                value={phone}
+                onChange={(event) => setPhone(event.target.value)}
+                maxLength={40}
+                placeholder="+1 555 123 4567"
+              />
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleSaveContact}
+            disabled={savingContact || !address.trim() || !phone.trim()}
+            className="w-full sm:w-fit"
+          >
+            <Save className="size-3.5" />
+            {savingContact ? "Saving…" : "Save contact info"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-semibold tracking-wide">Opening hours</CardTitle>
@@ -422,6 +508,7 @@ export function SchedulingManager({
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }
