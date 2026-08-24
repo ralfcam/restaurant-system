@@ -22,7 +22,7 @@ export type {
   OperatingWindowRow,
 } from "@/lib/reservations/operating-hours"
 
-const WINDOW_COLUMNS = "day_of_week, opens_at, closes_at, is_closed, label, sort_order"
+const WINDOW_COLUMNS = "day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note"
 
 /**
  * Detects PostgREST schema-cache / missing-table errors. These occur when the

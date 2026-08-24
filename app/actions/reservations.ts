@@ -10,6 +10,7 @@ import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone
 import { validateReservationPayload } from "@/lib/reservations/validation"
 import {
   bookableTimesForDay,
+  clampSlotIntervalMinutes,
   formatSegmentsSummary,
   isTimeWithinSegments,
 } from "@/lib/reservations/operating-hours"
@@ -441,7 +442,9 @@ export type SlotAvailability = {
 }
 
 /**
- * Returns which TIME_SLOTS are still bookable for a given date + party size.
+ * Returns which times from `bookableTimesForDay` are still bookable for a
+ * given date + party size. Slot spacing is
+ * `restaurant_settings.slot_interval_minutes`, clamped to 15 / 30 / 60.
  * A slot is unavailable when:
  *  - The date is blocked (holiday, special closure)
  *  - The date falls outside operating hours
@@ -452,18 +455,34 @@ export async function getAvailableSlots(
   date: string,
   partySize: number,
 ): Promise<SlotAvailability[]> {
-  // Check if the requested date is blocked
   const dateIsBlocked = await isDateBlocked(date)
   const operatingWindow = await getOperatingWindowForDate(date)
-  const TIME_SLOTS = bookableTimesForDay(
-    dateIsBlocked || !operatingWindow || operatingWindow.is_closed
-      ? { day_of_week: 0, is_closed: true, segments: [] }
-      : operatingWindow,
-  )
 
-  if (dateIsBlocked || !operatingWindow || operatingWindow.is_closed || TIME_SLOTS.length === 0) {
-    return TIME_SLOTS.map((time) => ({ time, available: false }))
+  if (dateIsBlocked || !operatingWindow || operatingWindow.is_closed) {
+    return []
   }
+
+  const db = createServiceClient()
+  const { data: settings, error: settingsError } = await db
+    .from("restaurant_settings")
+    .select("slot_interval_minutes")
+    .eq("id", 1)
+    .maybeSingle()
+  if (settingsError) {
+    console.error("[reservations] getAvailableSlots settings error:", settingsError.message)
+  }
+  const stepMinutes = clampSlotIntervalMinutes(settings?.slot_interval_minutes ?? 30)
+
+  const TIME_SLOTS = bookableTimesForDay(operatingWindow, stepMinutes)
+  if (TIME_SLOTS.length === 0) {
+    return []
+  }
+
+  const { data: tableRows, error: tableError } = await db.from("tables").select("seats")
+  if (tableError) {
+    console.error("[reservations] getAvailableSlots table capacity error:", tableError.message)
+  }
+  const totalCapacity = (tableRows ?? []).reduce((sum, row) => sum + (row.seats ?? 0), 0)
 
   // Reservations carry PII (guest name, phone, notes) and are not publicly
   // readable — RLS only grants anon INSERT, not SELECT. This preview only
@@ -472,15 +491,6 @@ export async function getAvailableSlots(
   // reduced to booleans below. This mirrors the same total-seats capacity
   // rule enforced atomically by the `validate_reservation_availability`
   // database trigger on insert, keeping both checks in sync.
-  const db = createServiceClient()
-
-  const { data: tableRows, error: tableError } = await db.from("tables").select("seats")
-  if (tableError) {
-    console.error("[reservations] getAvailableSlots table capacity error:", tableError.message)
-  }
-  const totalCapacity = (tableRows ?? []).reduce((sum, row) => sum + (row.seats ?? 0), 0)
-
-  // Fetch all confirmed/seated reservations for this date.
   const { data, error } = await db
     .from("reservations")
     .select("time, party_size")

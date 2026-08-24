@@ -63,12 +63,16 @@ function toOperatingDays(drafts: DayDraft[]): OperatingDay[] {
   return drafts.map((day) => ({
     day_of_week: day.day_of_week,
     is_closed: day.is_closed,
-    segments: day.segments.map((segment, index) => ({
-      opens_at: segment.opens_at,
-      closes_at: segment.closes_at,
-      label: segment.label,
-      sort_order: index,
-    })),
+    segments: day.segments.map((segment, index) => {
+      const note = segment.guest_note?.trim()
+      return {
+        opens_at: segment.opens_at,
+        closes_at: segment.closes_at,
+        label: segment.label,
+        sort_order: index,
+        ...(note ? { guest_note: note } : {}),
+      }
+    }),
   }))
 }
 
@@ -79,6 +83,12 @@ const TIME_INPUT_CLS = cn(
 
 const LABEL_INPUT_CLS = cn(
   "h-7 w-24 rounded-sm border border-border/60 bg-transparent px-2 text-xs",
+  "placeholder:text-muted-foreground/70",
+  "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
+)
+
+const NOTE_INPUT_CLS = cn(
+  "h-7 min-w-[10rem] flex-1 rounded-sm border border-border/60 bg-transparent px-2 text-xs",
   "placeholder:text-muted-foreground/70",
   "focus:border-foreground/40 focus:outline-none focus:ring-1 focus:ring-ring/20",
 )
@@ -128,7 +138,7 @@ export function SchedulingManager({
   const handleSegmentChange = (
     dayOfWeek: number,
     key: string,
-    patch: Partial<Pick<OperatingSegment, "label" | "opens_at" | "closes_at">>,
+    patch: Partial<Pick<OperatingSegment, "label" | "opens_at" | "closes_at" | "guest_note">>,
   ) => {
     patchDay(dayOfWeek, (day) => ({
       ...day,
@@ -412,6 +422,18 @@ export function SchedulingManager({
                           }
                           aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} closes`}
                           className={TIME_INPUT_CLS}
+                        />
+                        <input
+                          type="text"
+                          value={segment.guest_note ?? ""}
+                          placeholder="Guest note"
+                          onChange={(e) =>
+                            handleSegmentChange(day.day_of_week, segment.key, {
+                              guest_note: e.target.value || null,
+                            })
+                          }
+                          aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} guest note`}
+                          className={NOTE_INPUT_CLS}
                         />
                         <button
                           type="button"

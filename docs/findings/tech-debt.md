@@ -1,3 +1,13 @@
 # Tech-debt findings (open)
 
-- _(none — see [archive.md](./archive.md))_
+- [ ] Duplicate inclusive membership in `isTimeWithinOperatingHours` · `lib/timezone.ts` · Booking validation reimplements `t >= opens && t <= closes` instead of sharing `isTimeWithinSegments` / `assignSegmentForTime`, so membership rules can drift from the widget · med · (found: C1/red)
+- [ ] “Later” is array order, not `sort_order` · `lib/reservations/operating-hours.ts` (`assignSegmentForTime`) · `findLast` follows caller order; unsorted segments with the same `opens_at` could pick a different owner than staff `sort_order` · low · (found: C1/refactor)
+- [ ] `minutesToTime` does not wrap modulo 24h · `lib/reservations/operating-hours.ts` · `Math.floor(totalMinutes / 60)` can emit `24:30` for 23:00+90; leftover callers still risk invalid clock strings if they use this helper as-is · med · (found: C2/red)
+- [ ] reservations → floor import · `lib/reservations/operating-hours.ts` imports `DEFAULT_EXPECTED_MINUTES` from `lib/floor/table-use.ts` · booking-slot duration is coupled to the floor-turn constant · low · (found: C2/green)
+- [ ] Duplicate `timeToMinutes` with different contracts · `lib/reservations/auto-assign.ts` vs `operating-hours.ts` · auto-assign returns `null` for invalid/`hours>23`; operating-hours returns `NaN` and can format `"NaN:NaN"` · med · (found: C2/refactor)
+- [ ] Unclamped `stepMinutes <= 0` can infinite-loop slot generation · `lib/reservations/operating-hours.ts` `generateSlotsForSegments` · increments by the raw step; `0` never advances `minutes` (C7 should clamp before calling) · med · (found: C3/green)
+- [ ] Already-applied remotes miss guest_note · `supabase/migrations/20260818162000_operating_hour_segments.sql` · Folding `ADD COLUMN IF NOT EXISTS guest_note` into a previously applied dated file will not run on environments that already recorded that version · med · (found: C4/green)
+- [ ] Baseline `restaurant_settings` is not consolidated · `supabase/migrations/00000000000000_baseline.sql` · `hero_image_url`, `address`, `phone`, and `chefs_picks_enabled` exist only in later dated files · med · (found: C5/red)
+- [ ] Already-applied remotes miss slot_interval_minutes · `20260823130000_restaurant_info_and_chefs_picks.sql` · Editing an applied dated migration does not add the column on linked remotes · med · (found: C5/green)
+- [ ] Fail-open vs fail-closed in getAvailableSlots · `app/actions/reservations.ts` · table errors yield capacity 0 (all unavailable); reservation errors mark every slot available · med · (found: C7/refactor)
+- [ ] Overlapping interval clicks can roll back to a stale previous · `components/staff/floor-plan.tsx` · `previous` is captured per click with no generation/lock · low · (found: C11/refactor)

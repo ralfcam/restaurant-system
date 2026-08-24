@@ -1,7 +1,7 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-24
 
 ## Scope
 
@@ -99,6 +99,26 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     unlocked table on another available table still merges (FP-8). Dropping a
     merged table on an empty cell still splits. Locked tables stay put and
     are only selectable. Creating a table occupies the next free cell.
+
+13. **Guest note on opening-hour segments** — Staff can set an optional
+    **guest note** per opening-hour segment on `/admin/scheduling`. It is stored
+    on `operating_windows.guest_note` and shown under that group in the guest
+    widget when non-empty (blank/whitespace notes render no helper).
+    `replace_operating_windows` persists the column.
+
+14. **FP-10 — Slot interval** — `/admin/floor` exposes a restaurant-wide slot
+    interval (15 / 30 / 60 minutes, default **30**) persisted on
+    `restaurant_settings.slot_interval_minutes`. Guest slot generation uses
+    this value (`clampSlotIntervalMinutes`). Per-table Expected time
+    (`tables.expected_minutes`) stays for live-floor clocks only and does
+    **not** change the guest until-badge.
+
+## Implementation trace (non-normative)
+
+| Criterion | Shipped in | Tests |
+| --- | --- | --- |
+| Guest note (§13) | `operating_windows.guest_note` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260818162000_operating_hour_segments.sql`; `components/staff/scheduling-manager.tsx`; `app/actions/availability.ts` (`WINDOW_COLUMNS`, `replace_operating_windows`) | `tests/unit/scheduling/schema.test.ts`, `tests/unit/availability/actions.test.ts` |
+| FP-10 | `restaurant_settings.slot_interval_minutes` — baseline + `supabase/migrations/20260823130000_restaurant_info_and_chefs_picks.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `updateSlotIntervalMinutes`); `app/admin/floor/page.tsx` → `components/staff/floor-plan.tsx` | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts` |
 
 ## References
 

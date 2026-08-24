@@ -7,6 +7,13 @@ import {
   TABLE_STATUS_META,
   type TableStatus,
 } from "@/lib/data"
+import { updateSlotIntervalMinutes } from "@/app/actions/branding"
+import {
+  ALLOWED_SLOT_INTERVALS,
+  clampSlotIntervalMinutes,
+  DEFAULT_SLOT_INTERVAL_MINUTES,
+  type SlotIntervalMinutes,
+} from "@/lib/reservations/operating-hours"
 import {
   createTable,
   deleteTable,
@@ -91,9 +98,11 @@ type FloorDrag = {
 export function FloorPlan({
   date,
   fallbackData,
+  initialSlotInterval = DEFAULT_SLOT_INTERVAL_MINUTES,
 }: {
   date: string
   fallbackData?: FloorSnapshot
+  initialSlotInterval?: SlotIntervalMinutes
 }) {
   const { tables: loadedTables, reservations, mutate, isValidating } = useFloorPlan(date, fallbackData)
   const tables = useMemo(() => spreadOverlappingTables(loadedTables), [loadedTables])
@@ -104,6 +113,9 @@ export function FloorPlan({
   const [mergePick, setMergePick] = useState<string[]>([])
   const [merging, setMerging] = useState(false)
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
+  const [slotInterval, setSlotInterval] = useState<SlotIntervalMinutes>(
+    clampSlotIntervalMinutes(initialSlotInterval),
+  )
   const [draftPositions, setDraftPositions] = useState<Record<string, FloorCell>>({})
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
@@ -211,6 +223,21 @@ export function FloorPlan({
       await mutate()
     } catch {
       toast.error("Could not update expected time")
+    }
+  }
+
+  async function persistSlotInterval(minutes: SlotIntervalMinutes) {
+    const previous = slotInterval
+    setSlotInterval(minutes)
+    try {
+      const result = await updateSlotIntervalMinutes(minutes)
+      if (result.error) {
+        setSlotInterval(previous)
+        toast.error(result.error)
+      }
+    } catch {
+      setSlotInterval(previous)
+      toast.error("Could not save slot interval")
     }
   }
 
@@ -451,7 +478,31 @@ export function FloorPlan({
                 {" · "}reservations update automatically
               </p>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <div
+                data-testid="slot-interval-control"
+                role="group"
+                aria-labelledby="slot-interval-label"
+                className="flex items-center gap-1.5"
+              >
+                <span
+                  id="slot-interval-label"
+                  className="text-xs font-medium text-muted-foreground"
+                >
+                  Slot interval
+                </span>
+                {ALLOWED_SLOT_INTERVALS.map((minutes) => (
+                  <Button
+                    key={minutes}
+                    size="sm"
+                    variant={slotInterval === minutes ? "default" : "outline"}
+                    aria-pressed={slotInterval === minutes}
+                    onClick={() => void persistSlotInterval(minutes)}
+                  >
+                    {minutes}
+                  </Button>
+                ))}
+              </div>
               {unlockedIds.size > 0 ? (
                 <Button size="sm" variant="outline" onClick={() => setUnlockedIds(new Set())}>
                   <Lock className="size-4" /> Lock all

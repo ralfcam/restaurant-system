@@ -26,6 +26,16 @@ describe("opening-hour segments schema and surfaces", () => {
     expect(migration).toMatch(/replace_operating_windows/)
   })
 
+  it("operating_windows and replace_operating_windows persist guest_note", () => {
+    const baseline = read("supabase/migrations/00000000000000_baseline.sql")
+    const migration = read("supabase/migrations/20260818162000_operating_hour_segments.sql")
+
+    expect(baseline).toMatch(/guest_note TEXT/)
+    expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS guest_note/)
+    expect(baseline).toMatch(/INSERT INTO operating_windows \([^)]*guest_note/)
+    expect(migration).toMatch(/INSERT INTO operating_windows \([^)]*guest_note/)
+  })
+
   it("admin scheduling manager lets staff add labeled opening-hour segments", () => {
     expect(existsSync(path.join(root, "app/admin/scheduling/page.tsx"))).toBe(true)
     const manager = read("components/staff/scheduling-manager.tsx")

@@ -19,6 +19,11 @@ import {
   validateHeroUpload,
   validateLogoUpload,
 } from "@/lib/branding"
+import {
+  clampSlotIntervalMinutes,
+  DEFAULT_SLOT_INTERVAL_MINUTES,
+  type SlotIntervalMinutes,
+} from "@/lib/reservations/operating-hours"
 
 export async function getRestaurantLogoUrl(): Promise<string | null> {
   const { data, error } = await createServiceClient()
@@ -254,6 +259,45 @@ export async function removeRestaurantHeroImage(): Promise<{ error?: string }> {
   if (error) {
     console.error("[branding] removeRestaurantHeroImage:", error.message)
     return { error: "Could not remove the hero image. Please try again." }
+  }
+
+  revalidateBrandingSurfaces()
+  return {}
+}
+
+export async function getSlotIntervalMinutes(): Promise<SlotIntervalMinutes> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return DEFAULT_SLOT_INTERVAL_MINUTES
+
+  const { data, error } = await createServiceClient()
+    .from("restaurant_settings")
+    .select("slot_interval_minutes")
+    .eq("id", 1)
+    .maybeSingle()
+  if (error) {
+    console.error("[branding] getSlotIntervalMinutes:", error.message)
+    return DEFAULT_SLOT_INTERVAL_MINUTES
+  }
+  return clampSlotIntervalMinutes(
+    data?.slot_interval_minutes ?? DEFAULT_SLOT_INTERVAL_MINUTES,
+  )
+}
+
+export async function updateSlotIntervalMinutes(
+  minutes: number,
+): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
+  const slot_interval_minutes = clampSlotIntervalMinutes(minutes)
+  const { error } = await createServiceClient().from("restaurant_settings").upsert({
+    id: 1,
+    slot_interval_minutes,
+    updated_at: new Date().toISOString(),
+  })
+  if (error) {
+    console.error("[branding] updateSlotIntervalMinutes:", error.message)
+    return { error: "Could not save slot interval. Please try again." }
   }
 
   revalidateBrandingSurfaces()

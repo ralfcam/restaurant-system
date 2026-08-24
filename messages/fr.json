@@ -49,5 +49,15 @@
     "emptySubtitle": "Revenez dans un instant — nous mettons la carte à jour.",
     "noDishes": "Aucun plat disponible dans cette carte pour le moment.",
     "signature": "Signature"
+  },
+  "reservationWidget": {
+    "reserve": "Réserver",
+    "until": "jusqu'à",
+    "guests": "Convives",
+    "date": "Date",
+    "time": "Heure",
+    "guestsSummary": "{count, plural, one {# convive} other {# convives}}",
+    "dateSummary": "{date}",
+    "timeSummary": "{time}"
   }
 }

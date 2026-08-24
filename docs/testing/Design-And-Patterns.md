@@ -1,7 +1,7 @@
 # Design & patterns
 
 **Status:** Reference  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-24
 
 Catalog of reusable test recipes promoted from shipped `/sdd-to-tdd` runs.
 
@@ -18,6 +18,10 @@ Catalog of reusable test recipes promoted from shipped `/sdd-to-tdd` runs.
 | MIME alias / empty browser `type` validation | Unit-test `resolveLogoContentType` and `validateLogoUpload` with `image/jpg`, `image/x-png`, and extension-only file names | `tests/unit/branding/validation.test.ts` |
 | No bundled static logo in `public/` | `existsSync` on `public/images/logo.png` and `.jpg`; assert absent | `tests/unit/branding/schema.test.ts` → "staff branding page exists and leftover test fixtures are gone" |
 | Guest chrome uses `BrandMark`, not `SITE_LOGO.src` | `readFileSync` + regex on `site-header.tsx` and `auth/login/page.tsx`; assert `<BrandMark src={logoUrl}>` and no `SITE_LOGO.src` | `tests/unit/branding/schema.test.ts` → "guest header and login render BrandMark only when a custom url is set" |
+| Clock-face wrap before `minutesToTime` | Until-badges call `wrapMinutesOfDay` before `minutesToTime` so `23:00` + 90 → `00:30` (not `24:30`); slot generation may still break at 24h if callers skip the wrap | `tests/unit/reservations/operating-hours.test.ts` → `slotUntilTime` |
+| Inclusive membership vs exclusive assignment | Shared `segmentContainsTimeInclusive`; booking validation (`isTimeWithinSegments`) stays inclusive; exclusive segment ownership only in `assignSegmentForTime` (later `opens_at` wins) | `tests/unit/reservations/operating-hours.test.ts` → `isTimeWithinSegments`, `assignSegmentForTime` |
+| Source-structure widget contract | `readFileSync` + regex on `reservation-widget.tsx`; assert helper imports (`groupBookableSlots`, `slotUntilTime`), `data-testid` hooks (`slot-group`, `slot-card`, `until`, `reserve`), and absence of time `<Select>` | `tests/unit/reservation-widget/segment-groups.test.ts`, `tests/unit/reservation-widget/chrome-i18n.test.ts` |
+| Staff singleton settings (RSC → client island) | Admin RSC fetches singleton row (`getSlotIntervalMinutes`); pass clamped `initialSlotInterval` into client component; persist via server action | `tests/unit/floor/slot-interval.test.ts` → "floor plan exposes and persists restaurant-wide slot interval" |
 
 ## Integration recipes
 
