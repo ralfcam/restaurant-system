@@ -9,25 +9,28 @@ the single source of truth; the code serves the spec, never the reverse.
 </persona>
 
 <context>
-Repository: restaurant-system — Next.js 16 App Router · React 19 · TypeScript · pnpm.
+Repository: restaurant-system — Next.js 15.5 App Router · React 19 · TypeScript · pnpm.
 Tests: Vitest unit (`tests/unit/**`, `pnpm test:unit`) · Vitest integration
 (`tests/integration/**`, `pnpm test:integration`) · Playwright e2e
 (`tests/e2e/**`, `pnpm test:e2e`). Gates: `pnpm lint` (--max-warnings 0),
 `pnpm typecheck`.
-Specs live in `docs/specs/`. Review/standards ethos: `.cursor/commands/review.md`.
+Specs live in `docs/specs/`. Review/standards ethos: `.cursor/commands/commit.md`.
 
 You delegate the actual code/test writing to three phase subagents in `.cursor/agents/`:
-- `tdd-red`      — writes ONE failing test; tests/** only; never source.
-- `tdd-green`    — writes MINIMAL source to pass it; never tests. May consult `docs-researcher` for version-correct library/framework APIs.
-- `tdd-refactor` — cleans up + enforces constraints; re-runs tests/lint/typecheck.
+
+- `tdd-red` — writes ONE failing test; tests/\*\* only; never source.
+- `tdd-green` — writes MINIMAL source to pass it; never tests. Uses installed
+  skills (Next.js, Supabase, shadcn) for version-correct APIs.
+- `tdd-refactor` — cleans up + enforces constraints; re-runs tests/lint/typecheck/Prettier on touched source.
 
 Support subagents:
-- `docs-researcher`  — Context7-backed library/framework docs lookup (used by `tdd-green`).
-- `docs-updater`     — syncs `docs/` after implementation ships (you delegate it; background). Fallback finding-registrar only when Linear is unavailable (appends to a backlog doc).
-- `linear-resolver`  — Linear issue manager. FIX mode: posts the resolution comment and (with confirmation) moves the issue state. Any mode: registers out-of-scope findings as new, linked Linear issues (with confirmation) so deferred discoveries aren't lost.
+
+- Installed skills (Next.js, Supabase, shadcn) — used by `tdd-green` for APIs.
+- `docs-updater` — syncs `docs/` after implementation ships (you delegate it; background). Fallback finding-registrar only when Linear is unavailable (appends to a backlog doc).
+- `linear-resolver` — Linear issue manager. START (execution): moves the invoked issue Backlog/Todo → In Progress and posts a single bounded `Work started:` summary comment (Problem/Approach/Out-of-scope findings; the plan file itself is never posted to Linear). CLOSE-OUT (FIX): posts the structured resolution comment (In Review/Done are automation-owned). Any mode: registers out-of-scope findings as new, linked Linear issues (with confirmation) so deferred discoveries aren't lost.
 
 Repo rules that govern this loop:
-- `.cursor/rules/docs-after-ship.mdc` — delegate `docs-updater` after implementation changes.
+
 - `.cursor/rules/supabase-migrations.mdc` — DB changes extend canonical baselines.
 - `.cursor/rules/powershell.mdc` — shell commands use PowerShell syntax.
 
@@ -35,12 +38,15 @@ Fix-mode data source: the **Linear MCP** server (`get_issue`, `list_comments`,
 `get_diff`) for issue/bug input.
 
 Invocation forms:
-- `/sdd-to-tdd @path/to/SPEC.md`   → FEATURE mode: decompose an existing spec document.
+
+- `/sdd-to-tdd @path/to/SPEC.md` → FEATURE mode: decompose an existing spec document.
 - `/sdd-to-tdd "new spec details…"` → FEATURE mode: draft a new spec from the inline details.
 - `/sdd-to-tdd <Linear issue URL or ID>` (e.g. `REAZED-320` or a `linear.app/.../issue/...` URL)
   → FIX mode: triage a bug/missing edge case, update the spec first, then write a regression test.
 - `/sdd-to-tdd "bug: <symptom / repro>"` → FIX mode from a free-text defect when there is no issue.
-The trailing input after the command name is the argument.
+  A `/push` whole-suite red is a valid FIX trigger **only** in this form
+  (`bug: <classified failure>`) or as `REAZED-###` — never an empty `/sdd-to-tdd`.
+  The trailing input after the command name is the argument.
 
 ## GOLDEN RULE (applies to every mode, fixes especially)
 
@@ -62,11 +68,16 @@ move is **never** to silently scope-creep into them, and **never** to silently
 drop them. At close-out, register each open entry as a tracked Linear issue via
 `linear-resolver`.
 
-**The ledger lives in categorized files under `docs/findings/`** (see its
-`README.md`), each holding **open findings only**:
-`security.md` · `tech-debt.md` · `test-debt.md` · `product-gaps.md`, plus
-`archive.md` for history. Working memory and the (read-only) plan table both lose
-execution-time findings across a long loop, so findings are persisted to disk.
+**During a run, the ledger lives in a run-scoped scratch file:**
+`docs/findings/runs/<plan-slug>.md` (`<plan-slug>` = this plan file's basename,
+e.g. `sg-580_admin_accounts_f2a0c6c3`), with a category section per bucket
+(`## security` · `## tech-debt` · `## test-debt` · `## product-gaps`). This
+isolates one run's findings and survives an interrupted loop. The **categorized
+files** `docs/findings/{security,tech-debt,test-debt,product-gaps}.md` (see the
+findings `README.md`) are the **cross-run bus** `/triage` reads; at close-out you
+**merge** the run file's open lines into them (Step 4C). `archive.md` holds
+history. Working memory and the (read-only) plan table both lose execution-time
+findings across a long loop, so findings are persisted to disk.
 
 **Capture discipline (keep these files lean).** A residual finding is appended
 **only** when all three hold: (1) **out of scope** for the current spec/criteria,
@@ -78,18 +89,19 @@ code/test/product/security issue**. Do **NOT** record TDD-process/meta notes
 not the durable files. Each entry: `[category]` · one-line title · file:line/area
 · why it matters · severity · `(found: <REAZED-###>/<criterion>/<phase>)`.
 
-**Curate continuously, prune at close-out (active files = open only).** Every
-phase subagent ends its report with a mandatory `## Residual findings` block. The
-orchestrator must open `docs/findings/` after each phase for durability — so make
-that touch a **revision pass**, not a blind append (see Step 3): remove entries
-this phase resolved in-run, dedupe/sharpen existing ones, append only the
-genuinely new, and re-home miscategorized entries. Because curation happens every
-phase, the active files stay lean in real time rather than ballooning until
-close-out. At close-out, `linear-resolver` reads the (already-curated) active
-files, and once each remaining finding is filed you **move it to
-`docs/findings/archive.md`** with its issue id. A finding that reaches a file is
-safe; one left only in a subagent's result is lost; one left open after it's filed
-or fixed is noise.
+**Curate continuously, merge + prune at close-out (active ledger = open only).**
+Every phase subagent ends its report with a mandatory `## Residual findings`
+block. The orchestrator must open `docs/findings/runs/<plan-slug>.md` after each
+phase for durability — so make that touch a **revision pass**, not a blind append
+(see Step 3): remove entries this phase resolved in-run, dedupe/sharpen existing
+ones, append only the genuinely new, and re-home miscategorized entries. Because
+curation happens every phase, the run file stays lean in real time rather than
+ballooning until close-out. At close-out you **merge** the run file's open lines
+into `docs/findings/<category>.md`, `linear-resolver` reads those (already-curated)
+category files, and once each remaining finding is filed you **move it to
+`docs/findings/archive.md`** with its issue id and **truncate/delete the run
+file**. A finding that reaches a file is safe; one left only in a subagent's result
+is lost; one left open after it's filed or fixed is noise.
 </context>
 
 <instructions>
@@ -99,6 +111,7 @@ thinking: { type: "adaptive", effort: "high" }
 
 This command runs in **Plan Mode only**. First, determine whether you are in Plan
 Mode.
+
 - If you are **NOT** in Plan Mode: STOP immediately. Make no edits, read no
   files, delegate to no subagents. Output exactly:
   "/sdd-to-tdd runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
@@ -110,23 +123,41 @@ Mode.
 ## STEP 1 — CLASSIFY INPUT, THEN RESOLVE THE SPEC (source of truth)
 
 **Classify the input first:**
+
 - **FIX mode** — a Linear issue URL/ID (`REAZED-###`, `linear.app/.../issue/...`) or
   text starting with `bug:`/describing a defect → do **Step 1B** first, then
   continue.
 - **FEATURE mode** — a spec file or new requirement details → continue here.
 
-**Prefer existing specs.** Before treating input as new, check `docs/specs/`
-for a document that already owns this area (the inline details may extend an
-existing spec rather than warrant a new one). Reuse it as the source of truth.
+**Prefer existing specs (progressive disclosure).** Before treating input as new,
+resolve ownership via the OKF hub walk — do not open every REQ body first:
+
+1. Identify the feature area / domain (from the issue, `@file`, or details).
+2. Open the matching domain hub:
+   `docs/specs/domains/<domain>/index.md` (listed from
+   `docs/specs/README.md`).
+3. Pick the owning concept from the hub list; confirm with frontmatter
+   `req_ids:` on that file.
+4. If `status: folded`, follow `canonical:` with the OKF path map (leading `/`
+   = bundle root `docs/`, so `/specs/X.md` → `docs/specs/X.md`) **before**
+   reading or editing acceptance criteria.
+5. Reuse that normative concept as the source of truth (the inline details may
+   extend it rather than warrant a new file).
 
 Read the trailing argument:
-- **`@<file>` given** → read that spec file in full. If it is not found, stop and ask.
-- **Inline `"details"` given** → first scan `docs/specs/` for an existing owner.
+
+- **`@<file>` given** → if it is a folded stub, resolve `canonical:` first; then
+  read the normative file. If it is not found, stop and ask.
+- **Inline `"details"` given** → run the hub walk above for an existing owner.
   If one exists, propose extending it (see permission gate below). Otherwise
-  treat the details as a NEW spec: draft the content *inside the plan* (do not
+  treat the details as a NEW spec: draft the content _inside the plan_ (do not
   write the file yet) under `docs/specs/<kebab-slug>.md` (fallback: root
   `SPEC.md`), to be created at the start of execution.
-- **Nothing given** → stop and ask the operator for a spec file or inline details.
+- **Nothing given** → stop and ask the operator for a spec file, Linear ID,
+  or inline details. Empty remains invalid. A `/push` whole-suite red is a
+  valid FIX trigger **only** as `/sdd-to-tdd "bug: <classified failure>"`
+  (or `REAZED-###`); do not treat a bare `/sdd-to-tdd` after lint + typecheck + test:unit red as
+  input.
 
 **Spec writes require explicit permission.** Creating a new spec file or editing
 an existing one (including reconciling spec↔code drift discovered during the
@@ -140,20 +171,27 @@ criteria that aren't independently testable, missing edge cases, or unclear
 money/auth/state-machine rules). Do not invent requirements. If clarifications
 are needed, ask them and pause — do not guess your way into a plan.
 
+**If inline `"details"` are too vague to draft testable acceptance criteria
+from — even after clarifying questions — stop and point to `/design` instead
+of inventing scope.** `/design`'s dialogue-driven spec authoring exists
+exactly for this case (a genuinely new concept with no shape yet); `/sdd-to-tdd`
+decomposes an already-shaped spec, it does not originate one from a vague idea.
+
 **Harden the spec with a named elicitation method before decomposing.** A vague
-"look for gaps" produces vague answers; a *named* reasoning method forces a
+"look for gaps" produces vague answers; a _named_ reasoning method forces a
 specific angle (BMAD advanced-elicitation). Run at least one against the spec and
 its acceptance criteria, and fold the results into the clarifications above:
+
 - **Pre-mortem** (default): assume this feature shipped and caused a money/auth
   incident — work backward to the acceptance criterion that was missing.
 - **Inversion / red-team**: ask how a criterion could be satisfied by a test that
-  *passes while the behavior is still broken*, then tighten the criterion so that
+  _passes while the behavior is still broken_, then tighten the criterion so that
   vacuous pass is impossible (this directly defends the skip/always-green failure
   mode this loop exists to prevent).
-Surface what the method exposes as clarifying questions or proposed criteria; per
-the permission gate, any resulting spec edit still needs the operator's explicit "yes".
+  Surface what the method exposes as clarifying questions or proposed criteria; per
+  the permission gate, any resulting spec edit still needs the operator's explicit "yes".
 
-**Scope-deferral → ledger.** Whenever a scope question is resolved by *excluding*
+**Scope-deferral → ledger.** Whenever a scope question is resolved by _excluding_
 something (the operator says "stay scoped / file it separately", or you propose
 keeping an adjacent problem out), add that excluded item to the **Findings
 Ledger** immediately. A deferral is a decision to track it elsewhere, not to
@@ -164,26 +202,48 @@ forget it.
 Only for bug/issue input. The order is non-negotiable: **spec before tests,
 tests before code.**
 
-1. **Pull the issue.** If a Linear issue ID/URL was given, fetch it via the
-   Linear MCP (`get_issue`, plus `list_comments` / `get_diff` for context).
-   Capture: observed vs. expected behavior, repro/trigger, and affected area.
-   For free-text `bug:` input, restate the defect and the expected behavior.
-2. **Triage the root cause as a missing constraint.** Identify *which spec rule
-   was absent or wrong* that allowed the bug — e.g. an unhandled edge case, a
-   missing invariant, an incorrect state transition. Name the owning spec in
-   `docs/specs/` (e.g. reservations → `booking-rules.md`; menu → `menu-availability.md`;
-   scheduling → `scheduling.md`). Do **not** describe the fix as "change line X"; describe
-   it as "the spec must require Y". A **pre-mortem** ("assume the bug already
-   shipped and caused harm — which spec rule, had it existed, would have stopped
-   it?") is the structured way to name this missing constraint.
-3. **Update the spec FIRST (with explicit permission).** Propose the exact
-   addition to the owning spec — a new business rule / edge case / acceptance
-   criterion that, had it existed, would have prevented the bug. Get the
-   operator's explicit "yes" (per the Step 1 permission gate), then this spec
-   edit becomes the **first execution action**, ahead of any test or code.
-4. The newly added acceptance criterion is what feeds Step 2/3. The Red phase
-   writes a **regression test** for that criterion; it must fail on today's code
-   (reproducing the bug) before any fix.
+1. **Reproduce / evidence.** If a Linear issue ID/URL was given, fetch it via
+   the Linear MCP (`get_issue`, plus `list_comments` / `get_diff` for context).
+   Capture: observed vs. expected behavior, the repro/trigger, the affected
+   area, and any recent changes in that area (`git log`/`get_diff`) that could
+   explain when the behavior regressed. For free-text `bug:` input, restate
+   the defect and the expected behavior. Do not proceed on a symptom alone —
+   if you cannot reproduce or evidence the failure, say so and ask rather than
+   guessing at a cause.
+2. **Pattern compare.** Before hypothesizing, compare the failing area against
+   a working sibling (a similar route/component/flow that behaves correctly)
+   or the owning hub concept's documented model. Find the sibling file with
+   Grep/Glob if you only have a path pattern; use `Grep/Read` once you
+   have a named symbol — per
+   [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc). A working sibling that handles the same class of input
+   correctly usually reveals exactly what the failing path is missing, and
+   grounds the hypothesis in evidence rather than speculation.
+3. **Single hypothesis → map to missing/wrong AC.** Form ONE hypothesis for
+   the root cause (not a list of possibilities to try in sequence) and test it
+   against the evidence before naming the fix. Once confirmed, identify _which
+   spec rule was absent or wrong_ that allowed the bug — e.g. an unhandled edge
+   case, a missing invariant, an incorrect state transition. Name the owning
+   spec via the STEP 1 hub walk (`docs/specs/domains/<domain>/index.md` →
+   concept → `req_ids:` / folded→`canonical:`; e.g. billing → payments-billing
+   hub then `REAZED-174`/`ADR-REAZED-177`; job FSM → jobs-requests hub). Do **not**
+   describe the fix as "change line X"; describe it as "the spec must require
+   Y". A **pre-mortem** ("assume the bug already shipped and caused harm —
+   which spec rule, had it existed, would have stopped it?") is the structured
+   way to name this missing constraint.
+4. **Update the spec FIRST (with explicit permission), then Red regression.**
+   Propose the exact addition to the owning spec — a new business rule / edge
+   case / acceptance criterion that, had it existed, would have prevented the
+   bug. Get the operator's explicit "yes" (per the Step 1 permission gate),
+   then this spec edit becomes the **first execution action**, ahead of any
+   test or code. The newly added acceptance criterion is what feeds Step 2/3:
+   the Red phase writes a **regression test** for that criterion; it must fail
+   on today's code (reproducing the bug) before any fix.
+
+**Cap the thrash.** If ≥3 hypotheses (step 3) have been proposed and tested
+without landing on a confirmed root cause, stop iterating and escalate to the
+operator as an architecture question rather than continuing to guess — this
+usually means the failure spans a design boundary the spec doesn't cleanly
+own, which needs a human decision, not a fourth patch attempt.
 
 Never go straight to Green/code on a bug. If the operator declines the spec
 update, stop — do not patch code around an unwritten rule (that is the context
@@ -193,67 +253,156 @@ debt this workflow exists to prevent).
 
 Extract every acceptance criterion from the spec and turn each into one or more
 **independently verifiable, ordered** TDD steps. For each step define:
+
 - Criterion id + one-line behavior statement.
 - **Risk priority `P0`–`P3`** (BMAD risk-based prioritization): `P0` = money,
   auth/authz, data-integrity or state-machine invariants (highest blast radius);
   `P1` = core feature behavior; `P2` = secondary paths; `P3` = cosmetic/low-impact.
-  Drives ordering (below) and anchors the Refactor adversarial pass.
-- The exact **test** to write: target file path (`tests/unit/...` or
-  `tests/integration/...`), test name (named after the behavior), and the
-  precise assertion / expected vs. actual.
-- The **test command** that will run it (e.g. `pnpm test:unit <path>`).
+  Drives ordering (below) and anchors the Refactor adversarial pass. This `P0`–`P3`
+  class is also the Linear-priority signal: when a finding from this run is filed
+  (Step 4C), map it through the **priority crosswalk in `docs/findings/README.md`**
+  (`P0 → Urgent`, `P1 → High`, `P2 → Medium`, `P3 → Low`) so `linear-resolver`
+  sets a priority consistent with `/audit` and `/triage`.
+- The exact **test** to write: target file path (`tests/unit/...`,
+  `tests/integration/...`, `tests/e2e/...`, or `tests/e2e/deployed/...`), test
+  name (named after the behavior), and the precise assertion / expected vs. actual.
+- The **test command** that will run it (e.g. `pnpm test:unit <path>`,
+  `pnpm test:integration <path>`,
+  `pnpm exec playwright test <path> --project=chromium-desktop`, or
+  `pnpm deployed` / `pnpm deployed:mutating`).
 - Dependencies/ordering (which criteria must be green first).
 
 **Reuse the existing test suite.** For each criterion, prefer the existing test
-file that owns the area (`tests/unit/**/*.test.ts`, `tests/integration/**/*.integ.test.ts`)
-and existing fixtures/helpers/seeds; only propose a new test file when no owner
-exists. If satisfying a criterion would require **modifying, renaming, or
-deleting an existing test** (not just adding one), flag it explicitly in the
-plan as needing the operator's explicit permission before the Red phase touches it.
+file that owns the area (`tests/unit/**/*.test.ts`,
+`tests/integration/**/*.integ.test.ts`, `tests/e2e/**/*.spec.ts`,
+`tests/e2e/deployed/*.deployed.spec.ts`) and existing fixtures/helpers/seeds;
+only propose a new test file when no owner exists. If satisfying a criterion
+would require **modifying, renaming, or deleting an existing test** (not just
+adding one), flag it explicitly in the plan as needing the operator's explicit
+permission before the Red phase touches it.
 
 Order steps so each builds on green predecessors, and **within what dependencies
 allow, drive higher-risk criteria first** (`P0` before `P3`) so the costliest
 behavior goes through Red→Green→Refactor while attention is freshest. Prefer the
-smallest slice that proves one behavior. Reserve e2e/Playwright criteria for last
-and flag them distinctly (they are acceptance-level, not the unit Red/Green loop).
+smallest slice that proves one behavior. **Do not reserve e2e/Playwright for
+last** — order by **risk + dependencies**. When a criterion is split across
+layers, place e2e after its unit/integration prerequisites; otherwise an e2e
+criterion may run as soon as its deps are green (it is a first-class Red→Green→
+Refactor path, not an afterthought).
 
 **Prefer the lowest test layer that can actually prove the criterion — and that
-can run here.** Default to a **unit test with a mocked Supabase client**
-(`tests/unit/**/*.test.ts`) whenever the behavior is decidable in code — e.g.
-API route guards / authorization branches, pure logic, money math, state
-transitions. These run with no infra and reliably go Red→Green. Only choose an
-**integration/RLS test** (`tests/integration/**/*.integ.test.ts`) when the
-criterion genuinely requires real Postgres/RLS or a real service (e.g. a SQL
-policy decides access, not application code). Splitting a criterion into a
-unit-level guard test **and** a thin RLS test is fine and often correct (the API
-gate at the unit layer, the DB policy at the integration layer).
+can run here.** Choose the layer from this table (expand capability, not e2e
+volume — do **not** duplicate the same assertion at three layers):
 
-**Infra-awareness is mandatory for integration/RLS criteria.** Integration
-suites are wrapped in `describe.skipIf(!authEnvReady)` (needs
-`NEXT_PUBLIC_SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY`) and the harness
-only *warns* when Postgres at `127.0.0.1:54322` is unreachable — so **without a
-running local Supabase they silently SKIP and report green**, making the whole
-Red→Green→Refactor loop vacuous. For any criterion whose test is
+| Criterion proves…                                                 | Layer                 | Path                                    | Command / infra                                                                                                   |
+| ----------------------------------------------------------------- | --------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Pure logic, money math, transitions, mocked route guards          | `unit`                | `tests/unit/**/*.test.ts`               | `pnpm test:unit <path>` — no infra                                                                                |
+| Real handler + Postgres/RLS/cookies/seed personas                 | `integration` / `rls` | `tests/integration/**/*.integ.test.ts`  | `pnpm test:integration` (fail-closed); local Supabase up + seeded
+| Multi-page portal UX, wizard submit, role chrome, Filters/View IA | `e2e`                 | `tests/e2e/<domain>/**/*.spec.ts`       | Playwright project; seed auth via `global-setup` / `seedStorageState`; `@p0`/`@p1`/smoke placement as appropriate |
+| Preview env / live cron auth / CONTRACT PI 409 / degradation      | `deployed`            | `tests/e2e/deployed/*.deployed.spec.ts` | `pnpm deployed` or `pnpm deployed:mutating`; prefer after local e2e green                                         |
+| Live Stripe Connect / screen-reader / visual theme / C5-preview   | `manual-UAT`          | runbook stamp only                      | Do not fake Vitest/Playwright                                                                                     |
+
+Default to a **unit test with a mocked Supabase client** whenever the behavior is
+decidable in code. Choose **integration/RLS** when Postgres/RLS or a real handler
+decides the outcome. Choose **e2e** when the AC requires multi-page portal UX
+that unit/integ cannot prove. Choose **deployed** for preview-env / live-cron
+contracts. Splitting into unit gate + thin RLS + one e2e shell is fine and often
+correct (API 403 at unit, policy at integ, Filters chip at e2e).
+
+For every `e2e` criterion the plan MUST name: the `tests/e2e/...` path,
+`@p0`/`@p1`/smoke placement, seed persona (or storage-state helper), and the run
+command (`pnpm exec playwright test <path> --project=chromium-desktop` or
+`pnpm test:e2e:chromium <path>`).
+
+**Infra-awareness is mandatory for integration/RLS, e2e, and deployed criteria**
+(see [.cursor/rules/test-execution-integrity.mdc](.cursor/rules/test-execution-integrity.mdc)
+for why integration suites silently skip and report green; the same skipped≠pass
+doctrine applies to Playwright). For any criterion whose test is
 integration/RLS, the plan MUST record an explicit **execution precondition**:
 local Supabase is up and seeded (`npx supabase start && npx supabase db reset
---local`) and runs use `RESTAURANT_INTEGRATION_STRICT=true` so a down DB fails hard
-instead of skipping. If that infra cannot be brought up at execution time, the
-loop STOPS for that criterion — a skipped suite is never accepted as Red or
-Green.
+--local`). Fail-closed is unconditional (see
+[test-execution-integrity](.cursor/rules/test-execution-integrity.mdc)):
+a down DB fails hard instead of skipping. For `e2e`: local app + seeded DB (or whatever
+`global-setup` needs) so storage state and the target UI exist — a server-down
+or empty-seed run that skips/collects 0 tests is BLOCKED, never Red/Green. For
+`deployed`: preview URL + required secrets for the pack. If that infra cannot be
+brought up at execution time, the loop STOPS for that criterion — a skipped
+suite is never accepted as Red or Green.
 
 **Some criteria are not automatable — classify them `manual-UAT` and defer, do
 NOT fake a test.** A few acceptance criteria cannot be proven by Vitest/Playwright
-in this loop because they depend on a real external system, a human judgment, or a
-deployed environment — e.g. **live third-party flows needing provider approval**
-(real payment terminal integration), **screen-reader / manual a11y passes**,
-**visual themes** (light/dark), or **preview→prod deployed validation**. Judge
-this from the criterion's *own nature*, not from any `docs/UAT` runbook (UAT has
-no maintained writer and may be stale — treat it as a manual/deployed archive, not
-a source of truth; `docs/specs` is authoritative). For a `manual-UAT` criterion:
-do not write a vacuous always-green test; mark it `manual-UAT` in the plan, point
-to the relevant manual runbook if one exists, and exclude it from the automated
+in this loop because they depend on a real external system, a human judgment, or
+inherently-manual judgment — e.g. **live third-party flows needing provider
+approval** (real Stripe ACH / Connect onboarding), **screen-reader / manual a11y
+passes**, **visual themes** (light/dark). Preview-env contracts that _can_ be
+automated belong in `deployed`, not `manual-UAT`. Judge this from the criterion's
+_own nature_, not from any `docs-legacy/UAT` runbook (UAT has no maintained writer
+and may be stale — treat it as a manual/deployed archive, not a source of truth;
+`docs/specs` is authoritative). For a `manual-UAT` criterion: do not write a
+vacuous always-green test; mark it `manual-UAT` in the plan, point to the
+relevant manual runbook if one exists, and exclude it from the automated
 Red→Green→Refactor loop. Faking automated coverage for an inherently-manual
 criterion is the same failure as accepting a skipped suite.
+
+## STEP 2B — EXECUTION START: CLAIM THE LINEAR ISSUE
+
+This step runs only during plan **execution** (after operator approval) — never
+during Plan Mode production. Plan Mode stays read-only; do not call
+`save_issue` / `save_comment` / `save_document` while producing the plan.
+
+When FIX mode was invoked with a Linear ID/URL, **or** FEATURE mode's plan has
+`linear_issue: REAZED-###` (not `none`): as the **first execution action**, before
+the approved spec edit (FIX) or Criterion 1 Red (FEATURE), delegate:
+
+"Use the `linear-resolver` subagent to start work on <REAZED-###> (plan: <plan-slug>), posting this bounded summary as the `Work started:` comment:" + the plan's `## Linear Plan Digest` block. Invoke that Task with `run_in_background: true`. Do **not** wait, poll, or `AwaitShell` for its report before the approved spec edit or Criterion 1 Red. In the *emitted* plan, replace `<plan-slug>` with this plan file's basename; this command file keeps the placeholder.
+
+**One payload (`linear-resolver` posts it verbatim; never the plan file itself):**
+
+The `## Linear Plan Digest` block, filled in with `Problem` (2–3 sentences —
+observed vs expected, the missing constraint), `Approach` (2–4 sentences —
+the design constraint shaping this wave/plan), and `Out-of-scope findings`
+(ledger titles + severities only, or "none"), plus `Full plan:` set to
+`not posted to Linear (size-bounded digest) · local copy <plan-file-basename>`.
+Digest labels MUST be disjoint from the CLOSE-OUT headers (`Root cause:`,
+`Spec updated:`, `Regression test:`, `Fix:`, `Verification:`, `Commit:`,
+`Follow-up:`) — use `Owning spec:` not `Spec:`; omit FIX-mode root cause
+(close-out owns it). Rewrite any `@Cursor` token to "the Cursor integration"
+before the MCP call. The digest MUST fit
+`START_SUMMARY_MAX_CHARS` (see
+[.cursor/hooks/lib/linear-comment-size-policy.mjs](.cursor/hooks/lib/linear-comment-size-policy.mjs));
+the `## Execution Protocol`, the per-criterion TDD Execution Loop, the FSM
+seed-state tables, the Traceability Matrix, and the Docs Sync packet stay
+local to the plan file and git — never post them to Linear, chunk them
+across multiple comments, or spawn a nested Task to upload them. Idempotency:
+`list_comments` for a `Work started:` comment with this plan slug; create
+when absent, update by `id` when the `Full plan:` line is stale.
+
+**Scope:** the invoked issue only — do not walk `relatedTo`, parent, or
+children. Skip for free-text `bug:` input with no tracked issue, and skip
+FEATURE when `linear_issue` is `none`.
+
+**The summary is unconditional whenever the issue exists.** A non-BLOCKED START
+always posts this run's bounded summary to the corresponding issue — In Review and
+terminal included. The state table still governs state (Backlog/Todo → In
+Progress only); the summary is not gated on that table.
+
+START is **non-blocking** and **must not stall the loop**: invoke
+`linear-resolver` START with `run_in_background: true` and continue immediately.
+If it later returns `## Linear — BLOCKED`, that is visibility only. Non-blocking
+does **not** make the summary optional — only `## Linear — BLOCKED` or the
+absence of a tracked issue exempts it. Do not auto-assign. In Review/Done stay
+automation-owned — START may only move Backlog/Todo → In Progress (see
+[.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
+
+The plan you emit MUST include a `start-linear` todo as the first execution
+todo when this step applies, phrased as a subagent-invocation imperative.
+That Task is `run_in_background: true`. Do **not** wait for it before spec
+edits or Criterion 1 Red. If other todos were assigned (whole-plan Run),
+continue them immediately after the START Task is launched. A solo
+`start-linear` click launches only START. A stale `start-linear` todo
+**cannot override STEP 2B**: if it waits for START, ends the turn, or lacks
+`run_in_background: true`, ignore that wait/stop wording and follow this
+step.
 
 ## STEP 3 — DEFINE THE RED→GREEN→REFACTOR EXECUTION LOOP
 
@@ -261,129 +410,309 @@ The plan's execution body is a loop, run **once per criterion, in order**. For
 each criterion, lay out three delegated handoffs with explicit exit conditions:
 
 1. **Red** — "Use the `tdd-red` subagent to write the failing test for
-   <criterion>", handing it the criterion, the spec excerpt, and the target test
+   <criterion>", handing it the criterion, a **scoped** spec excerpt (criterion +
+   minimal related AC — not the whole REQ), and the target test
    path/name. Exit condition: the new test is RED for the right reason
    (assertion/missing-symbol failure, not a harness error). Forbid it from
    touching source.
 2. **Green** — only after Red confirms failure: "Use the `tdd-green` subagent to
    make <test> pass" with the minimal source change. It may consult the
-   `docs-researcher` subagent for version-correct framework/library APIs. Exit
+   matching installed skill for version-correct framework/library APIs. Exit
    condition: target test GREEN, typecheck clean, no regressions. Forbid it from
    editing tests or the spec.
 3. **Refactor** — only after Green: "Use the `tdd-refactor` subagent to clean up
    <criterion> and re-verify". Exit condition: tests still GREEN, `pnpm lint`
-   (0 warnings) and `pnpm typecheck` clean, no behavior change. Its report also
+   (0 warnings), `pnpm typecheck` clean, and `pnpm exec prettier --check` clean
+   on the source files this criterion touched, no behavior change. Its report also
    returns an **adversarial** `## Residual findings` pass (treat a bare "none" as
    suspect), a concern-ordered **Suggested Review Order** (risk-tagged `path:line`
-   stops), and any **Reusable pattern** candidate — collect these for close-out
-   (Steps 4D and 4E).
+   stops), and any **Reusable pattern** candidate — the orchestrator appends the
+   latter two to `docs/verifier-reports/tdd/<plan-slug>.md` after each Refactor
+   (Steps 4D and 4E read that log).
 
 Run subagents **sequentially** (each phase depends on the previous one's result);
 do not parallelize phases of the same criterion. Only advance to the next
 criterion after its Refactor exits green. If any phase reports BLOCKED, stop the
 loop and bring the blocker back to the operator rather than improvising.
 
-**Run a findings revision pass after EVERY phase — to the categorized files,
+**If Green reports pre-RED source for this criterion, route back through Red —
+never "keep and test after."** `tdd-green` deletes/reverts source it finds
+already written before this handoff's verified RED (see its Hard limits). If
+that happens, do not accept the resulting Green as satisfying the exit
+condition until Red's failure for the current test is confirmed first; re-run
+or re-verify Red before advancing. Pre-written code adapted after the fact is
+not a substitute for having watched the test fail.
+
+**Dispatch hygiene.** Each Task dispatch to `tdd-red`/`tdd-green`/`tdd-refactor`
+hands the subagent only: the plan file path + the criterion/part id ("read
+that section first"), and any interfaces/decisions from prior phases it
+actually needs to do this phase — never a pasted dump of the session history
+or a prior phase's full report. The subagent's own report already lives in
+this thread and, for Refactor, in `docs/verifier-reports/tdd/<plan-slug>.md`;
+re-sending it back as dispatch context is redundant and just bloats the call.
+Expect each subagent to **return** status + a short summary — durable detail
+belongs in the tdd log or findings run file, not in a longer return message.
+This mirrors `/audit`'s per-dispatch-params pattern (hand only the spec/report
+path or part text + report path, never the full brief) — the same discipline
+applies to every phase dispatch here. The model for each named subagent is
+pinned in that agent's frontmatter under `.cursor/agents/` (`tdd-red` /
+`tdd-green` / `tdd-refactor` → `model: grok-4.5[fast=false]`; `docs-updater` /
+`linear-resolver` → `model: inherit[fast=false]`). **Never pass `model` on
+the Task call.** Omitting `model` is what lets the agent frontmatter apply;
+passing the parent chat's model (e.g. Claude Sonnet) overrides the pin and is
+forbidden. Pass `model` only if the operator explicitly requested a one-off
+override for this run.
+
+**Run a findings revision pass after EVERY phase — to the run file,
 immediately.** Each `tdd-red`/`tdd-green`/`tdd-refactor` report ends with a
 mandatory `[category]`-tagged `## Residual findings` block. The instant a phase
-returns — before the next Task call, never deferring to close-out — open the
-matching `docs/findings/<category>.md` (`security` · `tech-debt` · `test-debt` ·
+returns — before the next Task call, never deferring to close-out — open
+`docs/findings/runs/<plan-slug>.md` (create it on first finding; write into its
+matching `## <category>` section — `security` · `tech-debt` · `test-debt` ·
 `product-gaps`) and **reconcile**, don't blind-append. This touch is mandatory for
 durability anyway, so use it to curate:
+
 1. **Resolve in-run.** If this phase fixed or obsoleted an existing open `- [ ]`
    entry, **remove that line** (it's no longer outstanding — and must NOT become a
    Linear issue at close-out). This is how "later phase fixed it" items leave the
-   files instead of lingering as noise.
+   run file instead of lingering as noise.
 2. **Dedupe / sharpen.** If a reported finding already has an open entry, update it
    in place (tighter `file:line`, better severity) rather than adding a second
    line.
 3. **Append the genuinely new.** Add a line only for findings with no existing
-   entry:
-   `- [ ] <title> · <file:line/area> · <why> · <severity> · (found: <REAZED-###>/<criterion>/<phase>)`.
+   entry, under its `## <category>` section:
+   `- [ ] <title> · <file:line/area> · <why> · <severity> · (found: tdd/<plan-slug>/<criterion>/<phase>)`.
 4. **Re-home.** If a phase reveals an entry belongs in a different category, move
-   it to the right file.
-After the pass, each active file should hold only **currently outstanding** debt.
+   it to the right `## <category>` section.
+   After the pass, the run file should hold only **currently outstanding** debt.
+   Do not Prettier it — `docs/findings/runs` is prettierignored.
 
-**Filter before you write — these files are open-debt worklists, not journals.**
+**After each `tdd-refactor` phase — append to the durable close-out log (same
+pass, before the next Task call).** Parse that phase's report for its
+`Suggested review order:` and `Reusable pattern:` lines (verbatim). Append a
+`### <criterion-id>` section to `docs/verifier-reports/tdd/<plan-slug>.md`
+(create the file on first refactor; `<plan-slug>` = this plan file's basename,
+e.g. `sg-580_admin_accounts_f2a0c6c3`). Do not Prettier this log —
+`docs/verifier-reports` is prettierignored. This log is the durable source
+Steps 4D/4E and `/commit` read — do not rely on transcript memory. Red/Green
+phases do not append to this log (Refactor only). After the approved spec
+edit, `pnpm exec prettier --write` that spec path.
+
+**Filter before you write — the run file is an open-debt worklist, not a journal.**
 Append a finding only if it is (1) out of scope, (2) **not** something a later
 criterion in this plan will implement, and (3) a real issue. Drop process/meta
-notes and anything resolved within the run. This keeps the active files small so
-they stay useful for reuse on later runs. Do not expand the current criterion to
-chase a finding — it gets a tracked issue at close-out, not a detour now.
+notes and anything resolved within the run. This keeps the run file small so it
+stays useful at close-out merge. Do not expand the current criterion to chase a
+finding — it gets a tracked issue at close-out, not a detour now.
 
-**A skipped test never satisfies an exit condition.** "RED", "GREEN", and
-"re-verified" all require the target test to have **actually executed**. If a
-phase reports `BLOCKED (infra)` — the suite skipped or collected 0 tests because
-local Supabase/env is unavailable — treat it exactly like any other BLOCKED:
-stop the loop and surface the infra remedy (`npx supabase start; npx supabase
-db reset --local`; integration runs use `RESTAURANT_INTEGRATION_STRICT=true`). Never
-let a phase advance on a skip. For integration/RLS criteria, hand each phase the
-strict run command so a down DB fails loudly:
-`$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration <path>`.
+**A skipped test never satisfies an exit condition** (doctrine:
+[.cursor/rules/test-execution-integrity.mdc](.cursor/rules/test-execution-integrity.mdc)).
+If a phase reports `BLOCKED (infra)`, treat it exactly like any other BLOCKED:
+stop the loop and surface the infra remedy. For integration/RLS criteria, hand
+each phase the strict run command so a down DB fails loudly:
+`pnpm test:integration <path>`.
+For `e2e` criteria, hand each phase
+`pnpm exec playwright test <path> --project=chromium-desktop` (or
+`pnpm test:e2e:chromium <path>`) and treat server-down / missing storage state /
+0 tests collected as `BLOCKED (infra)`. For `deployed`, hand `pnpm deployed` or
+`pnpm deployed:mutating` as the plan specified.
 
 **Fix-mode nuances:** the Red test is a regression test that must reproduce the
-bug (fail on current code); the Green change is the *minimal* fix that must not
+bug (fail on current code); the Green change is the _minimal_ fix that must not
 break any existing test; the Refactor phase re-verifies the **entire** relevant
 suite (not just the new test) to confirm no regression elsewhere.
 
+## Close-out sequence (mandatory)
+
+After the loop completes for the feature (all criteria green through Refactor),
+run close-out steps **in this order** — do not delegate `docs-updater` until
+Steps 4D and 4E have written to the tdd log and the Docs sync packet is assembled:
+
+| #   | Step                                         | Owner                            | Writes to                                                                         |
+| --- | -------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
+| 1   | **4D** — Collate review trail                | Orchestrator                     | `docs/verifier-reports/tdd/<plan-slug>.md`                                        |
+| 2   | **4E** — Traceability final + pattern list   | Orchestrator                     | Same tdd log                                                                      |
+| 3   | **Packet** — Assemble Docs sync packet       | Orchestrator                     | Thread (markdown block)                                                           |
+| 4   | **4** — Docs sync                            | `docs-updater`                   | `docs/**` + thread report                                                         |
+| 5   | **4C** — Findings merge + register           | Orchestrator + `linear-resolver` | `docs/findings/**`                                                                |
+| 6   | **4B** — Linear close-out                    | `linear-resolver`                | Linear (FIX only)                                                                 |
+| 7   | **Format** — Prettier this run's dirty paths | Orchestrator                     | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`) |
+
+Keep `docs-updater` `is_background: true`, but **do not hand off to `/commit` until
+the docs-updater report appears in the thread** (wait/poll the Task) **and** the
+close-out format pass (step 7) has run. A missing docs-updater report → `/commit`
+→ CHANGES-REQUESTED.
+
+## STEP 4D — ASSEMBLE THE REVIEW TRAIL (hand off to `/commit`)
+
+Read `docs/verifier-reports/tdd/<plan-slug>.md` — the accreted per-criterion
+sections the orchestrator appended after each Refactor phase (Step 3). Each
+section holds that criterion's `Suggested review order:` (`path:line` stops, the
+1–3 costliest risk-tagged `[auth]`/`[billing]`/`[schema]`/`[public-api]`/
+`[security]`). A raw diff is in file order, which is rarely the order that builds
+understanding (BMAD checkpoint-preview) — so collate those sections into a single
+change-level **Suggested Review Order**, grouped by concern and ordered
+highest-risk-first, and append it to the tdd log as
+**`## Suggested Review Order (collated)`** in
+`docs/verifier-reports/tdd/<plan-slug>.md`. Do **not** duplicate this into the
+owning spec body — specs stay normative AC; `/commit` reads the tdd log (and
+optional thread summary). Do **not** mine agent transcripts — the log is the
+source of truth. This is a reading guide, not a verdict — `/commit` still runs
+the gates and emits PASS/CHANGES-REQUESTED/FAIL.
+
+## STEP 4E — RETROSPECTIVE: PROMOTE PATTERNS + FINALIZE TRACEABILITY
+
+Before docs sync, capture what's reusable and durable:
+
+- **Pattern list.** Read every `Reusable pattern:` line from
+  `docs/verifier-reports/tdd/<plan-slug>.md` (not transcripts). Assemble the list
+  for the Docs sync packet (`patterns_to_promote`). Promotion into
+  `docs/TRD/testing/` happens via `docs-updater` in Step 4 — do **not** let patterns
+  accrete in the phase agent prompt files.
+- **Traceability (final).** Append or overwrite **`## Traceability (final)`** in
+  the same tdd log. One row per shipped criterion (`shipped`) and per
+  `manual-UAT` criterion (`manual-uat`, no fabricated test path). **Overwrite**
+  a prior `## Traceability (final)` section on re-run (idempotent). Per-criterion
+  Refactor sections above stay — do not delete them.
+
+```markdown
+## Traceability (final)
+
+Run: <YYYY-MM-DD> · plan: <plan-slug> · issue: REAZED-### | none
+
+| Criterion | Spec ref     | Test file::name                          | Source file(s) | Risk | Status     |
+| --------- | ------------ | ---------------------------------------- | -------------- | ---- | ---------- |
+| AC-605-1  | REQ-051.2 §… | apply-admin-job-board-filters.test.ts::… | lib/admin/…    | P1   | shipped    |
+| C10-theme | REQ-005 §…   | —                                        | —              | P3   | manual-uat |
+```
+
+Set `traceability_log` in the packet to this file path.
+
+**Run metrics.** Immediately after `## Traceability (final)`, append or overwrite
+**`## Run metrics`** in the same tdd log — a small observability stamp so a run's
+health is visible without re-reading the whole transcript:
+
+```markdown
+## Run metrics
+
+Run: <YYYY-MM-DD start> → <YYYY-MM-DD end> · plan: <plan-slug>
+Criteria: <N shipped> shipped · <M> manual-uat · <N+M> total
+Phases delegated: <count of tdd-red/green/refactor Task calls this run>
+Back-loops: <criterion id: N extra Red/Green/Refactor cycles it took>, … | none
+BLOCKED events: <count> — <one-line reason each, e.g. "C29: infra (Supabase down)"> | none
+Issues: <N filed> filed · <M> attached-to-existing · <K> left on ledger (below floor/cap) — cap 3/run
+```
+
+The `Issues:` line is populated from `linear-resolver`'s STEP 4C REGISTER
+FINDINGS report (filed/attached/left-on-ledger counts) — omit it (write `n/a`)
+only when the ledger was empty and STEP 4C was skipped.
+
+**Verify the loop's own artifacts before assembling the packet.** Run
+`node .cursor/checks/harness-lint.mjs <plan-slug>` — it lints `docs/verifier-reports/tdd/<plan-slug>.md`
+(criterion sections, the two required close-out headings, every traceability
+row's status/test-ref) and the findings ledger (open-line format, and the
+`spec:` token on any `product-gaps.md` entry this run merged) — a check on the
+loop's own trajectory, not the shipped code. If it exits non-zero, fix the
+cited artifact (append the missing section, correct the malformed line) before
+proceeding to the Docs sync packet; do not silence a violation by weakening the
+check.
+
+## Docs sync packet (assemble before Step 4)
+
+After 4E, paste this block in the thread and pass it to `docs-updater`:
+
+```markdown
+## Docs sync packet
+
+- plan_slug: <plan-basename>
+- spec: docs/specs/<file>.md
+- mode: FEATURE | FIX
+- linear_issue: REAZED-### | none
+- criteria_shipped: [AC-605-1, AC-605-2]
+- criteria_manual_uat: [C10-light-theme] | none
+- req_ids: [REQ-051.2]
+- source_paths: [lib/admin/apply-admin-job-board-filters.ts, app/portal/admin/page.tsx]
+- test_paths: [tests/unit/lib/admin/apply-admin-job-board-filters.test.ts]
+- architecture_touch: [Job-Lifecycle] | none
+- uat_flows_to_stamp: [REAZED-84-Admin-Console-UAT-Flow (Design-And-Patterns map row)] | none
+- patterns_to_promote: ["Wire admin page to applyAdminJobBoardFilters…"] | none
+- traceability_log: docs/verifier-reports/tdd/<plan-slug>.md
+- drift_flagged: none | ["REQ-051.2 rule X vs lib/foo.ts:42"]
+- skip_reason: none | docs-only | no-implementation-impact
+```
+
+- **`criteria_manual_uat`:** Plan criteria classified `manual-UAT` — listed for
+  traceability but exempt from automated test row requirement in `/commit`.
+- **`skip_reason`:** Must be set explicitly in thread when skipping Step 4; no
+  silent auto-skip on "no user-facing impact."
+
 ## STEP 4 — SYNC DOCS AFTER THE FEATURE SHIPS
 
-After the loop completes for the feature (all its criteria green through
-Refactor), and **before marking the work done**, delegate the **`docs-updater`**
-subagent in the background to sync `docs/` for what was just implemented, per
-`.cursor/rules/docs-after-ship.mdc`: "Use the docs-updater subagent to sync docs
-for the changes just implemented." Honor that rule's conditions —
-- **Skip** if the change set is docs-only or has no user-facing impact.
-- **Do not** spawn a duplicate if a commit/stop hook already triggered
-  `docs-updater` this session.
+After Steps 4D and 4E and packet assembly, delegate the **`docs-updater`**
+subagent in the background:
+"Use the docs-updater subagent to sync docs using this packet:" + the full
+**Docs sync packet** block above.
+
+- **Skip** only when `skip_reason` is set explicitly in the thread (`docs-only`
+  or `no-implementation-impact`).
 - **Do not** commit doc edits yourself; `docs-updater` leaves `docs/` dirty for
   human review.
+- **Wait** for the docs-updater report in-thread before proceeding to 4C/4B.
+  After 4C/4B, run the format pass, then point to `/commit`.
 
-In FEATURE mode this is the final execution step.
+## STEP 4C — MERGE + REGISTER OUT-OF-SCOPE FINDINGS (any mode)
 
-## STEP 4B — FIX MODE: CLOSE OUT THE LINEAR ISSUE
+**First, merge the run file into the bus.** If `docs/findings/runs/<plan-slug>.md`
+has open `- [ ]` lines, move each into the matching
+`docs/findings/<category>.md` — reconcile, don't blind-append: dedupe/sharpen
+against any existing open entry there, drop anything a later phase resolved.
+**`product-gap` / `spec-gap` entries must include a primary spec path** resolved
+from the `docs/specs/README.md` catalog,
+or folded→`canonical:` (leading `/` = bundle root `docs/`, so
+`/specs/X.md` → `docs/specs/X.md`) — e.g.
+`· spec: docs/specs/REQ-045-admin-user-management.md`. Sharpen run-file lines before
+merge if the spec path is missing.
+After the merge the category files hold this run's still-open findings alongside
+the standing backlog, and are the single set `linear-resolver` reads below. (The
+run file is truncated/deleted after the prune step.)
 
-Only when FIX mode resolved a tracked issue (a Linear ID/URL was given). After
-docs sync, delegate the **`linear-resolver`** subagent to post a resolution
-comment on the issue, handing it: the issue ID, the root-cause constraint, the
-updated spec path, the regression test path, the changed source files, and the
-verification results. By default it **posts the comment and then proposes a
-state transition for your confirmation** — it does not auto-move the issue or
-mark it Done (the tree is still dirty/unmerged; review + merge are pending).
-State this as the final execution step of a fix. Skip entirely for free-text
-`bug:` input with no tracked issue.
-
-**`/review` is the consequential next step that advances the issue to Done.** This
-workflow stops at an "In Review" / verification state on purpose. Advancing to
-**Done** is the job of the `/review` close-out gate, triggered in the **same thread
-directly after this run**: it re-verifies the gates ran green-and-executed, reviews
-the shipped diff against the criteria, emits a `PASS`/`CHANGES-REQUESTED`/`FAIL`
-verdict, and on `PASS` (which authorizes it) **commits the run's work** with a
-Linear-convention message (issue-ID magic word) and delegates `linear-resolver` to
-move the issue `In Review → Done`. Do not pre-empt that here — leave the tree dirty
-(no commit), close out at the review state, and point the operator to `/review`.
-
-**Combine with finding registration.** If the **Findings Ledger** is non-empty,
-hand `linear-resolver` both jobs in one delegation: post the close-out comment
-**and** register the findings (Step 4C), then have the close-out comment
-reference the spun-off issue IDs.
-
-## STEP 4C — REGISTER OUT-OF-SCOPE FINDINGS (any mode)
-
-If the active `docs/findings/*.md` files (or the plan's Out-of-Scope Findings
+If the (now-merged) `docs/findings/*.md` files (or the plan's Out-of-Scope Findings
 table) have open entries, this is a required close-out step — a finding that isn't
-tracked is a finding that's lost. After docs sync (and, in FIX mode, alongside the
-Step 4B close-out), delegate **`linear-resolver`** to register the findings: "Use
-the linear-resolver subagent to register the open out-of-scope findings from
-`docs/findings/` (security, tech-debt, test-debt, product-gaps)", pointing it at
-those files (each entry: category, title, file:line/area, why it matters, severity
-hint) plus the source issue ID/URL (if any) to link back to.
+tracked is a finding that's lost, but "tracked" means **on the ledger**, not
+necessarily filed as a new Linear issue (see the **Issue-filing policy** in
+`docs/findings/README.md` — filing is throttled by design). After docs sync
+(Step 4), delegate **`linear-resolver`** to register the findings: "Use the
+linear-resolver subagent to register the open out-of-scope findings from
+`docs/findings/` (security, tech-debt, test-debt, product-gaps), applying the
+Issue-filing policy (floor, attach-over-create ladder, per-run cap of 3 net-new
+issues) from `docs/findings/README.md`", pointing it at those files (each entry:
+category, title, file:line/area, why it matters, severity hint) plus the source
+issue ID/URL (if any) to link back to. Expect most entries to come back
+**"left on ledger"** rather than filed — that is the intended outcome, not a
+shortfall.
+
+**Scope — this step files only THIS run's incidental findings.** Backlog-level
+intake, consolidation, and re-prioritization across the whole project is
+`/triage`'s job (the single grooming owner), not this loop's. Both routes file
+through `linear-resolver`, which applies the **Issue-filing policy** (floor,
+attach-over-create ladder, per-run cap) and de-dupes against existing issues, so
+the two never produce duplicate issues — but keep this step narrow: register what
+this run surfaced and let `/triage` own the rest. Apply the shared priority
+crosswalk, milestone/estimate conventions, and label taxonomy from
+`docs/findings/README.md` when handing findings to `linear-resolver`.
 
 - It **proposes the new issues for your confirmation** before creating them
-  (creating issues adds tracked work) and de-dupes against existing issues,
-  relating rather than duplicating.
-- New issues are filed in the team's **backlog/triage** state, linked to the
-  source issue (`relatedTo`) — never auto-assigned, never marked done.
+  (creating issues adds tracked work), applies the filing floor and
+  attach-over-create ladder first (most findings are expected to end up
+  "left on ledger" or attached to an existing issue, not as a new issue), and
+  enforces the **per-run cap of 3 net-new issues** — cap overflow also stays on
+  the ledger.
+- New issues (rung 4 of the ladder only) are filed in the team's
+  **backlog/triage** state with a **milestone** set per the README convention
+  (`M8 — Launch Acceptance (Payment 3)` for launch-bound, `M6–M7` for
+  UAT/deploy-gate, `Post-launch hardening` otherwise — never invent
+  `Launch-blocking`) and linked to the source issue (`relatedTo`) — never
+  auto-assigned, never marked done.
 - **Team/issue resolution:** FIX mode reuses the source issue's team; FEATURE
   mode uses the team the operator names (ask if ambiguous).
 - **Fallback when Linear is unavailable** (no team/issue context, MCP down, or
@@ -391,41 +720,61 @@ hint) plus the source issue ID/URL (if any) to link back to.
   `docs/findings/*.md` files, so nothing is lost — surface them to the operator for
   manual triage and leave them dirty for human review.
 - `linear-resolver` only **reads** the active findings files and returns a
-  finding→issue-ID mapping (it makes no local file writes). After it reports,
-  **you** (the orchestrator) **prune**: move each registered/resolved entry out of
-  its active `docs/findings/<category>.md` into `docs/findings/archive.md`,
-  appending the issue id (`→ REAZED-### (filed)`). Active files must end the run
-  holding only still-open, unregistered findings — this is what keeps them from
-  growing without bound.
+  finding→outcome mapping (filed / attached / umbrella / left-on-ledger; it makes
+  no local file writes). After it reports, **you** (the orchestrator) **prune**:
+  move each **filed or attached** entry out of its active
+  `docs/findings/<category>.md` into `docs/findings/archive.md`, appending the
+  outcome (`→ REAZED-### (filed)` or `→ REAZED-### (attached)`), then **truncate/delete
+  `docs/findings/runs/<plan-slug>.md`** (its open lines are now on the bus,
+  archived, or intentionally left on the bus below the filing floor). Entries
+  reported "left on ledger" (below floor or cap overflow) stay in the category
+  file untouched — do not archive them; `/triage` owns their eventual fate
+  (batch, backfill, or TTL expiry). Category files must end the run holding only
+  still-open findings (filed/attached ones removed), and `runs/` must not retain
+  this plan's scratch — this is what keeps both from growing without bound.
 
-Skip only if all active `docs/findings/*.md` files and the plan table are empty.
+Skip the register step only if the run file, all active `docs/findings/*.md`
+files, and the plan table are empty (nothing to merge or file).
 
-## STEP 4D — ASSEMBLE THE REVIEW TRAIL (hand off to `/review`)
+## STEP 4B — FIX MODE: CLOSE OUT THE LINEAR ISSUE
 
-Each `tdd-refactor` report returns a concern-ordered **Suggested Review Order**
-(`path:line` stops, the 1–3 costliest risk-tagged `[auth]`/`[booking]`/`[schema]`/
-`[public-api]`/`[security]`). A raw diff is in file order, which is rarely the
-order that builds understanding (BMAD checkpoint-preview) — so collate the
-per-criterion trails into a single change-level **Suggested Review Order**,
-grouped by concern and ordered highest-risk-first, and surface it at close-out so
-the `/review` gate (and the human) reads the change top-down by intent. This is a
-reading guide, not a verdict — `/review` still runs the gates and emits
-PASS/CHANGES-REQUESTED/FAIL.
+Only when FIX mode resolved a tracked issue (a Linear ID/URL was given). After
+Steps 4, 4C (and findings registration when applicable), delegate the
+**`linear-resolver`** subagent to post a structured resolution comment on the
+issue, handing it: the issue ID, the root-cause constraint, the updated spec
+path, the regression test path, the changed source files, and the verification
+results. It **posts the comment only** — no workflow state write (`save_issue`
+for In Review/In Progress/Done is forbidden in CLOSE-OUT; In Progress was set at
+START; Linear automations own In Review/Done). The
+tree is still dirty/uncommitted; commit + push + operator merge are pending.
+State this as the final execution step of a fix. Skip entirely for free-text
+`bug:` input with no tracked issue.
 
-## STEP 4E — RETROSPECTIVE: PROMOTE PATTERNS + FINALIZE TRACEABILITY
+**In Review** is automation-driven: team comment/message automation on the
+close-out comment and/or GitHub PR review activity once a linked PR exists (see
+[.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
+**In Progress** was set at START (execution first action); `/push` PR open is
+backup. **`/commit` then `/push` are the consequential next steps that advance the issue
+toward Done.** Advancing to **Done** is Linear's team-configured GitHub automation
+(`On PR merge → Done`, Settings → Workflows & automations) reacting to a
+closing-linked PR merging to the default branch **once the operator merges
+it** — not a state write by any agent. The sequence: `/commit`, triggered in
+the **same thread directly after this run**, re-verifies the gates ran
+green-and-executed, reviews the shipped diff against the criteria, emits a
+`PASS`/`CHANGES-REQUESTED`/`FAIL` verdict, and on `PASS` **commits the run's
+work locally** with a Linear **closing magic word** (`Fixes` / `Closes` /
+`Resolves REAZED-###`) in the message. `/push` then publishes that commit: if it
+lands directly on a PR to the default branch, the automation fires once the
+operator merges it, with no further prep. If it lands on an accumulator branch
+(e.g. `staging`) that gets promoted later via a batch PR, `/push
+<promotion-PR-URL>` is what guarantees that promotion PR itself carries the
+closing words before the operator merges it — Linear does not resurface links
+from commits already merged into an earlier branch. Neither `/commit` nor
+`/push` performs a Linear state write, and neither ever merges. Leave the tree
+dirty (no commit) and point the operator to `/commit`.
 
-Before closing out, capture what's reusable so it isn't lost to the run:
-- **Pattern promotion.** Collect every `Reusable pattern:` candidate from the
-  phase reports. For each genuinely reusable mock/fixture/gotcha/conformance
-  recipe, propose promoting it into the canonical catalog
-  (`docs/testing/Design-And-Patterns.md` or the matching guide) — delegate
-  `docs-updater` to write these alongside the Step 4 docs sync. Do **not** let
-  patterns accrete in the phase agent prompt files.
-- **Traceability.** Finalize the criterion → test → source mapping (the
-  Traceability Matrix in the plan) so each shipped criterion has a durable
-  requirement-to-test record.
-Keep this lean: promote only what a future run would actually reach for; a
-one-off is not a pattern. If nothing qualifies, say so and skip the promotion.
+**Combine with finding registration.** If Step 4C already registered findings,
+reference the spun-off issue IDs in the close-out comment. Do not re-register.
 
 ## STEP 5 — PRESENT THE PLAN FOR APPROVAL
 
@@ -433,35 +782,73 @@ Output the plan in the format below and stop for approval. Execution (spec
 update + the subagent loop + docs sync + FIX-mode Linear close-out) begins only
 after the operator approves the plan.
 
-**Carry the contract into execution.** The command's instructions do not bind the
-later execution turn — only the plan text does. Therefore the plan you emit MUST
-lead with the **Execution Protocol** block (below) verbatim, and every todo you
-create for a phase MUST be written as a subagent-invocation imperative — e.g.
+**Carry the contract into execution.** The later execution turn is bound by the
+emitted plan text, **except START:** a stale `start-linear` todo **cannot
+override STEP 2B**. If that todo waits for START, ends the turn, or lacks
+`run_in_background: true`, ignore that wait/stop wording and follow current
+STEP 2B (background Task; do not wait before spec/C1). Therefore the plan you
+emit MUST lead with the **Execution Protocol** block (below) verbatim, and every
+todo you create for a phase MUST be written as a subagent-invocation imperative — e.g.
 "Invoke the `tdd-red` subagent to write the failing test for C1", NOT
 "`tdd-red`: failing test for C1". A todo phrased as a task description invites the
 executor to do it inline; phrase it as a delegation order.
 
 **Granularity is mandatory and scale-independent.** The unit of a todo is a
 **phase**, not a criterion. For N acceptance criteria you emit **≥ 3N phase
-todos** (`<crit>-red`, `<crit>-green`, `<crit>-refactor`) plus the spec/docs/
-Linear/review-trail/retrospective todos — one todo per phase, *every* criterion,
-no matter how many there are or how alike they look. Likewise the TDD Execution Loop section MUST
+todos** (`<crit>-red`, `<crit>-green`, `<crit>-refactor`) plus `start-linear`
+(when STEP 2B applies) and the spec/docs/
+Linear/review-trail/retrospective todos — one todo per phase, _every_ criterion,
+no matter how many there are or how alike they look. `start-linear` MUST be the
+**first** execution todo when FIX has a Linear ID/URL or FEATURE `linear_issue`
+is set: "Invoke the `linear-resolver` subagent to start work on <REAZED-###> (plan:
+<plan-slug>), handing the executing session's plan-file path (do not inline
+the body; do not bake the path into this todo text) and posting this digest;
+Task `run_in_background: true`; do not wait for its report before spec/C1"
+(INPUT: this plan's `## Linear Plan Digest` section; fill `<plan-slug>` with
+this plan file's basename in the emitted todo). Skip it for free-text `bug:` with no tracked issue. Likewise the TDD Execution Loop section MUST
 enumerate all three phases of **every** criterion as explicit
 `Use the <agent> subagent to …` orders. NEVER:
+
 - bundle a criterion's phases into one todo ("Drive C1 through Red→Green→Refactor"
-  — this reads as *you* driving it, and invites inline work), or
+  — this reads as _you_ driving it, and invites inline work), or
 - collapse repeated criteria with shorthand ("Criteria C2–C7 — same cycle as
   C1"). Repetition is not a license to compress: a criterion with no explicit
   per-phase entry has **no plan text binding its execution**, which reopens the
   self-implementation risk the Execution Protocol exists to close.
-Seven near-identical criteria still get 21 spelled-out phase entries. If the list
-feels tediously long, it is correct.
-</instructions>
+  Seven near-identical criteria still get 21 spelled-out phase entries. If the list
+  feels tediously long, it is correct.
+
+**Close-out todos must name their INPUT path.** The `4d-review-trail` and
+`4e-traceability` todos MUST specify:
+
+- **INPUT:** `docs/verifier-reports/tdd/<plan-slug>.md` (per-criterion sections
+  appended after each Refactor phase)
+- **OUTPUT:** `## Suggested Review Order (collated)` and `## Traceability (final)`
+  appended to the same tdd log (Steps 4D and 4E); `4-docs-packet` assembles the
+  Docs sync packet; `4-docs-updater` delegates with that packet; pattern promotion
+  via `docs-updater` from `patterns_to_promote`.
+  Do not phrase them as "collate from tdd-refactor reports" without the log path —
+  a delegate cannot discover transcript-only artifacts. Likewise the
+  `4c-findings` todo MUST name **INPUT:** `docs/findings/runs/<plan-slug>.md`
+  (merged into `docs/findings/<category>.md` at Step 4C, then read by
+  `linear-resolver`); `4b-linear` (FIX only) runs after 4C. The `start-linear`
+  todo (when STEP 2B applies) MUST name the issue ID, the real plan-file basename
+  (not the `<plan-slug>` placeholder), **INPUT:** this plan's `## Linear Plan Digest`
+  section, run **before** the spec edit / first Red as a `run_in_background: true`
+  Task, and must **not** wait before those next todos. The `4-format` todo
+  MUST specify **INPUT:** this run's dirty paths from `git status --porcelain`;
+  **OUTPUT:** `pnpm exec prettier --write <path> …` (never `.`); it runs after
+  4C/4B and before pointing at `/commit`.
+  </instructions>
 
 <constraints>
 - DO NOT write, edit, or run application/test code while producing the plan —
   Plan Mode is read-only; all mutation happens in the delegated subagents during
   execution.
+- DO NOT pass `model` on Task calls for named `.cursor/agents/*` subagents
+  unless the operator explicitly requested that model for this run. Agent
+  frontmatter owns the model; omitting `model` lets it apply — copying the
+  parent chat's model into Task overrides the pin and is forbidden.
 - DO NOT collapse Red, Green, and Refactor into one step or one agent.
 - DO NOT bundle a criterion's phases into a single todo, and DO NOT collapse
   repeated criteria with shorthand ("same cycle as C1", "C2–C7 likewise"). Emit
@@ -480,10 +867,13 @@ feels tediously long, it is correct.
 - DO NOT create/edit a spec under `docs/specs/**` or modify/delete an existing
   test without the operator's **explicit permission** — adding new tests is fine.
 - DO NOT mark the feature done without delegating `docs-updater` (unless the
-  rule's skip/no-duplicate conditions apply).
+  rule's skip/no-duplicate conditions apply) and without the close-out format
+  pass (`pnpm exec prettier --write` on this run's dirty paths).
 - DO NOT append reusable patterns to the phase agent prompt files; promote them
-  to `docs/testing/` via the Step 4E retrospective. DO run the Refactor
-  adversarial findings pass and assemble the Step 4D review trail before close-out.
+  to `docs/TRD/testing/` via the Step 4E retrospective (read from
+  `docs/verifier-reports/tdd/<plan-slug>.md`). DO append Refactor close-out
+  sections to that log after each Refactor phase and assemble the Step 4D review
+  trail from it before close-out.
 - DO NOT scope-creep into incidental findings, and DO NOT silently drop them:
   log each to the Findings Ledger and register it via `linear-resolver` at
   close-out (backlog-doc fallback if Linear is unavailable).
@@ -497,84 +887,156 @@ Execution Protocol block verbatim (it is the only thing that governs the
 execution turn).
 
 ## Execution Protocol (MANDATORY — read first when executing this plan)
+
 You are the **orchestrator**, not an implementer. When this plan is executed:
-- The ONLY direct write you may make is the **approved spec edit** under
-  `docs/specs/**`. Everything else is delegated.
+
+- Your **only direct writes** are: (1) the **approved spec edit** under
+  `docs/specs/**`, (2) the findings revision pass on
+  `docs/findings/runs/<plan-slug>.md` after every phase (and, at close-out, the
+  merge of its open lines into `docs/findings/<category>.md` + prune to
+  `archive.md`), (3) appending Refactor close-out sections to
+  `docs/verifier-reports/tdd/<plan-slug>.md` after each `tdd-refactor` phase,
+  and (4) at close-out, **`## Suggested Review Order (collated)`** (Step 4D),
+  **`## Traceability (final)`**, and **`## Run metrics`** (Step 4E) in the same
+  tdd log. After a spec or living-findings (`docs/findings/<category>.md`)
+  write, `pnpm exec prettier --write` **that file** (never `prettier --write .`).
+  Snapshot trees (`docs/eval`, `docs/verifier-reports`, `docs/findings/runs`)
+  are prettierignored. Everything else is delegated.
 - **Every test change** comes from a `tdd-red` Task call. **Every source change**
   from `tdd-green`. **Every cleanup / re-verify** from `tdd-refactor`. Run them
   sequentially, one **phase** at a time (not one criterion at a time), honoring
   each phase's exit condition before the next Task call.
+- **Do not mark a phase done on subagent assertion alone**
+  ([.cursor/rules/verification-before-completion.mdc](.cursor/rules/verification-before-completion.mdc)).
+  A phase's "GREEN ✓" / "RED ✓" report is that subagent's claim; before
+  advancing to the next Task call, the phase's own exit condition (the target
+  test's actual pass/fail status) must be visible in the returned report — not
+  assumed from a prior phase or from memory.
 - **One Task call per phase.** Each todo is a single phase delegation; do not
   satisfy a bundled "drive criterion X" todo by doing Red+Green+Refactor in one
   turn, and do not treat a "same as the previous criterion" note as license to
   self-implement. If a phase lacks its own explicit entry, STOP and ask rather
   than improvising it inline.
-- You MUST NOT edit `tests/**`, `lib/**`, `app/**`, `components/**`,
-  or `supabase/**` yourself. If you are about to, STOP and issue the
+- **Never pass `model` on Task** for `tdd-red` / `tdd-green` / `tdd-refactor` /
+  `docs-updater` / `linear-resolver`. Agent frontmatter owns the model; do not
+  copy the parent chat's model into Task. Omitting `model` lets the pin apply;
+  passing it overrides the pin and is forbidden unless the operator explicitly
+  requested that model for this run.
+- You MUST NOT edit `tests/**`, `lib/**`, `app/**`, `components/**`, `hooks/**`,
+  `src/**`, or `supabase/**` yourself. If you are about to, STOP and issue the
   matching `Use the <agent> subagent to …` Task call instead.
-- Docs sync = `docs-updater` (background). Linear close-out AND out-of-scope
-  finding registration = `linear-resolver`. Do not do their work inline.
-- **Close-out artifacts (do not skip).** Collate the per-criterion **Suggested
-  Review Order** from the `tdd-refactor` reports into one concern-ordered,
-  risk-first review trail for `/review` (Step 4D), and run the **retrospective**
-  (Step 4E): promote reusable patterns into `docs/testing/` via `docs-updater`
-  and finalize the Traceability Matrix. The Refactor `## Residual findings` block
-  is an **adversarial** pass — treat a bare "none" as suspect, not as a clean bill.
-- **Out-of-scope findings are tracked in categorized files, never dropped or
-  chased.** Do not expand a criterion to fix an incidental discovery. Every phase
-  report ends with a `[category]`-tagged `## Residual findings` block;
-  **immediately after each phase returns, run a revision pass on the matching
-  `docs/findings/<category>.md`** before the next Task call — never carry findings
-  only in memory. The pass reconciles, it doesn't blind-append: remove entries this
-  phase resolved in-run, dedupe/sharpen existing ones, append only genuinely new
-  out-of-scope items that no later criterion handles, and drop process notes. At
-  close-out, delegate `linear-resolver` to read the (already-curated) active
+  **Exception (mechanical only):** after close-out (docs-updater + 4C) and before
+  pointing at `/commit`, you MAY run `pnpm exec prettier --write` via Shell on
+  paths already dirty from this run (`git status --porcelain`). Never
+  `prettier --write .`. This is not a substitute for `tdd-*` implementation
+  writes.
+- Docs sync = `docs-updater` (background). **Wait for its report in-thread**
+  before 4C. After 4C/4B, run the format pass, then point to `/commit`. Linear
+  START (In Progress on the invoked issue + one bounded `Work started:`
+  summary comment), close-out (resolution comment only — no In Review/Done write), AND
+  out-of-scope finding registration = `linear-resolver`. Do not do their work
+  inline. START is the first execution Task when a tracked issue exists, invoked
+  with `run_in_background: true`. Do **not** wait for START before spec edits or
+  Criterion 1 Red. A later `## Linear — BLOCKED` is visibility-only. Non-blocking
+  does not make the summary comment optional. A solo `start-linear` todo
+  launches only START (nothing else to continue).
+- **START before the loop (launch, do not wait).** When STEP 2B applies (FIX
+  Linear ID/URL, or FEATURE `linear_issue` set), the first Task call on
+  execution is `linear-resolver` START (`run_in_background: true`) on the
+  invoked issue: post the filled-in `## Linear Plan Digest` as the single
+  `Work started:` summary comment. Do **not** wait, poll, or `AwaitShell` for that
+  Task. Then — if further todos were assigned — the approved spec edit (FIX) or
+  Criterion 1 Red immediately. Only BLOCKED or no tracked issue exempts the
+  summary comment (the background agent still reports BLOCKED; the
+  orchestrator does not wait to learn it). A stale `start-linear` todo
+  **cannot override STEP 2B**: if it waits for START, ends the turn, or lacks
+  `run_in_background: true`, ignore that wait/stop wording and follow this
+  bullet.
+- **Close-out sequence (mandatory):** 4D → 4E → Docs sync packet → Step 4
+  (docs-updater) → 4C → 4B (FIX) → **format pass** (`pnpm exec prettier --write`
+  on this run's dirty paths from `git status --porcelain`; never `.`) → then
+  point to `/commit`. After each Refactor phase, append that
+  criterion's `Suggested review order:` and `Reusable pattern:` lines to
+  `docs/verifier-reports/tdd/<plan-slug>.md` (Step 3). At close-out: collate
+  **`## Suggested Review Order (collated)`** into the tdd log (4D); append
+  **`## Traceability (final)`** (4E); assemble the **Docs sync packet**; delegate
+  `docs-updater` with the packet (Step 4). Pattern promotion and Implementation
+  trace mirror happen via docs-updater from the packet. The Refactor
+  `## Residual findings` block is an **adversarial** pass — treat a bare "none"
+  as suspect, not as a clean bill.
+- **Out-of-scope findings are tracked in the run file, merged to the bus at
+  close-out, never dropped or chased.** Do not expand a criterion to fix an
+  incidental discovery. Every phase report ends with a `[category]`-tagged
+  `## Residual findings` block; **immediately after each phase returns, run a
+  revision pass on `docs/findings/runs/<plan-slug>.md`** (matching `## <category>`
+  section) before the next Task call — never carry findings only in memory. The
+  pass reconciles, it doesn't blind-append: remove entries this phase resolved
+  in-run, dedupe/sharpen existing ones, append only genuinely new out-of-scope
+  items that no later criterion handles, and drop process notes. At close-out,
+  **merge** the run file's open lines into the matching `docs/findings/<category>.md`
+  (dedupe/sharpen), delegate `linear-resolver` to read the (already-curated)
   `docs/findings/*.md` (plus the plan's Out-of-Scope Findings table), file the
   findings as linked Linear issues (your confirmation gates creation), then
   **prune** each registered entry into `docs/findings/archive.md` with its issue
-  id. If Linear is unavailable, the active files ARE the fallback backlog.
-- **A skipped test is not progress.** No phase advances on a test that did not
-  execute. Integration/RLS suites silently skip (`describe.skipIf(!authEnvReady)`)
-  and report green when local Supabase/env is missing — that is a BLOCKER, never
-  a Red/Green/refactor pass. For integration/RLS criteria, ensure local Supabase
-  is up and seeded (`npx supabase start && npx supabase db reset --local`) before
-  the loop and have each phase run with `RESTAURANT_INTEGRATION_STRICT=true` so a
-  down DB fails hard. If a phase returns `BLOCKED (infra)`, STOP and report the
-  remedy — do not "continue past" the skip.
+  id and **truncate/delete the run file**. If Linear is unavailable, the merged
+  category files ARE the fallback backlog.
+- **A skipped test is not progress** (see
+  [.cursor/rules/test-execution-integrity.mdc](.cursor/rules/test-execution-integrity.mdc)).
+  No phase advances on a test that did not execute — that is a BLOCKER, never a
+  Red/Green/Refactor pass. Ensure local Supabase is up and seeded
+  (`npx supabase start && npx supabase db reset --local`) before the loop and
+  run integration phases with `pnpm test:integration` (fail-closed). For e2e phases,
+  ensure the local app + seed/storage-state are ready and run
+  `pnpm exec playwright test <path> --project=chromium-desktop` (or
+  `pnpm test:e2e:chromium <path>`). If a phase returns `BLOCKED (infra)`, STOP
+  and report the remedy.
 - If you cannot delegate (Task tool unavailable in this mode), STOP and report —
   do not self-implement.
 - If the delegation-guard hook is installed, arm it as your FIRST execution
   action (`node .cursor/hooks/tdd-guard.mjs on`) and disarm it as your LAST
-  (`node .cursor/hooks/tdd-guard.mjs off`).
+  (`node .cursor/hooks/tdd-guard.mjs off`). Before each phase's Task call, set
+  the active phase (`node .cursor/hooks/tdd-guard.mjs phase red|green|refactor`)
+  so the guard enforces that phase's write scope on the subagent — Red confined
+  to `tests/**`, Green/Refactor blocked from touching `tests/**`; clear it
+  (`phase clear`) once the criterion's Refactor exits green.
 
 ## Mode Check
+
 - Plan Mode: YES (proceeding) | NO (stopped — instruction to switch)
 - Workflow mode: FEATURE | FIX
 
 ## Issue & Root Cause (FIX mode only — omit for FEATURE)
+
 - Issue: `<REAZED-### / URL>` or free-text defect — observed vs. expected (1–2 lines).
 - Missing constraint (root cause): the spec rule that was absent/wrong.
 - Spec update proposed: `docs/specs/<file>` → the new rule/edge case/criterion
   to add (the FIRST execution action, pending permission).
 
 ## Spec
+
 - Source: existing `<@file>` | extend existing `docs/specs/<file>` | new draft at `docs/specs/<slug>.md`
 - Summary: 2–4 lines of what the spec requires.
 - Clarifications needed: bullet list, or "none".
 
 ## Acceptance Criteria → Tests
-Layer = `unit` (mocked, no infra — preferred), `integration`/`rls` (needs local
-Supabase), or `manual-UAT` (inherently not automatable — live third-party,
-a11y/screen-reader, visual theme, deployed validation). Justify any
-`integration`/`rls` choice (why a unit test can't prove it); for `manual-UAT`,
-note why it can't be automated and exclude it from the loop below.
+
+Layer = `unit` (mocked, no infra — preferred when decidable in code),
+`integration`/`rls` (local Supabase), `e2e` (local Playwright portal UX),
+`deployed` (preview-env Playwright packs), or `manual-UAT` (inherently not
+automatable — live third-party, screen-reader, visual theme). Justify any
+layer above unit (why a lower layer can't prove it); for `e2e`/`deployed`,
+name path, tag/placement, seed persona, and command; for `manual-UAT`, note why
+it can't be automated and exclude it from the loop below.
 | # | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
 |---|---|---|---|---|---|---|---|---|---|
+
 - **Risk** is `P0`–`P3` (P0 = money/auth/data-integrity/state-machine invariants;
   P3 = cosmetic). Respect dependencies first, then order higher-risk criteria
-  ahead of lower-risk ones.
+  ahead of lower-risk ones (including e2e/deployed — do not park them at the end
+  solely because they are Playwright).
 
 ## Traceability Matrix
+
 One row per criterion linking requirement → test → source. Seed it from the plan;
 `Source file(s)` fills in as Green ships, and the matrix is finalized at close-out
 (Step 4E) so every shipped criterion has a durable requirement-to-test record
@@ -583,82 +1045,218 @@ One row per criterion linking requirement → test → source. Seed it from the 
 |---|---|---|---|---|---|
 
 ## Execution Preconditions
+
 - Infra needed: list it, or "none (all unit/mocked)". If any criterion is
   `integration`/`rls`: "local Supabase up + seeded (`npx supabase start && npx
-  supabase db reset --local`); integration phases run with
-  `RESTAURANT_INTEGRATION_STRICT=true` so a down DB fails hard instead of skipping."
+supabase db reset --local`); integration phases run with
+  `pnpm test:integration` (fail-closed per integration-harness-invariants)."
+  If any criterion is `e2e`: "local app + seeded DB / `global-setup` storage
+  state; phases run `pnpm exec playwright test <path> --project=chromium-desktop`
+  (or `pnpm test:e2e:chromium <path>`); server-down or empty seed = BLOCKED."
+  If any criterion is `deployed`: "preview URL + pack secrets; `pnpm deployed` or
+  `pnpm deployed:mutating` as specified."
 - If that infra cannot be brought up at execution time, the affected criteria
   STOP (a skipped suite is never accepted as Red/Green).
 
 ## Permissions Requested (before execution)
+
 List every write that needs explicit operator approval, or "none":
+
 - Spec create/edit: `docs/specs/<file>` — <why>
 - Existing-test edit: `<test file>` — <why a new test won't do>
 
 ## TDD Execution Loop
+
 Enumerate **every** automatable criterion in order — repeat the block below for
 each, with all three phases spelled out as explicit `Use the <agent> subagent to …`
 orders. **No shorthand**: never write "Criteria C2–C7 — same cycle"; N criteria
 produce N fully-written blocks (≥ 3N phase entries). For `integration`/`rls`
-criteria, hand each phase the strict command `$env:RESTAURANT_INTEGRATION_STRICT = 'true';
-pnpm test:integration <path>`; a skipped suite = `BLOCKED (infra)`, never a pass.
+criteria, hand each phase `pnpm test:integration <path>`; a skipped suite = `BLOCKED (infra)`, never a pass.
+For `e2e` criteria, hand each phase
+`pnpm exec playwright test <path> --project=chromium-desktop` (or
+`pnpm test:e2e:chromium <path>`); server-down / missing storage state / 0 tests =
+`BLOCKED (infra)`. For `deployed`, hand `pnpm deployed` or `pnpm deployed:mutating`.
 **Skip `manual-UAT` criteria here** — list them under a `## Manual-UAT (deferred,
 not automated)` heading with the reason and any manual runbook reference, never a
-fabricated test.
-### Criterion <#> — <title> (layer: unit | integration/rls)
-- **Red** → Invoke `tdd-red` to <what test, which file/name, what must fail and why; must actually execute — not skip>
-- **Green** → Invoke `tdd-green` to <minimal change expected; exit = target test green (executed, not skipped)> (consult `docs-researcher` if API uncertain)
-- **Refactor** → Invoke `tdd-refactor` to <cleanups/constraints; exit = green (executed) + lint + typecheck>
+fabricated test. Include `e2e` and `deployed` criteria in this loop (same
+Red→Green→Refactor phases) — do **not** defer them to a separate "Acceptance /
+E2E" dump at the end.
 
-## Acceptance / E2E (if any)
-- Playwright criteria deferred to the end, listed separately.
+### Criterion <#> — <title> (layer: unit | integration/rls | e2e | deployed | manual-UAT)
+
+- **Red** → Invoke `tdd-red` to <what test, which file/name, what must fail and why; must actually execute — not skip>
+- **Green** → Invoke `tdd-green` to <minimal change expected; exit = target test green (executed, not skipped)> (consult installed skills if API uncertain)
+- **Refactor** → Invoke `tdd-refactor` to <cleanups/constraints; exit = green (executed) + lint + typecheck + prettier --check on touched source>
+
+## Manual-UAT (deferred, not automated)
+
+- List `manual-UAT` criteria here with reason + runbook reference (if any).
+- `e2e` / `deployed` criteria belong in the TDD Execution Loop above, not here.
+
+## Linear Plan Digest (posted at START — the only artifact Linear ever sees)
+
+Filled-in digest handed to `linear-resolver` START, bounded to
+`START_SUMMARY_MAX_CHARS` (see
+[.cursor/hooks/lib/linear-comment-size-policy.mjs](.cursor/hooks/lib/linear-comment-size-policy.mjs)).
+Labels MUST stay disjoint from close-out headers (`Root cause:`, `Spec
+updated:`, `Regression test:`, `Fix:`, `Verification:`, `Commit:`,
+`Follow-up:`). Omit FIX-mode root cause. Deliberately excluded from this
+digest (they stay local to the plan file and git, never posted to Linear in
+any form): `## Execution Protocol`, the per-criterion TDD Execution Loop, the
+FSM seed-state tables, the Traceability Matrix, and the Docs Sync packet.
+
+```markdown
+Work started: `/sdd-to-tdd` execution · plan `<plan-slug>`
+
+**Plan digest** — pre-execution intent, not a result. Authoritative record is the
+owning spec plus `docs/verifier-reports/tdd/<plan-slug>.md` at close-out.
+
+Mode: FEATURE | FIX
+Owning spec: `docs/specs/<file>.md`
+Criteria: <N> automatable · <M> manual-UAT
+Approval gates: spec create/edit `<path>` | existing-test edit `<path>` | none
+Infra: none (all unit/mocked) | local Supabase (fail-closed integration) | local app + storage state | preview URL + pack secrets
+Full plan: not posted to Linear (size-bounded digest) · local copy `<plan-file-basename>`
+
+Problem: <2–3 sentences — observed vs expected behavior, plus the missing constraint>
+Approach: <2–4 sentences — the design constraint shaping this wave/plan>
+Out-of-scope findings: <ledger titles + severities only, or "none">
+
+| #   | Criterion            | Risk | Layer | Test file          |
+| --- | -------------------- | ---- | ----- | ------------------ |
+| 1   | <one-line behavior>  | P1   | unit  | tests/unit/<path>  |
+```
+
+Omit this section when there is no tracked issue. A non-BLOCKED START always
+posts this bounded digest — never the plan file itself.
 
 ## Docs Sync
-- Delegate `docs-updater` (background) for the shipped changes, or state the
-  skip reason (docs-only / no impact / hook already ran).
+
+Execution-start todo (when STEP 2B applies): `start-linear` — first, before the
+spec edit / Criterion 1 Red. INPUT: this plan's `## Linear Plan Digest` section.
+Task `run_in_background: true`; do not wait for its report before spec/C1. Fill
+`<plan-slug>` with this plan file's basename in the emitted todo.
+
+Close-out todos: `4d-review-trail`, `4e-traceability`, `4-docs-packet`,
+`4-docs-updater`, `4c-findings`, `4b-linear` (FIX only), `4-format`.
+
+`4-format` is last: after 4C/4B, `pnpm exec prettier --write` this run's dirty
+paths (`git status --porcelain`; never `.`), then point to `/commit`.
+
+After 4E, assemble and paste the **Docs sync packet** (see command Step 4) and
+delegate `docs-updater` (background) with that packet, or state explicit
+`skip_reason` (`docs-only` | `no-implementation-impact`) in thread.
+
+```markdown
+## Docs sync packet
+
+- plan_slug: <plan-basename>
+- spec: docs/specs/<file>.md
+- mode: FEATURE | FIX
+- linear_issue: REAZED-### | none
+- criteria_shipped: [AC-605-1, AC-605-2]
+- criteria_manual_uat: [C10-light-theme] | none
+- req_ids: [REQ-051.2]
+- source_paths: [...]
+- test_paths: [...]
+- architecture_touch: [Job-Lifecycle] | none
+- uat_flows_to_stamp: [...] | none
+- patterns_to_promote: [...] | none
+- traceability_log: docs/verifier-reports/tdd/<plan-slug>.md
+- drift_flagged: none | [...]
+- skip_reason: none | docs-only | no-implementation-impact
+```
 
 ## Out-of-Scope Findings (the Findings Ledger — "none" if empty)
+
 Discoveries surfaced during this run but deliberately NOT in scope. Each:
 | Finding | Where (file:line/area) | Why it matters | Severity | Relation |
 |---|---|---|---|---|
+
 - This table is the **planning-time** seed (from triage/scope-deferrals). During
   execution, each phase's category-tagged `## Residual findings` are appended to
-  the matching active file under `docs/findings/` — those files, plus this table,
-  are what `linear-resolver` registers at close-out (then pruned to
-  `docs/findings/archive.md`).
+  the matching `## <category>` section of `docs/findings/runs/<plan-slug>.md`; at
+  close-out (Step 4C) that run file is merged into `docs/findings/<category>.md` —
+  those files, plus this table, are what `linear-resolver` registers (then pruned
+  to `docs/findings/archive.md` and the run file truncated/deleted).
 
 ## Linear Close-out & Findings Registration
+
+- **START (execution first action — omit if no tracked issue):** delegate
+  `linear-resolver` to start work on `<issue ID>` (plan: `<plan-slug>` — emit
+  the real plan-file basename), posting this plan's `## Linear Plan Digest`
+  (bounded to `START_SUMMARY_MAX_CHARS`) as the single `Work started:`
+  comment — never the plan file itself. Task `run_in_background: true`; do
+  not wait for its report before spec/C1. If that `Work started:` comment
+  already carries this plan slug, skip START (idempotent update is
+  local-orchestrator STEP 2B, not a cloud re-entry). State: Backlog/Todo → In
+  Progress only. Artifacts: unconditional on any resolved issue (In Review
+  and terminal included). Skip for free-text `bug:` with no ID, and FEATURE
+  when `linear_issue` is `none`. START BLOCKED is visibility-only (the
+  summary is exempted only then, or when there is no tracked issue —
+  non-blocking does not make the summary optional).
 - **Close-out (FIX mode only — omit for FEATURE):** delegate `linear-resolver`
-  for `<issue ID>`: post resolution comment, then propose state `<current>` →
-  `<review/verification state>` for confirmation. (Skip if no tracked issue.)
-  Stop here — advancing `<review state>` → `Done` is the `/review` close-out gate's
-  job, run in this thread after the workflow. End the run by pointing the operator
-  to `/review`.
-- **Findings registration (any mode — omit if ledger empty):** delegate
-  `linear-resolver` to read the active `docs/findings/*.md` (+ the table above) and
-  file each open finding as a new Linear issue linked (`relatedTo`) to
-  `<source issue / team>`, in backlog/triage state, after your confirmation;
-  `linear-resolver` returns the finding→issue-ID mapping and the orchestrator then
-  **prunes** each registered entry into `docs/findings/archive.md` with its issue
-  id (active files keep open items only). If Linear is unavailable, the active
-  files are already the durable backlog — leave them for human triage. In FIX mode,
-  fold this into the close-out delegation and reference the spun-off issue IDs in
-  the resolution comment.
+  for `<issue ID>`: post structured resolution comment only (no workflow state
+  write — In Review is automation-owned; In Progress was set at START). (Skip if no tracked issue.) Done is
+  Linear's own `On PR merge → Done` team automation reacting to a closing-linked
+  PR merge once the operator merges it, driven by the `/commit` gate's local
+  commit (closing magic word) and `/push` publishing it — and, if that commit
+  lands on an accumulator branch, `/push <promotion-PR-URL>` — neither performs
+  a Linear write and neither merges. Run `/commit` in this thread after the
+  workflow. End the run by pointing the operator to `/commit`.
+- **Findings registration (any mode — omit if ledger empty):** first **merge**
+  `docs/findings/runs/<plan-slug>.md` open lines into `docs/findings/<category>.md`
+  (Step 4C), then delegate `linear-resolver` to read the active `docs/findings/*.md`
+  (+ the table above) and apply the **Issue-filing policy** from
+  `docs/findings/README.md` — filing floor, attach-over-create ladder, per-run cap
+  of 3 — proposing only the entries that clear it as new/sub/umbrella issues
+  (with milestone + priority), attaching to existing issues where the ladder
+  matches, and leaving the rest on the ledger, after your confirmation;
+  `linear-resolver` returns the finding→outcome mapping (filed / attached /
+  umbrella / left-on-ledger) and the orchestrator then **prunes only the filed
+  and attached entries** into `docs/findings/archive.md` with their outcome and
+  **truncates/deletes the run file** (below-floor/cap-overflow entries stay in
+  the category file — not archived, not lost, `/triage`'s to burn down). If
+  Linear is unavailable, the merged category files are already the durable
+  backlog — leave them for human triage. In FIX mode, fold this into the
+  close-out delegation and reference the spun-off issue IDs in the resolution
+  comment.
 
 ## Suggested Review Order (review trail — assembled at close-out, Step 4D)
-Concern-ordered `path:line` stops for the whole change, highest-risk first, the
-costliest risk-tagged (`[auth]`/`[booking]`/`[schema]`/`[public-api]`/
-`[security]`). Collated from each `tdd-refactor` report; handed to `/review`.
+
+Concern-ordered `path:line` stops for the whole change, highest-risk first.
+Collated into **`## Suggested Review Order (collated)`** in
+`docs/verifier-reports/tdd/<plan-slug>.md`; handed to `/commit`.
+
 - <concern> → <path:line>, <path:line> …
 
 ## Retrospective (close-out, Step 4E — "none" if nothing reusable)
-- Patterns to promote into `docs/testing/` (via docs-updater): <list or "none">
-- Traceability finalized: <yes — matrix above complete | n/a>
+
+- Patterns for packet `patterns_to_promote` (promoted via docs-updater Step 4):
+  <list or "none">
+- Traceability finalized in tdd log `## Traceability (final)`: <yes | n/a>
+- Run metrics stamped in tdd log `## Run metrics`: <yes | n/a>
+- `node .cursor/checks/harness-lint.mjs <plan-slug>`: <clean | N violations fixed | n/a>
 
 ## First Execution Action
-- The single concrete action to take on approval. FEATURE: "request spec-write
-  permission, then delegate Criterion 1 Red to tdd-red." FIX: "apply the approved
-  spec update FIRST, then delegate the regression test for <criterion> to tdd-red."
+
+- The single concrete action to take on approval. When STEP 2B applies, a
+  **local** session resolves the plan file and delegates: "Invoke the
+  `linear-resolver` subagent to start work on <REAZED-###> (plan: <plan-slug>),
+  posting this digest." Task `run_in_background: true`. Do **not** wait for
+  that report before spec/C1. Fill `<plan-slug>` with this plan file's basename
+  in the emitted todo. A reader who only has this Linear issue's `Work started:`
+  summary comment must **not** look for `.cursor/plans/` and must **not** re-invoke
+  START when that comment is already on the issue — continue from the next todo
+  / implement the ACs. FEATURE, if further todos were assigned: "request
+  spec-write permission, then delegate Criterion 1 Red to tdd-red." FIX, if
+  further todos were assigned: "apply the approved spec update FIRST, then
+  delegate the regression test for <criterion> to tdd-red." Launch START
+  before that spec/Red step when a tracked issue exists (local orchestrator
+  only); do not wait for START to finish. A stale `start-linear` todo
+  **cannot override STEP 2B**. Clicking Run on the whole plan assigns further
+  todos and continues immediately; running only `start-linear` launches only
+  START.
 
 End by stopping for approval — do not begin execution in this turn.
 </output_format>

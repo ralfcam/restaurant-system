@@ -1,0 +1,116 @@
+---
+description: Accumulator identity (staging), background branch prefix sdd/REAZED-###, Done-on-staging semantics, no agent gh pr merge, and /dispatch eligibility. Referenced by /dispatch, /push, /intake, /commit, and /triage — read this instead of restating the split.
+alwaysApply: false
+---
+
+# Staging accumulator
+
+This repo’s feature-PR base is **`staging`**, never the default branch
+(`main`). Default-branch PRs are the periodic **promotion** of `staging`
+itself. Agents read this rule rather than restating the split in a command.
+
+## Accumulator identity
+
+- **`staging`** is the long-lived accumulator. `/commit` on the local lane
+  lands here. Feature PRs opened by `/push` from a non-default, non-`staging`
+  head use `--base staging`.
+- **Default branch is never a feature-PR base.** `/push` stops if an existing
+  or pinned PR has `base=<default>` and `head != staging`.
+- Promotion is `/push` run from `staging` (or pinned at that promotion PR):
+  head `staging` → base default.
+
+## Background branch prefix
+
+Background `/dispatch` worktrees use **`sdd/REAZED-###`** (the Linear identifier
+in the branch name). Do not invent a `cursor/REAZED-*` intake identity — that
+pattern matches nothing this repo has shipped.
+
+**Cloud-agent heads:** observed `origin` shape is `cursor/<slug>-<4 hex>`
+(never `cursor/REAZED-###`). A cloud PR is identified by that **head pattern**,
+not by author and not by an `REAZED-###` in the branch name. `/intake` is the
+inbound firewall for those PRs.
+
+## Done-on-staging
+
+A feature PR carries its own not-previously-merged commits with `/commit`’s
+`Fixes REAZED-###` trailer, so Linear’s `On PR merge → Done` fires when that PR
+merges into **`staging`**. Direct commits on `staging` (the local lane) still
+need the promotion PR to carry the aggregated closing line — see
+[.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).
+
+## No agent `gh pr merge`
+
+Merging is the operator’s job in the GitHub UI. Commands (`/push`, `/intake`, `/commit`,
+`/triage`, `/dispatch`) forbid `gh pr merge`; the git-stage guard blocks it
+in Shell. Never compensate a missed Done transition with `save_issue`.
+
+## Dispatch eligibility
+
+`/dispatch` may recommend at most **1–3** background items. An issue is
+eligible only when **all** of these hold (cite
+[docs/findings/README.md](docs/findings/README.md#issue-filing-policy-throttle-creation-prefer-re-use)
+for estimate and prunable-class; do not hardcode Linear point values):
+
+- Priority **Medium or Low** (Urgent/High stay on the local `staging`
+  checkout). Size, when present, must also sit at Effort **S or M** on the
+  README **Estimate crosswalk** — never treat an L-sized Medium as
+  background-safe. Missing estimate → `cannot verify` size, still allowed if
+  every other bullet holds.
+- No `security` label.
+- Not a **P0 surface**. The **surface under test** decides this, not whether
+  the change is test-only — unit coverage of a listed surface fails this
+  bullet even when the write-set is entirely under `tests/**`. The list is
+  **closed**; a surface not on it is background-eligible:
+  - authentication, session, or token issuance
+  - authorization: RLS policy, permission helpers
+  - reservation or order **status transition** (the state machine itself)
+  - irreversible or destructive data operations (hard deletes, destructive
+    migrations, irreversible bulk updates)
+  Anything else is background-eligible on this bullet. Adding a surface is a
+  deliberate edit to this list with a reason, not a judgment call at dispatch
+  time. A mis-prioritized P0 still fails this bullet when its surface is listed.
+  Drop reason token remains `auth-RLS-FSM`.
+- State is **Todo** (not Backlog, In Progress, or In Review).
+- The owning spec under `docs/specs/` **already carries** the acceptance
+  criterion — no missing-AC / spec-authorship work in the background lane.
+- **Unit-decidable:** the criterion can be proven at `tests/unit/**` without
+  an integration, e2e, or deployed gate.
+- **Write-set disjoint** from the local-lane issue (files from
+  `Grep/Read` on named symbols, or `cannot verify` — and `cannot
+  verify` is not eligible).
+- **Not prunable-class** (README: Backlog + Medium-or-lower + no `security` +
+  45+ days stale). Todo membership already excludes that class; still drop
+  any issue that would qualify if it were on Backlog.
+
+## WIP gate vs the background lane
+
+`/triage`'s WIP gate (open **Urgent + High** above threshold) and the
+eligibility bullets above measure different things, and they read as
+contradictory whenever the gate is ACTIVE. They are not:
+
+- The gate governs `/triage`'s **filing floor** and **local**-lane ordering.
+  It does not shrink, veto, or re-scope the background lane.
+- Urgent/High is never background-eligible (first bullet above), so a
+  background pick can never lower the gate. "Burndown-only" means *no new
+  FEATURE runs* — not *no background lane*.
+- Never promote an Urgent/High into the background lane to make it count
+  toward burndown. The gate does not relax eligibility.
+- While the gate is ACTIVE it falls only through local-lane completions and
+  `/triage` cancellation/re-prioritization. Report background picks as
+  **throughput**, not burndown.
+- Filing new issues under an operator override raises the count the gate
+  measures — state the resulting Urgent+High total when that override is used.
+
+## Cloud lane (dashboard, not `/push`)
+
+Cloud Agents open their own PRs. Their base comes from
+**Dashboard → Cloud Agents → Base Branch**, not from `/push`. Keep that
+setting on `staging` so the two lanes agree. Per-issue override:
+`[branch=staging]` in an issue description or `@Cursor` comment; project-level
+option is a parent-child Linear label group (`branch` → `staging`).
+Setting Linear **assignee** or **delegate** to **Cursor**, or writing
+`@Cursor` in a comment, title, description, or `patch` op, is what
+spawns a Cloud Agent — `linear-resolver` never opens those doors. The
+local `linear-spawn-guard` hook denies them; cloud agents do not run
+`beforeMCPExecution` hooks, so this prose still binds.
+Run `/intake` before `/push` when a `cursor/` PR is open — `/push` on the local lane advances `origin/staging`, and `/intake`'s descendant check then STOPs that cloud head until it is rebased.

@@ -3,23 +3,69 @@
   "hooks": {
     "preToolUse": [
       {
-        "command": "node .cursor/hooks/tdd-delegation-guard.mjs"
+        "command": "node .cursor/hooks/git-stage-guard.mjs",
+        "matcher": "Shell",
+        "failClosed": true
+      },
+      {
+        "command": "node .cursor/hooks/tdd-delegation-guard.mjs",
+        "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/task-fanout-guard.mjs",
+        "matcher": "Task",
+        "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/task-delegation-guard.mjs",
+        "matcher": "Task",
+        "failClosed": false
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "node .cursor/hooks/linear-spawn-guard.mjs",
+        "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/linear-comment-size-guard.mjs",
+        "failClosed": false
       }
     ],
     "postToolUse": [
       {
         "command": "node .cursor/hooks/after-git-commit.mjs",
         "matcher": "Shell"
+      },
+      {
+        "command": "node .cursor/hooks/repeat-tool-reminder.mjs",
+        "failClosed": false
+      }
+    ],
+    "postToolUseFailure": [
+      {
+        "command": "node .cursor/hooks/repeat-tool-reminder.mjs --failure",
+        "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/task-fanout-guard.mjs --failure",
+        "failClosed": false
       }
     ],
     "subagentStart": [
       {
         "command": "node .cursor/hooks/tdd-guard-depth.mjs start"
+      },
+      {
+        "command": "node .cursor/hooks/task-fanout-guard.mjs start"
       }
     ],
     "subagentStop": [
       {
         "command": "node .cursor/hooks/tdd-guard-depth.mjs stop"
+      },
+      {
+        "command": "node .cursor/hooks/task-fanout-guard.mjs stop"
       }
     ],
     "stop": [

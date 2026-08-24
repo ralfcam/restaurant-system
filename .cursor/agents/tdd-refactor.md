@@ -44,7 +44,7 @@ Refactor is where architectural constraints get enforced, so consult the install
 - **Do NOT** act on skill suggestions that are migrations, library swaps, or redesigns (Pages→App Router, CSS-in-JS→shadcn, ORM swaps, managed-auth adoption, broad perf rework). Those exceed behavior-preserving scope — record them as `## Residual findings` (category-tagged) for the orchestrator to triage; never detour into them now.
 - A skill that flags a real correctness bug **outside** this criterion is a finding, not a fix.
 
-(`tdd-green` already consults `docs-researcher` for version-correct APIs while implementing; your job is conformance/cleanup against these same standards.)
+(`tdd-green` already consults `installed skills (Next.js, Supabase, shadcn)` for version-correct APIs while implementing; your job is conformance/cleanup against these same standards.)
 
 ## Workflow
 
@@ -89,7 +89,7 @@ left by Green.
 
 A raw `git diff` is in file order, which is rarely the order that builds
 understanding. Produce a short **concern-ordered** walkthrough of this
-criterion's change so the downstream `/review` gate (and the human) reads it
+criterion's change so the human `/review` (Mode 1 file/plan revise) reads it
 top-down by intent, not by file:
 
 - Group the change by **concern** (cohesive design intent — e.g. "authz guard",
