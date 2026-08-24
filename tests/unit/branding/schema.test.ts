@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
@@ -27,6 +27,24 @@ describe("branding CMS schema and surfaces", () => {
       "utf8",
     )
     expect(migration).toMatch(/add column if not exists hero_image_url text/i)
+  })
+
+  it("restaurant_settings.slot_interval_minutes defaults to 30", () => {
+    const migrationsDir = path.join(root, "supabase/migrations")
+    const baseline = readFileSync(
+      path.join(migrationsDir, "00000000000000_baseline.sql"),
+      "utf8",
+    )
+    const allSql = readdirSync(migrationsDir)
+      .filter((name) => name.endsWith(".sql"))
+      .map((name) => readFileSync(path.join(migrationsDir, name), "utf8"))
+      .join("\n")
+
+    expect(baseline).toMatch(/slot_interval_minutes INT NOT NULL DEFAULT 30/)
+    expect(allSql).toMatch(
+      /ADD COLUMN IF NOT EXISTS slot_interval_minutes INT NOT NULL DEFAULT 30/i,
+    )
+    expect(allSql).toMatch(/slot_interval_minutes IN \(15, 30, 60\)/)
   })
 
   it("seed keeps the CMS singleton blank by default (no logo, no hero photo)", () => {

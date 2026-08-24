@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { CalendarDays, Users, Clock, Check, Loader2, ArrowLeft, CalendarCheck } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { TABLES, RESTAURANT } from "@/lib/data"
 
@@ -10,10 +11,19 @@ import { getAllOperatingWindowsMap, getBlockedDatesInRange } from "@/app/actions
 import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ, getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
 import {
   type OperatingWindow,
+  groupBookableSlots,
   lastBookableTime,
+  slotUntilTime,
 } from "@/lib/reservations/operating-hours"
 import { RESERVATION_ONLINE_MAX_PARTY } from "@/lib/reservations/validation"
 import { ReservationCalendar } from "@/components/site/reservation-calendar"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -77,9 +87,9 @@ function getMinBookableDate(windows?: Record<number, OperatingWindow> | null): s
   return candidate
 }
 
-function formatDate(iso: string) {
+function formatDate(iso: string, locale: string) {
   const d = new Date(iso + "T00:00:00")
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(locale, {
     weekday: "short",
     month: "short",
     day: "numeric",
@@ -113,9 +123,118 @@ function StepPanel({
   return (
     <div
       ref={ref}
-      className={cn("absolute inset-0", scroll ? "overflow-y-auto" : "overflow-hidden")}
+      className={cn(
+        "absolute inset-0",
+        scroll ? "overflow-y-auto overscroll-contain" : "overflow-hidden",
+      )}
     >
       {children}
+    </div>
+  )
+}
+
+type SlotGroupView = ReturnType<typeof groupBookableSlots>[number]
+type ReservationWidgetT = ReturnType<typeof useTranslations>
+
+function slotGroupKey(group: SlotGroupView, index: number): string {
+  return `${index}:${group.label}:${group.times[0] ?? ""}`
+}
+
+function SlotCard({
+  time,
+  dark,
+  selected,
+  onPick,
+  t,
+}: {
+  time: string
+  dark: boolean
+  selected: boolean
+  onPick: (time: string) => void
+  t: ReservationWidgetT
+}) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      data-testid="slot-card"
+      aria-pressed={selected}
+      onClick={() => onPick(time)}
+      className={cn(
+        "h-auto w-full flex-col items-start gap-1 whitespace-normal px-3 py-2 text-left font-normal",
+        dark
+          ? "border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+          : "",
+        selected && (dark ? "border-white/40 bg-white/20" : "border-primary bg-primary/10"),
+      )}
+    >
+      <span className="font-medium">{time}</span>
+      <Badge
+        variant="secondary"
+        data-testid="until"
+        className={cn(dark ? "bg-white/15 text-white/80" : "")}
+      >
+        {t("until")} {slotUntilTime(time)}
+      </Badge>
+    </Button>
+  )
+}
+
+function SlotGroupBlock({
+  group,
+  dark,
+  selectedTime,
+  onPick,
+  t,
+}: {
+  group: SlotGroupView
+  dark: boolean
+  selectedTime: string | null
+  onPick: (time: string) => void
+  t: ReservationWidgetT
+}) {
+  return (
+    <div
+      data-testid="slot-group"
+      role="group"
+      aria-label={group.label || undefined}
+      className="space-y-1.5"
+    >
+      {group.label ? (
+        <p className={cn("text-xs font-medium", dark ? "text-white/70" : "text-foreground")}>
+          {group.label}
+        </p>
+      ) : null}
+      {group.guest_note ? (
+        <p className={cn("text-xs leading-relaxed", dark ? "text-white/50" : "text-muted-foreground")}>
+          {group.guest_note}
+        </p>
+      ) : null}
+      <div className="grid grid-cols-2 gap-2">
+        {group.times.map((time) => (
+          <SlotCard
+            key={time}
+            time={time}
+            dark={dark}
+            selected={selectedTime === time}
+            onPick={onPick}
+            t={t}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SlotGroupsSkeleton({ dark }: { dark: boolean }) {
+  const pulse = dark ? "border-white/10 bg-white/5" : "border-border/20 bg-muted/50"
+  return (
+    <div className="mt-2 space-y-3" aria-hidden>
+      <div className={cn("h-3 w-14 animate-pulse rounded", pulse)} />
+      <div className="grid grid-cols-2 gap-2">
+        <div className={cn("h-14 animate-pulse rounded-lg border", pulse)} />
+        <div className={cn("h-14 animate-pulse rounded-lg border", pulse)} />
+      </div>
     </div>
   )
 }
@@ -128,6 +247,8 @@ export function ReservationWidget({
   dark?: boolean
   phone?: string
 }) {
+  const t = useTranslations("reservationWidget")
+  const locale = useLocale()
   const [party, setParty] = useState("2")
   // Date is intentionally empty on first render (server + first client paint)
   // to avoid a hydration mismatch — `firstAvailableDate()` depends on the
@@ -157,7 +278,20 @@ export function ReservationWidget({
   const overCapacity = partyNum > MAX_CAPACITY
   const displaySlots = overCapacity ? [] : slots
   const availableSlots = displaySlots.filter((s) => s.available)
-  const displayLoadingSlots = overCapacity ? false : loadingSlots
+  const availableTimes = availableSlots.map((s) => s.time)
+  const windowsReady = operatingWindows !== null
+  const displayLoadingSlots = overCapacity ? false : loadingSlots || !windowsReady
+  const daySegments =
+    date && operatingWindows
+      ? operatingWindows[getDayOfWeekInRestaurantTZ(date)]?.segments ?? []
+      : []
+  const slotGroups = groupBookableSlots(availableTimes, daySegments)
+  const displayedGroups: SlotGroupView[] =
+    slotGroups.length > 0
+      ? slotGroups
+      : availableTimes.length > 0
+        ? [{ label: "", times: availableTimes }]
+        : []
 
   const fetchSlots = useCallback(async (d: string, p: number) => {
     const cacheKey = `${d}-${p}`
@@ -251,7 +385,6 @@ export function ReservationWidget({
 
   function pickSlot(time: string) {
     setSlot(time)
-    setStep(2)
   }
 
   async function confirm(e: React.FormEvent) {
@@ -287,7 +420,7 @@ export function ReservationWidget({
     setConfCode(code)
     setStep(3)
     toast.success("Reservation confirmed", {
-      description: `${name}, party of ${party} · ${formatDate(date)} at ${slot}`,
+      description: `${name}, party of ${party} · ${formatDate(date, locale)} at ${slot}`,
     })
   }
 
@@ -303,6 +436,10 @@ export function ReservationWidget({
   const triggerCls = dark
     ? "bg-transparent hover:bg-white/10 border-white/15 text-white [&_svg]:text-white/60 focus-visible:ring-white/20"
     : ""
+  const accordionTriggerCls = cn(
+    "text-xs",
+    dark ? "text-white **:data-[slot=accordion-trigger-icon]:text-white/70" : "",
+  )
 
   return (
     <div className={cn(
@@ -340,7 +477,7 @@ export function ReservationWidget({
             )}>
               {[
                 { label: "Guest", value: name || "Guest" },
-                { label: "When", value: `${formatDate(date)} · ${slot}` },
+                { label: "When", value: `${formatDate(date, locale)} · ${slot}` },
                 { label: "Party", value: `${party} ${partyNum === 1 ? "guest" : "guests"}` },
                 {
                   label: "Confirmation",
@@ -379,8 +516,19 @@ export function ReservationWidget({
       {/* ── STEP 1: Party / Date / Time slots ──────────────────── */}
       {step === 1 && (
         <StepPanel stepKey="step1">
-          <div className="p-5 md:p-6">
-          <div className="grid grid-cols-1 gap-3">
+          <div className="flex h-full min-h-0 flex-col p-5 md:p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <Accordion type="single" defaultValue="time">
+            <AccordionItem value="guests" data-testid="guests">
+              <AccordionTrigger className={accordionTriggerCls}>
+                <span className="flex items-center gap-1.5">
+                  <Users className="size-3.5" /> {t("guests")}
+                </span>
+                <span className="group-aria-expanded/accordion-trigger:hidden">
+                  {t("guestsSummary", { count: partyNum })}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
             {/* Party size */}
             <div className="space-y-1.5">
               <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
@@ -421,12 +569,21 @@ export function ReservationWidget({
                 .
               </p>
             </div>
+              </AccordionContent>
+            </AccordionItem>
 
+            <AccordionItem value="date" data-testid="date">
+              <AccordionTrigger className={accordionTriggerCls}>
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays className="size-3.5" /> {t("date")}
+                </span>
+                <span className="group-aria-expanded/accordion-trigger:hidden">
+                  {date ? t("dateSummary", { date: formatDate(date, locale) }) : null}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
             {/* Date picker trigger */}
             <div className="space-y-1.5">
-              <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
-                <CalendarDays className="size-3.5" /> Date
-              </Label>
               {mounted && (
                 <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
                   <DialogTrigger
@@ -442,7 +599,7 @@ export function ReservationWidget({
                       />
                     }
                   >
-                    <span>{date ? formatDate(date) : "Select a date"}</span>
+                    <span>{date ? formatDate(date, locale) : "Select a date"}</span>
                     <CalendarDays className="size-3.5 opacity-60" />
                   </DialogTrigger>
                   <DialogContent showCloseButton={true} className={cn(
@@ -469,52 +626,59 @@ export function ReservationWidget({
                 </Dialog>
               )}
             </div>
-          </div>
+              </AccordionContent>
+            </AccordionItem>
 
-          {/* Available times */}
-          {overCapacity ? (
-            <p className={cn("mt-4 rounded-xl px-3 py-2.5 text-sm", dark ? "bg-white/10 text-white/60" : "bg-secondary text-muted-foreground")}>
-              For parties larger than {MAX_CAPACITY}, please call us to arrange seating.
-            </p>
-          ) : (
-            <div className="mt-4">
-              <Label className={cn("flex items-center gap-1.5 text-xs font-medium", lbl)}>
-                <Clock className="size-3.5" /> Available times
-              </Label>
-              {displayLoadingSlots ? (
-                <div
-                  className={cn(
-                    "mt-2 h-9 w-full animate-pulse rounded-lg border",
-                    dark ? "border-white/10 bg-white/5" : "border-border/20 bg-muted/50",
-                  )}
-                />
-              ) : availableSlots.length === 0 ? (
-                <p className={cn("mt-2 text-sm tracking-wide", dark ? "text-white/50" : "text-muted-foreground")}>
-                  No availability for this date. Try another day.
-                </p>
-              ) : (
-                <Select value={slot ?? ""} onValueChange={(v) => v && pickSlot(v)}>
-                  <SelectTrigger className={cn("mt-2 w-full", triggerCls)}>
-                    <SelectValue placeholder="Select a time" />
-                  </SelectTrigger>
-                  <SelectContent className={cn(
-                    "max-h-[280px]",
-                    dark ? "border-white/10 bg-black/80 text-white shadow-2xl shadow-black/60 backdrop-blur-xl" : "",
-                  )}>
-                    {availableSlots.map(({ time }) => (
-                      <SelectItem
-                        key={time}
-                        value={time}
-                        className={cn(dark ? "text-white/90 focus:bg-white/15 focus:text-white data-[state=checked]:text-white [&_svg]:text-white/60" : "")}
-                      >
-                        {time}
-                      </SelectItem>
+            <AccordionItem value="time" data-testid="time">
+              <AccordionTrigger className={accordionTriggerCls}>
+                <span className="flex items-center gap-1.5">
+                  <Clock className="size-3.5" /> {t("time")}
+                </span>
+                <span className="group-aria-expanded/accordion-trigger:hidden">
+                  {slot ? t("timeSummary", { time: slot }) : null}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent className="[&_p:not(:last-child)]:mb-0">
+                {overCapacity ? (
+                  <p className={cn("rounded-xl px-3 py-2.5 text-sm", dark ? "bg-white/10 text-white/60" : "bg-secondary text-muted-foreground")}>
+                    For parties larger than {MAX_CAPACITY}, please call us to arrange seating.
+                  </p>
+                ) : displayLoadingSlots ? (
+                  <SlotGroupsSkeleton dark={dark} />
+                ) : availableTimes.length === 0 ? (
+                  <p className={cn("text-sm tracking-wide", dark ? "text-white/50" : "text-muted-foreground")}>
+                    No availability for this date. Try another day.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {displayedGroups.map((group, index) => (
+                      <SlotGroupBlock
+                        key={slotGroupKey(group, index)}
+                        group={group}
+                        dark={dark}
+                        selectedTime={slot}
+                        onPick={pickSlot}
+                        t={t}
+                      />
                     ))}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-          )}
+                  </div>
+                )}
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+          </div>
+          <Button
+            type="button"
+            data-testid="reserve"
+            disabled={!slot}
+            onClick={() => setStep(2)}
+            className={cn(
+              "mt-3 w-full shrink-0 rounded-full font-semibold tracking-wide",
+              dark ? "bg-[#C45A3B] text-white hover:bg-[#b04f33] shadow-lg shadow-black/30" : "",
+            )}
+          >
+            {t("reserve")}
+          </Button>
           </div>
         </StepPanel>
       )}
@@ -536,7 +700,7 @@ export function ReservationWidget({
             </span>
             <div className="min-w-0 flex-1">
               <p className={cn("text-sm font-semibold", dark ? "text-white" : "")}>
-                {partyNum} {partyNum === 1 ? "guest" : "guests"} &middot; {formatDate(date)} at <span className={dark ? "text-[#C45A3B]" : "text-primary"}>{slot}</span>
+                {partyNum} {partyNum === 1 ? "guest" : "guests"} &middot; {formatDate(date, locale)} at <span className={dark ? "text-[#C45A3B]" : "text-primary"}>{slot}</span>
               </p>
               <p className={cn("mt-0.5 text-xs", dark ? "text-white/45" : "text-muted-foreground")}>
                 Real-time availability confirmed

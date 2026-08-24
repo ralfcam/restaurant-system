@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { upsertOperatingWindows } from "@/app/actions/availability"
 import {
   DEFAULT_OPERATING_DAYS,
+  flattenDaysToRows,
   type OperatingDay,
 } from "@/lib/reservations/operating-hours"
 
@@ -91,6 +94,65 @@ describe("upsertOperatingWindows", () => {
             opens_at: "18:00",
             closes_at: "22:00",
             label: "Dinner",
+          }),
+        ]),
+      }),
+    )
+  })
+
+  it("persists guest notes from scheduling-segment-row through flatten and upsert", async () => {
+    const root = process.cwd()
+    const manager = readFileSync(
+      path.join(root, "components/staff/scheduling-manager.tsx"),
+      "utf8",
+    )
+    const availability = readFileSync(
+      path.join(root, "app/actions/availability.ts"),
+      "utf8",
+    )
+
+    expect(manager).toMatch(/scheduling-segment-row/)
+    expect(manager).toMatch(/guest_note/)
+    expect(availability).toMatch(/WINDOW_COLUMNS\s*=\s*"[^"]*guest_note/)
+
+    const daysWithNote: OperatingDay[] = DEFAULT_OPERATING_DAYS.map((day) =>
+      day.day_of_week === 1
+        ? {
+            day_of_week: 1,
+            is_closed: false,
+            segments: [
+              {
+                label: "Dinner",
+                opens_at: "18:00",
+                closes_at: "22:00",
+                sort_order: 0,
+                guest_note: "Kitchen closes at 21:00",
+              },
+            ],
+          }
+        : day,
+    )
+
+    expect(flattenDaysToRows(daysWithNote)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          day_of_week: 1,
+          label: "Dinner",
+          guest_note: "Kitchen closes at 21:00",
+        }),
+      ]),
+    )
+
+    const result = await upsertOperatingWindows(daysWithNote)
+    expect(result).toEqual({ success: true })
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "replace_operating_windows",
+      expect.objectContaining({
+        p_windows: expect.arrayContaining([
+          expect.objectContaining({
+            day_of_week: 1,
+            label: "Dinner",
+            guest_note: "Kitchen closes at 21:00",
           }),
         ]),
       }),

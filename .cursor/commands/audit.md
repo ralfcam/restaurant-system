@@ -71,17 +71,12 @@ all seven parts in order. Do not skip a part.
 
 Execution strategy (wave-ordered — dependencies flow downward):
 - Wave 0 — Foundation (run first): PART 1 env & config conformance to spec NFRs.
-- Wave 1 — Parallel deep dives (dispatch simultaneously; no cross-deps):
-  - PART 2 per-spec Verifier Sub-Agents — one PER SPEC in docs/specs/
-    (Multitask mode, fan out, do not serialize).
-  - PART 3 cross-cutting spec conformance (3A reservation/order status models,
-    3B observability NFR, 3C third-party coverage, 3D security controls)
-    as explore subagents.
-  - PART 4 production security as parallel explore subagents.
-  - PART 5 spec test coverage as one explore subagent.
-  - PART 6 Next.js & dependency integrity as one explore subagent.
-  Launch each explore subagent with the `Composer 2.5` model (name explicitly
-  in the Task call).
+- Wave 1 — Parallel deep dives (dispatch simultaneously; no cross-deps).
+  Wave at the Task fan-out cap in `.cursor/rules/task-fanout.mdc`.
+  - PART 2 per-spec — one `spec-verifier` Task PER SPEC in docs/specs/
+    (exclude README.md). `model: inherit`.
+  - PART 3–6 — one `audit-explorer` Task per part/subsection, handing the
+    part text + report path. `model: inherit`. Do not use anonymous explore.
 - Wave 2 — Synthesis (after Wave 1 returns): PART 3E booking/reservation
   deviation consolidation and the main-audit Spec–Code Deviations section.
 - Wave 3 — Spec-coverage synthesis (last): run PART 7 yourself.
@@ -148,8 +143,8 @@ governs it, record a COVERAGE GAP):
 PART 2 — PER-SPEC VERIFIER SUB-AGENTS
 Source of truth: every spec under docs/specs/
 
-For EVERY spec file in docs/specs/ (exclude index/pointer files), deploy one
-Verifier Sub-Agent in Multitask mode with `Composer 2.5`. Fan out in parallel.
+For EVERY spec file in docs/specs/ (exclude README.md), deploy one
+`spec-verifier` Task. Wave at the fan-out cap. `model: inherit`.
 
 2A. Spec → report mapping (deterministic)
 - Every spec → docs/verifier-reports/<spec-basename>.md
@@ -323,3 +318,17 @@ Each agent writes docs/verifier-reports/<basename>.md with:
 ## Cannot Verify
 ## Recommended Next Actions
 </output_format>
+
+---
+
+PART 8 — FINDINGS LEDGER HANDOFF (always last; never Linear)
+
+After PARTS 1–7, write Blocker/High findings (and Medium for
+`docs/findings/security.md`) into the matching ledger file under
+`docs/findings/` using the entry format in `docs/findings/README.md`.
+Cite that README for the filing floor, attach-over-create ladder, TTL,
+and estimate crosswalk. Do **not** create Linear issues in this command —
+`/triage` is the filing owner. Do **not** score Linear as a spec bar.
+
+Skip PART 8 when the operator says `ledger=off`. There is no PART 9
+(runtime probes) in this repo — `/audit` stays repo-only.

@@ -13,6 +13,10 @@ ALTER TABLE operating_windows
 ALTER TABLE operating_windows
   ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0;
 
+-- Optional guest-facing helper for this segment; blank/whitespace stored as NULL.
+ALTER TABLE operating_windows
+  ADD COLUMN IF NOT EXISTS guest_note TEXT;
+
 CREATE OR REPLACE FUNCTION validate_reservation_availability()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -68,6 +72,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Atomic replace of the full weekly opening-hour schedule (staff / service role).
+-- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
 CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -76,7 +82,7 @@ BEGIN
   DELETE FROM operating_windows;
 
   INSERT INTO operating_windows (
-    day_of_week, opens_at, closes_at, is_closed, label, sort_order
+    day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
   )
   SELECT
     (w->>'day_of_week')::INT,
@@ -84,7 +90,8 @@ BEGIN
     (w->>'closes_at')::TIME,
     COALESCE((w->>'is_closed')::BOOLEAN, false),
     NULLIF(BTRIM(w->>'label'), ''),
-    COALESCE((w->>'sort_order')::INT, 0)
+    COALESCE((w->>'sort_order')::INT, 0),
+    NULLIF(BTRIM(w->>'guest_note'), '')
   FROM jsonb_array_elements(p_windows) AS w;
 END;
 $$;

@@ -1,3 +1,13 @@
 # Test-debt findings (open)
 
-- _(none — see [archive.md](./archive.md))_
+- [ ] Inverted-window steal is unasserted · `tests/unit/reservations/operating-hours.test.ts` · the `closes_at` gate is implemented but no test pins that a `14:00–13:00` row cannot take `14:00` from a valid earlier segment · low · (found: C1/refactor)
+- [ ] Optional `durationMinutes` and invalid `start` untested · `slotUntilTime` · C2 pins default 90 and `23:00`→`00:30` only · low · (found: C2/refactor)
+- [ ] C4 pin does not assert trim-to-NULL · `tests/unit/scheduling/schema.test.ts` · regex only requires `guest_note` in the INSERT column list · low · (found: C4/refactor)
+- [ ] C5 pin is SQL-regex only · `tests/unit/branding/schema.test.ts` · does not execute INSERT of invalid values against a live DB · low · (found: C5/refactor)
+- [ ] `getAvailableSlots` has no unit coverage for blocked dates, closed days, past-today filtering, or capacity exhaustion · `app/actions/reservations.ts` · guest-facing branches untested · med · (found: C7/red)
+- [ ] C8 suite is source-regex only · `tests/unit/reservation-widget/segment-groups.test.ts` · windows-null wait, fallback group, unique keys are unpinned · med · (found: C8/refactor)
+- [ ] Grouping layer does not pin a shared `opens_at` boundary · `tests/unit/reservations/operating-hours.test.ts` (C6) · Midi/Soir do not overlap, so grouped output might skip `assignSegmentForTime` · low · (found: C6/red)
+- [ ] C11 does not execute the control or pin the getter · `tests/unit/floor/slot-interval.test.ts` · source-regex + one mocked upsert; round-trip `getSlotIntervalMinutes` is unasserted · med · (found: C11/refactor)
+- [ ] C1 is install-health, not a `tsc` regression · `tests/unit/dev-toolchain/typecheck-toolchain.test.ts:16-30` · asserts declare+lock+`existsSync(node_modules/swr)`; never runs `tsc`, so a present-but-unresolvable types entry still passes; also fails on a clean checkout until `pnpm install` · low · (found: C1/green)
+- [ ] No runtime coverage for Chef’s picks · `hooks/use-chefs-picks.ts` / `app/[locale]/page.tsx` · C2 only guards source types; `enabled` default, empty `items`, and `name_en` vs `name` locale fallback are untested · med · (found: C2/red)
+- [ ] C3 is a source-regex, not an assignability check · `tests/unit/floor/layout.test.ts` · never type-checks `spreadOverlappingTables(useFloorPlan().tables)`; a stray `id: string` could pass without grid fields on default `AssignableTable` · low · (found: C3/red)

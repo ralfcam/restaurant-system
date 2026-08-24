@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS operating_windows (
   -- Opening-hour segments: multiple open rows per day (morning / lunch / dinner).
   label TEXT,
   sort_order INT NOT NULL DEFAULT 0,
+  -- Optional guest-facing helper for this segment; blank/whitespace stored as NULL.
+  guest_note TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -216,6 +218,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Atomic replace of the full weekly opening-hour schedule (staff / service role).
+-- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
 CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
 RETURNS void
 LANGUAGE plpgsql
@@ -224,7 +227,7 @@ BEGIN
   DELETE FROM operating_windows;
 
   INSERT INTO operating_windows (
-    day_of_week, opens_at, closes_at, is_closed, label, sort_order
+    day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
   )
   SELECT
     (w->>'day_of_week')::INT,
@@ -232,7 +235,8 @@ BEGIN
     (w->>'closes_at')::TIME,
     COALESCE((w->>'is_closed')::BOOLEAN, false),
     NULLIF(BTRIM(w->>'label'), ''),
-    COALESCE((w->>'sort_order')::INT, 0)
+    COALESCE((w->>'sort_order')::INT, 0),
+    NULLIF(BTRIM(w->>'guest_note'), '')
   FROM jsonb_array_elements(p_windows) AS w;
 END;
 $$;
@@ -421,8 +425,23 @@ END $$;
 CREATE TABLE IF NOT EXISTS restaurant_settings (
   id INT PRIMARY KEY CHECK (id = 1),
   logo_url TEXT,
+  -- FP-10: restaurant-wide guest booking slot interval (15 / 30 / 60).
+  slot_interval_minutes INT NOT NULL DEFAULT 30
+    CONSTRAINT restaurant_settings_slot_interval_minutes_check
+    CHECK (slot_interval_minutes IN (15, 30, 60)),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS slot_interval_minutes INT NOT NULL DEFAULT 30;
+
+DO $$
+BEGIN
+  ALTER TABLE restaurant_settings
+    ADD CONSTRAINT restaurant_settings_slot_interval_minutes_check
+    CHECK (slot_interval_minutes IN (15, 30, 60));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 ALTER TABLE restaurant_settings ENABLE ROW LEVEL SECURITY;
 

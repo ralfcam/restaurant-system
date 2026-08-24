@@ -6,6 +6,8 @@
  * The guest booking widget and the DB trigger both use these rules.
  */
 
+import { DEFAULT_EXPECTED_MINUTES } from "@/lib/floor/table-use"
+
 export const DAY_NAMES = [
   "Sunday",
   "Monday",
@@ -17,12 +19,15 @@ export const DAY_NAMES = [
 ] as const
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+const MINUTES_PER_DAY = 24 * 60
 
 export type OperatingSegment = {
   opens_at: string
   closes_at: string
   label: string | null
   sort_order: number
+  /** Present only when non-blank. Persist via flatten as SQL NULL when omitted. */
+  guest_note?: string | null
 }
 
 export type OperatingDay = {
@@ -40,6 +45,8 @@ export type OperatingWindowRow = {
   is_closed: boolean
   label?: string | null
   sort_order?: number
+  /** Always set on flatten so replace_operating_windows can store/clear NULL. */
+  guest_note?: string | null
 }
 
 /**
@@ -86,20 +93,114 @@ export function minutesToTime(totalMinutes: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
 }
 
+/** Clock-face minutes in `[0, 1440)`. `minutesToTime` itself does not wrap. */
+function wrapMinutesOfDay(totalMinutes: number): number {
+  return ((totalMinutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
+}
+
+/** Slot end time: start plus duration, wrapping modulo 24h (never `24:30`). */
+export function slotUntilTime(
+  start: string,
+  durationMinutes: number = DEFAULT_EXPECTED_MINUTES,
+): string {
+  return minutesToTime(wrapMinutesOfDay(timeToMinutes(start) + durationMinutes))
+}
+
+/** Inclusive: both `opens_at` and `closes_at` are bookable instants. */
+function segmentContainsTimeInclusive(segment: OperatingSegment, time: string): boolean {
+  return time >= normalizeTime(segment.opens_at) && time <= normalizeTime(segment.closes_at)
+}
+
+/**
+ * Whether `time` is bookable in any segment. Booking validation stays inclusive
+ * (both endpoints) because slot generation emits `closes_at` (`minutes <= end`)
+ * and the last slot of the day (e.g. Dinner 22:00) must remain bookable.
+ * Exclusive grouping is assignment-only — see `assignSegmentForTime`.
+ */
 export function isTimeWithinSegments(time: string, segments: OperatingSegment[]): boolean {
   const t = normalizeTime(time)
   if (!TIME_RE.test(t)) return false
-  return segments.some((segment) => {
-    const opens = normalizeTime(segment.opens_at)
-    const closes = normalizeTime(segment.closes_at)
-    return t >= opens && t <= closes
-  })
+  return assignSegmentForTime(t, segments) !== undefined
+}
+
+/**
+ * BW-1: a time belongs to exactly one segment. Prefer the last segment whose
+ * `opens_at` equals the time and whose window contains it; otherwise the first
+ * inclusive match. Shared Lunch-close / Afternoon-open (14:00) therefore belongs
+ * to Afternoon. An inverted window that merely opens at the query time cannot
+ * steal membership.
+ */
+export function assignSegmentForTime(
+  time: string,
+  segments: OperatingSegment[],
+): OperatingSegment | undefined {
+  const t = normalizeTime(time)
+  const containing = segments.filter((segment) => segmentContainsTimeInclusive(segment, t))
+  const openingAtTime = containing.findLast(
+    (segment) => normalizeTime(segment.opens_at) === t,
+  )
+  return openingAtTime ?? containing[0]
+}
+
+type BookableSlotGroup = {
+  label: string
+  times: string[]
+  guest_note?: string
+}
+
+/** Blank/whitespace → undefined so guest payloads omit the key (BW-4). Persist with `?? null`. */
+function trimmedGuestNote(value: string | null | undefined): string | undefined {
+  const note = value?.trim()
+  return note ? note : undefined
+}
+
+function segmentTimeRange(segment: OperatingSegment): string {
+  return `${normalizeTime(segment.opens_at)}–${normalizeTime(segment.closes_at)}`
+}
+
+function toBookableSlotGroup(
+  segment: OperatingSegment,
+  times: string[],
+): BookableSlotGroup {
+  const group: BookableSlotGroup = {
+    label: segment.label?.trim() || segmentTimeRange(segment),
+    times,
+  }
+  const note = trimmedGuestNote(segment.guest_note)
+  if (note) group.guest_note = note
+  return group
+}
+
+/**
+ * BW-4: group bookable times by segment `sort_order`. Membership is BW-1
+ * (`assignSegmentForTime`); empty groups are omitted; unlabeled headings
+ * fall back to the time range; blank `guest_note` is omitted from the payload.
+ */
+export function groupBookableSlots(
+  times: string[],
+  segments: OperatingSegment[],
+): BookableSlotGroup[] {
+  const timesBySegment = new Map<OperatingSegment, string[]>()
+  for (const time of times) {
+    const segment = assignSegmentForTime(time, segments)
+    if (!segment) continue
+    const bucket = timesBySegment.get(segment)
+    if (bucket) bucket.push(time)
+    else timesBySegment.set(segment, [time])
+  }
+
+  return [...segments]
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .flatMap((segment) => {
+      const segmentTimes = timesBySegment.get(segment)
+      return segmentTimes ? [toBookableSlotGroup(segment, segmentTimes)] : []
+    })
 }
 
 export function formatSegmentsSummary(segments: OperatingSegment[]): string {
   return segments
     .map((segment) => {
-      const range = `${normalizeTime(segment.opens_at)}–${normalizeTime(segment.closes_at)}`
+      const range = segmentTimeRange(segment)
       const label = segment.label?.trim()
       return label ? `${label} ${range}` : range
     })
@@ -145,9 +246,23 @@ export function summarizeOperatingDays(days: OperatingDay[]): string {
     .join("; ")
 }
 
+export const ALLOWED_SLOT_INTERVALS = [15, 30, 60] as const
+export const DEFAULT_SLOT_INTERVAL_MINUTES = 30
+export type SlotIntervalMinutes = (typeof ALLOWED_SLOT_INTERVALS)[number]
+
+/** BW-3: guest slot spacing is 15, 30, or 60 minutes; anything else is 30. */
+export function clampSlotIntervalMinutes(
+  minutes: number,
+): SlotIntervalMinutes {
+  for (const allowed of ALLOWED_SLOT_INTERVALS) {
+    if (minutes === allowed) return allowed
+  }
+  return DEFAULT_SLOT_INTERVAL_MINUTES
+}
+
 export function generateSlotsForSegments(
   segments: OperatingSegment[],
-  stepMinutes = 30,
+  stepMinutes = DEFAULT_SLOT_INTERVAL_MINUTES,
 ): string[] {
   const times = new Set<string>()
   for (const segment of segments) {
@@ -155,14 +270,17 @@ export function generateSlotsForSegments(
     const end = timeToMinutes(segment.closes_at)
     if (Number.isNaN(start) || Number.isNaN(end) || end < start) continue
     for (let minutes = start; minutes <= end; minutes += stepMinutes) {
-      if (minutes >= 24 * 60) break
+      if (minutes >= MINUTES_PER_DAY) break
       times.add(minutesToTime(minutes))
     }
   }
   return [...times].sort()
 }
 
-export function bookableTimesForDay(day: OperatingDay, stepMinutes = 30): string[] {
+export function bookableTimesForDay(
+  day: OperatingDay,
+  stepMinutes = DEFAULT_SLOT_INTERVAL_MINUTES,
+): string[] {
   if (day.is_closed) return []
   return generateSlotsForSegments(day.segments, stepMinutes)
 }
@@ -261,12 +379,16 @@ export function groupRowsByDay(rows: OperatingWindowRow[]): OperatingDay[] {
         if (order !== 0) return order
         return normalizeTime(a.opens_at).localeCompare(normalizeTime(b.opens_at))
       })
-      .map((row, index) => ({
-        opens_at: normalizeTime(row.opens_at),
-        closes_at: normalizeTime(row.closes_at),
-        label: row.label ?? null,
-        sort_order: row.sort_order ?? index,
-      }))
+      .map((row, index) => {
+        const note = trimmedGuestNote(row.guest_note)
+        return {
+          opens_at: normalizeTime(row.opens_at),
+          closes_at: normalizeTime(row.closes_at),
+          label: row.label ?? null,
+          sort_order: row.sort_order ?? index,
+          ...(note ? { guest_note: note } : {}),
+        }
+      })
 
     return {
       day_of_week: seed.day_of_week,
@@ -287,6 +409,7 @@ export function flattenDaysToRows(days: OperatingDay[]): OperatingWindowRow[] {
         is_closed: true,
         label: null,
         sort_order: 0,
+        guest_note: null,
       })
       continue
     }
@@ -299,6 +422,7 @@ export function flattenDaysToRows(days: OperatingDay[]): OperatingWindowRow[] {
         is_closed: false,
         label: segment.label?.trim() || null,
         sort_order: index,
+        guest_note: trimmedGuestNote(segment.guest_note) ?? null,
       })
     })
   }

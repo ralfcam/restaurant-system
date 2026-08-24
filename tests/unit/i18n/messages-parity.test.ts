@@ -30,6 +30,17 @@ function leafValues(value: unknown, prefix = ""): Record<string, string> {
   )
 }
 
+const RESERVATION_WIDGET_CHROME_KEYS = [
+  "reservationWidget.reserve",
+  "reservationWidget.until",
+  "reservationWidget.guests",
+  "reservationWidget.date",
+  "reservationWidget.time",
+  "reservationWidget.guestsSummary",
+  "reservationWidget.dateSummary",
+  "reservationWidget.timeSummary",
+] as const
+
 describe("message catalogs", () => {
   it("fr and en catalogs have identical non-empty key sets", () => {
     const frKeys = flattenKeys(fr).sort()
@@ -41,6 +52,20 @@ describe("message catalogs", () => {
     const enLeaves = leafValues(en)
 
     for (const key of frKeys) {
+      expect(frLeaves[key]?.trim().length).toBeGreaterThan(0)
+      expect(enLeaves[key]?.trim().length).toBeGreaterThan(0)
+    }
+  })
+
+  it("reservationWidget chrome keys exist in both catalogs", () => {
+    const frKeys = new Set(flattenKeys(fr))
+    const enKeys = new Set(flattenKeys(en))
+    const frLeaves = leafValues(fr)
+    const enLeaves = leafValues(en)
+
+    for (const key of RESERVATION_WIDGET_CHROME_KEYS) {
+      expect(frKeys.has(key)).toBe(true)
+      expect(enKeys.has(key)).toBe(true)
       expect(frLeaves[key]?.trim().length).toBeGreaterThan(0)
       expect(enLeaves[key]?.trim().length).toBeGreaterThan(0)
     }

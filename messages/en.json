@@ -49,5 +49,15 @@
     "emptySubtitle": "Check back shortly — we're updating our dishes.",
     "noDishes": "No dishes available in this menu right now.",
     "signature": "Signature"
+  },
+  "reservationWidget": {
+    "reserve": "Reserve",
+    "until": "until",
+    "guests": "Guests",
+    "date": "Date",
+    "time": "Time",
+    "guestsSummary": "{count, plural, one {# guest} other {# guests}}",
+    "dateSummary": "{date}",
+    "timeSummary": "{time}"
   }
 }

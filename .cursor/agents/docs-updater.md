@@ -1,6 +1,6 @@
 ---
 name: docs-updater
-model: composer-2.5
+model: inherit
 description: >-
   MANDATORY docs sync subagent after non-docs implementation commits. Triggered
   by project hooks (postToolUse after git commit, stop follow-up), rule

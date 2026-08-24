@@ -39,17 +39,12 @@ to fix another means you have the wrong fix; stop and report.
 
 When the minimal implementation depends on framework/library specifics you are
 not 100% certain of (Next.js 16 App Router, React 19, Supabase SSR/`supabase-js`,
-Zod, React Hook Form, etc.), **delegate to the `docs-researcher`
-subagent first**: "Use the docs-researcher subagent to fetch <library> <version>
-docs for <exact API question>." Use its version-specific answer to implement
-correctly instead of guessing. Keep it targeted — one focused question, then
-implement. Do not let research expand the scope beyond the failing test.
+Zod, React Hook Form, etc.), **open the installed skill** that matches the
+library (`nextjs`, `supabase`, `shadcn`) and follow its `SKILL.md`. This repo
+has no separate docs-lookup subagent.
 
-**Consult the relevant Agent Skill for correct-by-default patterns.** Alongside
-`docs-researcher` (which answers one specific version API question), open the
-installed skill that matches what you're writing and follow its `SKILL.md` so the
-minimal change is idiomatic on the first draft instead of something Refactor must
-fix. Read the skill — don't act from memory. Select by area:
+**Consult the relevant Agent Skill for correct-by-default patterns.** Open the
+installed skill that matches what you're writing and follow its `SKILL.md`.
 
 | Writing… | Skill |
 | --- | --- |
@@ -72,7 +67,8 @@ for Refactor or log it as a `## Residual findings` entry.
 1. Read the failing test and the criterion/spec excerpt. Run the test first to see the exact failure:
    - Unit: `pnpm test:unit <path>` (fallback: `pnpm exec vitest run <path>`)
    - Integration: `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration <path>` (needs local Supabase up + seeded). If the test **skips / collects 0 tests** here (Supabase or env keys absent), STOP with the infra-blocked report — do not implement against a test that never runs.
-2. If the fix hinges on a library/framework API you are unsure of, consult the `docs-researcher` subagent (see above) before writing; open the matching Agent Skill for the area you're touching so the change is correct-by-default. Then write the minimal source change that addresses precisely that failure — within scope (skill suggestions beyond the test become findings, not code).
+2. If the fix hinges on a library/framework API you are unsure of, open the
+   matching Agent Skill before writing. Then write the minimal source change.
 3. Re-run the target test → confirm **GREEN** (it must show in the **passed** count, not skipped).
 4. Re-run the surrounding file/suite (and `pnpm typecheck`) to confirm you did not break previously-green tests or types. If you did, fix your source change — never the tests.
 5. Stop. Do not stage or commit. Leave the tree dirty for the Refactor phase.
@@ -84,7 +80,7 @@ for Refactor or log it as a `## Residual findings` entry.
 Source changed: <list of files under app/ lib/ components/ ... — NO files under tests/**>
 Command: <the exact test command run>
 Result: GREEN ✓  ·  typecheck: pass/n-a  ·  no regressions in <file/suite>
-Docs consulted: <library@version via docs-researcher, or "none">
+Docs consulted: <skill name, or "none">
 Skills consulted: <skill(s) followed for correct-by-default patterns, or "none relevant">
 Minimality note: <one line confirming nothing beyond the test's needs was added; list anything deliberately left for Refactor>
 
