@@ -2,6 +2,7 @@ import { StaffShell } from "@/components/staff/staff-shell"
 import { SchedulingManager } from "@/components/staff/scheduling-manager"
 import { getAllOperatingWindows, getBlockedDatesInRange } from "@/app/actions/availability"
 import { getAuthUser } from "@/app/actions/auth"
+import { getRestaurantInfoBar } from "@/app/actions/restaurant-info"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 
 export const dynamic = "force-dynamic"
@@ -18,10 +19,11 @@ export default async function SchedulingPage() {
   sixMonthsBack.setMonth(sixMonthsBack.getMonth() - 6)
   const startISO = sixMonthsBack.toISOString().split("T")[0]
 
-  const [operatingWindows, blockedDates, authUser] = await Promise.all([
+  const [operatingWindows, blockedDates, authUser, restaurantInfo] = await Promise.all([
     getAllOperatingWindows(),
     getBlockedDatesInRange(startISO, endISO),
     getAuthUser(),
+    getRestaurantInfoBar(),
   ])
 
   return (
@@ -33,6 +35,8 @@ export default async function SchedulingPage() {
       <SchedulingManager
         initialOperatingWindows={operatingWindows}
         initialBlockedDates={blockedDates}
+        initialAddress={restaurantInfo.address}
+        initialPhone={restaurantInfo.phone}
       />
     </StaffShell>
   )

@@ -16,9 +16,23 @@ describe("branding CMS schema and surfaces", () => {
     expect(baseline).toMatch(/'branding'/)
   })
 
-  it("raises the Server Action body limit so a 2MB logo fits as base64", () => {
+  it("raises the Server Action body limit so a 4MB hero photo fits as base64", () => {
     const config = readFileSync(path.join(root, "next.config.mjs"), "utf8")
-    expect(config).toMatch(/bodySizeLimit:\s*["']4mb["']/)
+    expect(config).toMatch(/bodySizeLimit:\s*["']8mb["']/)
+  })
+
+  it("migration adds hero_image_url to restaurant_settings", () => {
+    const migration = readFileSync(
+      path.join(root, "supabase/migrations/20260820090000_hero_image_url.sql"),
+      "utf8",
+    )
+    expect(migration).toMatch(/add column if not exists hero_image_url text/i)
+  })
+
+  it("seed keeps the CMS singleton blank by default (no logo, no hero photo)", () => {
+    const seed = readFileSync(path.join(root, "supabase/seed.sql"), "utf8")
+    expect(seed).toMatch(/INSERT INTO restaurant_settings \([\s\S]*logo_url,[\s\S]*hero_image_url,/)
+    expect(seed).toMatch(/VALUES \(1, NULL, NULL, NULL, NULL, true\)/)
   })
 
   it("staff branding page exists and leftover test fixtures are gone", () => {
@@ -28,6 +42,7 @@ describe("branding CMS schema and surfaces", () => {
     expect(existsSync(path.join(root, "public/test-logo-upload.png"))).toBe(false)
     expect(existsSync(path.join(root, "public/images/logo.png"))).toBe(false)
     expect(existsSync(path.join(root, "public/images/logo.jpg"))).toBe(false)
+    expect(existsSync(path.join(root, "public/images/hero-dining.png"))).toBe(false)
   })
 
   it("guest header and login render BrandMark only when a custom url is set", () => {
@@ -39,5 +54,11 @@ describe("branding CMS schema and surfaces", () => {
     expect(login).toMatch(/useRestaurantLogo/)
     expect(login).toMatch(/<BrandMark src=\{logoUrl\}/)
     expect(login).not.toMatch(/SITE_LOGO\.src/)
+  })
+
+  it("homepage hero falls back to a blank background when no hero photo is set", () => {
+    const home = readFileSync(path.join(root, "app/[locale]/page.tsx"), "utf8")
+    expect(home).toMatch(/useRestaurantHeroImage/)
+    expect(home).not.toMatch(/hero-dining\.png/)
   })
 })

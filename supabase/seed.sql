@@ -29,7 +29,7 @@ VALUES (
   '11111111-1111-1111-1111-111111111111',
   'authenticated',
   'authenticated',
-  'admin@test.local',
+  '',
   extensions.crypt('password123', extensions.gen_salt('bf')),
   now(),
   now(),
@@ -69,9 +69,18 @@ VALUES (
 )
 ON CONFLICT (provider_id, provider) DO NOTHING;
 
--- CMS singleton: default (no custom logo) so guest chrome falls back to SITE_LOGO
-INSERT INTO restaurant_settings (id, logo_url)
-VALUES (1, NULL)
+-- CMS singleton: default (no custom logo, no custom hero photo) so guest
+-- chrome falls back to SITE_LOGO and the homepage hero renders a blank
+-- background.
+INSERT INTO restaurant_settings (
+  id,
+  logo_url,
+  hero_image_url,
+  address,
+  phone,
+  chefs_picks_enabled
+)
+VALUES (1, NULL, NULL, NULL, NULL, true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Default operating hours: Mon-Sat 09:00-22:00 (one segment), Sunday closed.
@@ -121,7 +130,7 @@ VALUES
   ('soir-a-grignoter-des-18h-olives-vertes-giganti','soir-a-grignoter-des-18h-olives-vertes-giganti','Olives vertes giganti','Green giganti olives','Olives vertes charnues marinées aux herbes et agrumes','Plump green olives marinated with herbs and citrus','6.-',6,'soir','À grignoter (dès 18h)','Bites & Snacks (from 6pm)',false,true,0),
   ('soir-a-grignoter-des-18h-tartinade-chevre-toast-de-focaccia','soir-a-grignoter-des-18h-tartinade-chevre-toast-de-focaccia','Tartinade chèvre, toast de focaccia','Goat cheese spread, toasted focaccia','Crème de chèvre frais aux herbes et toast de focaccia maison dorée','Fresh goat cheese spread with herbs and toasted homemade focaccia','11.-',11,'soir','À grignoter (dès 18h)','Bites & Snacks (from 6pm)',false,true,1),
   ('soir-a-grignoter-des-18h-fromages-de-la-maison-bruand','soir-a-grignoter-des-18h-fromages-de-la-maison-bruand','Fromages de la maison Bruand','Fine cheeses from Maison Bruand','Assortiment de fromages locaux affinés par la prestigieuse maison Bruand','Selection of local cheeses aged by the prestigious Maison Bruand','17.-',17,'soir','À grignoter (dès 18h)','Bites & Snacks (from 6pm)',false,true,2),
-  ('soir-a-grignoter-des-18h-nos-salaisons-magret-fume-b-uf-seche-porc-de-jus','soir-a-grignoter-des-18h-nos-salaisons-magret-fume-b-uf-seche-porc-de-jus','Nos Salaisons (Magret fumé, Bœuf séché, porc de Jussy)','Our Cured Meats (Smoked duck, dried Beef, Jussy pork)','Planche de salaisons locales : magret fumé maison, bœuf séché artisanal et porc de Jussy','Platter of local cured meats: homemade smoked duck breast, artisanal dried beef, and Jussy pork','20.-',20,'soir','À grignoter (dès 18h)','Bites & Snacks (from 6pm)',false,true,3),
+  ('soir-a-grignoter-des-18h-nos-salaisons-magret-fume-b-uf-seche-porc-de-jus','soir-a-grignoter-des-18h-nos-salaisons-magret-fume-b-uf-seche-porc-de-jus','Nos Salaisons (Magret fumé, Bœuf séché, porc de Jussy)','Our Cured Meats (Smoked duck, dried Beef, Jussy pork)','Planche de salaisons locales : magret fumé maison, bœuf séch�� artisanal et porc de Jussy','Platter of local cured meats: homemade smoked duck breast, artisanal dried beef, and Jussy pork','20.-',20,'soir','À grignoter (dès 18h)','Bites & Snacks (from 6pm)',false,true,3),
   ('soir-les-assiettes-froides-des-19h-petit-pois-brebis-capres','soir-les-assiettes-froides-des-19h-petit-pois-brebis-capres','Petit pois, brebis, câpres','Green peas, sheep cheese, capers','Petits pois frais, mousse de fromage de brebis et câpres de capucine maison','Fresh green peas, sheep''s milk cheese mousse, and homemade nasturtium capers','17.-',17,'soir','Les Assiettes Froides (dès 19h)','Cold Plates (from 7pm)',false,true,100),
   ('soir-les-assiettes-froides-des-19h-croquette-de-canard-carotte','soir-les-assiettes-froides-des-19h-croquette-de-canard-carotte','Croquette de canard, carotte','Duck croquette, carrot','Croquettes croustillantes de canard confit, texture de carottes locales','Crispy duck confit croquettes, textures of local carrots','15.-',15,'soir','Les Assiettes Froides (dès 19h)','Cold Plates (from 7pm)',false,true,101),
   ('soir-les-assiettes-froides-des-19h-maquereau-concombre-citron','soir-les-assiettes-froides-des-19h-maquereau-concombre-citron','Maquereau, concombre, citron','Mackerel, cucumber, lemon','Filet de maquereau mariné, déclinaison de concombre frais et gel de citron','Marinated mackerel fillet, fresh cucumber variation, and lemon gel','20.-',20,'soir','Les Assiettes Froides (dès 19h)','Cold Plates (from 7pm)',false,true,102),

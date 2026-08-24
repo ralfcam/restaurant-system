@@ -52,6 +52,29 @@ function menuItemToRow(item: MenuItem): MenuItemRow {
   }
 }
 
+const CHEFS_PICKS_LIMIT = 5
+const CHEFS_PICKS_LIMIT_ERROR =
+  "You can pin up to 5 dishes as chef's picks — unpin one first."
+
+async function wouldExceedChefsPicksLimit(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  itemId?: string,
+): Promise<boolean> {
+  let query = supabase
+    .from("menu_items")
+    .select("id", { count: "exact", head: true })
+    .eq("popular", true)
+    .eq("available", true)
+
+  if (itemId) query = query.neq("id", itemId)
+  const { count, error } = await query
+  if (error) {
+    console.error("[menu] chef picks count error:", error.message)
+    return false
+  }
+  return (count ?? 0) >= CHEFS_PICKS_LIMIT
+}
+
 /** Public guest menu — only returns available items. */
 export async function getMenuItems(): Promise<MenuItemRow[]> {
   const supabase = createAnonClient()
@@ -70,6 +93,60 @@ export async function getMenuItems(): Promise<MenuItemRow[]> {
     return mockMenuRows(true)
   }
   return data as MenuItemRow[]
+}
+
+export async function getHomepageChefsPicks(): Promise<{
+  enabled: boolean
+  items: MenuItemRow[]
+}> {
+  const supabase = createAnonClient()
+  const [settings, items] = await Promise.all([
+    supabase
+      .from("restaurant_settings")
+      .select("chefs_picks_enabled")
+      .eq("id", 1)
+      .maybeSingle(),
+    supabase
+      .from("menu_items")
+      .select("*")
+      .eq("available", true)
+      .eq("popular", true)
+      .order("sort_order", { ascending: true })
+      .limit(CHEFS_PICKS_LIMIT),
+  ])
+
+  if (settings.error) {
+    console.error("[menu] get chef picks setting error:", settings.error.message)
+  }
+  if (items.error) {
+    console.error("[menu] get chef picks error:", items.error.message)
+  }
+
+  return {
+    enabled: settings.data?.chefs_picks_enabled ?? true,
+    items: items.error
+      ? mockMenuRows(true).filter((item) => item.popular).slice(0, CHEFS_PICKS_LIMIT)
+      : ((items.data ?? []) as MenuItemRow[]),
+  }
+}
+
+export async function setChefsPicksEnabled(enabled: boolean): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "Unauthorized." }
+
+  const supabase = await createClient()
+  const { error } = await supabase.from("restaurant_settings").upsert({
+    id: 1,
+    chefs_picks_enabled: enabled,
+    updated_at: new Date().toISOString(),
+  })
+  if (error) {
+    console.error("[menu] setChefsPicksEnabled error:", error.message)
+    return { error: "Could not update the chef's-picks section." }
+  }
+  revalidatePath("/", "layout")
+  revalidatePath("/admin/menu")
+  return {}
 }
 
 /** Staff-only: fetch all items including unavailable ones. */
@@ -101,6 +178,17 @@ export async function upsertMenuItem(
   if (!staffUser) return { error: "Unauthorized." }
 
   const supabase = await createClient()
+  if (item.popular) {
+    const { data: existing } = await supabase
+      .from("menu_items")
+      .select("popular")
+      .eq("id", item.id)
+      .maybeSingle()
+    if (!existing?.popular && await wouldExceedChefsPicksLimit(supabase, item.id)) {
+      return { error: CHEFS_PICKS_LIMIT_ERROR }
+    }
+  }
+
   const { data, error } = await supabase
     .from("menu_items")
     .upsert(item, { onConflict: "id" })
@@ -111,6 +199,7 @@ export async function upsertMenuItem(
     return { error: error.message }
   }
   revalidatePath("/menu")
+  revalidatePath("/")
   revalidatePath("/admin/menu")
   return { row: data as MenuItemRow }
 }
@@ -122,6 +211,10 @@ export async function createMenuItem(
   if (!staffUser) return { error: "Unauthorized." }
 
   const supabase = await createClient()
+  if (item.popular && await wouldExceedChefsPicksLimit(supabase)) {
+    return { error: CHEFS_PICKS_LIMIT_ERROR }
+  }
+
   const slug = `m-${Date.now()}`
   const { data, error } = await supabase
     .from("menu_items")
@@ -133,6 +226,7 @@ export async function createMenuItem(
     return { error: error.message }
   }
   revalidatePath("/menu")
+  revalidatePath("/")
   revalidatePath("/admin/menu")
   return { row: data as MenuItemRow }
 }
@@ -148,6 +242,7 @@ export async function deleteMenuItem(id: string): Promise<{ error?: string }> {
     return { error: error.message }
   }
   revalidatePath("/menu")
+  revalidatePath("/")
   revalidatePath("/admin/menu")
   return {}
 }
@@ -169,6 +264,7 @@ export async function toggleMenuItemAvailability(
     return { error: error.message }
   }
   revalidatePath("/menu")
+  revalidatePath("/")
   revalidatePath("/admin/menu")
   return {}
 }
