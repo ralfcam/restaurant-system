@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import { useLocale, useTranslations } from "next-intl"
+import Image from "next/image";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Clock,
   MapPin,
@@ -10,26 +10,27 @@ import {
   CalendarCheck,
   ChefHat,
   Star,
-} from "lucide-react"
-import { RESTAURANT } from "@/lib/data"
-import NextLink from "next/link"
-import { Link } from "@/i18n/navigation"
-import { SiteHeader } from "@/components/site/site-header"
-import { ReservationWidget } from "@/components/site/reservation-widget"
-import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { useRestaurantHeroImage } from "@/hooks/use-restaurant-hero-image"
-import { useRestaurantInfoBar } from "@/hooks/use-restaurant-info-bar"
-import { useChefsPicks } from "@/hooks/use-chefs-picks"
+} from "lucide-react";
+import { RESTAURANT } from "@/lib/data";
+import NextLink from "next/link";
+import { Link } from "@/i18n/navigation";
+import { SiteHeader } from "@/components/site/site-header";
+import { ReservationWidget } from "@/components/site/reservation-widget";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useRestaurantHeroImage } from "@/hooks/use-restaurant-hero-image";
+import { useRestaurantInfoBar } from "@/hooks/use-restaurant-info-bar";
+import { useChefsPicks } from "@/hooks/use-chefs-picks";
+import type { MenuItemRow } from "@/app/actions/menu";
 
 export default function HomePage() {
-  const t = useTranslations()
-  const locale = useLocale()
-  const { heroImageUrl } = useRestaurantHeroImage()
-  const restaurantInfo = useRestaurantInfoBar()
-  const { enabled: chefsPicksEnabled, items: featured } = useChefsPicks()
-  const hasHero = Boolean(heroImageUrl)
-  const showChefsPicks = chefsPicksEnabled && featured.length > 0
+  const t = useTranslations();
+  const locale = useLocale();
+  const { heroImageUrl } = useRestaurantHeroImage();
+  const restaurantInfo = useRestaurantInfoBar();
+  const { enabled: chefsPicksEnabled, items: featured } = useChefsPicks();
+  const hasHero = Boolean(heroImageUrl);
+  const showChefsPicks = chefsPicksEnabled && featured.length > 0;
 
   return (
     <div className="min-h-screen bg-background">
@@ -63,7 +64,14 @@ export default function HomePage() {
                   : "border-border bg-secondary text-foreground/80",
               )}
             >
-              <Star className={cn("size-2.5", hasHero ? "fill-white text-white" : "fill-primary text-primary")} />
+              <Star
+                className={cn(
+                  "size-2.5",
+                  hasHero
+                    ? "fill-white text-white"
+                    : "fill-primary text-primary",
+                )}
+              />
               {t("hero.tagline")}
             </span>
 
@@ -122,10 +130,20 @@ export default function HomePage() {
               </div>
 
               <div className="relative px-6 pt-5 pb-1">
-                <h2 className={cn("font-heading text-xl font-semibold", hasHero ? "text-white" : "text-foreground")}>
+                <h2
+                  className={cn(
+                    "font-heading text-xl font-semibold",
+                    hasHero ? "text-white" : "text-foreground",
+                  )}
+                >
                   {t("hero.bookTitle")}
                 </h2>
-                <p className={cn("mt-0.5 text-xs tracking-wide", hasHero ? "text-white/50" : "text-muted-foreground")}>
+                <p
+                  className={cn(
+                    "mt-0.5 text-xs tracking-wide",
+                    hasHero ? "text-white/50" : "text-muted-foreground",
+                  )}
+                >
                   {t("hero.bookSubtitle")}
                 </p>
               </div>
@@ -136,13 +154,18 @@ export default function HomePage() {
         </div>
 
         <FourPointedStar
-          className={cn("absolute bottom-8 right-8 size-10", hasHero ? "text-white/80" : "text-primary/50")}
+          className={cn(
+            "absolute bottom-8 right-8 size-10",
+            hasHero ? "text-white/80" : "text-primary/50",
+          )}
         />
 
         <div
           className={cn(
             "relative z-20 w-full border-t backdrop-blur-md",
-            hasHero ? "border-white/10 bg-black/20" : "border-border bg-secondary/40",
+            hasHero
+              ? "border-white/10 bg-black/20"
+              : "border-border bg-secondary/40",
           )}
         >
           <div className="mx-auto max-w-6xl">
@@ -152,9 +175,24 @@ export default function HomePage() {
                 hasHero ? "divide-y divide-white/10" : "divide-y divide-border",
               )}
             >
-              <InfoItem icon={Clock} label={t("info.hours")} value={restaurantInfo.hours} dark={hasHero} />
-              <InfoItem icon={MapPin} label={t("info.location")} value={restaurantInfo.address} dark={hasHero} />
-              <InfoItem icon={Phone} label={t("info.reservations")} value={restaurantInfo.phone} dark={hasHero} />
+              <InfoItem
+                icon={Clock}
+                label={t("info.hours")}
+                value={restaurantInfo.hours}
+                dark={hasHero}
+              />
+              <InfoItem
+                icon={MapPin}
+                label={t("info.location")}
+                value={restaurantInfo.address}
+                dark={hasHero}
+              />
+              <InfoItem
+                icon={Phone}
+                label={t("info.reservations")}
+                value={restaurantInfo.phone}
+                dark={hasHero}
+              />
             </div>
           </div>
         </div>
@@ -182,11 +220,13 @@ export default function HomePage() {
             </div>
 
             <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {featured.map((item) => {
-                const name = locale === "en" ? (item.name_en || item.name) : item.name
-                const description = locale === "en"
-                  ? (item.description_en || item.description)
-                  : item.description
+              {featured.map((item: MenuItemRow) => {
+                const name =
+                  locale === "en" ? item.name_en || item.name : item.name;
+                const description =
+                  locale === "en"
+                    ? item.description_en || item.description
+                    : item.description;
                 return (
                   <div
                     key={item.id}
@@ -207,12 +247,16 @@ export default function HomePage() {
                       {description}
                     </p>
                   </div>
-                )
+                );
               })}
             </div>
 
             <div className="mt-8 flex sm:hidden">
-              <Button variant="outline" className="w-full rounded-full" render={<Link href="/menu" />}>
+              <Button
+                variant="outline"
+                className="w-full rounded-full"
+                render={<Link href="/menu" />}
+              >
                 {t("picks.viewFullMenu")}
               </Button>
             </div>
@@ -261,7 +305,8 @@ export default function HomePage() {
       <footer className="border-t border-zinc-800 bg-zinc-950">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-5 py-8 md:flex-row md:px-8">
           <p className="text-sm text-zinc-300">
-            © {new Date().getFullYear()} {RESTAURANT.name}. {RESTAURANT.address}.
+            © {new Date().getFullYear()} {RESTAURANT.name}. {RESTAURANT.address}
+            .
           </p>
           <NextLink
             href="/admin"
@@ -272,7 +317,7 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
-  )
+  );
 }
 
 function InfoItem({
@@ -281,10 +326,10 @@ function InfoItem({
   value,
   dark = false,
 }: {
-  icon: React.ElementType
-  label: string
-  value: string
-  dark?: boolean
+  icon: React.ElementType;
+  label: string;
+  value: string;
+  dark?: boolean;
 }) {
   return (
     <div className="flex flex-col items-center text-center md:flex-row md:text-left gap-3 md:gap-4 px-6 py-6 md:px-8">
@@ -294,7 +339,13 @@ function InfoItem({
           dark ? "border-white/20" : "border-border",
         )}
       >
-        <Icon className={cn("size-4", dark ? "text-white/70" : "text-foreground/70")} strokeWidth={1.5} />
+        <Icon
+          className={cn(
+            "size-4",
+            dark ? "text-white/70" : "text-foreground/70",
+          )}
+          strokeWidth={1.5}
+        />
       </span>
       <div>
         <p
@@ -305,10 +356,17 @@ function InfoItem({
         >
           {label}
         </p>
-        <p className={cn("mt-0.5 text-sm font-medium", dark ? "text-white" : "text-foreground")}>{value}</p>
+        <p
+          className={cn(
+            "mt-0.5 text-sm font-medium",
+            dark ? "text-white" : "text-foreground",
+          )}
+        >
+          {value}
+        </p>
       </div>
     </div>
-  )
+  );
 }
 
 function Step({
@@ -316,9 +374,9 @@ function Step({
   title,
   body,
 }: {
-  icon: React.ElementType
-  title: string
-  body: string
+  icon: React.ElementType;
+  title: string;
+  body: string;
 }) {
   return (
     <div className="flex flex-col items-center text-center">
@@ -328,9 +386,11 @@ function Step({
       <h3 className="mt-5 font-heading text-xl font-semibold tracking-tighter text-white">
         {title}
       </h3>
-      <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-zinc-400">{body}</p>
+      <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-zinc-400">
+        {body}
+      </p>
     </div>
-  )
+  );
 }
 
 function BotanicalWatermark({ className }: { className?: string }) {
@@ -364,13 +424,18 @@ function BotanicalWatermark({ className }: { className?: string }) {
       <ellipse cx="58" cy="62" rx="4" ry="6" transform="rotate(-10 58 62)" />
       <ellipse cx="140" cy="74" rx="4" ry="6" transform="rotate(10 140 74)" />
     </svg>
-  )
+  );
 }
 
 function FourPointedStar({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 40 40" fill="currentColor" className={className} aria-hidden="true">
+    <svg
+      viewBox="0 0 40 40"
+      fill="currentColor"
+      className={className}
+      aria-hidden="true"
+    >
       <path d="M20 0 L22.5 17.5 L40 20 L22.5 22.5 L20 40 L17.5 22.5 L0 20 L17.5 17.5 Z" />
     </svg>
-  )
+  );
 }

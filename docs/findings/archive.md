@@ -22,3 +22,6 @@ Resolved or filed items (append-only).
 - [x] Auth middleware integration not mirrored · `tests/unit/i18n/middleware-scope.test.ts:33-37` · Admin test exercises full middleware()+updateSession; auth test only hits pure helper · low · (found: C1/red) → REAZED-287 (filed)
 - [x] `/auth/error` not covered · `tests/unit/i18n/middleware-scope.test.ts:33-37` · Spec mentions login/callback/error flat routes; test covers login/callback but not `/auth/error` · low · (found: C1/refactor) → REAZED-289 (filed)
 - [x] Prefix startsWith is segment-unaware · `i18n/middleware-scope.ts:9` · `/auth` prefix would skip hypothetical `/authorship` paths · low · (found: C1/refactor) → REAZED-288 (filed)
+- [x] Lint gate does not assert on-disk install · `tests/unit/dev-toolchain/lint-toolchain.test.ts:15` · Named “eslint is installed” but only checks `devDependencies` + root flat config · low · (found: C1/red) → REAZED-274 (attached)
+- [x] Chef’s picks pop in after client fetch · `app/[locale]/page.tsx:31` · `useChefsPicks()` never gets `initialData` · med · (found: C2/refactor) → REAZED-279 (attached)
+- [x] Empty-name avatar is `undefined` · `app/[locale]/page.tsx:198` · `name[0]` with `""` renders a blank circle · low · (found: C2/refactor) → REAZED-279 (attached)
