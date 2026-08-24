@@ -1,11 +1,11 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireStaffUser } from "@/app/actions/auth"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { getAllOperatingWindows } from "@/app/actions/availability"
 import { RESTAURANT } from "@/lib/data"
 import { summarizeOperatingDays } from "@/lib/reservations/operating-hours"
-import { createServiceClient } from "@/lib/supabase/server"
+import { createServiceClient } from "@/lib/supabase/service"
 
 export type RestaurantInfoBar = {
   hours: string

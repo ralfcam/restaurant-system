@@ -31,8 +31,8 @@ describe("branding CMS schema and surfaces", () => {
 
   it("seed keeps the CMS singleton blank by default (no logo, no hero photo)", () => {
     const seed = readFileSync(path.join(root, "supabase/seed.sql"), "utf8")
-    expect(seed).toMatch(/INSERT INTO restaurant_settings \(id, logo_url, hero_image_url\)/)
-    expect(seed).toMatch(/VALUES \(1, NULL, NULL\)/)
+    expect(seed).toMatch(/INSERT INTO restaurant_settings \([\s\S]*logo_url,[\s\S]*hero_image_url,/)
+    expect(seed).toMatch(/VALUES \(1, NULL, NULL, NULL, NULL, true\)/)
   })
 
   it("staff branding page exists and leftover test fixtures are gone", () => {

@@ -10,6 +10,7 @@ import {
   upsertMenuItem,
   createMenuItem,
   deleteMenuItem,
+  setChefsPicksEnabled,
   toggleMenuItemAvailability,
 } from "@/app/actions/menu"
 import { cn } from "@/lib/utils"
@@ -95,10 +96,14 @@ function menuLabel(menuId: MenuId) {
 
 export function MenuManager({
   initialItems = [],
+  initialChefsPicksEnabled = true,
 }: {
   initialItems?: MenuItemRow[]
+  initialChefsPicksEnabled?: boolean
 }) {
   const [items, setItems] = useState<MenuItemRow[]>(initialItems)
+  const [chefsPicksEnabled, setChefsPicksEnabledState] = useState(initialChefsPicksEnabled)
+  const [savingChefsPicks, setSavingChefsPicks] = useState(false)
   const [filter, setFilter] = useState<Filter>("All")
   const [query, setQuery] = useState("")
   const [open, setOpen] = useState(false)
@@ -118,6 +123,8 @@ export function MenuManager({
   }, [items, filter, query])
 
   const availableCount = items.filter((m) => m.available).length
+  const chefsPicksCount = items.filter((m) => m.available && m.popular).length
+  const displayedChefsPicksCount = Math.min(chefsPicksCount, 5)
   const sectionOptions = useMemo(() => {
     const menu = MENUS.find((m) => m.id === draft.menu_id)
     return menu?.sections ?? []
@@ -148,6 +155,13 @@ export function MenuManager({
     }
     if (!draft.section.trim() || !draft.section_en.trim()) {
       toast.error("Section labels are required")
+      return
+    }
+    const existing = draft.id ? items.find((item) => item.id === draft.id) : null
+    if (draft.popular && draft.available && !existing?.popular && chefsPicksCount >= 5) {
+      toast.error("Chef's picks are full", {
+        description: "Unpin one of the five dishes before adding another.",
+      })
       return
     }
 
@@ -210,6 +224,20 @@ export function MenuManager({
     toast.success(`Removed ${item.name}`)
   }
 
+  async function handleChefsPicksVisibility(enabled: boolean) {
+    const previous = chefsPicksEnabled
+    setChefsPicksEnabledState(enabled)
+    setSavingChefsPicks(true)
+    const { error } = await setChefsPicksEnabled(enabled)
+    setSavingChefsPicks(false)
+    if (error) {
+      setChefsPicksEnabledState(previous)
+      toast.error("Could not update chef's picks", { description: error })
+      return
+    }
+    toast.success(enabled ? "Chef's picks are visible." : "Chef's picks are hidden.")
+  }
+
   async function handleToggle(item: MenuItemRow) {
     const next = !item.available
     setItems((prev) =>
@@ -229,7 +257,35 @@ export function MenuManager({
   const tabs: Filter[] = ["All", ...MENUS.map((m) => m.id)]
 
   return (
-    <div>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Star className="size-4 fill-current" />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-semibold">Homepage chef&apos;s picks</h2>
+              <Badge variant="secondary">{displayedChefsPicksCount}/5 displayed</Badge>
+            </div>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+              The first 5 pinned dishes appear on the homepage, ordered by sort order. The section hides automatically when no dishes are pinned.{chefsPicksCount > 5 ? ` ${chefsPicksCount - 5} older pin${chefsPicksCount - 5 === 1 ? " is" : "s are"} currently hidden; unpin them to match the new limit.` : ""}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="text-xs font-medium text-muted-foreground">
+            {chefsPicksEnabled ? "Shown" : "Hidden"}
+          </span>
+          <Switch
+            checked={chefsPicksEnabled}
+            onCheckedChange={handleChefsPicksVisibility}
+            disabled={savingChefsPicks}
+            aria-label="Show chef's picks on homepage"
+          />
+        </div>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 overflow-x-auto">
           {tabs.map((t) => (
@@ -264,7 +320,7 @@ export function MenuManager({
         </div>
       </div>
 
-      <div className="mt-4 overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
         <ul className="divide-y divide-border">
           {filtered.length === 0 ? (
             <li className="flex flex-col items-center gap-2 px-5 py-12 text-center text-sm text-muted-foreground">
@@ -497,14 +553,16 @@ export function MenuManager({
 
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div>
-                <p className="text-sm font-medium">Mark as popular</p>
+                <p className="text-sm font-medium">Pin to chef&apos;s picks</p>
                 <p className="text-xs text-muted-foreground">
-                  Shows a highlight badge on the menu.
+                  Shows this dish on the homepage and keeps its star badge on the menu. Up to 5 dishes.
                 </p>
               </div>
               <Switch
                 checked={draft.popular}
                 onCheckedChange={(v) => setDraft((d) => ({ ...d, popular: v }))}
+                disabled={!draft.popular && chefsPicksCount >= 5}
+                aria-label="Pin dish to chef's picks"
               />
             </div>
 

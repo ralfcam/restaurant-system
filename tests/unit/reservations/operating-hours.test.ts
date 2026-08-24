@@ -8,6 +8,7 @@ import {
   isTimeWithinSegments,
   nextSuggestedSegment,
   normalizeTime,
+  summarizeOperatingDays,
   validateOperatingDays,
   type OperatingDay,
 } from "@/lib/reservations/operating-hours"
@@ -114,6 +115,27 @@ describe("groupRowsByDay / flattenDaysToRows", () => {
       "Lunch",
       "Dinner",
     ])
+  })
+})
+
+describe("summarizeOperatingDays", () => {
+  it("groups consecutive weekdays with identical hours", () => {
+    const days = openWeek([{ label: "", opens_at: "09:00", closes_at: "22:00", sort_order: 0 }])
+    expect(summarizeOperatingDays(days)).toBe("Mon–Sat · 09:00–22:00; Sun · Closed")
+  })
+
+  it("keeps split shifts in the generated summary", () => {
+    const days = openWeek([
+      { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 0 },
+      { label: "Dinner", opens_at: "18:00", closes_at: "22:00", sort_order: 1 },
+    ])
+    expect(summarizeOperatingDays(days)).toContain(
+      "Mon–Sat · Lunch 12:00–14:00, Dinner 18:00–22:00",
+    )
+  })
+
+  it("returns a clear fallback for an empty schedule", () => {
+    expect(summarizeOperatingDays([])).toBe("Hours unavailable")
   })
 })
 

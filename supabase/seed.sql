@@ -72,8 +72,15 @@ ON CONFLICT (provider_id, provider) DO NOTHING;
 -- CMS singleton: default (no custom logo, no custom hero photo) so guest
 -- chrome falls back to SITE_LOGO and the homepage hero renders a blank
 -- background.
-INSERT INTO restaurant_settings (id, logo_url, hero_image_url)
-VALUES (1, NULL, NULL)
+INSERT INTO restaurant_settings (
+  id,
+  logo_url,
+  hero_image_url,
+  address,
+  phone,
+  chefs_picks_enabled
+)
+VALUES (1, NULL, NULL, NULL, NULL, true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Default operating hours: Mon-Sat 09:00-22:00 (one segment), Sunday closed.

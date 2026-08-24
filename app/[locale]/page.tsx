@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useTranslations } from "next-intl"
+import { useLocale, useTranslations } from "next-intl"
 import {
   Clock,
   MapPin,
@@ -11,7 +11,7 @@ import {
   ChefHat,
   Star,
 } from "lucide-react"
-import { RESTAURANT, MENU_ITEMS } from "@/lib/data"
+import { RESTAURANT } from "@/lib/data"
 import NextLink from "next/link"
 import { Link } from "@/i18n/navigation"
 import { SiteHeader } from "@/components/site/site-header"
@@ -20,13 +20,16 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useRestaurantHeroImage } from "@/hooks/use-restaurant-hero-image"
 import { useRestaurantInfoBar } from "@/hooks/use-restaurant-info-bar"
+import { useChefsPicks } from "@/hooks/use-chefs-picks"
 
 export default function HomePage() {
   const t = useTranslations()
-  const featured = MENU_ITEMS.filter((m) => m.popular).slice(0, 3)
+  const locale = useLocale()
   const { heroImageUrl } = useRestaurantHeroImage()
   const restaurantInfo = useRestaurantInfoBar()
+  const { enabled: chefsPicksEnabled, items: featured } = useChefsPicks()
   const hasHero = Boolean(heroImageUrl)
+  const showChefsPicks = chefsPicksEnabled && featured.length > 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -157,57 +160,65 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="relative bg-black">
-        <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-32">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
-                {t("picks.label")}
-              </p>
-              <h2 className="mt-2 font-heading text-4xl font-semibold tracking-tighter text-white text-balance md:text-5xl">
-                {t("picks.title")}
-              </h2>
-            </div>
-            <Button
-              variant="ghost"
-              className="hidden shrink-0 rounded-full text-sm tracking-wide sm:inline-flex"
-              render={<Link href="/menu" />}
-            >
-              {t("picks.fullMenu")}
-            </Button>
-          </div>
-
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((item) => (
-              <div
-                key={item.id}
-                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-sm transition-all duration-300 hover:border-white/20 hover:shadow-lg hover:shadow-amber-500/20"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-zinc-800 font-heading text-xl text-zinc-500">
-                    {item.name[0]}
-                  </div>
-                  <span className="rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground">
-                    {item.price}
-                  </span>
-                </div>
-                <h3 className="mt-5 font-heading text-lg font-semibold leading-snug tracking-tighter text-white">
-                  {item.name}
-                </h3>
-                <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-zinc-400">
-                  {item.description}
+      {showChefsPicks && (
+        <section className="relative bg-black">
+          <div className="mx-auto max-w-6xl px-5 py-20 md:px-8 md:py-32">
+            <div className="flex items-end justify-between gap-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-[0.18em] text-primary">
+                  {t("picks.label")}
                 </p>
+                <h2 className="mt-2 font-heading text-4xl font-semibold tracking-tighter text-white text-balance md:text-5xl">
+                  {t("picks.title")}
+                </h2>
               </div>
-            ))}
-          </div>
+              <Button
+                variant="ghost"
+                className="hidden shrink-0 rounded-full text-sm tracking-wide sm:inline-flex"
+                render={<Link href="/menu" />}
+              >
+                {t("picks.fullMenu")}
+              </Button>
+            </div>
 
-          <div className="mt-8 flex sm:hidden">
-            <Button variant="outline" className="w-full rounded-full" render={<Link href="/menu" />}>
-              {t("picks.viewFullMenu")}
-            </Button>
+            <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {featured.map((item) => {
+                const name = locale === "en" ? (item.name_en || item.name) : item.name
+                const description = locale === "en"
+                  ? (item.description_en || item.description)
+                  : item.description
+                return (
+                  <div
+                    key={item.id}
+                    className="group relative overflow-hidden rounded-2xl border border-white/10 bg-zinc-900 p-6 shadow-sm transition-all duration-300 hover:border-white/20 hover:shadow-lg hover:shadow-amber-500/20"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-zinc-800 font-heading text-xl text-zinc-500">
+                        {name[0]}
+                      </div>
+                      <span className="rounded-full bg-background/90 px-3 py-1 text-sm font-semibold tracking-tight text-foreground">
+                        {item.price}
+                      </span>
+                    </div>
+                    <h3 className="mt-5 font-heading text-lg font-semibold leading-snug tracking-tighter text-white">
+                      {name}
+                    </h3>
+                    <p className="mt-1.5 line-clamp-3 text-sm leading-relaxed text-zinc-400">
+                      {description}
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-8 flex sm:hidden">
+              <Button variant="outline" className="w-full rounded-full" render={<Link href="/menu" />}>
+                {t("picks.viewFullMenu")}
+              </Button>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="relative isolate overflow-hidden border-t border-border">
         <Image
