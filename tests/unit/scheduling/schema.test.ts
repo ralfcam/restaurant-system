@@ -89,4 +89,17 @@ describe("opening-hour segments schema and surfaces", () => {
       'DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"',
     )
   })
+
+  it("operating_windows grants ALL to service_role in baseline and privilege forward files", () => {
+    const grantAll = "GRANT ALL ON TABLE operating_windows TO service_role"
+    const forwardRel =
+      "supabase/migrations/20260825140000_operating_windows_privilege.sql"
+
+    const baseline = read("supabase/migrations/00000000000000_baseline.sql")
+    expect(baseline).toContain(grantAll)
+
+    expect(existsSync(path.join(root, forwardRel))).toBe(true)
+    const forward = read(forwardRel)
+    expect(forward).toContain(grantAll)
+  })
 })

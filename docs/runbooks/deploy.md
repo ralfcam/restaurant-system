@@ -72,7 +72,10 @@ missing). Do not push the whole history onto this project.
 the authenticated `FOR ALL` policy on `operating_windows`
 (`DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"`;
 no `CREATE`), then the same `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`
-strings as baseline for `anon, authenticated`. Until that file is applied on a
+strings as baseline for `anon, authenticated`, plus
+`GRANT ALL ON TABLE operating_windows TO service_role` in that same file
+(no third dated migration; `20260825140000` is not recorded on
+`tilcqrudqxznnpepxjqq`). Until that file is applied on a
 forked remote that still has the old policy or DML grants, a logged-in Data API
 client can mutate hours. Spec: [../specs/scheduling.md](../specs/scheduling.md)
 OH-PRIV (§16). Apply per the recipe below; do not `db push`.
@@ -134,7 +137,9 @@ replay history the remote has diverged from.
    ```
 
    Confirm `has_table_privilege('authenticated', 'operating_windows', 'INSERT')`
-   is false and the authenticated `FOR ALL` policy is gone.
+   is false and the authenticated `FOR ALL` policy is gone. Confirm
+   `has_table_privilege('service_role', 'operating_windows', 'SELECT')` (and
+   INSERT/UPDATE/DELETE) is true — `GRANT ALL` is in that same file.
 
 ### Reset database
 

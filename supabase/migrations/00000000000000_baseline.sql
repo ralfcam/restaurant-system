@@ -41,6 +41,8 @@ CREATE POLICY "Allow service_role full access to operating_windows"
 
 GRANT SELECT ON TABLE operating_windows TO anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE operating_windows FROM anon, authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE operating_windows TO service_role;
 
 -- ── blocked_dates ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS blocked_dates (
