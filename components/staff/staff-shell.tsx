@@ -161,7 +161,7 @@ export function StaffShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-border bg-background/95 px-4 py-4 backdrop-blur md:px-8">
+        <header className="relative flex items-center gap-4 border-b border-border bg-background px-4 py-4 md:sticky md:top-0 md:z-10 md:bg-background/95 md:px-8 md:backdrop-blur">
           <Sheet>
             <SheetTrigger
               render={
