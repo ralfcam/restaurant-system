@@ -18,24 +18,34 @@ npx supabase db lint --local --fail-on error
 `supabase/seed.sql` when `[db.seed] enabled = true` in `supabase/config.toml`.
 
 Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-`SUPABASE_SERVICE_ROLE_KEY`. `vitest.integration.config.ts` does **not** load
-unprefixed `.env.local` keys (Vite `envPrefix` drops `NEXT_PUBLIC_*` and
-`SUPABASE_*`). Strict runs need those exported in the shell.
+`SUPABASE_SERVICE_ROLE_KEY`. `vitest.integration.config.ts` does not load
+dotenv or call Vite's `loadEnv`, and does not set `envPrefix` (which would
+only affect `import.meta.env`, not `process.env`, anyway) — it never reads
+`.env.local` at all. Strict runs need those vars exported in the shell.
 
-## Linked remote (OH-SAVE)
+## Local-only mutating coverage (OH-SAVE)
 
-The Red target for
-`tests/integration/scheduling/replace-operating-windows.integ.test.ts` is the
-linked remote (`tilcqrudqxznnpepxjqq`,
-https://tilcqrudqxznnpepxjqq.supabase.co), not a local `db reset`. Local
-baseline already has the RPC, so a local-only run cannot catch a deployed
-PostgREST schema-cache miss (PGRST202). Repo SQL ≠ the hosted cache until
-`20260818162000_operating_hour_segments.sql` is applied — see
-[../runbooks/deploy.md](../runbooks/deploy.md). Snapshot/restore recipe:
+The test target for
+`tests/integration/scheduling/replace-operating-windows.integ.test.ts` is
+**local** Supabase (`http://127.0.0.1:54321`), not the linked remote. Per
+[../specs/scheduling.md](../specs/scheduling.md) §15, mutating coverage
+(snapshot, RPC replace, table insert/delete restore) MUST run only against a
+local host (`127.0.0.1`, `localhost`, or `[::1]`) and fails closed via
+`assertIsolatedHoursMutationTarget` (`lib/scheduling/hours-mutation-target.ts`)
+if `NEXT_PUBLIC_SUPABASE_URL` points at the shared linked project
+`tilcqrudqxznnpepxjqq` or any other non-local host. A deployed PostgREST
+schema-cache miss (PGRST202) on the linked project remains a real invariant,
+but it is verified by manual UAT (click Save Changes on `/admin/scheduling`
+against the linked project) and by applying
+`20260818162000_operating_hour_segments.sql` per
+[../runbooks/deploy.md](../runbooks/deploy.md) — not by mutating
+`operating_windows` on that shared project from CI. Snapshot/restore recipe:
 [Design-And-Patterns.md](./Design-And-Patterns.md).
 
 ```powershell
-# Export URL + keys from .env.local into this shell, then:
+$env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
+$env:NEXT_PUBLIC_SUPABASE_ANON_KEY = '<local-anon-key>'
+$env:SUPABASE_SERVICE_ROLE_KEY = '<local-service-role-key>'
 $env:RESTAURANT_INTEGRATION_STRICT = 'true'
 pnpm test:integration tests/integration/scheduling/replace-operating-windows.integ.test.ts
 ```

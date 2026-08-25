@@ -1,6 +1,7 @@
 # Product-gaps findings (open)
 
 - [ ] RPC does not enforce the weekly invariants the staff action does · `replace_operating_windows` in `20260818162000_operating_hour_segments.sql:77` · `[]` deletes every row and overlapping/invalid segments persist; only `validateOperatingDays` in TS guards the UI path · med · (seen: /triage 2026-08-25) (found: OH-SAVE/refactor)
+- [ ] Dedicated hosted integration project not provisioned · infra / mutating hours RPC · CodeRabbit's "heavy lift" suggestion; operator chose local-only isolation instead · low · (found: tdd/pr35_coderabbit_oh_save/plan/seed)
 - [ ] In-widget language toggle (mock top-right FR) · `components/site/reservation-widget.tsx` · site-header switcher already owns locale; a second toggle would drift · low · (seen: /triage 2026-08-25) (found: plan/seed)
 - [ ] Until-badge ignores per-table Expected time · `tables.expected_minutes` / floor inspector · no table assigned at booking; staff may expect live per-table duration on cards · med · (seen: /triage 2026-08-25) (found: plan/seed)
 - [ ] Per-segment slot interval / seating duration · `operating_windows` · Lunch 15 min vs dinner 30 not supported; one restaurant-wide interval · low · (seen: /triage 2026-08-25) (found: plan/seed)

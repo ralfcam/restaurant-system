@@ -113,17 +113,37 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     (`tables.expected_minutes`) stays for live-floor clocks only and does
     **not** change the guest until-badge.
 
-15. **OH-SAVE — Persist opening hours via deployed RPC** — Staff **Save Changes**
-    on `/admin/scheduling` persists the weekly opening-hour schedule by calling
-    public RPC `replace_operating_windows(p_windows jsonb)`. The function MUST
-    exist on the deployed database (not only in repo SQL), be `GRANT EXECUTE`
-    to `service_role` only (not `anon` or `authenticated`), and be visible in
-    the PostgREST schema cache. The RPC
-    atomically replaces all `operating_windows` rows and MUST accept multiple
-    segments per weekday (`label`, `sort_order`; no `UNIQUE` on `day_of_week`).
-    A PostgREST schema-cache miss (PGRST202 / “Could not find the function …
-    in the schema cache”) is a failed invariant: save must succeed, not
-    surface that error.
+**15. OH-SAVE — Persist opening hours via deployed RPC** — Staff **Save Changes**
+on `/admin/scheduling` persists the weekly opening-hour schedule by calling
+public RPC `replace_operating_windows(p_windows jsonb)`. The function MUST
+exist on the deployed database (not only in repo SQL), be `GRANT EXECUTE`
+to `service_role` only (not `anon` or `authenticated`), and be visible in
+the PostgREST schema cache. The RPC
+atomically replaces all `operating_windows` rows and MUST accept multiple
+segments per weekday (`label`, `sort_order`; no `UNIQUE` on `day_of_week`).
+A PostgREST schema-cache miss (PGRST202 / “Could not find the function …
+in the schema cache”) is a failed invariant: save must succeed, not
+surface that error.
+
+- The RPC MUST persist **exactly** the `p_windows` payload: same cardinality,
+  including **closed** rows; leftover rows (including extra Monday rows not in
+  the payload) are a failed invariant. Time fields compare after the existing
+  `normalizeTime` normalization; weekday + `sort_order` ordering is part of the
+  expected set.
+- Mutating automated coverage (snapshot, RPC replace, table insert/delete
+  restore) MUST run only against **local** Supabase
+  (`NEXT_PUBLIC_SUPABASE_URL` host `127.0.0.1`, `localhost`, or `[::1]`). It
+  MUST fail closed — not skip — when the URL is the shared linked project
+  `tilcqrudqxznnpepxjqq` (or any other non-local host). Use the existing
+  `authEnvReady` / `RESTAURANT_INTEGRATION_STRICT` setup symbols **plus** this
+  isolation check; do not put the guard in `createServiceClient` (staff Save
+  against the linked project remains valid production).
+- A PostgREST schema-cache miss on the **deployed** linked project remains a
+  failed invariant, verified by **manual-UAT** (click Save Changes on
+  `/admin/scheduling` against the linked project) and by applying
+  `20260818162000_operating_hour_segments.sql` per
+  [docs/runbooks/deploy.md](../runbooks/deploy.md) — not by mutating
+  `operating_windows` on that shared project from CI.
 
 ## Implementation trace (non-normative)
 
@@ -131,7 +151,7 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 | --- | --- | --- |
 | Guest note (§13) | `operating_windows.guest_note` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260818162000_operating_hour_segments.sql`; `components/staff/scheduling-manager.tsx`; `app/actions/availability.ts` (`WINDOW_COLUMNS`, `replace_operating_windows`) | `tests/unit/scheduling/schema.test.ts`, `tests/unit/availability/actions.test.ts` |
 | FP-10 | `restaurant_settings.slot_interval_minutes` — baseline + `supabase/migrations/20260823130000_restaurant_info_and_chefs_picks.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `updateSlotIntervalMinutes`); `app/admin/floor/page.tsx` → `components/staff/floor-plan.tsx` | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts` |
-| OH-SAVE (§15) | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows` | `tests/integration/scheduling/replace-operating-windows.integ.test.ts` |
+| OH-SAVE (§15) | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; linked-remote apply stays runbook + manual-UAT. | `tests/unit/scheduling/hours-mutation-target.test.ts`; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only) |
 
 ## References
 

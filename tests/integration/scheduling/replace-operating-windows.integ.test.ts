@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { createServiceClient } from "@/lib/supabase/service"
 import { normalizeTime } from "@/lib/reservations/operating-hours"
+import { assertIsolatedHoursMutationTarget } from "@/lib/scheduling/hours-mutation-target"
 import { authEnvReady } from "../helpers/env"
 
 const MONDAY = 1
@@ -54,6 +55,7 @@ let snapshot: SnapshotRow[] = []
 
 describe.skipIf(!authEnvReady)("replace_operating_windows (PostgREST)", () => {
   beforeAll(async () => {
+    assertIsolatedHoursMutationTarget()
     const { rows, error } = await selectAllWindows()
     expect(error).toBeNull()
     snapshot = rows
@@ -64,6 +66,7 @@ describe.skipIf(!authEnvReady)("replace_operating_windows (PostgREST)", () => {
     // failing Red cannot leave the linked hours table empty.
     // Insert snapshot first, then delete leftover test ids: a failed insert
     // must not wipe the week (delete-then-insert is not transactional on REST).
+    assertIsolatedHoursMutationTarget()
     const { supabase, rows: current, error: readError } = await selectAllWindows()
     if (readError) {
       throw new Error(`operating_windows restore read failed: ${readError.message}`)
@@ -108,22 +111,25 @@ describe.skipIf(!authEnvReady)("replace_operating_windows (PostgREST)", () => {
     const { data, error: selectError } = await supabase
       .from("operating_windows")
       .select("day_of_week, opens_at, closes_at, is_closed, label, sort_order")
-      .eq("day_of_week", MONDAY)
-      .eq("is_closed", false)
 
     expect(selectError).toBeNull()
-    const mondayOpen = data ?? []
-    expect(mondayOpen.length).toBeGreaterThanOrEqual(2)
+    const persisted = data ?? []
+    expect(persisted).toHaveLength(p_windows.length)
 
-    for (const segment of mondaySegments) {
-      const match = mondayOpen.find(
+    const remaining = [...persisted]
+    for (const segment of p_windows) {
+      const matchIndex = remaining.findIndex(
         (row) =>
+          row.day_of_week === segment.day_of_week &&
+          row.is_closed === segment.is_closed &&
           row.label === segment.label &&
           row.sort_order === segment.sort_order &&
-          normalizeTime(String(row.opens_at)) === segment.opens_at &&
-          normalizeTime(String(row.closes_at)) === segment.closes_at,
+          normalizeTime(String(row.opens_at)) === normalizeTime(segment.opens_at) &&
+          normalizeTime(String(row.closes_at)) === normalizeTime(segment.closes_at),
       )
-      expect(match).toBeTruthy()
+      expect(matchIndex).toBeGreaterThanOrEqual(0)
+      remaining.splice(matchIndex, 1)
     }
+    expect(remaining).toHaveLength(0)
   })
 })

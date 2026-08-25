@@ -66,6 +66,33 @@ On `tilcqrudqxznnpepxjqq` that version is recorded as `20260818162000` /
 `schema_migrations` remains forked from the repo (later local files are still
 missing). Do not push the whole history onto this project.
 
+### Apply a single forward migration on an already-baselined remote
+
+Do not use `db push` or `db reset --linked` for this — the file already ends
+with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
+replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260818162000_operating_hour_segments.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260818162000', 'operating_hour_segments');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260818162000 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260818162000';
+   ```
+
 ### Reset database
 
 **Local** (Docker stack):
