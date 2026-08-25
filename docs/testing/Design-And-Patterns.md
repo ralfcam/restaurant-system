@@ -28,8 +28,8 @@ Catalog of reusable test recipes promoted from shipped `/sdd-to-tdd` runs.
 
 ## Integration recipes
 
-| Scenario     | Helpers | Reference test |
-| ------------ | ------- | -------------- |
-| _(none yet)_ | —       | —              |
+| Scenario | Helpers | Reference test |
+| -------- | ------- | -------------- |
+| Hosted hours RPC vs PostgREST cache | Snapshot `operating_windows` in `beforeAll`. Restore with filtered **TABLE** `insert` of snapshot rows, then `delete` leftover ids (never `replace_operating_windows` — that RPC wipes the week; insert-first so a failed restore cannot empty hours). Skip rewrite when sorted ids match. Assert `error.code` is not `PGRST202` and the message does not match `/schema cache/i` **before** asserting RPC success. Service-role client; Red target is the linked remote, not local `db reset` (baseline already defines the RPC). | `tests/integration/scheduling/replace-operating-windows.integ.test.ts` |
 
 Add a row when `tdd-refactor` reports a `Reusable pattern:` worth keeping.

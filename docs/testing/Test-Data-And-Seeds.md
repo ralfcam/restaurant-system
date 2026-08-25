@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-25
 
 ## Current state
 
@@ -9,7 +9,9 @@
   `operating_windows`, `blocked_dates`, `reservations`, `menu_items`,
   `restaurant_settings`, public `branding` storage bucket, and booking
   trigger `enforce_booking_rules`. Linked/remote also has
-  `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only).
+  `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only)
+  and `20260818162000_operating_hour_segments.sql` (`replace_operating_windows`;
+  version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)

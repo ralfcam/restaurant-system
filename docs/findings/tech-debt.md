@@ -1,5 +1,9 @@
 # Tech-debt findings (open)
 
+- [ ] Linked remote migration history forked from repo · project `tilcqrudqxznnpepxjqq` (`supabase_migrations.schema_migrations`) · `20260818162000` / `operating_hour_segments` is now recorded; later local files (`floor_tables`, merges, branding timestamps) are still missing; a full `db push` remains unsafe · med · (found: OH-SAVE/plan)
+- [ ] No local-vs-remote URL guard on integration tests · `tests/integration/**` · with `.env.local` loaded, suites hit the linked hosted project, not `127.0.0.1` · med · (found: OH-SAVE/red)
+- [ ] No `day_of_week` index after dropping `operating_windows_day_of_week_key` · `20260818162000_operating_hour_segments.sql:7` · booking trigger and guest reads filter on that column; table is tiny today · low · (found: OH-SAVE/refactor)
+- [ ] Unused `dirname` import · `.cursor/checks/harness-lint.mjs:15` · `pnpm lint` warns; CI `--max-warnings 0` would fail the repo · low · (found: OH-SAVE/refactor)
 - [ ] Duplicate inclusive membership in `isTimeWithinOperatingHours` · `lib/timezone.ts` · Booking validation reimplements `t >= opens && t <= closes` instead of sharing `isTimeWithinSegments` / `assignSegmentForTime`, so membership rules can drift from the widget · med · (found: C1/red)
 - [ ] “Later” is array order, not `sort_order` · `lib/reservations/operating-hours.ts` (`assignSegmentForTime`) · `findLast` follows caller order; unsorted segments with the same `opens_at` could pick a different owner than staff `sort_order` · low · (found: C1/refactor)
 - [ ] `minutesToTime` does not wrap modulo 24h · `lib/reservations/operating-hours.ts` · `Math.floor(totalMinutes / 60)` can emit `24:30` for 23:00+90; leftover callers still risk invalid clock strings if they use this helper as-is · med · (found: C2/red)

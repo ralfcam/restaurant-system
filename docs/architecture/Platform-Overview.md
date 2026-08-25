@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-25
 
 ## Stack
 
@@ -72,7 +72,14 @@ retries. Spec: [../specs/branding-cms.md](../specs/branding-cms.md) (BC-8, BC-9)
 
 ## Database
 
-Linked project: `supabase-green-tree` (ref `tilcqrudqxznnpepxjqq`). Schema in a single
-idempotent baseline (`supabase/migrations/00000000000000_baseline.sql`); reference data
-in `supabase/seed.sql`. Reset and lint commands: [../runbooks/deploy.md](../runbooks/deploy.md).
-RLS detail: [Auth-And-RLS.md](./Auth-And-RLS.md).
+Linked project: `supabase-green-tree` (ref `tilcqrudqxznnpepxjqq`,
+https://tilcqrudqxznnpepxjqq.supabase.co). Local schema is the idempotent
+baseline (`supabase/migrations/00000000000000_baseline.sql`) plus dated
+forwards; reference data in `supabase/seed.sql`. Repo SQL is not the deployed
+PostgREST cache: remotes that already applied baseline must apply
+`20260818162000_operating_hour_segments.sql` so `replace_operating_windows`
+is visible (OH-SAVE). That file is recorded on this project as
+`20260818162000` / `operating_hour_segments` — not a full `db push`; remote
+history is still forked. Apply/reset: [../runbooks/deploy.md](../runbooks/deploy.md).
+RLS detail: [Auth-And-RLS.md](./Auth-And-RLS.md). Spec:
+[../specs/scheduling.md](../specs/scheduling.md) (§15).

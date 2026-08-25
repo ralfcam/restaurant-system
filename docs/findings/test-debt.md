@@ -1,5 +1,7 @@
 # Test-debt findings (open)
 
+- [ ] Integration harness does not load `.env.local` unprefixed keys · `vitest.integration.config.ts` / `tests/integration/setup.ts` · Vite `envPrefix` drops `NEXT_PUBLIC_*` and `SUPABASE_*`, so strict runs collect 0 tests unless the shell already exported them · med · (found: OH-SAVE/red)
+- [ ] Snapshot restore is two client round-trips · `tests/integration/scheduling/replace-operating-windows.integ.test.ts` · insert-then-delete still is not a single transaction; a failed delete can leave duplicate week rows · low · (found: OH-SAVE/refactor)
 - [ ] Inverted-window steal is unasserted · `tests/unit/reservations/operating-hours.test.ts` · the `closes_at` gate is implemented but no test pins that a `14:00–13:00` row cannot take `14:00` from a valid earlier segment · low · (found: C1/refactor)
 - [ ] Optional `durationMinutes` and invalid `start` untested · `slotUntilTime` · C2 pins default 90 and `23:00`→`00:30` only · low · (found: C2/refactor)
 - [ ] C4 pin does not assert trim-to-NULL · `tests/unit/scheduling/schema.test.ts` · regex only requires `guest_note` in the INSERT column list · low · (found: C4/refactor)

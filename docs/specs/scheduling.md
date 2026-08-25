@@ -1,7 +1,7 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-25
 
 ## Scope
 
@@ -113,16 +113,31 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     (`tables.expected_minutes`) stays for live-floor clocks only and does
     **not** change the guest until-badge.
 
+15. **OH-SAVE — Persist opening hours via deployed RPC** — Staff **Save Changes**
+    on `/admin/scheduling` persists the weekly opening-hour schedule by calling
+    public RPC `replace_operating_windows(p_windows jsonb)`. The function MUST
+    exist on the deployed database (not only in repo SQL), be `GRANT EXECUTE`
+    to `service_role` only (not `anon` or `authenticated`), and be visible in
+    the PostgREST schema cache. The RPC
+    atomically replaces all `operating_windows` rows and MUST accept multiple
+    segments per weekday (`label`, `sort_order`; no `UNIQUE` on `day_of_week`).
+    A PostgREST schema-cache miss (PGRST202 / “Could not find the function …
+    in the schema cache”) is a failed invariant: save must succeed, not
+    surface that error.
+
 ## Implementation trace (non-normative)
 
 | Criterion | Shipped in | Tests |
 | --- | --- | --- |
 | Guest note (§13) | `operating_windows.guest_note` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260818162000_operating_hour_segments.sql`; `components/staff/scheduling-manager.tsx`; `app/actions/availability.ts` (`WINDOW_COLUMNS`, `replace_operating_windows`) | `tests/unit/scheduling/schema.test.ts`, `tests/unit/availability/actions.test.ts` |
 | FP-10 | `restaurant_settings.slot_interval_minutes` — baseline + `supabase/migrations/20260823130000_restaurant_info_and_chefs_picks.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `updateSlotIntervalMinutes`); `app/admin/floor/page.tsx` → `components/staff/floor-plan.tsx` | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts` |
+| OH-SAVE (§15) | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows` | `tests/integration/scheduling/replace-operating-windows.integ.test.ts` |
 
 ## References
 
 - [../architecture/Floor-Plan.md](../architecture/Floor-Plan.md)
+- [../runbooks/deploy.md](../runbooks/deploy.md) (linked remote apply of `20260818162000_operating_hour_segments`)
+- [../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md)
 - `lib/floor/layout.ts`
 - `lib/reservations/auto-assign.ts`
 - `hooks/use-floor-plan.ts`
