@@ -29,6 +29,9 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
    `devDependencies`; a flat ESLint config exists at the repo root
    (`eslint.config.mjs`). `pnpm lint` exits 0 with zero warnings
    (`--max-warnings 0`).
+   - `package.json` `scripts.lint` MUST include the ESLint CLI flag `--max-warnings 0`.
+     A tree that happens to have zero warnings MUST NOT satisfy G-L1 if that flag
+     is absent from the lint script.
    - Generated Supabase CLI output that `.gitignore` already excludes
      (`supabase/.temp/**` and `supabase/.branches/**`) MUST be listed in
      `eslint.config.mjs` `globalIgnores`. `pnpm lint` (`eslint .`) MUST NOT lint
@@ -43,6 +46,7 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 | G-T1 C2   | `hooks/use-chefs-picks.ts` (`items: MenuItemRow[]`); `app/[locale]/page.tsx` (`featured.map((item: MenuItemRow)`)                      | `tests/unit/site/chefs-picks-types.test.ts` → "homepage chefs picks map callback is MenuItemRow"                 |
 | G-T1 C3   | `lib/reservations/auto-assign.ts` — `FloorTableView` includes `id: string`, `x: number`, `y: number`; `AssignableTable` stays x/y-free | `tests/unit/floor/layout.test.ts` → "floor table view type includes id x y for spreadOverlappingTables"          |
 | G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                    | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"    |
+| G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                          | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"              |
 
 ## References
 

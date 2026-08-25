@@ -121,8 +121,9 @@ Use `--local` instead of `--linked` when testing against the local stack.
 ## Pre-deploy checks
 
 `pnpm lint` uses the flat ESLint config at `eslint.config.mjs` (G-L1 in
-[../specs/dev-toolchain.md](../specs/dev-toolchain.md)). Gitignored Supabase CLI
-trees (`supabase/.temp/**`, `supabase/.branches/**`) are in `globalIgnores`.
+[../specs/dev-toolchain.md](../specs/dev-toolchain.md)). `package.json`
+`scripts.lint` pins `--max-warnings 0`. Gitignored Supabase CLI trees
+(`supabase/.temp/**`, `supabase/.branches/**`) are in `globalIgnores`.
 
 ```powershell
 pnpm lint

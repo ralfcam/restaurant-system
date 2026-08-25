@@ -12,7 +12,7 @@
  *   gates     commit.md names lint, typecheck, test:unit, gate open, harness-lint
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { join, resolve } from "node:path"
 
 const ROOT = process.cwd()
 const violations = []
