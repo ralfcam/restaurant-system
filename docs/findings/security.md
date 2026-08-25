@@ -1,4 +1,3 @@
 # Security findings (open)
 
-- [ ] Unbounded `guest_note` · `components/staff/scheduling-manager.tsx` / `upsertOperatingWindows` · no `maxLength` or Zod cap; public widget renders the column; a huge string can ship to guests · med · (found: C10/refactor)
-- [ ] Mixed clients for the same settings row · `app/actions/menu.ts` (`createClient`) vs branding/restaurant-info (`createServiceClient`) · staff writes to `restaurant_settings` are not on one auth path · med · (found: C11/red)
+- [ ] Isolation scheme is not pinned · `lib/scheduling/hours-mutation-target.ts:17` · `file://127.0.0.1/…` and `file://[::1]/…` pass because hostname matches; spec expects a Supabase HTTP URL · low · (found: tdd/pr35_coderabbit_oh_save/C1/refactor)

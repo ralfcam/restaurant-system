@@ -49,6 +49,8 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Logo upload reliability (BC-8, BC-9)               | 2026-08-18 | `specs/branding-cms.md`, `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `testing/Test-Data-And-Seeds.md`, `testing/Design-And-Patterns.md`, `runbooks/deploy.md`                       |
 | Restaurant Link template + empty default logo      | 2026-08-18 | `specs/site-chrome.md`, `specs/branding-cms.md`, `PRD/restaurant-system-PRD.md`, `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md` |
 | G-T1 typecheck fix (`g-t1_typecheck_fix_47606513`) | 2026-08-25 | `specs/dev-toolchain.md` (G-T1 C1–C3 trace), `testing/Design-And-Patterns.md`                                                                                                                                |
+| G-L1 temp ignore (`g-l1_temp_ignore_da077232`)     | 2026-08-25 | `specs/dev-toolchain.md` (G-L1 C1 trace), `specs/README.md`, `testing/Design-And-Patterns.md`, `runbooks/deploy.md`                                                                                            |
+| OH-SAVE isolation + complete-replace pin (`pr35_coderabbit_oh_save`) | 2026-08-25 | `specs/scheduling.md` (§15, by orchestrator), `runbooks/deploy.md`, `testing/Vitest-Integration-Guide.md`, `testing/Design-And-Patterns.md`, `findings/test-debt.md`                                        |
 
 ## Seed path
 

@@ -79,7 +79,8 @@ RETURNS void
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  DELETE FROM operating_windows;
+  -- WHERE TRUE satisfies hosted safe-delete (error 21000 without a predicate).
+  DELETE FROM operating_windows WHERE TRUE;
 
   INSERT INTO operating_windows (
     day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
@@ -97,6 +98,7 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
 
 NOTIFY pgrst, 'reload schema';
