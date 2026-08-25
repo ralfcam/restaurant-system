@@ -266,14 +266,12 @@ export async function transitionReservationStatus(
     .update(patch)
     .eq("id", reservationId)
   if (error) return { error: "Could not update reservation status." }
-  await db
-    .from("status_events")
-    .insert({
-      entity_type: "reservation",
-      entity_id: reservationId,
-      from_status: current.status,
-      to_status: nextStatus,
-    })
+  await db.from("status_events").insert({
+    entity_type: "reservation",
+    entity_id: reservationId,
+    from_status: current.status,
+    to_status: nextStatus,
+  })
   if (nextStatus === "seated" && current.table_label) {
     await syncTableGroupStatus(current.table_label, "seated")
   }
@@ -384,15 +382,13 @@ export async function assignReservationTable(
   } else if (reservation.table_label) {
     await syncTableGroupStatus(reservation.table_label, "available")
   }
-  await db
-    .from("status_events")
-    .insert({
-      entity_type: "reservation",
-      entity_id: reservationId,
-      from_status: reservation.table_label,
-      to_status: label ?? "unassigned",
-      reason: "table assignment",
-    })
+  await db.from("status_events").insert({
+    entity_type: "reservation",
+    entity_id: reservationId,
+    from_status: reservation.table_label,
+    to_status: label ?? "unassigned",
+    reason: "table assignment",
+  })
 
   revalidatePath("/admin/reservations")
   revalidatePath("/admin/floor")

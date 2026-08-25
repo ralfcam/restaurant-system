@@ -262,13 +262,11 @@ export async function uploadRestaurantHeroImage(
     .getPublicUrl(path)
   const heroImageUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`
 
-  const { error: settingsError } = await db
-    .from("restaurant_settings")
-    .upsert({
-      id: 1,
-      hero_image_url: heroImageUrl,
-      updated_at: new Date().toISOString(),
-    })
+  const { error: settingsError } = await db.from("restaurant_settings").upsert({
+    id: 1,
+    hero_image_url: heroImageUrl,
+    updated_at: new Date().toISOString(),
+  })
   if (settingsError) {
     console.error(
       "[branding] hero settings update error:",

@@ -959,18 +959,16 @@ export async function createKitchenOrder(input: {
     .select("*")
     .single()
   if (error || !order) throw new Error("Unable to send order to kitchen")
-  const { error: itemError } = await db
-    .from("order_items")
-    .insert(
-      normalized.map((line) => ({
-        order_id: order.id,
-        menu_item_id: line.itemId,
-        item_name: line.name,
-        unit_price: line.unitPrice,
-        quantity: line.qty,
-        notes: line.notes ?? null,
-      })),
-    )
+  const { error: itemError } = await db.from("order_items").insert(
+    normalized.map((line) => ({
+      order_id: order.id,
+      menu_item_id: line.itemId,
+      item_name: line.name,
+      unit_price: line.unitPrice,
+      quantity: line.qty,
+      notes: line.notes ?? null,
+    })),
+  )
   if (itemError) {
     await db.from("orders").delete().eq("id", order.id)
     throw new Error("Unable to save order items")
@@ -1059,13 +1057,11 @@ export async function updateKitchenOrderStatus(
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
   if (error) throw new Error("Unable to update kitchen order")
-  await db
-    .from("status_events")
-    .insert({
-      entity_type: "order",
-      entity_id: id,
-      from_status: current.status,
-      to_status: status,
-    })
+  await db.from("status_events").insert({
+    entity_type: "order",
+    entity_id: id,
+    from_status: current.status,
+    to_status: status,
+  })
   revalidatePath("/kds")
 }
