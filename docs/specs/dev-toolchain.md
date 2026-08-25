@@ -29,6 +29,11 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
    `devDependencies`; a flat ESLint config exists at the repo root
    (`eslint.config.mjs`). `pnpm lint` exits 0 with zero warnings
    (`--max-warnings 0`).
+   - Generated Supabase CLI output that `.gitignore` already excludes
+     (`supabase/.temp/**` and `supabase/.branches/**`) MUST be listed in
+     `eslint.config.mjs` `globalIgnores`. `pnpm lint` (`eslint .`) MUST NOT lint
+     those trees. A local `npx supabase start` that writes `supabase/.temp/**`
+     MUST NOT fail the lint gate.
 
 ## Implementation trace (non-normative)
 
@@ -37,6 +42,7 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 | G-T1 C1   | `package.json` / `pnpm-lock.yaml` declare `swr@2.5.1`; `node_modules/swr` on disk (no app source)                                      | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "swr is installed so TypeScript can resolve the module" |
 | G-T1 C2   | `hooks/use-chefs-picks.ts` (`items: MenuItemRow[]`); `app/[locale]/page.tsx` (`featured.map((item: MenuItemRow)`)                      | `tests/unit/site/chefs-picks-types.test.ts` → "homepage chefs picks map callback is MenuItemRow"                 |
 | G-T1 C3   | `lib/reservations/auto-assign.ts` — `FloorTableView` includes `id: string`, `x: number`, `y: number`; `AssignableTable` stays x/y-free | `tests/unit/floor/layout.test.ts` → "floor table view type includes id x y for spreadOverlappingTables"          |
+| G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                    | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"    |
 
 ## References
 

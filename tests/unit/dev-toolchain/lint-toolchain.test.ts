@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
+import { ESLint } from "eslint"
 import { describe, expect, it } from "vitest"
 
 const repoRoot = process.cwd()
@@ -28,5 +29,17 @@ describe("eslint toolchain", () => {
     )
 
     expect(flatConfigExists).toBe(true)
+  })
+
+  it("ignores gitignored supabase CLI temp and branches trees", async () => {
+    const eslint = new ESLint({ cwd: repoRoot })
+
+    expect(
+      await eslint.isPathIgnored("supabase/.temp/start-secrets/main/index.ts"),
+    ).toBe(true)
+    expect(
+      await eslint.isPathIgnored("supabase/.branches/_current_branch"),
+    ).toBe(true)
+    expect(await eslint.isPathIgnored("eslint.config.mjs")).toBe(false)
   })
 })
