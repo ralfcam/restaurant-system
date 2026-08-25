@@ -40,7 +40,12 @@ against the linked project) and by applying
 `20260818162000_operating_hour_segments.sql` per
 [../runbooks/deploy.md](../runbooks/deploy.md) — not by mutating
 `operating_windows` on that shared project from CI. Snapshot/restore recipe:
-[Design-And-Patterns.md](./Design-And-Patterns.md).
+[Design-And-Patterns.md](./Design-And-Patterns.md). The same file also pins
+OH-PRIV: after a docker `GRANT SELECT, INSERT, UPDATE, DELETE` overlay (local
+postgres Dxtm defaults otherwise hide the linked-remote surface), an
+authenticated Data API client must not persist INSERT/UPDATE/DELETE. Isolation
+is the same `assertIsolatedHoursMutationTarget` guard. Spec:
+[../specs/scheduling.md](../specs/scheduling.md) §16.
 
 ```powershell
 $env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'

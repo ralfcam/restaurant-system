@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-25
 
 ## Auth flow
 
@@ -32,10 +32,20 @@ create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can cal
 data (`operating_windows`, `menu_items`,
 `restaurant_settings` singleton) loads from `supabase/seed.sql` on `db reset`.
 
+`operating_windows` is SELECT-only for `anon` and `authenticated`
+(`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). There is no authenticated
+`FOR ALL` policy (`DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"`;
+no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Staff writes go
+through `replace_operating_windows` (`service_role` `EXECUTE` only). Identical
+GRANT/REVOKE and DROP live in `00000000000000_baseline.sql` and
+`20260825140000_operating_windows_privilege.sql` (apply on already-baselined
+remotes per [../runbooks/deploy.md](../runbooks/deploy.md); do not `db push`).
+Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
+
 ## Env vars
 
-| Variable | Scope |
-| --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Public |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server only |
+| Variable                        | Scope       |
+| ------------------------------- | ----------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Public      |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public      |
+| `SUPABASE_SERVICE_ROLE_KEY`     | Server only |
