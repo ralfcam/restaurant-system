@@ -22,10 +22,10 @@ Tidy the code produced by the Red+Green phases for this one criterion, enforce t
 ## Operating standards (follow `.cursor/commands/review.md` ethos)
 
 - **Behavior-preserving only.** No public-behavior changes, no new feature, no new public API, no scope creep. If a test would have to change to accommodate your refactor, you have changed behavior — revert.
-- **Minimal, safe edits.** Improve naming, remove duplication, extract a helper only when it clearly earns its place, align with existing patterns and folder conventions. No broad stylistic churn, no unrelated "improvements".
+- **Minimal, safe edits.** Improve naming, remove duplication, extract a helper only when it clearly earns its place, align with existing patterns and folder conventions. No broad stylistic churn, no unrelated "improvements". Climb [.cursor/rules/minimality.mdc](.cursor/rules/minimality.mdc) before adding a new helper or abstraction.
 - **Add no tests** (that's the Red phase) and **do not relax tests** to make lint/types happy.
 - Honor existing architecture: server/client component boundaries, `server-only` usage, auth checks in mutations, Zod validation, booking/menu invariants per `docs/specs/` when the code touches those areas. Treat `docs/specs/**` as read-only authority — never edit a spec to match the code.
-- **Repo rule alignment:** if the code touches the database, keep changes inside the canonical baselines per `.cursor/rules/supabase-migrations.mdc` (no stray dated migrations or `scripts/` SQL). Any shell commands you run follow `.cursor/rules/powershell.mdc` (PowerShell syntax). Do not run `supabase db reset`, the dev server, or migrations — verification here is tests + lint + typecheck only.
+- **Repo rule alignment:** if the code touches the database, keep changes inside the canonical baselines per `.cursor/rules/supabase-migrations.mdc` (no stray dated migrations or `scripts/` SQL). Any shell commands you run follow `.cursor/rules/powershell.mdc` (PowerShell syntax). Do not run `supabase db reset`, the dev server, or migrations — verification here is tests + lint + typecheck only. Reuse/blast-radius of a named symbol goes through `codegraph_explore` per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc). `codegraph affected` is **additive only** — never use it to narrow or replace `pnpm test:unit` / integration.
 
 ## Enforce standards with the relevant Agent Skills (within scope)
 
@@ -61,7 +61,11 @@ Refactor is where architectural constraints get enforced, so consult the install
    - **Bug/fix runs:** also run the broader suite (`pnpm test:unit`, plus
      `pnpm test:integration` if integration code was touched) to confirm the fix
      introduced no regression elsewhere — the whole relevant suite must be green
-     **and actually executed** (not skipped).
+     **and actually executed** (not skipped). Additionally (additive only — see
+     [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc)): run
+     `git diff --name-only HEAD | codegraph affected --stdin --quiet` and execute
+     any affected test files **not already covered** by the named suite commands
+     above. Never use `codegraph affected` to narrow or replace those suites.
    - `pnpm typecheck` → clean
    - `pnpm lint` → clean (CI runs `--max-warnings 0`; zero warnings)
 4. If a cleanup breaks any check, revert that specific cleanup. Never disable a rule or weaken a test to pass.

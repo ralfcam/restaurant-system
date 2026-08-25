@@ -248,8 +248,10 @@ PART 6 — APP ROUTER & DEPENDENCY CONFORMANCE
 Bar: docs/specs/ for auth/validation; platform NFRs for supply chain.
 
 6A. App Router correctness
-- Server Actions: auth before side effects; `"use server"` files checked for
-  bare passthrough without session validation.
+- Server Actions: Grep for `"use server"`, then `codegraph_explore` for the
+  export chain (per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc);
+  fall back to grep-only if MCP is down); auth before side effects; bare
+  passthrough without session validation.
 - Dynamic route params validated before DB queries per owning spec.
 - next.config.mjs: flag entries weakening spec-required security posture.
 - DEVIATION | COVERAGE GAP only.

@@ -240,7 +240,7 @@ discoveries are findings, below):
 ### 3.5 Over-engineering pass (delete-list)
 
 Scope = **this run's diff only** — this is not a general repo audit. Per
-[.cursor/rules/verification-before-completion.mdc](.cursor/rules/verification-before-completion.mdc):
+[.cursor/rules/minimality.mdc](.cursor/rules/minimality.mdc):
 
 - Prefer the Refactor agent's `Delete-list:` line from
   `docs/verifier-reports/tdd/<plan-slug>.md` / the thread when present;
@@ -255,8 +255,8 @@ Scope = **this run's diff only** — this is not a general repo audit. Per
   new dependency where native/stdlib/an already-installed one already covers
   it; a new single-implementation abstraction/factory/wrapper with exactly
   one caller; speculative scaffolding beyond the criteria. Confirm a "one
-  caller" or "already covered elsewhere" claim with `Grep/Read`
-  (per [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc)) before
+  caller" or "already covered elsewhere" claim with `codegraph_explore`
+  (per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc)) before
   blocking PASS on it — don't assert the caller count from the diff alone.
 - Pre-existing bloat merely touched by this diff, or a pure `shrink:`
   opportunity that doesn't change the contract, is **not** a PASS blocker —

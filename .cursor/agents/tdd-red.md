@@ -101,7 +101,10 @@ honor it):
 
 ## Workflow
 
-1. Read the criterion and the spec excerpt you were handed. Read 1–2 sibling tests in the target folder to match style and imports.
+1. Read the criterion and the spec excerpt you were handed. Locate existing
+   coverage/fixtures with Grep/Read first, then `codegraph_explore` for a named
+   helper, per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc). Read
+   1–2 sibling tests in the target folder to match style and imports.
 2. Write the single test in the target file (create the file if it does not exist). The assertion must express the criterion's expected behavior precisely — name the test after the behavior, not the implementation.
 3. Run only the target test:
    - Unit: `pnpm test:unit <relative/path/to/file.test.ts>` (fallback: `pnpm exec vitest run <path>`)

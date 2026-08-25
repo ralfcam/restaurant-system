@@ -212,8 +212,8 @@ Once — and only once — the fan-out barrier is satisfied (all validators retu
 - Spot-check each validator **high**-severity claim yourself before trusting it
   — do not promote an unverified Blocker-class UX/functional gap without your
   own confirmation of the cited evidence (Grep/Read to locate a
-  route/component; `Grep/Read` for a named-symbol caller — per
-  [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc)). Also independently confirm any
+  route/component; `codegraph_explore` for a named-symbol caller — per
+  [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc)). Also independently confirm any
   `route-away:clarify` spec-contradiction against the cited spec rule before
   surfacing it as a clarification. This spot-check **layers on top of** the
   validator's returned verdict to catch an over-confident claim — it presupposes a

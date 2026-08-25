@@ -28,7 +28,7 @@ to fix another means you have the wrong fix; stop and report.
 ## Hard limits (non-negotiable)
 
 - **Do not edit, delete, weaken, or "fix" any test.** Write scope EXCLUDES `tests/**`. If the test looks wrong, STOP and report it — do not change it to get green.
-- **Minimal code only.** Implement just enough to satisfy the assertion. No speculative abstractions, no extra config, no handling of cases the test does not exercise, no new public API beyond what the test requires. Refactoring/cleanup is the next phase's job, not yours — leave obvious cleanup as-is and note it.
+- **Minimal code only.** Climb [.cursor/rules/minimality.mdc](.cursor/rules/minimality.mdc) before writing: implement just enough to satisfy the assertion. No speculative abstractions, no extra config, no handling of cases the test does not exercise, no new public API beyond what the test requires. Refactoring/cleanup is the next phase's job, not yours — leave obvious cleanup as-is and note it.
 - **Stay in source.** Edit only application code (`app/`, `lib/`, `components/`, `hooks/`, `supabase/` helpers, etc.) needed by this test. Do not add new dependencies unless the test cannot pass without one (and then report it explicitly).
 - **Never edit the spec.** `docs/specs/**` is read-only context for you — the spec is the source of truth, not something Green negotiates. If the test contradicts the spec, STOP and report it.
 - **A skipped test is NOT green.** "GREEN" requires the target test to **actually execute and pass**. If your run reports it as **skipped** or collects **0 tests** (integration/RLS suites silently skip via `describe.skipIf(!authEnvReady)` when local Supabase/env is unavailable), you have NOT satisfied the criterion — STOP with the infra-blocked report below. Never declare green off a skipped suite, and never expect Red to have handed you a real failure if its run only skipped.
@@ -61,6 +61,10 @@ handling, an RLS-safe query). Skills must **not** grow scope — no migrations,
 library swaps, speculative abstractions, or handling cases the test doesn't
 exercise. Anything a skill suggests beyond the failing test is not yours: leave it
 for Refactor or log it as a `## Residual findings` entry.
+
+Named-symbol callers/exists go to `codegraph_explore` per
+[.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc); Grep/Read first
+for fixtures, specs, SQL, and directives.
 
 ## Workflow
 

@@ -35,8 +35,8 @@ Instructions:
 
 1. Locate the relevant route, screen, or component in this repo (`app/`,
    `components/`, related `lib/`) — Grep/Read for UI strings and file paths;
-   `Grep/Read` once you have a unique symbol, per
-   [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc). Cite specific paths and
+   `codegraph_explore` once you have a unique symbol, per
+   [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc). Cite specific paths and
    line numbers for what IS or IS NOT there.
 2. Resolve the owning spec under `docs/specs/` when the observation implies
    missing/wrong behavior — then classify the spec relationship precisely,

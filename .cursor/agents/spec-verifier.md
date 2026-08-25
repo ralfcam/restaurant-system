@@ -75,7 +75,7 @@ Evidence rules:
   short-circuits above). Runbooks, architecture notes, testing guides,
   `shared-context.md`, and legal/security docs are BACKGROUND ONLY — read them
   to understand the system, never as the bar a finding is measured against.
-- Discover code per [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc)
+- Discover code per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc)
   (Grep/Read for spec text and e2e surveys; graph for named-symbol callers);
   heuristic edges must be verified with Read before citing `path:line`.
 

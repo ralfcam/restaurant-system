@@ -213,9 +213,9 @@ tests before code.**
 2. **Pattern compare.** Before hypothesizing, compare the failing area against
    a working sibling (a similar route/component/flow that behaves correctly)
    or the owning hub concept's documented model. Find the sibling file with
-   Grep/Glob if you only have a path pattern; use `Grep/Read` once you
+   Grep/Glob if you only have a path pattern; use `codegraph_explore` once you
    have a named symbol — per
-   [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc). A working sibling that handles the same class of input
+   [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc). A working sibling that handles the same class of input
    correctly usually reveals exactly what the failing path is missing, and
    grounds the hypothesis in evidence rather than speculation.
 3. **Single hypothesis → map to missing/wrong AC.** Form ONE hypothesis for

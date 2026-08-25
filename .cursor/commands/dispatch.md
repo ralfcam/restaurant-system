@@ -37,8 +37,8 @@ performed. There is no execution phase and no `linear-resolver` delegation.
 
 Hub walk: `docs/specs/README.md` → owning spec
 `docs/specs/domains/<domain>/index.md` → owning spec. Named-symbol
-write-sets go through `Grep/Read` per
-[.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc) (Grep/Read first
+write-sets go through `codegraph_explore` per
+[.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc) (Grep/Read first
 for specs, SQL, fixtures; graph for unique TS/TSX symbols).
 
 Permission to Fail: if you cannot reach Linear, resolve a spec owner, or
@@ -212,13 +212,13 @@ graph result may **add** files to that scope; it may never **subtract** them.
   refine down to the suites the body happens to name by title.
 - Declared code pattern ("suites that still hand-roll `from()`") → Grep the
   pattern. This is a fixture/lexical hunt: per
-  [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc) a symbol blast
+  [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc) a symbol blast
   cannot answer it.
 - Named TS/TSX symbols in the owning spec's implementation trace →
-  `Grep/Read` (blast / callers), then Grep any production file the
+  `codegraph_explore` (blast / callers), then Grep any production file the
   first call missed.
 - Truncated blast list → raise `maxFiles`, narrow the query, or Grep the miss
-  (Grep/Read). `cannot verify` only after those fail, and the card records
+  ([.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc)). `cannot verify` only after those fail, and the card records
   what was tried.
 
 Keep an issue on the background list only when its write-set is **disjoint**
@@ -340,7 +340,7 @@ command does not invent an identity or open a spawn door:
 3. Hub-walk every candidate. Apply eligibility. Drop `cannot verify`.
    Milestone rank does not reopen a dropped candidate.
 4. Pick local lane (top Urgent/High, stay on `staging`; same-priority order
-   uses milestone rank). Compute write-sets with `Grep/Read` / Grep.
+   uses milestone rank). Compute write-sets with `codegraph_explore` / Grep.
    Select 1–3 disjoint background items; milestone rank is the tiebreaker
    among equally-eligible disjoint sets.
 5. Emit the card with pasteable recipes. No writes, no todos, no TDD.

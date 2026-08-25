@@ -15,9 +15,10 @@ migrations + seed, replicating the manual `supabase db reset --linked` flow.
 > development / staging data, so resetting it is **safe** — there is no real
 > guest or operational data to protect. You do **not** need to ask the
 > operator for a destructive-action confirmation for this command; the
-> non-production status IS the standing authorization. (If that ever changes
-> and a production project becomes the linked target, this command must be
-> revised before use.)
+> non-production status IS the standing authorization. Ground truth:
+> [.cursor/rules/pre-production-status.mdc](.cursor/rules/pre-production-status.mdc).
+> (If that ever changes and a production project becomes the linked target,
+> this command must be revised before use.)
 
 Repo facts you can rely on:
 - Stack: Next.js 16 App Router · Supabase (SSR + service role) · shadcn · pnpm.

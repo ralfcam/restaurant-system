@@ -50,7 +50,7 @@ text plus the shared contract below.
 - State "cannot verify from repo" for anything needing runtime access, the Vercel
   dashboard, or secrets not in the repo. Do not infer runtime state.
 - Distinguish a doc gap from a code defect in every finding.
-- Discover code per [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc)
+- Discover code per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc)
   (Grep/Read for specs, SQL, directives; graph for named-symbol callers);
   heuristic edges must be verified with Read before citing `path:line`.
 

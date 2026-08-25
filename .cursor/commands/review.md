@@ -28,7 +28,9 @@ Task: Review the provided file(s) first, then revise only the parts that clearly
 
 For code files:
 - Find correctness bugs, security risks, performance issues, weak validation, poor error handling, and obvious maintainability problems.
-- Prefer the smallest production-safe fix.
+- Prefer the smallest **correct** fix (see
+  [.cursor/rules/pre-production-status.mdc](.cursor/rules/pre-production-status.mdc)):
+  one behavior, one code path — no flags, dual-paths, or deprecation windows.
 - Preserve surrounding style and architecture.
 
 For plan/spec files:
