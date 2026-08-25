@@ -213,9 +213,9 @@ tests before code.**
 2. **Pattern compare.** Before hypothesizing, compare the failing area against
    a working sibling (a similar route/component/flow that behaves correctly)
    or the owning hub concept's documented model. Find the sibling file with
-   Grep/Glob if you only have a path pattern; use `Grep/Read` once you
+   Grep/Glob if you only have a path pattern; use `codegraph_explore` once you
    have a named symbol — per
-   [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc). A working sibling that handles the same class of input
+   [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc). A working sibling that handles the same class of input
    correctly usually reveals exactly what the failing path is missing, and
    grounds the hypothesis in evidence rather than speculation.
 3. **Single hypothesis → map to missing/wrong AC.** Form ONE hypothesis for
@@ -297,7 +297,7 @@ volume — do **not** duplicate the same assertion at three layers):
 | Criterion proves…                                                 | Layer                 | Path                                    | Command / infra                                                                                                   |
 | ----------------------------------------------------------------- | --------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | Pure logic, money math, transitions, mocked route guards          | `unit`                | `tests/unit/**/*.test.ts`               | `pnpm test:unit <path>` — no infra                                                                                |
-| Real handler + Postgres/RLS/cookies/seed personas                 | `integration` / `rls` | `tests/integration/**/*.integ.test.ts`  | `pnpm test:integration` (fail-closed); local Supabase up + seeded
+| Real handler + Postgres/RLS/cookies/seed personas                 | `integration` / `rls` | `tests/integration/**/*.integ.test.ts`  | `pnpm test:integration` (fail-closed); local Supabase up + seeded                                                 |
 | Multi-page portal UX, wizard submit, role chrome, Filters/View IA | `e2e`                 | `tests/e2e/<domain>/**/*.spec.ts`       | Playwright project; seed auth via `global-setup` / `seedStorageState`; `@p0`/`@p1`/smoke placement as appropriate |
 | Preview env / live cron auth / CONTRACT PI 409 / degradation      | `deployed`            | `tests/e2e/deployed/*.deployed.spec.ts` | `pnpm deployed` or `pnpm deployed:mutating`; prefer after local e2e green                                         |
 | Live Stripe Connect / screen-reader / visual theme / C5-preview   | `manual-UAT`          | runbook stamp only                      | Do not fake Vitest/Playwright                                                                                     |
@@ -354,7 +354,7 @@ When FIX mode was invoked with a Linear ID/URL, **or** FEATURE mode's plan has
 `linear_issue: REAZED-###` (not `none`): as the **first execution action**, before
 the approved spec edit (FIX) or Criterion 1 Red (FEATURE), delegate:
 
-"Use the `linear-resolver` subagent to start work on <REAZED-###> (plan: <plan-slug>), posting this bounded summary as the `Work started:` comment:" + the plan's `## Linear Plan Digest` block. Invoke that Task with `run_in_background: true`. Do **not** wait, poll, or `AwaitShell` for its report before the approved spec edit or Criterion 1 Red. In the *emitted* plan, replace `<plan-slug>` with this plan file's basename; this command file keeps the placeholder.
+"Use the `linear-resolver` subagent to start work on <REAZED-###> (plan: <plan-slug>), posting this bounded summary as the `Work started:` comment:" + the plan's `## Linear Plan Digest` block. Invoke that Task with `run_in_background: true`. Do **not** wait, poll, or `AwaitShell` for its report before the approved spec edit or Criterion 1 Red. In the _emitted_ plan, replace `<plan-slug>` with this plan file's basename; this command file keeps the placeholder.
 
 **One payload (`linear-resolver` posts it verbatim; never the plan file itself):**
 
@@ -1027,8 +1027,9 @@ automatable — live third-party, screen-reader, visual theme). Justify any
 layer above unit (why a lower layer can't prove it); for `e2e`/`deployed`,
 name path, tag/placement, seed persona, and command; for `manual-UAT`, note why
 it can't be automated and exclude it from the loop below.
-| # | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
-|---|---|---|---|---|---|---|---|---|---|
+
+| #   | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
+| --- | --------- | ---- | ----- | --------- | --------------- | --------- | --------- | ------- | ---------- |
 
 - **Risk** is `P0`–`P3` (P0 = money/auth/data-integrity/state-machine invariants;
   P3 = cosmetic). Respect dependencies first, then order higher-risk criteria
@@ -1041,8 +1042,9 @@ One row per criterion linking requirement → test → source. Seed it from the 
 `Source file(s)` fills in as Green ships, and the matrix is finalized at close-out
 (Step 4E) so every shipped criterion has a durable requirement-to-test record
 (useful for audit in money/auth/dispute areas and for reuse on later runs).
+
 | Criterion | Spec ref | Test file::name | Source file(s) | Risk | Status |
-|---|---|---|---|---|---|
+| --------- | -------- | --------------- | -------------- | ---- | ------ |
 
 ## Execution Preconditions
 
@@ -1122,9 +1124,9 @@ Problem: <2–3 sentences — observed vs expected behavior, plus the missing co
 Approach: <2–4 sentences — the design constraint shaping this wave/plan>
 Out-of-scope findings: <ledger titles + severities only, or "none">
 
-| #   | Criterion            | Risk | Layer | Test file          |
-| --- | -------------------- | ---- | ----- | ------------------ |
-| 1   | <one-line behavior>  | P1   | unit  | tests/unit/<path>  |
+| #   | Criterion           | Risk | Layer | Test file         |
+| --- | ------------------- | ---- | ----- | ----------------- |
+| 1   | <one-line behavior> | P1   | unit  | tests/unit/<path> |
 ```
 
 Omit this section when there is no tracked issue. A non-BLOCKED START always
@@ -1170,8 +1172,9 @@ delegate `docs-updater` (background) with that packet, or state explicit
 ## Out-of-Scope Findings (the Findings Ledger — "none" if empty)
 
 Discoveries surfaced during this run but deliberately NOT in scope. Each:
+
 | Finding | Where (file:line/area) | Why it matters | Severity | Relation |
-|---|---|---|---|---|
+| ------- | ---------------------- | -------------- | -------- | -------- |
 
 - This table is the **planning-time** seed (from triage/scope-deferrals). During
   execution, each phase's category-tagged `## Residual findings` are appended to

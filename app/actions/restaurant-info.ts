@@ -24,7 +24,10 @@ export async function getRestaurantInfoBar(): Promise<RestaurantInfoBar> {
   ])
 
   if (settings.error) {
-    console.error("[restaurant-info] getRestaurantInfoBar:", settings.error.message)
+    console.error(
+      "[restaurant-info] getRestaurantInfoBar:",
+      settings.error.message,
+    )
   }
 
   return {
@@ -50,14 +53,19 @@ export async function updateRestaurantContactInfo(input: {
     return { error: "Address or phone is too long." }
   }
 
-  const { error } = await createServiceClient().from("restaurant_settings").upsert({
-    id: 1,
-    address,
-    phone,
-    updated_at: new Date().toISOString(),
-  })
+  const { error } = await createServiceClient()
+    .from("restaurant_settings")
+    .upsert({
+      id: 1,
+      address,
+      phone,
+      updated_at: new Date().toISOString(),
+    })
   if (error) {
-    console.error("[restaurant-info] updateRestaurantContactInfo:", error.message)
+    console.error(
+      "[restaurant-info] updateRestaurantContactInfo:",
+      error.message,
+    )
     return { error: "Could not save contact information. Please try again." }
   }
 

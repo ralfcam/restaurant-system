@@ -12,7 +12,14 @@
  * When a phase is set, the same hook also enforces phase-scoped write scope on
  * the currently-running subagent: red → tests/ only; green/refactor → no tests/.
  */
-import { arm, disarm, status, setPhase, clearPhase, openCommitGate } from "./lib/tdd-guard-policy.mjs"
+import {
+  arm,
+  disarm,
+  status,
+  setPhase,
+  clearPhase,
+  openCommitGate,
+} from "./lib/tdd-guard-policy.mjs"
 
 const cmd = (process.argv[2] || "status").toLowerCase()
 
@@ -38,7 +45,9 @@ switch (cmd) {
         `tdd-guard: phase set to "${phase}" — ${phase === "red" ? "subagent writes restricted to tests/" : "subagent writes to tests/ blocked"}.`,
       )
     } else {
-      console.error(`tdd-guard: unknown phase "${phase}" — expected red|green|refactor|clear.`)
+      console.error(
+        `tdd-guard: unknown phase "${phase}" — expected red|green|refactor|clear.`,
+      )
       process.exitCode = 1
     }
     break
@@ -47,9 +56,13 @@ switch (cmd) {
     const action = (process.argv[3] || "").toLowerCase()
     if (action === "open") {
       openCommitGate()
-      console.log("tdd-guard: commit gate open — git commit is allowed until the next TDD loop.")
+      console.log(
+        "tdd-guard: commit gate open — git commit is allowed until the next TDD loop.",
+      )
     } else {
-      console.error(`tdd-guard: unknown gate action "${action}" — expected open.`)
+      console.error(
+        `tdd-guard: unknown gate action "${action}" — expected open.`,
+      )
       process.exitCode = 1
     }
     break

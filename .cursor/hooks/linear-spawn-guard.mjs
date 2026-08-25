@@ -23,7 +23,11 @@
  * fires. Payload shapes and the liveness standard:
  * .cursor/rules/hook-authoring.mdc.
  */
-import { readStdinJson, writeStdoutJson, extractMcpCall } from "./lib/mcp-payload.mjs"
+import {
+  readStdinJson,
+  writeStdoutJson,
+  extractMcpCall,
+} from "./lib/mcp-payload.mjs"
 import { detectLinearSpawn } from "./lib/linear-spawn-policy.mjs"
 
 function main() {
@@ -35,11 +39,16 @@ function main() {
       return
     }
 
-    const hit = detectLinearSpawn(extracted.server, extracted.toolName, extracted.args)
+    const hit = detectLinearSpawn(
+      extracted.server,
+      extracted.toolName,
+      extracted.args,
+    )
     if (hit) {
       writeStdoutJson({
         permission: "deny",
-        user_message: "Blocked a Linear MCP call that would spawn a Cursor Cloud Agent.",
+        user_message:
+          "Blocked a Linear MCP call that would spawn a Cursor Cloud Agent.",
         agent_message:
           `linear-spawn guard: ${extracted.toolName} ${hit.field} is a Cloud Agent spawn door (${hit.kind}). ` +
           "Do not set save_issue.assignee (including null) or save_issue.delegate, and do not write " +

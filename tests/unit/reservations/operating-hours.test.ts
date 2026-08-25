@@ -59,7 +59,12 @@ describe("assignSegmentForTime", () => {
   it("assigns a shared boundary time to exactly one segment (later opens_at wins)", () => {
     const segments = [
       { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 0 },
-      { label: "Afternoon", opens_at: "14:00", closes_at: "18:00", sort_order: 1 },
+      {
+        label: "Afternoon",
+        opens_at: "14:00",
+        closes_at: "18:00",
+        sort_order: 1,
+      },
     ]
     expect(assignSegmentForTime("14:00", segments)?.label).toBe("Afternoon")
   })
@@ -87,14 +92,36 @@ describe("clampSlotIntervalMinutes", () => {
 describe("generateSlotsForSegments / bookableTimesForDay", () => {
   it("emits 30-minute slots only inside each segment", () => {
     expect(generateSlotsForSegments(EXAMPLE_SEGMENTS)).toEqual([
-      "09:00", "09:30", "10:00", "10:30", "11:00",
-      "12:00", "12:30", "13:00", "13:30", "14:00",
-      "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30", "22:00",
+      "09:00",
+      "09:30",
+      "10:00",
+      "10:30",
+      "11:00",
+      "12:00",
+      "12:30",
+      "13:00",
+      "13:30",
+      "14:00",
+      "18:00",
+      "18:30",
+      "19:00",
+      "19:30",
+      "20:00",
+      "20:30",
+      "21:00",
+      "21:30",
+      "22:00",
     ])
   })
 
   it("returns no slots for a closed day", () => {
-    expect(bookableTimesForDay({ day_of_week: 0, is_closed: true, segments: EXAMPLE_SEGMENTS })).toEqual([])
+    expect(
+      bookableTimesForDay({
+        day_of_week: 0,
+        is_closed: true,
+        segments: EXAMPLE_SEGMENTS,
+      }),
+    ).toEqual([])
   })
 })
 
@@ -118,7 +145,9 @@ describe("validateOperatingDays", () => {
   })
 
   it("rejects a segment that closes before it opens", () => {
-    const days = openWeek([{ label: "Broken", opens_at: "14:00", closes_at: "12:00", sort_order: 0 }])
+    const days = openWeek([
+      { label: "Broken", opens_at: "14:00", closes_at: "12:00", sort_order: 0 },
+    ])
     expect(validateOperatingDays(days)).toMatch(/closes before it opens/i)
   })
 })
@@ -126,22 +155,57 @@ describe("validateOperatingDays", () => {
 describe("groupRowsByDay / flattenDaysToRows", () => {
   it("groups multiple Postgres rows for one weekday into labeled segments", () => {
     const days = groupRowsByDay([
-      { day_of_week: 0, opens_at: "00:00:00", closes_at: "00:00:00", is_closed: true, label: null, sort_order: 0 },
-      { day_of_week: 3, opens_at: "09:00:00", closes_at: "11:00:00", is_closed: false, label: "Morning", sort_order: 0 },
-      { day_of_week: 3, opens_at: "12:00:00", closes_at: "14:00:00", is_closed: false, label: "Lunch", sort_order: 1 },
-      { day_of_week: 3, opens_at: "18:00:00", closes_at: "22:00:00", is_closed: false, label: "Dinner", sort_order: 2 },
+      {
+        day_of_week: 0,
+        opens_at: "00:00:00",
+        closes_at: "00:00:00",
+        is_closed: true,
+        label: null,
+        sort_order: 0,
+      },
+      {
+        day_of_week: 3,
+        opens_at: "09:00:00",
+        closes_at: "11:00:00",
+        is_closed: false,
+        label: "Morning",
+        sort_order: 0,
+      },
+      {
+        day_of_week: 3,
+        opens_at: "12:00:00",
+        closes_at: "14:00:00",
+        is_closed: false,
+        label: "Lunch",
+        sort_order: 1,
+      },
+      {
+        day_of_week: 3,
+        opens_at: "18:00:00",
+        closes_at: "22:00:00",
+        is_closed: false,
+        label: "Dinner",
+        sort_order: 2,
+      },
     ])
 
     expect(days[0]?.is_closed).toBe(true)
     expect(days[3]?.is_closed).toBe(false)
     expect(days[3]?.segments).toEqual(EXAMPLE_SEGMENTS)
-    expect(days[1]?.segments[0]).toMatchObject({ opens_at: "09:00", closes_at: "22:00" })
+    expect(days[1]?.segments[0]).toMatchObject({
+      opens_at: "09:00",
+      closes_at: "22:00",
+    })
   })
 
   it("round-trips a segmented week into one row per segment", () => {
     const rows = flattenDaysToRows(openWeek())
     expect(rows.filter((row) => row.day_of_week === 0)).toEqual([
-      expect.objectContaining({ is_closed: true, opens_at: "00:00", closes_at: "00:00" }),
+      expect.objectContaining({
+        is_closed: true,
+        opens_at: "00:00",
+        closes_at: "00:00",
+      }),
     ])
     expect(rows.filter((row) => row.day_of_week === 1)).toHaveLength(3)
     expect(groupRowsByDay(rows)[1]?.segments.map((s) => s.label)).toEqual([
@@ -154,8 +218,12 @@ describe("groupRowsByDay / flattenDaysToRows", () => {
 
 describe("summarizeOperatingDays", () => {
   it("groups consecutive weekdays with identical hours", () => {
-    const days = openWeek([{ label: "", opens_at: "09:00", closes_at: "22:00", sort_order: 0 }])
-    expect(summarizeOperatingDays(days)).toBe("Mon–Sat · 09:00–22:00; Sun · Closed")
+    const days = openWeek([
+      { label: "", opens_at: "09:00", closes_at: "22:00", sort_order: 0 },
+    ])
+    expect(summarizeOperatingDays(days)).toBe(
+      "Mon–Sat · 09:00–22:00; Sun · Closed",
+    )
   })
 
   it("keeps split shifts in the generated summary", () => {
@@ -177,7 +245,9 @@ describe("nextSuggestedSegment / formatSegmentsSummary", () => {
   it("suggests Lunch as the second segment, even after an all-day window", () => {
     expect(nextSuggestedSegment([EXAMPLE_SEGMENTS[0]]).label).toBe("Lunch")
     expect(
-      nextSuggestedSegment([{ label: null, opens_at: "09:00", closes_at: "22:00", sort_order: 0 }]),
+      nextSuggestedSegment([
+        { label: null, opens_at: "09:00", closes_at: "22:00", sort_order: 0 },
+      ]),
     ).toMatchObject({ label: "Lunch", opens_at: "12:00", closes_at: "14:00" })
   })
 
@@ -191,7 +261,13 @@ describe("nextSuggestedSegment / formatSegmentsSummary", () => {
 describe("groupBookableSlots", () => {
   it("groupBookableSlots groups times by sort_order, falls back unlabeled to the time range, omits empty groups, attaches guest_note", () => {
     const segments = [
-      { label: "Soir", opens_at: "18:00", closes_at: "22:00", sort_order: 3, guest_note: "" },
+      {
+        label: "Soir",
+        opens_at: "18:00",
+        closes_at: "22:00",
+        sort_order: 3,
+        guest_note: "",
+      },
       {
         label: "Midi",
         opens_at: "12:00",
@@ -199,8 +275,20 @@ describe("groupBookableSlots", () => {
         sort_order: 1,
         guest_note: "Cuisine du marché",
       },
-      { label: "Goûter", opens_at: "15:30", closes_at: "16:30", sort_order: 2, guest_note: "" },
-      { label: null, opens_at: "09:00", closes_at: "11:00", sort_order: 0, guest_note: "   " },
+      {
+        label: "Goûter",
+        opens_at: "15:30",
+        closes_at: "16:30",
+        sort_order: 2,
+        guest_note: "",
+      },
+      {
+        label: null,
+        opens_at: "09:00",
+        closes_at: "11:00",
+        sort_order: 0,
+        guest_note: "   ",
+      },
     ]
     const times = ["09:00", "10:30", "12:30", "13:00", "18:00", "20:00"]
 
@@ -208,13 +296,19 @@ describe("groupBookableSlots", () => {
 
     expect(groups).toEqual([
       { label: "09:00–11:00", times: ["09:00", "10:30"] },
-      { label: "Midi", times: ["12:30", "13:00"], guest_note: "Cuisine du marché" },
+      {
+        label: "Midi",
+        times: ["12:30", "13:00"],
+        guest_note: "Cuisine du marché",
+      },
       { label: "Soir", times: ["18:00", "20:00"] },
     ])
     expect(groups[0]).not.toHaveProperty("guest_note")
     expect(groups[2]).not.toHaveProperty("guest_note")
-    expect(groups.filter((group) => group.times.includes("12:30")).map((group) => group.label)).toEqual([
-      "Midi",
-    ])
+    expect(
+      groups
+        .filter((group) => group.times.includes("12:30"))
+        .map((group) => group.label),
+    ).toEqual(["Midi"])
   })
 })

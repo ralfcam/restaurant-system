@@ -13,9 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { LanguageSwitcher } from "@/components/site/language-switcher"
 
-const LINKS = [
-  { href: "/menu", label: "Menu" },
-]
+const LINKS = [{ href: "/menu", label: "Menu" }]
 
 export function SiteHeader() {
   const pathname = usePathname()
@@ -47,7 +45,12 @@ export function SiteHeader() {
         <div className="w-1/3 flex items-center justify-start">
           <Link href="/" className="flex items-center gap-2.5">
             <BrandMark src={logoUrl} />
-            <span className={cn("font-heading text-lg font-semibold tracking-tight transition-colors duration-300", isScrolled ? "text-foreground" : "text-white")}>
+            <span
+              className={cn(
+                "font-heading text-lg font-semibold tracking-tight transition-colors duration-300",
+                isScrolled ? "text-foreground" : "text-white",
+              )}
+            >
               {RESTAURANT.name}
             </span>
           </Link>
@@ -82,7 +85,10 @@ export function SiteHeader() {
           <Button
             variant="ghost"
             size="sm"
-            className={cn("rounded-full text-xs font-medium tracking-wide transition-colors duration-300", isScrolled ? "text-muted-foreground" : "text-white/80")}
+            className={cn(
+              "rounded-full text-xs font-medium tracking-wide transition-colors duration-300",
+              isScrolled ? "text-muted-foreground" : "text-white/80",
+            )}
             render={<Link href="/admin" />}
           >
             <LockKeyhole className="size-3.5" />
@@ -99,7 +105,14 @@ export function SiteHeader() {
 
         {/* Mobile Menu Trigger */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-          <SheetTrigger className={cn("flex md:hidden rounded-lg p-2 transition-colors duration-300", isScrolled ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/10")}>
+          <SheetTrigger
+            className={cn(
+              "flex md:hidden rounded-lg p-2 transition-colors duration-300",
+              isScrolled
+                ? "text-foreground hover:bg-muted"
+                : "text-white hover:bg-white/10",
+            )}
+          >
             <Menu className="size-5" />
             <span className="sr-only">Open menu</span>
           </SheetTrigger>

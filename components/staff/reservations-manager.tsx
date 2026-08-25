@@ -2,7 +2,16 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Phone, Check, Armchair, X, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react"
+import {
+  Search,
+  Phone,
+  Check,
+  Armchair,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+} from "lucide-react"
 import { toast } from "sonner"
 import { type ReservationStatus } from "@/lib/data"
 import {
@@ -105,7 +114,9 @@ export function ReservationsManager({
         setLoadingDate(false)
       }
     })
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [currentDate])
 
   function navigateToDate(date: string) {
@@ -127,22 +138,36 @@ export function ReservationsManager({
 
   async function assignTable(id: string, tableLabel: string) {
     const nextLabel = tableLabel || undefined
-    const previous = reservations.find((reservation) => reservation.id === id)?.tableLabel
+    const previous = reservations.find(
+      (reservation) => reservation.id === id,
+    )?.tableLabel
     setAssigningId(id)
-    setReservations((current) => current.map((reservation) => (
-      reservation.id === id ? { ...reservation, tableLabel: nextLabel } : reservation
-    )))
+    setReservations((current) =>
+      current.map((reservation) =>
+        reservation.id === id
+          ? { ...reservation, tableLabel: nextLabel }
+          : reservation,
+      ),
+    )
 
     const { error } = await assignReservationTable(id, tableLabel || null)
     setAssigningId(null)
     if (error) {
-      setReservations((current) => current.map((reservation) => (
-        reservation.id === id ? { ...reservation, tableLabel: previous } : reservation
-      )))
+      setReservations((current) =>
+        current.map((reservation) =>
+          reservation.id === id
+            ? { ...reservation, tableLabel: previous }
+            : reservation,
+        ),
+      )
       toast.error(error)
       return
     }
-    toast.success(tableLabel ? `Assigned to Table ${tableLabel}` : "Table assignment cleared")
+    toast.success(
+      tableLabel
+        ? `Assigned to Table ${tableLabel}`
+        : "Table assignment cleared",
+    )
   }
 
   async function updateStatus(id: string, status: ReservationStatus) {
@@ -164,9 +189,7 @@ export function ReservationsManager({
       // Roll back optimistic update
       setReservations((prev) =>
         prev.map((r) =>
-          r.id === id
-            ? { ...r, status: previous ?? r.status }
-            : r,
+          r.id === id ? { ...r, status: previous ?? r.status } : r,
         ),
       )
       return
@@ -174,7 +197,9 @@ export function ReservationsManager({
     toast.success(`Reservation ${labels[status]}`, {
       action: {
         label: "Undo",
-        onClick: () => { void undoStatus(id, status) },
+        onClick: () => {
+          void undoStatus(id, status)
+        },
       },
     })
   }
@@ -190,9 +215,13 @@ export function ReservationsManager({
       toast.error("Undo failed", { description: result.error })
       return
     }
-    setReservations((prev) => prev.map((r) => (
-      r.id === id ? { ...r, status: result.restoredStatus as ReservationStatus } : r
-    )))
+    setReservations((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? { ...r, status: result.restoredStatus as ReservationStatus }
+          : r,
+      ),
+    )
     toast.success(`Restored to ${result.restoredStatus.replace("_", " ")}`)
   }
 
@@ -277,7 +306,12 @@ export function ReservationsManager({
         </div>
       </div>
 
-      <div className={cn("mt-4 overflow-hidden rounded-xl border border-border bg-card transition-opacity", loadingDate && "opacity-50 pointer-events-none")}>
+      <div
+        className={cn(
+          "mt-4 overflow-hidden rounded-xl border border-border bg-card transition-opacity",
+          loadingDate && "opacity-50 pointer-events-none",
+        )}
+      >
         {/* Header row (desktop) */}
         <div className="hidden grid-cols-[80px_1fr_120px_120px_140px] gap-4 border-b border-border bg-secondary/50 px-5 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid">
           <span>Time</span>
@@ -313,7 +347,9 @@ export function ReservationsManager({
                   ) : null}
                 </div>
                 <span className="text-sm">
-                  <span className="md:hidden text-muted-foreground">Party: </span>
+                  <span className="md:hidden text-muted-foreground">
+                    Party:{" "}
+                  </span>
                   {r.partySize} guests
                 </span>
                 <TableAssignment
@@ -324,10 +360,7 @@ export function ReservationsManager({
                 />
                 <div className="flex items-center justify-between gap-2 md:justify-start">
                   <ReservationStatusBadge status={r.status} />
-                  <ReservationActions
-                    reservation={r}
-                    onUpdate={updateStatus}
-                  />
+                  <ReservationActions reservation={r} onUpdate={updateStatus} />
                 </div>
               </li>
             ))
@@ -352,16 +385,21 @@ function TableAssignment({
   assigning: boolean
   onAssign: (id: string, tableLabel: string) => void
 }) {
-  const selectableTables = tables.filter((table) => (
-    table.status === "available" || table.label === reservation.tableLabel
-  ))
+  const selectableTables = tables.filter(
+    (table) =>
+      table.status === "available" || table.label === reservation.tableLabel,
+  )
 
   return (
     <label className="flex items-center gap-2 text-sm">
       <span className="sr-only">Assign table for {reservation.guestName}</span>
       <select
         value={reservation.tableLabel ?? ""}
-        disabled={assigning || reservation.status === "cancelled" || reservation.status === "completed"}
+        disabled={
+          assigning ||
+          reservation.status === "cancelled" ||
+          reservation.status === "completed"
+        }
         onChange={(event) => onAssign(reservation.id, event.target.value)}
         className="h-9 min-w-28 rounded-md border border-border bg-background px-2 text-sm font-medium outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
         aria-label={`Assign table for ${reservation.guestName}`}
@@ -369,11 +407,17 @@ function TableAssignment({
         <option value="">Unassigned</option>
         {selectableTables.map((table) => (
           <option key={table.id} value={table.label}>
-            Table {table.groupLabel ?? table.label} · {table.seats} seats{table.status !== "available" ? ` · ${table.status}` : ""}
+            Table {table.groupLabel ?? table.label} · {table.seats} seats
+            {table.status !== "available" ? ` · ${table.status}` : ""}
           </option>
         ))}
       </select>
-      {assigning ? <RefreshCw className="size-3.5 animate-spin text-muted-foreground" aria-hidden="true" /> : null}
+      {assigning ? (
+        <RefreshCw
+          className="size-3.5 animate-spin text-muted-foreground"
+          aria-hidden="true"
+        />
+      ) : null}
     </label>
   )
 }

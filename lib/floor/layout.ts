@@ -52,9 +52,9 @@ function isCellTaken(cell: FloorCell, occupied: FloorCell[]): boolean {
  * `tables.x/y` default to 0 and older creates always wrote the origin.
  * Unique cells are kept; collisions prefer the seed cell for that label.
  */
-export function spreadOverlappingTables<T extends FloorCell & { id: string; label: string }>(
-  tables: T[],
-): T[] {
+export function spreadOverlappingTables<
+  T extends FloorCell & { id: string; label: string },
+>(tables: T[]): T[] {
   if (tables.length <= 1) return tables
 
   const groups = new Map<string, T[]>()
@@ -79,7 +79,9 @@ export function spreadOverlappingTables<T extends FloorCell & { id: string; labe
   const colliding = [...groups.values()]
     .filter((group) => group.length > 1)
     .flat()
-    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+    .sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { numeric: true }),
+    )
 
   for (const table of colliding) {
     const seed = SEED_FLOOR_LAYOUT[table.label]
@@ -105,9 +107,18 @@ export function nextFreeCell(occupied: FloorCell[]): FloorCell {
   return { x: 0, y: FLOOR_MAX_ROWS - 1 }
 }
 
-export function floorCanvasCells(tables: FloorCell[]): { cols: number; rows: number } {
-  const maxX = tables.reduce((max, table) => Math.max(max, table.x), FLOOR_MIN_COLS - 1)
-  const maxY = tables.reduce((max, table) => Math.max(max, table.y), FLOOR_MIN_ROWS - 1)
+export function floorCanvasCells(tables: FloorCell[]): {
+  cols: number
+  rows: number
+} {
+  const maxX = tables.reduce(
+    (max, table) => Math.max(max, table.x),
+    FLOOR_MIN_COLS - 1,
+  )
+  const maxY = tables.reduce(
+    (max, table) => Math.max(max, table.y),
+    FLOOR_MIN_ROWS - 1,
+  )
   return {
     cols: Math.min(FLOOR_MAX_COLS, Math.max(FLOOR_MIN_COLS, maxX + 2)),
     rows: Math.min(FLOOR_MAX_ROWS, Math.max(FLOOR_MIN_ROWS, maxY + 2)),
@@ -132,7 +143,8 @@ export function tableAtCell<T extends FloorCell & { id: string }>(
 ): T | null {
   return (
     tables.find(
-      (table) => table.id !== ignoreId && table.x === cell.x && table.y === cell.y,
+      (table) =>
+        table.id !== ignoreId && table.x === cell.x && table.y === cell.y,
     ) ?? null
   )
 }

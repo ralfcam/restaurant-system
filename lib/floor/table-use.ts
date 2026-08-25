@@ -14,7 +14,8 @@ export const EXPECTED_MINUTES_STEP = 15
 
 export function clampExpectedMinutes(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_EXPECTED_MINUTES
-  const stepped = Math.round(value / EXPECTED_MINUTES_STEP) * EXPECTED_MINUTES_STEP
+  const stepped =
+    Math.round(value / EXPECTED_MINUTES_STEP) * EXPECTED_MINUTES_STEP
   return Math.max(MIN_EXPECTED_MINUTES, Math.min(MAX_EXPECTED_MINUTES, stepped))
 }
 
@@ -22,7 +23,9 @@ export function defaultMergeExpectedMinutes(
   tables: Array<{ expectedMinutes: number }>,
 ): number {
   if (tables.length === 0) return DEFAULT_EXPECTED_MINUTES
-  return clampExpectedMinutes(Math.max(...tables.map((table) => table.expectedMinutes)))
+  return clampExpectedMinutes(
+    Math.max(...tables.map((table) => table.expectedMinutes)),
+  )
 }
 
 export function mergeSeatCapacity(tables: Array<{ seats: number }>): number {
@@ -31,13 +34,17 @@ export function mergeSeatCapacity(tables: Array<{ seats: number }>): number {
 
 export function mergeLabel(tables: Array<{ label: string }>): string {
   return [...tables]
-    .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+    .sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { numeric: true }),
+    )
     .map((table) => table.label)
     .join("+")
 }
 
 export function mergeExpiresAt(from: Date, expectedMinutes: number): Date {
-  return new Date(from.getTime() + clampExpectedMinutes(expectedMinutes) * 60_000)
+  return new Date(
+    from.getTime() + clampExpectedMinutes(expectedMinutes) * 60_000,
+  )
 }
 
 export function isMergeExpired(expiresAt: Date | string, now: Date): boolean {
@@ -78,7 +85,8 @@ export function canAddTablesToMerge(
   if (merge.status !== "available") {
     return "Only available arrangements can take another table."
   }
-  if (newcomers.length === 0) return "A selected table is already in an arrangement."
+  if (newcomers.length === 0)
+    return "A selected table is already in an arrangement."
   if (newcomers.some((table) => table.mergeId)) {
     return "A selected table is already in an arrangement."
   }
@@ -97,7 +105,10 @@ export function shouldExpireMerge(
 }
 
 export function remainingMinutes(expiresAt: string | Date, now: Date): number {
-  return Math.max(0, Math.ceil((new Date(expiresAt).getTime() - now.getTime()) / 60_000))
+  return Math.max(
+    0,
+    Math.ceil((new Date(expiresAt).getTime() - now.getTime()) / 60_000),
+  )
 }
 
 export function formatDurationMinutes(minutes: number): string {
@@ -117,7 +128,9 @@ export function labelsInSameMerge(
   if (!table?.id) return [label]
   const merge = merges.find((row) => row.tableIds.includes(table.id as string))
   if (!merge) return [label]
-  const members = tables.filter((row) => row.id && merge.tableIds.includes(row.id))
+  const members = tables.filter(
+    (row) => row.id && merge.tableIds.includes(row.id),
+  )
   return members.length >= 2 ? members.map((row) => row.label) : [label]
 }
 

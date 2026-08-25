@@ -12,49 +12,48 @@ import {
   wasSessionTriggered,
   markSessionTriggered,
   DELEGATE_INSTRUCTION,
-} from './lib/docs-sync-policy.mjs';
+} from "./lib/docs-sync-policy.mjs"
 
 function main() {
   try {
-    const input = readStdinJson();
-    const status = input.status;
+    const input = readStdinJson()
+    const status = input.status
     const conversationId =
-      input.conversation_id ?? input.session_id ?? 'unknown';
+      input.conversation_id ?? input.session_id ?? "unknown"
 
-    if (status !== 'completed') {
-      writeStdoutJson({});
-      return;
+    if (status !== "completed") {
+      writeStdoutJson({})
+      return
     }
 
     if (wasSessionTriggered(conversationId)) {
-      writeStdoutJson({});
-      return;
+      writeStdoutJson({})
+      return
     }
 
-    const committed = headChangedFiles();
-    const uncommitted = uncommittedImplPaths();
-    const shouldSync =
-      needsDocsSync(committed) || uncommitted.length > 0;
+    const committed = headChangedFiles()
+    const uncommitted = uncommittedImplPaths()
+    const shouldSync = needsDocsSync(committed) || uncommitted.length > 0
 
     if (!shouldSync) {
-      writeStdoutJson({});
-      return;
+      writeStdoutJson({})
+      return
     }
 
-    markSessionTriggered(conversationId);
+    markSessionTriggered(conversationId)
 
     const scope =
       uncommitted.length > 0 && !needsDocsSync(committed)
-        ? 'uncommitted implementation changes'
-        : 'HEAD';
+        ? "uncommitted implementation changes"
+        : "HEAD"
 
     writeStdoutJson({
       followup_message: `${DELEGATE_INSTRUCTION} Scope: ${scope}.`,
-    });
+    })
   } catch (err) {
-    console.error('[stop-docs-sync hook]', err);
-    writeStdoutJson({});
+    console.error("[stop-docs-sync hook]", err)
+    writeStdoutJson({})
   }
 }
 
-main();
+main()

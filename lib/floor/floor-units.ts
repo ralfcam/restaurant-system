@@ -3,7 +3,10 @@
  */
 
 import type { TableStatus } from "@/lib/data"
-import type { AssignableTable, FloorTableView } from "@/lib/reservations/auto-assign"
+import type {
+  AssignableTable,
+  FloorTableView,
+} from "@/lib/reservations/auto-assign"
 import {
   mergeLabel,
   mergeSeatCapacity,
@@ -31,15 +34,23 @@ export type FloorMergeView = {
   memberLabels: string[]
 }
 
-export type FloorTableWithMerge<T extends AssignableTable = AssignableTable> = FloorTableView<T> & {
-  merge: FloorMergeView | null
-}
+export type FloorTableWithMerge<T extends AssignableTable = AssignableTable> =
+  FloorTableView<T> & {
+    merge: FloorMergeView | null
+  }
 
 export function buildMergeView(
   merge: TableMergeRef,
-  tables: Array<{ id?: string; label: string; seats: number; status: TableStatus }>,
+  tables: Array<{
+    id?: string
+    label: string
+    seats: number
+    status: TableStatus
+  }>,
 ): FloorMergeView | null {
-  const members = tables.filter((table) => table.id && merge.tableIds.includes(table.id))
+  const members = tables.filter(
+    (table) => table.id && merge.tableIds.includes(table.id),
+  )
   if (members.length < 2) return null
   return {
     id: merge.id,
@@ -61,7 +72,11 @@ export function toAssignableTables<T extends AssignableTable>(
   tables: T[],
   merges: TableMergeRef[],
 ): T[] {
-  const byId = new Map(tables.filter((table) => table.id).map((table) => [table.id as string, table]))
+  const byId = new Map(
+    tables
+      .filter((table) => table.id)
+      .map((table) => [table.id as string, table]),
+  )
   const consumed = new Set<string>()
   const collapsed: T[] = []
 
@@ -69,7 +84,9 @@ export function toAssignableTables<T extends AssignableTable>(
     const members = merge.tableIds
       .map((id) => byId.get(id))
       .filter((table): table is T => Boolean(table))
-      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+      .sort((a, b) =>
+        a.label.localeCompare(b.label, undefined, { numeric: true }),
+      )
     if (members.length < 2) continue
     for (const member of members) {
       if (member.id) consumed.add(member.id)
@@ -86,7 +103,9 @@ export function toAssignableTables<T extends AssignableTable>(
     collapsed.push(table)
   }
 
-  return collapsed.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }))
+  return collapsed.sort((a, b) =>
+    a.label.localeCompare(b.label, undefined, { numeric: true }),
+  )
 }
 
 export function attachMergesToTables<T extends AssignableTable>(
@@ -102,15 +121,17 @@ export function attachMergesToTables<T extends AssignableTable>(
 
   return tables.map((table) => {
     const merge = table.id
-      ? [...views.values()].find((view) => view.memberIds.includes(table.id as string)) ?? null
+      ? ([...views.values()].find((view) =>
+          view.memberIds.includes(table.id as string),
+        ) ?? null)
       : null
     return { ...table, merge }
   })
 }
 
-export function groupTablesForDisplay<T extends { id?: string; merge?: FloorMergeView | null }>(
-  tables: T[],
-): Array<{ mergeId: string | null; tables: T[] }> {
+export function groupTablesForDisplay<
+  T extends { id?: string; merge?: FloorMergeView | null },
+>(tables: T[]): Array<{ mergeId: string | null; tables: T[] }> {
   const groups: Array<{ mergeId: string | null; tables: T[] }> = []
   const seen = new Set<string>()
 

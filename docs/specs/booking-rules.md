@@ -80,16 +80,16 @@ the route locale. An in-widget language toggle is out of scope.
 
 ## Implementation trace (non-normative)
 
-| Criterion | Shipped in | Tests |
-| --- | --- | --- |
-| BW-1 | `lib/reservations/operating-hours.ts` — `assignSegmentForTime` | `tests/unit/reservations/operating-hours.test.ts` |
-| BW-2 | same — `slotUntilTime`, `wrapMinutesOfDay` | same — `slotUntilTime` |
-| BW-3 | same — `clampSlotIntervalMinutes` | same — `clampSlotIntervalMinutes` |
-| BW-4 | same — `groupBookableSlots` | same — `groupBookableSlots` |
-| BW-5 | `app/actions/reservations.ts` — `getAvailableSlots` | `tests/unit/reservations/available-slots.test.ts` |
-| BW-6 | `components/site/reservation-widget.tsx` | `tests/unit/reservation-widget/segment-groups.test.ts` |
-| BW-7 | same | same (Réserver gate) |
-| BW-8 | same; `messages/en.json`, `messages/fr.json` | `tests/unit/reservation-widget/chrome-i18n.test.ts`, `tests/unit/i18n/messages-parity.test.ts` |
+| Criterion | Shipped in                                                     | Tests                                                                                          |
+| --------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| BW-1      | `lib/reservations/operating-hours.ts` — `assignSegmentForTime` | `tests/unit/reservations/operating-hours.test.ts`                                              |
+| BW-2      | same — `slotUntilTime`, `wrapMinutesOfDay`                     | same — `slotUntilTime`                                                                         |
+| BW-3      | same — `clampSlotIntervalMinutes`                              | same — `clampSlotIntervalMinutes`                                                              |
+| BW-4      | same — `groupBookableSlots`                                    | same — `groupBookableSlots`                                                                    |
+| BW-5      | `app/actions/reservations.ts` — `getAvailableSlots`            | `tests/unit/reservations/available-slots.test.ts`                                              |
+| BW-6      | `components/site/reservation-widget.tsx`                       | `tests/unit/reservation-widget/segment-groups.test.ts`                                         |
+| BW-7      | same                                                           | same (Réserver gate)                                                                           |
+| BW-8      | same; `messages/en.json`, `messages/fr.json`                   | `tests/unit/reservation-widget/chrome-i18n.test.ts`, `tests/unit/i18n/messages-parity.test.ts` |
 
 ## References
 

@@ -37,8 +37,8 @@ performed. There is no execution phase and no `linear-resolver` delegation.
 
 Hub walk: `docs/specs/README.md` → owning spec
 `docs/specs/domains/<domain>/index.md` → owning spec. Named-symbol
-write-sets go through `Grep/Read` per
-[.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc) (Grep/Read first
+write-sets go through `codegraph_explore` per
+[.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc) (Grep/Read first
 for specs, SQL, fixtures; graph for unique TS/TSX symbols).
 
 Permission to Fail: if you cannot reach Linear, resolve a spec owner, or
@@ -77,11 +77,11 @@ before picking anything.
    - `list_issues` for **Todo** (background candidates) and for open **Urgent**
      and **High** (local lane)
    - `list_issues({ project, fields: ["projectMilestone", "statusType",
-     "status", "priority", "estimate", "labels", "title"] })` for milestone
+"status", "priority", "estimate", "labels", "title"] })` for milestone
      membership. There is no milestone filter param on `list_issues` — group
      client-side by `projectMilestone`.
-   Capture `id`, `title`, `priority`, `state`, `labels`, `estimate`, `project`,
-   `projectMilestone`, `statusType`, parent/relations on every issue read.
+     Capture `id`, `title`, `priority`, `state`, `labels`, `estimate`, `project`,
+     `projectMilestone`, `statusType`, parent/relations on every issue read.
 3. Confirm current git branch (`git branch --show-current`) so the local-lane
    recipe can say "stay on this `staging` checkout" or warn if the operator
    is not on `staging`.
@@ -101,7 +101,7 @@ Open `statusType` values: `backlog`, `unstarted`, `started`.
 
 ### Classification
 
-- **Complete** — `progress === 100` *and* no member issue has an open
+- **Complete** — `progress === 100` _and_ no member issue has an open
   `statusType`. Excluded from ranking.
 - **Canceled** — the milestone has member issues and every one has
   `statusType === "canceled"`. Excluded.
@@ -124,7 +124,7 @@ member-issue text, and `blocks` relations:
   gates that can block GA are launch-critical even when they sit late in
   `sortOrder` and depend on nothing.
 - **Deferred / post-launch signal** — the description declares itself
-  non-launch-blocking, *and* it carries no gate signal, *and* nothing in it
+  non-launch-blocking, _and_ it carries no gate signal, _and_ nothing in it
   blocks another milestone.
 - Neither signal present: **unclassified**. Ranked by the ordinal rules;
   never auto-demoted to deferred.
@@ -179,10 +179,10 @@ unestimated):
    - authorization: RLS policy, cron authorization, permission helpers
    - irreversible or destructive data operations (hard deletes, destructive
      migrations, irreversible bulk updates)
-   Anything else — pricing and quoting included — is background-eligible on
-   this bullet. Adding a surface is a deliberate edit to this list with a
-   reason, not a judgment call at dispatch time. A mis-prioritized P0 still
-   drops when its surface is listed. Cite `auth-RLS-FSM` as the drop reason.
+     Anything else — pricing and quoting included — is background-eligible on
+     this bullet. Adding a surface is a deliberate edit to this list with a
+     reason, not a judgment call at dispatch time. A mis-prioritized P0 still
+     drops when its surface is listed. Cite `auth-RLS-FSM` as the drop reason.
 3. Drop anything that is not **unit-decidable** (needs integration, e2e, or
    deployed).
 
@@ -212,13 +212,13 @@ graph result may **add** files to that scope; it may never **subtract** them.
   refine down to the suites the body happens to name by title.
 - Declared code pattern ("suites that still hand-roll `from()`") → Grep the
   pattern. This is a fixture/lexical hunt: per
-  [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc) a symbol blast
+  [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc) a symbol blast
   cannot answer it.
 - Named TS/TSX symbols in the owning spec's implementation trace →
-  `Grep/Read` (blast / callers), then Grep any production file the
+  `codegraph_explore` (blast / callers), then Grep any production file the
   first call missed.
 - Truncated blast list → raise `maxFiles`, narrow the query, or Grep the miss
-  (Grep/Read). `cannot verify` only after those fail, and the card records
+  ([.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc)). `cannot verify` only after those fail, and the card records
   what was tried.
 
 Keep an issue on the background list only when its write-set is **disjoint**
@@ -236,7 +236,7 @@ Never Task a `tdd-*` agent. Never `save_issue`. Never `git switch`, never
 Output the dispatch card (see output_format). Each background item includes
 issue, owning spec path, write-set files or `cannot verify`, and the
 **corrected** worktree recipe below (never `git switch -c` — that would move
-*this* worktree off `staging` and drag a dirty tree).
+_this_ worktree off `staging` and drag a dirty tree).
 
 Then stop. Do not create todos. Do not run `/sdd-to-tdd`.
 
@@ -340,7 +340,7 @@ command does not invent an identity or open a spawn door:
 3. Hub-walk every candidate. Apply eligibility. Drop `cannot verify`.
    Milestone rank does not reopen a dropped candidate.
 4. Pick local lane (top Urgent/High, stay on `staging`; same-priority order
-   uses milestone rank). Compute write-sets with `Grep/Read` / Grep.
+   uses milestone rank). Compute write-sets with `codegraph_explore` / Grep.
    Select 1–3 disjoint background items; milestone rank is the tiebreaker
    among equally-eligible disjoint sets.
 5. Emit the card with pasteable recipes. No writes, no todos, no TDD.

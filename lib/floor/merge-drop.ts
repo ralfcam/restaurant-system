@@ -61,7 +61,9 @@ export function canDragFloorTable(table: MergeDropTable): boolean {
 export function resolveSplitDrop(
   sourceId: string,
   tables: MergeDropTable[],
-): { mergeId: string; error?: undefined } | { mergeId?: undefined; error: string } {
+):
+  | { mergeId: string; error?: undefined }
+  | { mergeId?: undefined; error: string } {
   const source = tables.find((table) => table.id === sourceId)
   if (!source) return { error: "Tables not found." }
   const mergeId = arrangementId(source)
@@ -111,7 +113,11 @@ export function resolveMergeDrop(
 
   if (involved.length !== wanted.size) return { error: "Tables not found." }
 
-  if (involved.some((table) => table.reservation || floorStatus(table) !== "available")) {
+  if (
+    involved.some(
+      (table) => table.reservation || floorStatus(table) !== "available",
+    )
+  ) {
     return { error: "Only available tables can be merged." }
   }
 

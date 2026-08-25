@@ -30,7 +30,8 @@ import { join } from "node:path"
 
 const AGENTS_DIR = join(".cursor", "agents")
 
-const LINEAR_WRITE_PATTERN = /\bsave_comment\b|\bsave_issue\b|\bsave_document\b|plugin-linear-linear/i
+const LINEAR_WRITE_PATTERN =
+  /\bsave_comment\b|\bsave_issue\b|\bsave_document\b|plugin-linear-linear/i
 
 export function readStdinJson() {
   try {
@@ -84,5 +85,8 @@ export function detectGeneralPurposeLinearWrite(subagentType, prompt) {
 
 /** Runs both detectors; returns the first hit or null. */
 export function checkTaskDelegation({ subagentType, model, prompt }) {
-  return detectModelOverride(subagentType, model) ?? detectGeneralPurposeLinearWrite(subagentType, prompt)
+  return (
+    detectModelOverride(subagentType, model) ??
+    detectGeneralPurposeLinearWrite(subagentType, prompt)
+  )
 }

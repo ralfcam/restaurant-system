@@ -29,7 +29,11 @@ const CHROME_LEAF_KEYS = [
 function reservationWidgetLeaves(catalog: unknown): Record<string, string> {
   const root = catalog as Record<string, unknown>
   const namespace = root.reservationWidget
-  if (namespace === null || typeof namespace !== "object" || Array.isArray(namespace)) {
+  if (
+    namespace === null ||
+    typeof namespace !== "object" ||
+    Array.isArray(namespace)
+  ) {
     return {}
   }
 

@@ -12,7 +12,10 @@ test("harness-lint.mjs exists and exits 0 on this tree", () => {
 })
 
 test("task-fanout.mdc pins the same cap as the policy constant", () => {
-  const rule = readFileSync(join(process.cwd(), ".cursor", "rules", "task-fanout.mdc"), "utf8")
+  const rule = readFileSync(
+    join(process.cwd(), ".cursor", "rules", "task-fanout.mdc"),
+    "utf8",
+  )
   const policy = readFileSync(
     join(process.cwd(), ".cursor", "hooks", "lib", "task-fanout-policy.mjs"),
     "utf8",

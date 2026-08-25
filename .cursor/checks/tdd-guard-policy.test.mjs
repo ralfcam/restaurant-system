@@ -17,10 +17,30 @@ import {
 } from "../hooks/lib/tdd-guard-policy.mjs"
 import { TASK_FANOUT_INFLIGHT_CAP } from "../hooks/lib/task-fanout-policy.mjs"
 
-const hooks = JSON.parse(readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"))
-const FANOUT_STATE = join(process.cwd(), ".cursor", "hooks", "state", "task-fanout.json")
-const TDD_STATE = join(process.cwd(), ".cursor", "hooks", "state", "tdd-guard.json")
-const REPEAT_STATE = join(process.cwd(), ".cursor", "hooks", "state", "repeat-tool.json")
+const hooks = JSON.parse(
+  readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
+)
+const FANOUT_STATE = join(
+  process.cwd(),
+  ".cursor",
+  "hooks",
+  "state",
+  "task-fanout.json",
+)
+const TDD_STATE = join(
+  process.cwd(),
+  ".cursor",
+  "hooks",
+  "state",
+  "tdd-guard.json",
+)
+const REPEAT_STATE = join(
+  process.cwd(),
+  ".cursor",
+  "hooks",
+  "state",
+  "repeat-tool.json",
+)
 // Cursor reports tool_name "Write" for a StrReplace call, and carries the target
 // in tool_input.path — both observed from a live armed preToolUse denial.
 const WRITE_LIB_BILLING =
@@ -42,7 +62,10 @@ function hookByCommand(event, needle) {
 
 function runGuard(scriptName, payload, extraArgs = []) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [join(process.cwd(), ".cursor", "hooks", scriptName), ...extraArgs])
+    const child = spawn(process.execPath, [
+      join(process.cwd(), ".cursor", "hooks", scriptName),
+      ...extraArgs,
+    ])
     let out = ""
     let err = ""
     child.stdout.on("data", (d) => {
@@ -78,7 +101,10 @@ test("hooks.json has exactly one failClosed Shell hook (git-stage-guard)", () =>
 })
 
 test("git-stage-guard.mjs wires both blanket-stage and gh pr merge detectors", () => {
-  const src = readFileSync(join(process.cwd(), ".cursor", "hooks", "git-stage-guard.mjs"), "utf8")
+  const src = readFileSync(
+    join(process.cwd(), ".cursor", "hooks", "git-stage-guard.mjs"),
+    "utf8",
+  )
   assert.match(src, /detectGhPrMerge/)
   assert.match(src, /detectBlanketGitStage/)
 })
@@ -125,9 +151,18 @@ test("green and refactor deny tests/ and allow lib/", () => {
 })
 
 test("spec guard denies docs/specs/** while a TDD phase is set", () => {
-  const deny = checkTddWrite("docs/specs/REQ-001.md", { depth: 1, phase: "green" })
-  const allowParent = checkTddWrite("docs/specs/REQ-001.md", { depth: 0, phase: null })
-  const allowDuringStart = checkTddWrite("docs/specs/REQ-001.md", { depth: 1, phase: null })
+  const deny = checkTddWrite("docs/specs/REQ-001.md", {
+    depth: 1,
+    phase: "green",
+  })
+  const allowParent = checkTddWrite("docs/specs/REQ-001.md", {
+    depth: 0,
+    phase: null,
+  })
+  const allowDuringStart = checkTddWrite("docs/specs/REQ-001.md", {
+    depth: 1,
+    phase: null,
+  })
   assert.equal(deny?.kind, "spec")
   assert.equal(allowParent, null)
   assert.equal(allowDuringStart, null)
@@ -143,10 +178,16 @@ test("repeat-tool-reminder is fail-open on both events", () => {
   assert.match(fail.command, /--failure/)
 })
 
-const BLANKET_ADD = JSON.stringify({ tool_name: "Shell", tool_input: { command: "git add -A" } })
+const BLANKET_ADD = JSON.stringify({
+  tool_name: "Shell",
+  tool_input: { command: "git add -A" },
+})
 
 test("git-stage-guard denies a BOM-prefixed blanket git add", async () => {
-  const { code, out } = await runGuard("git-stage-guard.mjs", "\uFEFF" + BLANKET_ADD)
+  const { code, out } = await runGuard(
+    "git-stage-guard.mjs",
+    "\uFEFF" + BLANKET_ADD,
+  )
   assert.equal(code, 0)
   assert.equal(JSON.parse(out).permission, "deny")
 })
@@ -158,28 +199,51 @@ test("git-stage-guard denies the same blanket git add without a BOM", async () =
 })
 
 test("git-stage-guard allows a BOM-prefixed ordinary git status", async () => {
-  const payload = "\uFEFF" + JSON.stringify({ tool_name: "Shell", tool_input: { command: "git status" } })
+  const payload =
+    "\uFEFF" +
+    JSON.stringify({
+      tool_name: "Shell",
+      tool_input: { command: "git status" },
+    })
   const { code, out } = await runGuard("git-stage-guard.mjs", payload)
   assert.equal(code, 0)
   assert.deepEqual(JSON.parse(out), {})
 })
 
 test("task-fanout-guard denies a BOM-prefixed Task when at cap", async () => {
-  const prior = existsSync(FANOUT_STATE) ? readFileSync(FANOUT_STATE, "utf8") : null
+  const prior = existsSync(FANOUT_STATE)
+    ? readFileSync(FANOUT_STATE, "utf8")
+    : null
   try {
     const now = Date.now()
-    const reservations = Array.from({ length: TASK_FANOUT_INFLIGHT_CAP }, () => ({
-      status: "pending",
-      ts: now,
-    }))
-    writeFileSync(FANOUT_STATE, JSON.stringify({ reservations }, null, 2), "utf8")
+    const reservations = Array.from(
+      { length: TASK_FANOUT_INFLIGHT_CAP },
+      () => ({
+        status: "pending",
+        ts: now,
+      }),
+    )
+    writeFileSync(
+      FANOUT_STATE,
+      JSON.stringify({ reservations }, null, 2),
+      "utf8",
+    )
     const payload =
-      "\uFEFF" + JSON.stringify({ tool_name: "Task", tool_input: { description: "x", prompt: "y" } })
+      "\uFEFF" +
+      JSON.stringify({
+        tool_name: "Task",
+        tool_input: { description: "x", prompt: "y" },
+      })
     const { code, out } = await runGuard("task-fanout-guard.mjs", payload)
     assert.equal(code, 0)
     assert.equal(JSON.parse(out).permission, "deny")
   } finally {
-    if (prior === null) writeFileSync(FANOUT_STATE, JSON.stringify({ reservations: [] }, null, 2), "utf8")
+    if (prior === null)
+      writeFileSync(
+        FANOUT_STATE,
+        JSON.stringify({ reservations: [] }, null, 2),
+        "utf8",
+      )
     else writeFileSync(FANOUT_STATE, prior, "utf8")
   }
 })
@@ -187,11 +251,20 @@ test("task-fanout-guard denies a BOM-prefixed Task when at cap", async () => {
 // Captured at import, before any test writes, so the restore is independent of
 // how the subtests interleave. A per-test capture can read another test's
 // scratch state and write it back, stranding the operator with an ARMED guard.
-const TDD_STATE_PRIOR = existsSync(TDD_STATE) ? readFileSync(TDD_STATE, "utf8") : null
-const TDD_STATE_DISARMED = JSON.stringify({ armed: false, depth: 0, phase: null, loopRan: false }, null, 2)
-const REPEAT_STATE_PRIOR = existsSync(REPEAT_STATE) ? readFileSync(REPEAT_STATE, "utf8") : null
+const TDD_STATE_PRIOR = existsSync(TDD_STATE)
+  ? readFileSync(TDD_STATE, "utf8")
+  : null
+const TDD_STATE_DISARMED = JSON.stringify(
+  { armed: false, depth: 0, phase: null, loopRan: false },
+  null,
+  2,
+)
+const REPEAT_STATE_PRIOR = existsSync(REPEAT_STATE)
+  ? readFileSync(REPEAT_STATE, "utf8")
+  : null
 const REPEAT_STATE_EMPTY = JSON.stringify({ chains: {} }, null, 2)
-const FIRST_REMINDER_TEXT = "You are repeating the exact same tool call with identical arguments"
+const FIRST_REMINDER_TEXT =
+  "You are repeating the exact same tool call with identical arguments"
 
 function writeTddState(state) {
   writeFileSync(TDD_STATE, JSON.stringify(state, null, 2), "utf8")
@@ -201,10 +274,15 @@ function readTddState() {
   return JSON.parse(readFileSync(TDD_STATE, "utf8"))
 }
 
-const GIT_COMMIT = JSON.stringify({ tool_name: "Shell", tool_input: { command: "git commit -m msg" } })
+const GIT_COMMIT = JSON.stringify({
+  tool_name: "Shell",
+  tool_input: { command: "git commit -m msg" },
+})
 
 describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
-  after(() => writeFileSync(TDD_STATE, TDD_STATE_PRIOR ?? TDD_STATE_DISARMED, "utf8"))
+  after(() =>
+    writeFileSync(TDD_STATE, TDD_STATE_PRIOR ?? TDD_STATE_DISARMED, "utf8"),
+  )
 
   test("detectGitCommit matches any git commit and chained invocations", () => {
     assert.equal(detectGitCommit("git commit -m msg").kind, "commit")
@@ -238,7 +316,10 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
 
   test("git-stage-guard denies a BOM-prefixed git commit when loopRan", async () => {
     writeTddState({ armed: false, depth: 0, phase: null, loopRan: true })
-    const { code, out } = await runGuard("git-stage-guard.mjs", "\uFEFF" + GIT_COMMIT)
+    const { code, out } = await runGuard(
+      "git-stage-guard.mjs",
+      "\uFEFF" + GIT_COMMIT,
+    )
     assert.equal(code, 0)
     assert.equal(JSON.parse(out).permission, "deny")
     assert.match(JSON.parse(out).user_message, /TDD loop/)
@@ -246,14 +327,20 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
 
   test("git-stage-guard allows a BOM-prefixed git commit when loopRan is false", async () => {
     writeTddState({ armed: false, depth: 0, phase: null, loopRan: false })
-    const { code, out } = await runGuard("git-stage-guard.mjs", "\uFEFF" + GIT_COMMIT)
+    const { code, out } = await runGuard(
+      "git-stage-guard.mjs",
+      "\uFEFF" + GIT_COMMIT,
+    )
     assert.equal(code, 0)
     assert.deepEqual(JSON.parse(out), {})
   })
 
   test("tdd-delegation-guard denies a BOM-prefixed Write when armed at depth 1 in red", async () => {
     writeTddState({ armed: true, depth: 1, phase: "red" })
-    const { code, out } = await runGuard("tdd-delegation-guard.mjs", WRITE_LIB_BILLING)
+    const { code, out } = await runGuard(
+      "tdd-delegation-guard.mjs",
+      WRITE_LIB_BILLING,
+    )
     assert.equal(code, 0)
     const body = JSON.parse(out)
     assert.equal(body.permission, "deny")
@@ -262,7 +349,10 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
 
   test("tdd-delegation-guard denies a BOM-prefixed Write when armed at depth 0", async () => {
     writeTddState({ armed: true, depth: 0, phase: null })
-    const { code, out } = await runGuard("tdd-delegation-guard.mjs", WRITE_LIB_BILLING)
+    const { code, out } = await runGuard(
+      "tdd-delegation-guard.mjs",
+      WRITE_LIB_BILLING,
+    )
     assert.equal(code, 0)
     const body = JSON.parse(out)
     assert.equal(body.permission, "deny")
@@ -271,7 +361,10 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
 
   test("tdd-delegation-guard allows a BOM-prefixed Write when unarmed", async () => {
     writeTddState({ armed: false, depth: 0, phase: null })
-    const { code, out } = await runGuard("tdd-delegation-guard.mjs", WRITE_LIB_BILLING)
+    const { code, out } = await runGuard(
+      "tdd-delegation-guard.mjs",
+      WRITE_LIB_BILLING,
+    )
     assert.equal(code, 0)
     assert.deepEqual(JSON.parse(out), {})
   })
@@ -311,7 +404,13 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
 })
 
 describe("repeat-tool-reminder spawn-level", { concurrency: 1 }, () => {
-  after(() => writeFileSync(REPEAT_STATE, REPEAT_STATE_PRIOR ?? REPEAT_STATE_EMPTY, "utf8"))
+  after(() =>
+    writeFileSync(
+      REPEAT_STATE,
+      REPEAT_STATE_PRIOR ?? REPEAT_STATE_EMPTY,
+      "utf8",
+    ),
+  )
 
   test("third identical BOM-prefixed postToolUse carries the first-reminder advisory", async () => {
     const conversationId = `g-spawn-coverage-${process.pid}-${Date.now()}`

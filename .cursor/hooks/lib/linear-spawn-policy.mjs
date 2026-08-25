@@ -30,11 +30,15 @@ import { isLinearServer } from "./mcp-payload.mjs"
 const CURSOR_MENTION = /@Cursor\b/i
 
 function asArgs(args) {
-  return args !== null && typeof args === "object" && !Array.isArray(args) ? args : {}
+  return args !== null && typeof args === "object" && !Array.isArray(args)
+    ? args
+    : {}
 }
 
 function mentionHit(value, field) {
-  return typeof value === "string" && CURSOR_MENTION.test(value) ? { kind: "mention", field } : null
+  return typeof value === "string" && CURSOR_MENTION.test(value)
+    ? { kind: "mention", field }
+    : null
 }
 
 function scanPatch(patch) {
@@ -55,8 +59,10 @@ export function detectLinearSpawn(server, toolName, args) {
   const a = asArgs(args)
 
   if (toolName === "save_issue") {
-    if (Object.hasOwn(a, "assignee")) return { kind: "assignee", field: "assignee" }
-    if (Object.hasOwn(a, "delegate")) return { kind: "delegate", field: "delegate" }
+    if (Object.hasOwn(a, "assignee"))
+      return { kind: "assignee", field: "assignee" }
+    if (Object.hasOwn(a, "delegate"))
+      return { kind: "delegate", field: "delegate" }
     const titleHit = mentionHit(a.title, "title")
     if (titleHit) return titleHit
     const descriptionHit = mentionHit(a.description, "description")

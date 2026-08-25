@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest"
 import { shouldRenderSiteHeader } from "@/lib/site-chrome"
 
 const flatHomepagePath = path.join(process.cwd(), "app", "page.tsx")
-const localizedHomepagePath = path.join(process.cwd(), "app", "[locale]", "page.tsx")
+const localizedHomepagePath = path.join(
+  process.cwd(),
+  "app",
+  "[locale]",
+  "page.tsx",
+)
 
 function readHomepageSource() {
   return readFileSync(localizedHomepagePath, "utf8")
@@ -16,7 +21,9 @@ describe("SiteHeader", () => {
     expect(shouldRenderSiteHeader("/")).toBe(true)
 
     const source = readHomepageSource()
-    expect(source).toMatch(/import[\s\S]*SiteHeader[\s\S]*from\s+["']@\/components\/site\/site-header["']/)
+    expect(source).toMatch(
+      /import[\s\S]*SiteHeader[\s\S]*from\s+["']@\/components\/site\/site-header["']/,
+    )
     expect(source).toMatch(/<SiteHeader\s*\/>/)
     expect(source).not.toMatch(/<header[\s\S]*?fixed top-0/)
   })

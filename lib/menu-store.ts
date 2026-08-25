@@ -1,11 +1,7 @@
 "use client"
 
 import { useSyncExternalStore } from "react"
-import {
-  MENU_ITEMS,
-  type MenuItem,
-  type MenuId,
-} from "@/lib/data"
+import { MENU_ITEMS, type MenuItem, type MenuId } from "@/lib/data"
 
 const STORAGE_KEY = "tavola.menu.v1"
 

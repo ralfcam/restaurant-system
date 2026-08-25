@@ -1,7 +1,7 @@
-"use client";
+"use client"
 
-import Image from "next/image";
-import { useLocale, useTranslations } from "next-intl";
+import Image from "next/image"
+import { useLocale, useTranslations } from "next-intl"
 import {
   Clock,
   MapPin,
@@ -10,27 +10,27 @@ import {
   CalendarCheck,
   ChefHat,
   Star,
-} from "lucide-react";
-import { RESTAURANT } from "@/lib/data";
-import NextLink from "next/link";
-import { Link } from "@/i18n/navigation";
-import { SiteHeader } from "@/components/site/site-header";
-import { ReservationWidget } from "@/components/site/reservation-widget";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import { useRestaurantHeroImage } from "@/hooks/use-restaurant-hero-image";
-import { useRestaurantInfoBar } from "@/hooks/use-restaurant-info-bar";
-import { useChefsPicks } from "@/hooks/use-chefs-picks";
-import type { MenuItemRow } from "@/app/actions/menu";
+} from "lucide-react"
+import { RESTAURANT } from "@/lib/data"
+import NextLink from "next/link"
+import { Link } from "@/i18n/navigation"
+import { SiteHeader } from "@/components/site/site-header"
+import { ReservationWidget } from "@/components/site/reservation-widget"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { useRestaurantHeroImage } from "@/hooks/use-restaurant-hero-image"
+import { useRestaurantInfoBar } from "@/hooks/use-restaurant-info-bar"
+import { useChefsPicks } from "@/hooks/use-chefs-picks"
+import type { MenuItemRow } from "@/app/actions/menu"
 
 export default function HomePage() {
-  const t = useTranslations();
-  const locale = useLocale();
-  const { heroImageUrl } = useRestaurantHeroImage();
-  const restaurantInfo = useRestaurantInfoBar();
-  const { enabled: chefsPicksEnabled, items: featured } = useChefsPicks();
-  const hasHero = Boolean(heroImageUrl);
-  const showChefsPicks = chefsPicksEnabled && featured.length > 0;
+  const t = useTranslations()
+  const locale = useLocale()
+  const { heroImageUrl } = useRestaurantHeroImage()
+  const restaurantInfo = useRestaurantInfoBar()
+  const { enabled: chefsPicksEnabled, items: featured } = useChefsPicks()
+  const hasHero = Boolean(heroImageUrl)
+  const showChefsPicks = chefsPicksEnabled && featured.length > 0
 
   return (
     <div className="min-h-screen bg-background">
@@ -222,11 +222,11 @@ export default function HomePage() {
             <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {featured.map((item: MenuItemRow) => {
                 const name =
-                  locale === "en" ? item.name_en || item.name : item.name;
+                  locale === "en" ? item.name_en || item.name : item.name
                 const description =
                   locale === "en"
                     ? item.description_en || item.description
-                    : item.description;
+                    : item.description
                 return (
                   <div
                     key={item.id}
@@ -247,7 +247,7 @@ export default function HomePage() {
                       {description}
                     </p>
                   </div>
-                );
+                )
               })}
             </div>
 
@@ -317,7 +317,7 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
-  );
+  )
 }
 
 function InfoItem({
@@ -326,10 +326,10 @@ function InfoItem({
   value,
   dark = false,
 }: {
-  icon: React.ElementType;
-  label: string;
-  value: string;
-  dark?: boolean;
+  icon: React.ElementType
+  label: string
+  value: string
+  dark?: boolean
 }) {
   return (
     <div className="flex flex-col items-center text-center md:flex-row md:text-left gap-3 md:gap-4 px-6 py-6 md:px-8">
@@ -366,7 +366,7 @@ function InfoItem({
         </p>
       </div>
     </div>
-  );
+  )
 }
 
 function Step({
@@ -374,9 +374,9 @@ function Step({
   title,
   body,
 }: {
-  icon: React.ElementType;
-  title: string;
-  body: string;
+  icon: React.ElementType
+  title: string
+  body: string
 }) {
   return (
     <div className="flex flex-col items-center text-center">
@@ -390,7 +390,7 @@ function Step({
         {body}
       </p>
     </div>
-  );
+  )
 }
 
 function BotanicalWatermark({ className }: { className?: string }) {
@@ -424,7 +424,7 @@ function BotanicalWatermark({ className }: { className?: string }) {
       <ellipse cx="58" cy="62" rx="4" ry="6" transform="rotate(-10 58 62)" />
       <ellipse cx="140" cy="74" rx="4" ry="6" transform="rotate(10 140 74)" />
     </svg>
-  );
+  )
 }
 
 function FourPointedStar({ className }: { className?: string }) {
@@ -437,5 +437,5 @@ function FourPointedStar({ className }: { className?: string }) {
     >
       <path d="M20 0 L22.5 17.5 L40 20 L22.5 22.5 L20 40 L17.5 22.5 L0 20 L17.5 17.5 Z" />
     </svg>
-  );
+  )
 }

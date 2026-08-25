@@ -36,7 +36,8 @@ function main() {
     if (mergeHit) {
       writeStdoutJson({
         permission: "deny",
-        user_message: "Blocked `gh pr merge` — merging is the operator's job in the GitHub UI.",
+        user_message:
+          "Blocked `gh pr merge` — merging is the operator's job in the GitHub UI.",
         agent_message:
           `git-stage guard: "${mergeHit.segment}" matches \`gh pr merge\`, which is blocked ` +
           "repo-wide. Merge in the GitHub UI after /push; never merge from the agent. See " +
@@ -46,7 +47,8 @@ function main() {
     }
     const hit = detectBlanketGitStage(command)
     if (hit) {
-      const verb = hit.kind === "add" ? "git add -A/--all/." : "git commit -a/--all"
+      const verb =
+        hit.kind === "add" ? "git add -A/--all/." : "git commit -a/--all"
       writeStdoutJson({
         permission: "deny",
         user_message: `Blocked a blanket "${verb}" — stage explicit paths only.`,
@@ -62,7 +64,8 @@ function main() {
     if (commitHit && isLoopRan()) {
       writeStdoutJson({
         permission: "deny",
-        user_message: "Blocked `git commit` after a TDD loop — run /commit to review and open the gate.",
+        user_message:
+          "Blocked `git commit` after a TDD loop — run /commit to review and open the gate.",
         agent_message:
           `git-stage guard: "${commitHit.segment}" is a git commit after the TDD loop ran ` +
           "(loopRan). The plan-execution turn must not self-serve a commit. " +

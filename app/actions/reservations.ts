@@ -5,8 +5,14 @@ import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { revalidatePath } from "next/cache"
-import { getOperatingWindowForDate, isDateBlocked } from "@/app/actions/availability"
-import { getTodayInRestaurantTZ, getNowTimeInRestaurantTZ } from "@/lib/timezone"
+import {
+  getOperatingWindowForDate,
+  isDateBlocked,
+} from "@/app/actions/availability"
+import {
+  getTodayInRestaurantTZ,
+  getNowTimeInRestaurantTZ,
+} from "@/lib/timezone"
 import { validateReservationPayload } from "@/lib/reservations/validation"
 import {
   bookableTimesForDay,
@@ -55,7 +61,10 @@ export async function createReservation(payload: {
   phone: string
   notes?: string
 }): Promise<{ confCode: string; error?: string }> {
-  const validationError = validateReservationPayload(payload, getTodayInRestaurantTZ())
+  const validationError = validateReservationPayload(
+    payload,
+    getTodayInRestaurantTZ(),
+  )
   if (validationError) {
     return { confCode: "", error: validationError }
   }
@@ -121,7 +130,12 @@ export async function createReservation(payload: {
       return { confCode }
     }
 
-    console.error("[reservations] createReservation error:", error.message, error.code, error.details)
+    console.error(
+      "[reservations] createReservation error:",
+      error.message,
+      error.code,
+      error.details,
+    )
 
     if (error.code === "23505") {
       // Confirmation-code collision — retry with a new random code.
@@ -137,10 +151,16 @@ export async function createReservation(payload: {
       return { confCode: "", error: clean }
     }
 
-    return { confCode: "", error: "Could not save your reservation. Please try again." }
+    return {
+      confCode: "",
+      error: "Could not save your reservation. Please try again.",
+    }
   }
 
-  return { confCode: "", error: "Could not save your reservation. Please try again." }
+  return {
+    confCode: "",
+    error: "Could not save your reservation. Please try again.",
+  }
 }
 
 /**
@@ -180,7 +200,9 @@ export type ReservationTableOption = {
   groupLabel?: string
 }
 
-export async function getReservationTables(): Promise<ReservationTableOption[]> {
+export async function getReservationTables(): Promise<
+  ReservationTableOption[]
+> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return []
 
@@ -197,7 +219,10 @@ export async function getReservationTables(): Promise<ReservationTableOption[]> 
   })
 }
 
-const RESERVATION_TRANSITIONS: Record<ReservationRow["status"], ReservationRow["status"][]> = {
+const RESERVATION_TRANSITIONS: Record<
+  ReservationRow["status"],
+  ReservationRow["status"][]
+> = {
   confirmed: ["seated", "cancelled", "no_show"],
   seated: ["completed"],
   completed: [],
@@ -213,17 +238,40 @@ export async function transitionReservationStatus(
   if (!staffUser) return { error: "Unauthorized." }
 
   const db = createServiceClient()
-  const { data: current, error: readError } = await db.from("reservations").select("status, table_label").eq("id", reservationId).single()
+  const { data: current, error: readError } = await db
+    .from("reservations")
+    .select("status, table_label")
+    .eq("id", reservationId)
+    .single()
   if (readError || !current) return { error: "Reservation not found." }
-  if (!RESERVATION_TRANSITIONS[current.status as ReservationRow["status"]].includes(nextStatus)) {
-    return { error: `Cannot change ${current.status.replace("_", " ")} to ${nextStatus.replace("_", " ")}.` }
+  if (
+    !RESERVATION_TRANSITIONS[
+      current.status as ReservationRow["status"]
+    ].includes(nextStatus)
+  ) {
+    return {
+      error: `Cannot change ${current.status.replace("_", " ")} to ${nextStatus.replace("_", " ")}.`,
+    }
   }
 
   const patch: Record<string, unknown> = { status: nextStatus }
-  if (nextStatus === "completed" || nextStatus === "cancelled" || nextStatus === "no_show") patch.table_label = null
-  const { error } = await db.from("reservations").update(patch).eq("id", reservationId)
+  if (
+    nextStatus === "completed" ||
+    nextStatus === "cancelled" ||
+    nextStatus === "no_show"
+  )
+    patch.table_label = null
+  const { error } = await db
+    .from("reservations")
+    .update(patch)
+    .eq("id", reservationId)
   if (error) return { error: "Could not update reservation status." }
-  await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: current.status, to_status: nextStatus })
+  await db.from("status_events").insert({
+    entity_type: "reservation",
+    entity_id: reservationId,
+    from_status: current.status,
+    to_status: nextStatus,
+  })
   if (nextStatus === "seated" && current.table_label) {
     await syncTableGroupStatus(current.table_label, "seated")
   }
@@ -248,7 +296,8 @@ export async function undoReservationStatus(
     .select("status, table_label")
     .eq("id", reservationId)
     .single()
-  if (reservationError || !reservation) return { error: "Reservation not found." }
+  if (reservationError || !reservation)
+    return { error: "Reservation not found." }
 
   const { data: latest, error: eventError } = await db
     .from("status_events")
@@ -258,7 +307,8 @@ export async function undoReservationStatus(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
-  if (eventError || !latest) return { error: "There is no status change to undo." }
+  if (eventError || !latest)
+    return { error: "There is no status change to undo." }
   if (latest.to_status !== reservation.status || !latest.from_status) {
     return { error: "This status change is no longer the latest change." }
   }
@@ -301,17 +351,27 @@ export async function assignReservationTable(
       .eq("label", label)
       .maybeSingle()
 
-    if (tableError || !table) return { error: "That table is no longer available." }
+    if (tableError || !table)
+      return { error: "That table is no longer available." }
   }
 
-  const { data: reservation, error: reservationError } = await db.from("reservations").select("status, table_label").eq("id", reservationId).single()
-  if (reservationError || !reservation) return { error: "Reservation not found." }
-  if (["completed", "cancelled", "no_show"].includes(reservation.status)) return { error: "Closed reservations cannot be assigned." }
+  const { data: reservation, error: reservationError } = await db
+    .from("reservations")
+    .select("status, table_label")
+    .eq("id", reservationId)
+    .single()
+  if (reservationError || !reservation)
+    return { error: "Reservation not found." }
+  if (["completed", "cancelled", "no_show"].includes(reservation.status))
+    return { error: "Closed reservations cannot be assigned." }
   if (label && reservation.table_label && reservation.table_label !== label) {
     await syncTableGroupStatus(reservation.table_label, "available")
   }
 
-  const { error } = await db.from("reservations").update({ table_label: label }).eq("id", reservationId)
+  const { error } = await db
+    .from("reservations")
+    .update({ table_label: label })
+    .eq("id", reservationId)
   if (error) {
     console.error("[reservations] assignReservationTable error:", error.message)
     return { error: "Could not update the table assignment." }
@@ -322,7 +382,13 @@ export async function assignReservationTable(
   } else if (reservation.table_label) {
     await syncTableGroupStatus(reservation.table_label, "available")
   }
-  await db.from("status_events").insert({ entity_type: "reservation", entity_id: reservationId, from_status: reservation.table_label, to_status: label ?? "unassigned", reason: "table assignment" })
+  await db.from("status_events").insert({
+    entity_type: "reservation",
+    entity_id: reservationId,
+    from_status: reservation.table_label,
+    to_status: label ?? "unassigned",
+    reason: "table assignment",
+  })
 
   revalidatePath("/admin/reservations")
   revalidatePath("/admin/floor")
@@ -361,7 +427,10 @@ export async function autoAssignDueReservations(): Promise<{
     .order("time", { ascending: true })
 
   if (reservationError) {
-    console.error("[reservations] autoAssignDueReservations:", reservationError.message)
+    console.error(
+      "[reservations] autoAssignDueReservations:",
+      reservationError.message,
+    )
     return { assigned: [], error: "Could not load reservations." }
   }
 
@@ -371,7 +440,10 @@ export async function autoAssignDueReservations(): Promise<{
     .order("label", { ascending: true })
 
   if (tableError) {
-    console.error("[reservations] autoAssignDueReservations tables:", tableError.message)
+    console.error(
+      "[reservations] autoAssignDueReservations tables:",
+      tableError.message,
+    )
     return { assigned: [], error: "Could not load tables." }
   }
 
@@ -380,7 +452,10 @@ export async function autoAssignDueReservations(): Promise<{
   const planned = planAutoAssignments(reservations ?? [], assignable, now)
   const assigned: PlannedAssignment[] = []
   for (const plan of planned) {
-    const result = await assignReservationTable(plan.reservationId, plan.tableLabel)
+    const result = await assignReservationTable(
+      plan.reservationId,
+      plan.tableLabel,
+    )
     if (!result.error) assigned.push(plan)
   }
 
@@ -395,7 +470,8 @@ export async function autoAssignDueReservations(): Promise<{
 /** Live floor payload: auto-assign due reservations, then return tables + today's book. */
 export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { tables: [], reservations: [], assigned: [], merges: [] }
+  if (!staffUser)
+    return { tables: [], reservations: [], assigned: [], merges: [] }
 
   await expireDueMerges()
   const { assigned } = await autoAssignDueReservations()
@@ -469,20 +545,33 @@ export async function getAvailableSlots(
     .eq("id", 1)
     .maybeSingle()
   if (settingsError) {
-    console.error("[reservations] getAvailableSlots settings error:", settingsError.message)
+    console.error(
+      "[reservations] getAvailableSlots settings error:",
+      settingsError.message,
+    )
   }
-  const stepMinutes = clampSlotIntervalMinutes(settings?.slot_interval_minutes ?? 30)
+  const stepMinutes = clampSlotIntervalMinutes(
+    settings?.slot_interval_minutes ?? 30,
+  )
 
   const TIME_SLOTS = bookableTimesForDay(operatingWindow, stepMinutes)
   if (TIME_SLOTS.length === 0) {
     return []
   }
 
-  const { data: tableRows, error: tableError } = await db.from("tables").select("seats")
+  const { data: tableRows, error: tableError } = await db
+    .from("tables")
+    .select("seats")
   if (tableError) {
-    console.error("[reservations] getAvailableSlots table capacity error:", tableError.message)
+    console.error(
+      "[reservations] getAvailableSlots table capacity error:",
+      tableError.message,
+    )
   }
-  const totalCapacity = (tableRows ?? []).reduce((sum, row) => sum + (row.seats ?? 0), 0)
+  const totalCapacity = (tableRows ?? []).reduce(
+    (sum, row) => sum + (row.seats ?? 0),
+    0,
+  )
 
   // Reservations carry PII (guest name, phone, notes) and are not publicly
   // readable — RLS only grants anon INSERT, not SELECT. This preview only

@@ -117,7 +117,7 @@ or `headRefOid`).
 
 2. **Drag-in check** (the trailing-`main` case). If
    `git rev-list --count origin/staging..origin/main` is **greater
-   than 0** *and*
+   than 0** _and_
    `git merge-base --is-ancestor origin/main <head>` exits 0, the head
    contains `origin/main`'s extra commits. **STOP**. Do **not**
    retarget. Report that retargeting would drag
@@ -175,13 +175,13 @@ Labels are `format:check` | `lint` | `typecheck` | `test:unit:coverage`
 below — command + **required argument** + then `/intake`. Never
 collapse this into a generic "fix lint + typecheck + test:unit".
 
-| Failed label         | Class                                                                 | Paste-ready next                                                                                                                                                                                                       |
-| -------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format:check`       | mechanical                                                            | `pnpm run format` → `/commit` (gate-remediation) if the tree is dirty → `/intake`. List the Prettier files in section 4. Not a missing AC.                                                                              |
+| Failed label         | Class                                                                 | Paste-ready next                                                                                                                                                                                                         |
+| -------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `format:check`       | mechanical                                                            | `pnpm run format` → `/commit` (gate-remediation) if the tree is dirty → `/intake`. List the Prettier files in section 4. Not a missing AC.                                                                               |
 | `lint`               | mechanical-first                                                      | `pnpm exec next lint --fix` → `/commit` (gate-remediation) if dirty → `/intake`. If still red after fix, or the output is a non-fixable rule: `/sdd-to-tdd "bug: lint: <rule> in <file>"` then `/commit` then `/intake`. |
-| `typecheck`          | product/type                                                          | `/sdd-to-tdd "bug: typecheck: <file>(<line>): <message>"` then `/commit` then `/intake`.                                                                                                                                |
-| `test:unit:coverage` | subclass from Vitest output — do **not** treat the label as one class | See the three bullets below.                                                                                                                                                                                           |
-| `dependency-audit`   | product (AC-1315-1)                                                   | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/intake`.                                                                                                                                    |
+| `typecheck`          | product/type                                                          | `/sdd-to-tdd "bug: typecheck: <file>(<line>): <message>"` then `/commit` then `/intake`.                                                                                                                                 |
+| `test:unit:coverage` | subclass from Vitest output — do **not** treat the label as one class | See the three bullets below.                                                                                                                                                                                             |
+| `dependency-audit`   | product (AC-1315-1)                                                   | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/intake`.                                                                                                                                     |
 
 `test:unit:coverage` subclass (read this run's Vitest output):
 
@@ -332,4 +332,4 @@ Exactly these sections:
 7. **Checks** (advisory; omit if no PR) — each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local worktree lint + typecheck + test:unit is Step 4, not this section.
 8. **Linear expectations** — In Progress may already be set (PR open/update is backup); In Review on review request/activity; Done only after operator merge of a closing-linked PR — no state write performed by this command. Report the `.cursor/environment.json` state on the default branch as observed this run.
 9. **Operator next** — "merge `<PR-URL>` in the GitHub UI once required checks are green — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
-</output_format>
+   </output_format>

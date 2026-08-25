@@ -46,8 +46,12 @@ describe("restaurant-wide slot interval on the floor plan", () => {
     const floor = read("components/staff/floor-plan.tsx")
     const inspectorStart = floor.indexOf("{selected ?")
 
-    expect(floor.slice(0, inspectorStart)).toMatch(/data-testid=["']slot-interval-control["']/)
-    expect(floor.slice(inspectorStart)).not.toMatch(/data-testid=["']slot-interval-control["']/)
+    expect(floor.slice(0, inspectorStart)).toMatch(
+      /data-testid=["']slot-interval-control["']/,
+    )
+    expect(floor.slice(inspectorStart)).not.toMatch(
+      /data-testid=["']slot-interval-control["']/,
+    )
     expect(floor).toMatch(/updateSlotIntervalMinutes/)
     expect(floor).toMatch(/@\/app\/actions\/branding/)
 

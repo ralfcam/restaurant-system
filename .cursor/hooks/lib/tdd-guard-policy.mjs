@@ -18,7 +18,15 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = join(__dirname, "..", "state", "tdd-guard.json")
 
 /** Paths the orchestrator may NOT edit directly while armed (delegate instead). */
-export const PROTECTED_PREFIXES = ["tests/", "lib/", "app/", "components/", "hooks/", "src/", "supabase/"]
+export const PROTECTED_PREFIXES = [
+  "tests/",
+  "lib/",
+  "app/",
+  "components/",
+  "hooks/",
+  "src/",
+  "supabase/",
+]
 
 /**
  * The one direct write the orchestrator is allowed to make while armed: the
@@ -148,7 +156,11 @@ export function isWriteTool(toolName) {
 /** Pull the target file path from common tool-input shapes. */
 export function extractPath(toolInput) {
   if (!toolInput || typeof toolInput !== "object") return null
-  const direct = toolInput.path || toolInput.file_path || toolInput.target_file || toolInput.filePath
+  const direct =
+    toolInput.path ||
+    toolInput.file_path ||
+    toolInput.target_file ||
+    toolInput.filePath
   if (typeof direct === "string") return normalize(direct)
   // MultiEdit-style: edits[].file_path
   if (Array.isArray(toolInput.edits) && toolInput.edits[0]) {
@@ -202,7 +214,8 @@ export function checkTddWrite(relPath, { depth, phase }) {
   }
   if (!isProtected(relPath)) return null
   if (depth > 0) {
-    if (phase === "red" && !isTestsPath(relPath)) return { deny: true, kind: "phase-red" }
+    if (phase === "red" && !isTestsPath(relPath))
+      return { deny: true, kind: "phase-red" }
     if ((phase === "green" || phase === "refactor") && isTestsPath(relPath)) {
       return { deny: true, kind: "phase-tests" }
     }
@@ -230,7 +243,9 @@ export function detectBlanketGitStage(command) {
     }
     if (sub === "commit") {
       const hasBlanketFlag = rest.some(
-        (t) => t === "--all" || (/^-[a-zA-Z]+$/.test(t) && !t.startsWith("--") && t.includes("a")),
+        (t) =>
+          t === "--all" ||
+          (/^-[a-zA-Z]+$/.test(t) && !t.startsWith("--") && t.includes("a")),
       )
       if (hasBlanketFlag) {
         return { kind: "commit", segment: rawSeg.trim() }

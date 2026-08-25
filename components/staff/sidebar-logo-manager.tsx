@@ -37,7 +37,9 @@ export function SidebarLogoManager() {
           <BrandMark src={logoUrl} size={36} className="rounded-md" />
         </span>
         <div className="min-w-0 flex-1 leading-tight">
-          <p className="font-heading text-lg font-semibold">{RESTAURANT.name}</p>
+          <p className="font-heading text-lg font-semibold">
+            {RESTAURANT.name}
+          </p>
           <p className="text-xs text-sidebar-foreground/60">Staff Console</p>
         </div>
         <ImagePlus className="size-4 shrink-0 text-sidebar-foreground/0 transition-colors group-hover:text-sidebar-foreground/50" />
@@ -47,8 +49,8 @@ export function SidebarLogoManager() {
         <DialogHeader>
           <DialogTitle>Restaurant logo</DialogTitle>
           <DialogDescription>
-            Upload a square image to represent {RESTAURANT.name} on the guest site
-            and staff console. PNG, JPG, SVG, or WEBP, up to 2MB.
+            Upload a square image to represent {RESTAURANT.name} on the guest
+            site and staff console. PNG, JPG, SVG, or WEBP, up to 2MB.
           </DialogDescription>
         </DialogHeader>
         <RestaurantLogoEditor onSaved={() => setOpen(false)} />

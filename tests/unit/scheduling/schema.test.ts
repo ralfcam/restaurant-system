@@ -16,19 +16,27 @@ describe("opening-hour segments schema and surfaces", () => {
     expect(baseline).toMatch(/label TEXT/)
     expect(baseline).toMatch(/sort_order INT NOT NULL DEFAULT 0/)
     expect(baseline).toMatch(/v_in_segment/)
-    expect(baseline).toMatch(/CREATE OR REPLACE FUNCTION replace_operating_windows/)
+    expect(baseline).toMatch(
+      /CREATE OR REPLACE FUNCTION replace_operating_windows/,
+    )
   })
 
   it("forward migration drops the one-row-per-day unique and adds segment columns", () => {
-    const migration = read("supabase/migrations/20260818162000_operating_hour_segments.sql")
-    expect(migration).toMatch(/DROP CONSTRAINT IF EXISTS operating_windows_day_of_week_key/)
+    const migration = read(
+      "supabase/migrations/20260818162000_operating_hour_segments.sql",
+    )
+    expect(migration).toMatch(
+      /DROP CONSTRAINT IF EXISTS operating_windows_day_of_week_key/,
+    )
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS label TEXT/)
     expect(migration).toMatch(/replace_operating_windows/)
   })
 
   it("operating_windows and replace_operating_windows persist guest_note", () => {
     const baseline = read("supabase/migrations/00000000000000_baseline.sql")
-    const migration = read("supabase/migrations/20260818162000_operating_hour_segments.sql")
+    const migration = read(
+      "supabase/migrations/20260818162000_operating_hour_segments.sql",
+    )
 
     expect(baseline).toMatch(/guest_note TEXT/)
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS guest_note/)
@@ -37,7 +45,9 @@ describe("opening-hour segments schema and surfaces", () => {
   })
 
   it("admin scheduling manager lets staff add labeled opening-hour segments", () => {
-    expect(existsSync(path.join(root, "app/admin/scheduling/page.tsx"))).toBe(true)
+    expect(existsSync(path.join(root, "app/admin/scheduling/page.tsx"))).toBe(
+      true,
+    )
     const manager = read("components/staff/scheduling-manager.tsx")
     expect(manager).toMatch(/Add segment/)
     expect(manager).toMatch(/scheduling-segment-row/)
@@ -57,5 +67,26 @@ describe("opening-hour segments schema and surfaces", () => {
     expect(reservations).toMatch(/bookableTimesForDay/)
     expect(availability).toMatch(/replace_operating_windows/)
     expect(availability).toMatch(/validateOperatingDays/)
+  })
+
+  it("operating_windows grants are select-only for anon and authenticated", () => {
+    const grant =
+      "GRANT SELECT ON TABLE operating_windows TO anon, authenticated"
+    const revoke =
+      "REVOKE INSERT, UPDATE, DELETE ON TABLE operating_windows FROM anon, authenticated"
+    const forwardRel =
+      "supabase/migrations/20260825140000_operating_windows_privilege.sql"
+
+    const baseline = read("supabase/migrations/00000000000000_baseline.sql")
+    expect(baseline).toContain(grant)
+    expect(baseline).toContain(revoke)
+
+    expect(existsSync(path.join(root, forwardRel))).toBe(true)
+    const forward = read(forwardRel)
+    expect(forward).toContain(grant)
+    expect(forward).toContain(revoke)
+    expect(forward).toContain(
+      'DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"',
+    )
   })
 })

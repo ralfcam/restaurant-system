@@ -4,12 +4,12 @@ Open out-of-scope discoveries from `/sdd-to-tdd`, `/capture`, and `/audit`
 PART 8. **Active files hold open items only.** After an item is filed to
 Linear (`REAZED-###`), move it to [archive.md](./archive.md).
 
-| File | Category |
-| --- | --- |
-| [security.md](./security.md) | Security smells, auth/RLS gaps |
-| [tech-debt.md](./tech-debt.md) | Refactors, duplication, dead code |
-| [test-debt.md](./test-debt.md) | Missing/flaky/skipped coverage |
-| [product-gaps.md](./product-gaps.md) | Spec↔product mismatches |
+| File                                 | Category                          |
+| ------------------------------------ | --------------------------------- |
+| [security.md](./security.md)         | Security smells, auth/RLS gaps    |
+| [tech-debt.md](./tech-debt.md)       | Refactors, duplication, dead code |
+| [test-debt.md](./test-debt.md)       | Missing/flaky/skipped coverage    |
+| [product-gaps.md](./product-gaps.md) | Spec↔product mismatches           |
 
 Entry format (one line per open item):
 
@@ -56,18 +56,18 @@ exact Linear name. Never invent `Launch-blocking`.
 **Estimate crosswalk** (audit Effort → Linear estimate):
 
 | Effort | Linear estimate |
-| --- | --- |
-| S | 1 |
-| M | 3 |
-| L | 5 |
+| ------ | --------------- |
+| S      | 1               |
+| M      | 3               |
+| L      | 5               |
 
 **Priority crosswalk**
 
-| audit | sdd-to-tdd risk | ledger | Linear |
-| --- | --- | --- | --- |
+| audit   | sdd-to-tdd risk                   | ledger                    | Linear |
+| ------- | --------------------------------- | ------------------------- | ------ |
 | Blocker | P0 (auth / data / status-machine) | high + security/auth area | Urgent |
-| High | P1 | high | High |
-| Medium | P2 | med | Medium |
-| Low | P3 | low | Low |
+| High    | P1                                | high                      | High   |
+| Medium  | P2                                | med                       | Medium |
+| Low     | P3                                | low                       | Low    |
 
 When two signals disagree, take the higher.

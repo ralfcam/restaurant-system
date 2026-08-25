@@ -1,12 +1,22 @@
 "use client"
 
 import { useMemo, useRef, useState, type PointerEvent } from "react"
-import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink, Lock, LockOpen, Pencil, LocateFixed } from "lucide-react"
-import { toast } from "sonner"
 import {
-  TABLE_STATUS_META,
-  type TableStatus,
-} from "@/lib/data"
+  Plus,
+  Trash2,
+  Minus,
+  Users,
+  Armchair,
+  Clock,
+  Combine,
+  Unlink,
+  Lock,
+  LockOpen,
+  Pencil,
+  LocateFixed,
+} from "lucide-react"
+import { toast } from "sonner"
+import { TABLE_STATUS_META, type TableStatus } from "@/lib/data"
 import { updateSlotIntervalMinutes } from "@/app/actions/branding"
 import {
   ALLOWED_SLOT_INTERVALS,
@@ -87,7 +97,11 @@ function toMergeDropTable(table: {
     displayStatus: table.displayStatus,
     mergeId: table.merge?.id ?? table.mergeId ?? null,
     merge: table.merge
-      ? { id: table.merge.id, status: table.merge.status, memberIds: table.merge.memberIds }
+      ? {
+          id: table.merge.id,
+          status: table.merge.status,
+          memberIds: table.merge.memberIds,
+        }
       : null,
     reservation: table.reservation,
   }
@@ -111,8 +125,16 @@ export function FloorPlan({
   fallbackData?: FloorSnapshot
   initialSlotInterval?: SlotIntervalMinutes
 }) {
-  const { tables: loadedTables, reservations, mutate, isValidating } = useFloorPlan(date, fallbackData)
-  const tables = useMemo(() => spreadOverlappingTables(loadedTables), [loadedTables])
+  const {
+    tables: loadedTables,
+    reservations,
+    mutate,
+    isValidating,
+  } = useFloorPlan(date, fallbackData)
+  const tables = useMemo(
+    () => spreadOverlappingTables(loadedTables),
+    [loadedTables],
+  )
   const [selectedId, setSelectedId] = useState<string | null>(
     fallbackData?.tables[0]?.id ?? null,
   )
@@ -126,7 +148,9 @@ export function FloorPlan({
   const [slotInterval, setSlotInterval] = useState<SlotIntervalMinutes>(
     clampSlotIntervalMinutes(initialSlotInterval),
   )
-  const [draftPositions, setDraftPositions] = useState<Record<string, FloorCell>>({})
+  const [draftPositions, setDraftPositions] = useState<
+    Record<string, FloorCell>
+  >({})
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -135,7 +159,9 @@ export function FloorPlan({
 
   const selected = tables.find((t) => t.id === selectedId) ?? tables[0] ?? null
   const totalSeats = tables.reduce((sum, table) => table.seats + sum, 0)
-  const mergeCount = new Set(tables.flatMap((table) => (table.merge ? [table.merge.id] : []))).size
+  const mergeCount = new Set(
+    tables.flatMap((table) => (table.merge ? [table.merge.id] : [])),
+  ).size
 
   const displayedTables = useMemo(
     () =>
@@ -146,14 +172,32 @@ export function FloorPlan({
     [tables, draftPositions],
   )
 
-  const groups = useMemo(() => groupTablesForDisplay(displayedTables), [displayedTables])
+  const groups = useMemo(
+    () => groupTablesForDisplay(displayedTables),
+    [displayedTables],
+  )
   const visibleIds = useMemo(
-    () => new Set(tables.filter((table) => activeFilter === "all" || table.displayStatus === activeFilter).map((table) => table.id)),
+    () =>
+      new Set(
+        tables
+          .filter(
+            (table) =>
+              activeFilter === "all" || table.displayStatus === activeFilter,
+          )
+          .map((table) => table.id),
+      ),
     [tables, activeFilter],
   )
-  const canvas = useMemo(() => floorCanvasCells(displayedTables), [displayedTables])
+  const canvas = useMemo(
+    () => floorCanvasCells(displayedTables),
+    [displayedTables],
+  )
   const statusCounts = useMemo(
-    () => STATUS_ORDER.map((status) => ({ status, count: tables.filter((table) => table.displayStatus === status).length })),
+    () =>
+      STATUS_ORDER.map((status) => ({
+        status,
+        count: tables.filter((table) => table.displayStatus === status).length,
+      })),
     [tables],
   )
   const upcoming = useMemo(
@@ -171,9 +215,12 @@ export function FloorPlan({
   )
 
   const mergePartners = tables.filter(
-    (table) => table.id !== selected?.id && isDragMergeable(toMergeDropTable(table)),
+    (table) =>
+      table.id !== selected?.id && isDragMergeable(toMergeDropTable(table)),
   )
-  const selectedMergeable = selected ? isDragMergeable(toMergeDropTable(selected)) : false
+  const selectedMergeable = selected
+    ? isDragMergeable(toMergeDropTable(selected))
+    : false
   const selectedUnlocked = selected ? unlockedIds.has(selected.id) : false
 
   function dropKeyFor(table: (typeof tables)[number]) {
@@ -235,9 +282,13 @@ export function FloorPlan({
   async function adjustExpected(id: string, delta: number) {
     const selectedTable = tables.find((t) => t.id === id)
     if (!selectedTable) return
-    const current = selectedTable.merge?.expectedMinutes ?? selectedTable.expectedMinutes
+    const current =
+      selectedTable.merge?.expectedMinutes ?? selectedTable.expectedMinutes
     try {
-      await updateTableState({ id, expectedMinutes: clampExpectedMinutes(current + delta) })
+      await updateTableState({
+        id,
+        expectedMinutes: clampExpectedMinutes(current + delta),
+      })
       await mutate()
     } catch {
       toast.error("Could not update expected time")
@@ -285,7 +336,10 @@ export function FloorPlan({
 
   async function seatParty(reservation: ReservationRow) {
     setSeating(true)
-    const { error } = await transitionReservationStatus(reservation.id, "seated")
+    const { error } = await transitionReservationStatus(
+      reservation.id,
+      "seated",
+    )
     setSeating(false)
     if (error) {
       toast.error("Could not seat party", { description: error })
@@ -297,7 +351,9 @@ export function FloorPlan({
 
   function toggleMergePick(id: string) {
     setMergePick((current) =>
-      current.includes(id) ? current.filter((row) => row !== id) : [...current, id],
+      current.includes(id)
+        ? current.filter((row) => row !== id)
+        : [...current, id],
     )
   }
 
@@ -306,7 +362,9 @@ export function FloorPlan({
     try {
       const arrangement = await mergeTables({ tableIds })
       if ("error" in arrangement) {
-        toast.error("Could not merge tables", { description: arrangement.error })
+        toast.error("Could not merge tables", {
+          description: arrangement.error,
+        })
         return
       }
       await mutate()
@@ -324,7 +382,8 @@ export function FloorPlan({
   }
 
   function inspectorMergeError(): string | null {
-    if (!selected || mergePick.length === 0) return "Select at least two tables to merge."
+    if (!selected || mergePick.length === 0)
+      return "Select at least two tables to merge."
     const picked = dropTables.filter(
       (table) => table.id === selected.id || mergePick.includes(table.id),
     )
@@ -362,7 +421,10 @@ export function FloorPlan({
     return clientToFloorCell(event.clientX, event.clientY, rect)
   }
 
-  function onChipPointerDown(table: (typeof tables)[number], event: PointerEvent<HTMLButtonElement>) {
+  function onChipPointerDown(
+    table: (typeof tables)[number],
+    event: PointerEvent<HTMLButtonElement>,
+  ) {
     if (!unlockedIds.has(table.id) || merging) return
     if ((event.target as HTMLElement).closest("[data-floor-lock]")) return
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -438,7 +500,10 @@ export function FloorPlan({
         return
       }
       const sourceTable = tables.find((table) => table.id === drag.id)
-      const splitOk = await splitArrangement(split.mergeId, sourceTable?.merge?.label)
+      const splitOk = await splitArrangement(
+        split.mergeId,
+        sourceTable?.merge?.label,
+      )
       if (!splitOk) {
         clearDraft(drag.id)
         return
@@ -472,7 +537,11 @@ export function FloorPlan({
   }
 
   function focusFloor() {
-    canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+    canvasRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "center",
+    })
   }
 
   function selectTable(id: string) {
@@ -500,585 +569,751 @@ export function FloorPlan({
           onClick={() => setActiveFilter("all")}
           aria-label={`Current floor filter: ${activeFilter === "all" ? "all tables" : TABLE_STATUS_META[activeFilter].label}`}
         >
-          Filter: {activeFilter === "all" ? "All tables" : TABLE_STATUS_META[activeFilter].label}
+          Filter:{" "}
+          {activeFilter === "all"
+            ? "All tables"
+            : TABLE_STATUS_META[activeFilter].label}
         </button>
-        <Button size="icon" variant="outline" onClick={focusFloor} aria-label="Center floor plan" title="Center floor plan">
+        <Button
+          size="icon"
+          variant="outline"
+          onClick={focusFloor}
+          aria-label="Center floor plan"
+          title="Center floor plan"
+        >
           <LocateFixed data-icon="inline-start" />
         </Button>
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-      <div className="space-y-6">
-        <div className="rounded-xl border border-border bg-card p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-heading text-lg font-semibold">Dining Room</h2>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
-                  <span className="relative flex size-2">
-                    <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
-                    <span className="relative inline-flex size-2 rounded-full bg-accent" />
+        <div className="space-y-6">
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-heading text-lg font-semibold">
+                    Dining Room
+                  </h2>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                    <span className="relative flex size-2">
+                      <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
+                      <span className="relative inline-flex size-2 rounded-full bg-accent" />
+                    </span>
+                    Live
                   </span>
-                  Live
-                </span>
-                {isValidating ? (
-                  <span className="text-xs text-muted-foreground">Updating…</span>
-                ) : null}
+                  {isValidating ? (
+                    <span className="text-xs text-muted-foreground">
+                      Updating…
+                    </span>
+                  ) : null}
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {tables.length} tables · {totalSeats} seats
+                  {mergeCount > 0 ? ` · ${mergeCount} merged` : ""}
+                  {" · "}reservations update automatically
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                {tables.length} tables · {totalSeats} seats
-                {mergeCount > 0 ? ` · ${mergeCount} merged` : ""}
-                {" · "}reservations update automatically
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <div
-                data-testid="slot-interval-control"
-                role="group"
-                aria-labelledby="slot-interval-label"
-                className="flex items-center gap-1.5"
-              >
-                <span
-                  id="slot-interval-label"
-                  className="text-xs font-medium text-muted-foreground"
+              <div className="flex flex-wrap items-center gap-2">
+                <div
+                  data-testid="slot-interval-control"
+                  role="group"
+                  aria-labelledby="slot-interval-label"
+                  className="flex items-center gap-1.5"
                 >
-                  Slot interval
-                </span>
-                {ALLOWED_SLOT_INTERVALS.map((minutes) => (
-                  <Button
-                    key={minutes}
-                    size="sm"
-                    variant={slotInterval === minutes ? "default" : "outline"}
-                    aria-pressed={slotInterval === minutes}
-                    onClick={() => void persistSlotInterval(minutes)}
+                  <span
+                    id="slot-interval-label"
+                    className="text-xs font-medium text-muted-foreground"
                   >
-                    {minutes}
+                    Slot interval
+                  </span>
+                  {ALLOWED_SLOT_INTERVALS.map((minutes) => (
+                    <Button
+                      key={minutes}
+                      size="sm"
+                      variant={slotInterval === minutes ? "default" : "outline"}
+                      aria-pressed={slotInterval === minutes}
+                      onClick={() => void persistSlotInterval(minutes)}
+                    >
+                      {minutes}
+                    </Button>
+                  ))}
+                </div>
+                {unlockedIds.size > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setUnlockedIds(new Set())}
+                  >
+                    <Lock className="size-4" /> Lock all
                   </Button>
-                ))}
-              </div>
-              {unlockedIds.size > 0 ? (
-                <Button size="sm" variant="outline" onClick={() => setUnlockedIds(new Set())}>
-                  <Lock className="size-4" /> Lock all
+                ) : null}
+                <Button size="sm" onClick={addTable}>
+                  <Plus className="size-4" /> Add table
                 </Button>
-              ) : null}
-              <Button size="sm" onClick={addTable}>
-                <Plus className="size-4" /> Add table
+              </div>
+            </div>
+
+            <div
+              className="mb-4 flex gap-2 overflow-x-auto pb-1"
+              aria-label="Filter tables by status"
+            >
+              <button
+                type="button"
+                onClick={() => setActiveFilter("all")}
+                className={cn(
+                  "min-w-24 rounded-lg border px-3 py-2 text-left text-xs font-medium",
+                  activeFilter === "all"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground",
+                )}
+              >
+                <span className="block text-base font-semibold tabular-nums">
+                  {tables.length}
+                </span>
+                All tables
+              </button>
+              {statusCounts.map(({ status, count }) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setActiveFilter(status)}
+                  className={cn(
+                    "min-w-24 rounded-lg border px-3 py-2 text-left text-xs font-medium",
+                    activeFilter === status
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-background text-muted-foreground",
+                  )}
+                >
+                  <span className="block text-base font-semibold tabular-nums">
+                    {count}
+                  </span>
+                  {TABLE_STATUS_META[status].label}
+                </button>
+              ))}
+            </div>
+            <div className="mb-3 flex items-start gap-2 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs text-foreground">
+              <Lock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              <p className="flex-1">
+                {editMode
+                  ? "Edit mode is on. Unlock a table (padlock) to drag it. Drop an available table onto another to merge. Drag a merged table onto an empty cell to split. Locked tables stay put."
+                  : "Service mode is on. Select tables to manage the dining room; positions are protected."}
+              </p>
+              <Button
+                size="sm"
+                variant={editMode ? "default" : "outline"}
+                onClick={() => {
+                  setEditMode((value) => !value)
+                  if (editMode) setUnlockedIds(new Set())
+                }}
+              >
+                <Pencil data-icon="inline-start" />{" "}
+                {editMode ? "Done" : "Edit layout"}
               </Button>
             </div>
-          </div>
-
-          <div className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filter tables by status">
-            <button type="button" onClick={() => setActiveFilter("all")} className={cn("min-w-24 rounded-lg border px-3 py-2 text-left text-xs font-medium", activeFilter === "all" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground")}>
-              <span className="block text-base font-semibold tabular-nums">{tables.length}</span>All tables
-            </button>
-            {statusCounts.map(({ status, count }) => (
-              <button key={status} type="button" onClick={() => setActiveFilter(status)} className={cn("min-w-24 rounded-lg border px-3 py-2 text-left text-xs font-medium", activeFilter === status ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground")}>
-                <span className="block text-base font-semibold tabular-nums">{count}</span>{TABLE_STATUS_META[status].label}
-              </button>
-            ))}
-          </div>
-          <div className="mb-3 flex items-start gap-2 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs text-foreground">
-            <Lock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-            <p className="flex-1">{editMode ? "Edit mode is on. Unlock a table to drag it, then lock it again when you are done." : "Service mode is on. Select tables to manage the dining room; positions are protected."}</p>
-            <Button size="sm" variant={editMode ? "default" : "outline"} onClick={() => { setEditMode((value) => !value); if (editMode) setUnlockedIds(new Set()) }}>
-              <Pencil data-icon="inline-start" /> {editMode ? "Done" : "Edit layout"}
-            </Button>
-          </div>
-          <div className="overflow-auto rounded-lg border border-dashed border-border bg-secondary/30 p-3">
-            <div
-              ref={canvasRef}
-              className="relative"
-              style={{
-                width: canvas.cols * FLOOR_CELL_PX,
-                height: canvas.rows * FLOOR_CELL_PX,
-                backgroundImage:
-                  "linear-gradient(to right, hsl(var(--border) / 0.45) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.45) 1px, transparent 1px)",
-                backgroundSize: `${FLOOR_CELL_PX}px ${FLOOR_CELL_PX}px`,
-              }}
-            >
-              {groups.map((group) => {
-                const merge = group.tables[0]?.merge
-                if (!merge) return null
-                const bounds = mergeCellBounds(group.tables)
-                if (!bounds) return null
-                const groupDropKey = `merge:${merge.id}`
-                return (
-                  <div
-                    key={merge.id}
-                    role="group"
-                    aria-label={`Merged tables ${merge.label}, ${merge.seats} seats`}
-                    className={cn(
-                      "pointer-events-none absolute rounded-2xl border-2 border-dashed border-primary/35 bg-primary/5",
-                      dropTargetKey === groupDropKey
-                        ? "border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-card"
-                        : null,
-                    )}
-                    style={bounds}
-                  >
-                    <div className="absolute bottom-1 left-2 text-[10px] leading-tight text-muted-foreground">
-                      <p className="font-medium text-foreground">{merge.seats} seats</p>
-                      <p className="flex items-center gap-0.5">
-                        <Clock className="size-2.5" />
-                        {formatDurationMinutes(remainingMinutes(merge.expiresAt, new Date()))} left
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-
-              {displayedTables.filter((t) => visibleIds.has(t.id)).map((t) => {
-                const meta = TABLE_STATUS_META[t.displayStatus]
-                const isSelected = t.id === (selected?.id ?? selectedId)
-                const silhouette = tableShapeForSeats(t.seats)
-    const unlocked = editMode && unlockedIds.has(t.id)
-    const canMove = editMode && unlocked && !merging
-                const targetKey = dropKeyFor(t)
-                const isDropTarget = dropTargetKey === targetKey
-                const cell = { x: t.x, y: t.y }
-                return (
-                  <div
-                    key={t.id}
-                    className={cn(
-                      "absolute flex items-center justify-center",
-                      draggingId === t.id || isDropTarget || isSelected ? "z-20" : "z-10",
-                    )}
-                    style={{
-                      ...floorCellStyle(cell),
-                      width: FLOOR_CELL_PX,
-                      height: FLOOR_CELL_PX,
-                    }}
-                  >
-                    <span
-                      data-floor-lock
-                      data-testid="floor-move-lock"
-                      role="button"
-                      tabIndex={0}
-                      aria-label={unlocked ? `Lock table ${t.label}` : `Unlock table ${t.label}`}
-                      title={unlocked ? "Lock this table" : "Unlock to rearrange"}
+            <div className="overflow-auto rounded-lg border border-dashed border-border bg-secondary/30 p-3">
+              <div
+                ref={canvasRef}
+                className="relative"
+                style={{
+                  width: canvas.cols * FLOOR_CELL_PX,
+                  height: canvas.rows * FLOOR_CELL_PX,
+                  backgroundImage:
+                    "linear-gradient(to right, hsl(var(--border) / 0.45) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border) / 0.45) 1px, transparent 1px)",
+                  backgroundSize: `${FLOOR_CELL_PX}px ${FLOOR_CELL_PX}px`,
+                }}
+              >
+                {groups.map((group) => {
+                  const merge = group.tables[0]?.merge
+                  if (!merge) return null
+                  const bounds = mergeCellBounds(group.tables)
+                  if (!bounds) return null
+                  const groupDropKey = `merge:${merge.id}`
+                  return (
+                    <div
+                      key={merge.id}
+                      role="group"
+                      aria-label={`Merged tables ${merge.label}, ${merge.seats} seats`}
                       className={cn(
-                        "absolute left-0.5 top-0.5 z-20 flex size-8 items-center justify-center rounded-full border-2 bg-card shadow-md",
-                        unlocked
-                          ? "border-accent text-accent"
-                          : "border-foreground/30 text-foreground hover:border-foreground",
+                        "pointer-events-none absolute rounded-2xl border-2 border-dashed border-primary/35 bg-primary/5",
+                        dropTargetKey === groupDropKey
+                          ? "border-accent bg-accent/10 ring-2 ring-accent ring-offset-2 ring-offset-card"
+                          : null,
                       )}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        toggleUnlock(t.id)
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key !== "Enter" && event.key !== " ") return
-                        event.preventDefault()
-                        event.stopPropagation()
-                        toggleUnlock(t.id)
-                      }}
+                      style={bounds}
                     >
-                      {unlocked ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
+                      <div className="absolute bottom-1 left-2 text-[10px] leading-tight text-muted-foreground">
+                        <p className="font-medium text-foreground">
+                          {merge.seats} seats
+                        </p>
+                        <p className="flex items-center gap-0.5">
+                          <Clock className="size-2.5" />
+                          {formatDurationMinutes(
+                            remainingMinutes(merge.expiresAt, new Date()),
+                          )}{" "}
+                          left
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {displayedTables
+                  .filter((t) => visibleIds.has(t.id))
+                  .map((t) => {
+                    const meta = TABLE_STATUS_META[t.displayStatus]
+                    const isSelected = t.id === (selected?.id ?? selectedId)
+                    const silhouette = tableShapeForSeats(t.seats)
+                    const unlocked = editMode && unlockedIds.has(t.id)
+                    const canMove = editMode && unlocked && !merging
+                    const targetKey = dropKeyFor(t)
+                    const isDropTarget = dropTargetKey === targetKey
+                    const cell = { x: t.x, y: t.y }
+                    return (
+                      <div
+                        key={t.id}
+                        className={cn(
+                          "absolute flex items-center justify-center",
+                          draggingId === t.id || isDropTarget || isSelected
+                            ? "z-20"
+                            : "z-10",
+                        )}
+                        style={{
+                          ...floorCellStyle(cell),
+                          width: FLOOR_CELL_PX,
+                          height: FLOOR_CELL_PX,
+                        }}
+                      >
+                        <span
+                          data-floor-lock
+                          data-testid="floor-move-lock"
+                          role="button"
+                          tabIndex={0}
+                          aria-label={
+                            unlocked
+                              ? `Lock table ${t.label}`
+                              : `Unlock table ${t.label}`
+                          }
+                          title={
+                            unlocked ? "Lock this table" : "Unlock to rearrange"
+                          }
+                          className={cn(
+                            "absolute left-0.5 top-0.5 z-20 flex size-8 items-center justify-center rounded-full border-2 bg-card shadow-md",
+                            unlocked
+                              ? "border-accent text-accent"
+                              : "border-foreground/30 text-foreground hover:border-foreground",
+                          )}
+                          onPointerDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            toggleUnlock(t.id)
+                          }}
+                          onKeyDown={(event) => {
+                            if (event.key !== "Enter" && event.key !== " ")
+                              return
+                            event.preventDefault()
+                            event.stopPropagation()
+                            toggleUnlock(t.id)
+                          }}
+                        >
+                          {unlocked ? (
+                            <LockOpen className="size-4" />
+                          ) : (
+                            <Lock className="size-4" />
+                          )}
+                        </span>
+                        <button
+                          type="button"
+                          title={
+                            canMove
+                              ? isDragSplittable(toMergeDropTable(t))
+                                ? "Drag onto an empty cell to split, or onto another table to merge"
+                                : "Drag to a new cell, or onto another available table to merge"
+                              : "Unlock the padlock to rearrange this table"
+                          }
+                          onClick={() => {
+                            if (skipClickAfterDrag.current) {
+                              skipClickAfterDrag.current = false
+                              return
+                            }
+                            selectTable(t.id)
+                          }}
+                          onPointerDown={(event) => onChipPointerDown(t, event)}
+                          onPointerMove={onChipPointerMove}
+                          onPointerUp={(event) => {
+                            void finishPointerDrag(event)
+                          }}
+                          onPointerCancel={(event) => {
+                            const drag = dragRef.current
+                            if (!drag || drag.pointerId !== event.pointerId)
+                              return
+                            dragRef.current = null
+                            setDraggingId(null)
+                            setDropTargetKey(null)
+                            clearDraft(drag.id)
+                          }}
+                          className={cn(
+                            "relative flex flex-col items-center justify-center border-2 text-center transition-shadow duration-200 ease-out",
+                            silhouette === "round"
+                              ? "rounded-full"
+                              : "rounded-lg",
+                            tableChipSizeClass(t.seats),
+                            meta.color,
+                            canMove
+                              ? "cursor-grab active:cursor-grabbing"
+                              : "cursor-pointer",
+                            draggingId === t.id ? "opacity-80" : null,
+                            isSelected
+                              ? "ring-2 ring-primary ring-offset-2 ring-offset-card"
+                              : "hover:brightness-95 hover:shadow-md",
+                            isDropTarget
+                              ? "ring-2 ring-accent ring-offset-2 ring-offset-card"
+                              : null,
+                          )}
+                        >
+                          {t.displayStatus === "seated" ? (
+                            <span className="absolute right-1.5 top-1.5 flex size-2.5">
+                              <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
+                              <span className="relative inline-flex size-2.5 rounded-full bg-current" />
+                            </span>
+                          ) : null}
+                          <span className="font-heading text-lg font-semibold leading-none">
+                            {t.label}
+                          </span>
+                          <span className="mt-1 flex items-center gap-0.5 text-xs">
+                            <Users className="size-3" />{" "}
+                            {t.reservation?.partySize ?? t.seats}
+                          </span>
+                          {t.reservation ? (
+                            <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
+                              {t.reservation.guestName}
+                            </span>
+                          ) : null}
+                        </button>
+                      </div>
+                    )
+                  })}
+              </div>
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-4">
+              {STATUS_ORDER.map((status) => (
+                <span
+                  key={status}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
+                >
+                  <span
+                    className={`size-2.5 rounded-full ${TABLE_STATUS_META[status].dot}`}
+                  />
+                  {TABLE_STATUS_META[status].label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="font-heading text-sm font-semibold">
+              Tonight’s book
+            </h3>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Tables are auto-assigned 15 minutes before the booked time.
+            </p>
+            {upcoming.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No confirmed reservations today.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {upcoming.map((row) => (
+                  <li key={row.id} className="flex items-center gap-3 py-2.5">
+                    <span className="w-12 shrink-0 font-heading text-sm font-semibold tabular-nums">
+                      {row.time}
                     </span>
                     <button
                       type="button"
-                      title={
-                        canMove
-                          ? isDragSplittable(toMergeDropTable(t))
-                            ? "Drag onto an empty cell to split, or onto another table to merge"
-                            : "Drag to a new cell, or onto another available table to merge"
-                          : "Unlock the padlock to rearrange this table"
-                      }
+                      className="min-w-0 flex-1 text-left"
                       onClick={() => {
-                        if (skipClickAfterDrag.current) {
-                          skipClickAfterDrag.current = false
-                          return
-                        }
-                        selectTable(t.id)
+                        const assignedTable = row.table_label
+                          ? tables.find(
+                              (table) => table.label === row.table_label,
+                            )
+                          : null
+                        if (assignedTable) setSelectedId(assignedTable.id)
                       }}
-                      onPointerDown={(event) => onChipPointerDown(t, event)}
-                      onPointerMove={onChipPointerMove}
-                      onPointerUp={(event) => {
-                        void finishPointerDrag(event)
-                      }}
-                      onPointerCancel={(event) => {
-                        const drag = dragRef.current
-                        if (!drag || drag.pointerId !== event.pointerId) return
-                        dragRef.current = null
-                        setDraggingId(null)
-                        setDropTargetKey(null)
-                        clearDraft(drag.id)
-                      }}
-                      className={cn(
-                        "relative flex flex-col items-center justify-center border-2 text-center transition-shadow duration-200 ease-out",
-                        silhouette === "round" ? "rounded-full" : "rounded-lg",
-                        tableChipSizeClass(t.seats),
-                        meta.color,
-                        canMove ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
-                        draggingId === t.id ? "opacity-80" : null,
-                        isSelected
-                          ? "ring-2 ring-primary ring-offset-2 ring-offset-card"
-                          : "hover:brightness-95 hover:shadow-md",
-                        isDropTarget
-                          ? "ring-2 ring-accent ring-offset-2 ring-offset-card"
-                          : null,
-                      )}
+                      disabled={!row.table_label}
+                      title={
+                        row.table_label
+                          ? "Focus table"
+                          : "Waiting for table assignment"
+                      }
                     >
-                      {t.displayStatus === "seated" ? (
-                        <span className="absolute right-1.5 top-1.5 flex size-2.5">
-                          <span className="absolute inline-flex size-full animate-ping rounded-full bg-current opacity-60" />
-                          <span className="relative inline-flex size-2.5 rounded-full bg-current" />
-                        </span>
-                      ) : null}
-                      <span className="font-heading text-lg font-semibold leading-none">
-                        {t.label}
-                      </span>
-                      <span className="mt-1 flex items-center gap-0.5 text-xs">
-                        <Users className="size-3" /> {t.reservation?.partySize ?? t.seats}
-                      </span>
-                      {t.reservation ? (
-                        <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
-                          {t.reservation.guestName}
-                        </span>
-                      ) : null}
+                      <p className="truncate text-sm font-medium">
+                        {row.guest_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Party of {row.party_size}
+                        {row.table_label
+                          ? ` · Table ${row.table_label}`
+                          : " · waiting for a table"}
+                      </p>
                     </button>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-4">
-            {STATUS_ORDER.map((status) => (
-              <span
-                key={status}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground"
-              >
-                <span
-                  className={`size-2.5 rounded-full ${TABLE_STATUS_META[status].dot}`}
-                />
-                {TABLE_STATUS_META[status].label}
-              </span>
-            ))}
+                    <ReservationStatusBadge status={row.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
 
-        <div className="rounded-xl border border-border bg-card p-5">
-          <h3 className="font-heading text-sm font-semibold">Tonight’s book</h3>
-          <p className="mb-3 text-xs text-muted-foreground">
-            Tables are auto-assigned 15 minutes before the booked time.
-          </p>
-          {upcoming.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No confirmed reservations today.
-            </p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {upcoming.map((row) => (
-                <li key={row.id} className="flex items-center gap-3 py-2.5">
-                  <span className="w-12 shrink-0 font-heading text-sm font-semibold tabular-nums">
-                    {row.time}
-                  </span>
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 text-left"
-                    onClick={() => {
-                      const assignedTable = row.table_label
-                        ? tables.find((table) => table.label === row.table_label)
-                        : null
-                      if (assignedTable) setSelectedId(assignedTable.id)
-                    }}
-                    disabled={!row.table_label}
-                    title={row.table_label ? "Focus table" : "Waiting for table assignment"}
-                  >
-                    <p className="truncate text-sm font-medium">{row.guest_name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Party of {row.party_size}
-                      {row.table_label ? ` · Table ${row.table_label}` : " · waiting for a table"}
-                    </p>
-                  </button>
-                  <ReservationStatusBadge status={row.status} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      <div className="hidden rounded-xl border border-border bg-card p-5 lg:block">
-        {selected ? (
-          <div className="space-y-5">
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                Selected
-              </p>
-              <h3 className="font-heading text-2xl font-semibold">
-                {selected.merge ? `Tables ${selected.merge.label}` : `Table ${selected.label}`}
-              </h3>
-              {selected.merge ? (
-                <p className="text-sm text-muted-foreground">
-                  Temporary arrangement · {selected.merge.seats} seats
-                </p>
-              ) : null}
-            </div>
-
-            {selected.reservation ? (
-              <div className="rounded-lg border border-border bg-secondary/40 p-3">
+        <div className="hidden rounded-xl border border-border bg-card p-5 lg:block">
+          {selected ? (
+            <div className="space-y-5">
+              <div>
                 <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Reservation
+                  Selected
                 </p>
-                <p className="font-medium">{selected.reservation.guestName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {selected.reservation.time} · party of {selected.reservation.partySize}
-                </p>
-                <div className="mt-2">
-                  <ReservationStatusBadge status={selected.reservation.status} />
-                </div>
-                {selected.reservation.status === "confirmed" ? (
-                  <Button
-                    className="mt-3 w-full"
-                    size="sm"
-                    disabled={seating}
-                    onClick={() => {
-                      const row = reservations.find((r) => r.id === selected.reservation?.id)
-                      if (row) void seatParty(row)
-                    }}
-                  >
-                    <Armchair className="size-4" /> Seat party
-                  </Button>
+                <h3 className="font-heading text-2xl font-semibold">
+                  {selected.merge
+                    ? `Tables ${selected.merge.label}`
+                    : `Table ${selected.label}`}
+                </h3>
+                {selected.merge ? (
+                  <p className="text-sm text-muted-foreground">
+                    Temporary arrangement · {selected.merge.seats} seats
+                  </p>
                 ) : null}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No reservation on this table right now.
-              </p>
-            )}
 
-            <div>
-              <p className="mb-2 text-sm font-medium">Position</p>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => toggleUnlock(selected.id)}
-              >
-                {selectedUnlocked ? <Lock className="size-4" /> : <LockOpen className="size-4" />}
-                {selectedUnlocked ? "Lock position" : "Unlock to move"}
-              </Button>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Cell {selected.x + 1}, {selected.y + 1}. Unlock, then drag on the floor plan.
-              </p>
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium">Status</p>
-              <div className="grid grid-cols-2 gap-2">
-                {STATUS_ORDER.map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => setStatus(selected.id, status)}
-                    className={cn(
-                      "rounded-md border px-2 py-2 text-sm font-medium transition-colors",
-                      selected.displayStatus === status
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {TABLE_STATUS_META[status].label}
-                  </button>
-                ))}
-              </div>
-              {selected.merge ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Status updates every table in {selected.merge.label}. Available and Out of
-                  service split the arrangement.
-                </p>
-              ) : null}
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium">Seat capacity</p>
-              {selected.merge ? (
-                <p className="font-heading text-2xl font-semibold tabular-nums">
-                  {selected.merge.seats}
-                  <span className="ml-2 text-sm font-normal text-muted-foreground">
-                    {selected.merge.memberLabels
-                      .map((label) => {
-                        const member = tables.find((row) => row.label === label)
-                        return `${label} (${member?.seats ?? "?"})`
-                      })
-                      .join(" + ")}
-                  </span>
-                </p>
+              {selected.reservation ? (
+                <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Reservation
+                  </p>
+                  <p className="font-medium">
+                    {selected.reservation.guestName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {selected.reservation.time} · party of{" "}
+                    {selected.reservation.partySize}
+                  </p>
+                  <div className="mt-2">
+                    <ReservationStatusBadge
+                      status={selected.reservation.status}
+                    />
+                  </div>
+                  {selected.reservation.status === "confirmed" ? (
+                    <Button
+                      className="mt-3 w-full"
+                      size="sm"
+                      disabled={seating}
+                      onClick={() => {
+                        const row = reservations.find(
+                          (r) => r.id === selected.reservation?.id,
+                        )
+                        if (row) void seatParty(row)
+                      }}
+                    >
+                      <Armchair className="size-4" /> Seat party
+                    </Button>
+                  ) : null}
+                </div>
               ) : (
+                <p className="text-sm text-muted-foreground">
+                  No reservation on this table right now.
+                </p>
+              )}
+
+              <div>
+                <p className="mb-2 text-sm font-medium">Position</p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => toggleUnlock(selected.id)}
+                >
+                  {selectedUnlocked ? (
+                    <Lock className="size-4" />
+                  ) : (
+                    <LockOpen className="size-4" />
+                  )}
+                  {selectedUnlocked ? "Lock position" : "Unlock to move"}
+                </Button>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Cell {selected.x + 1}, {selected.y + 1}. Unlock, then drag on
+                  the floor plan.
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium">Status</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {STATUS_ORDER.map((status) => (
+                    <button
+                      key={status}
+                      type="button"
+                      onClick={() => setStatus(selected.id, status)}
+                      className={cn(
+                        "rounded-md border px-2 py-2 text-sm font-medium transition-colors",
+                        selected.displayStatus === status
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-background text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {TABLE_STATUS_META[status].label}
+                    </button>
+                  ))}
+                </div>
+                {selected.merge ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Status updates every table in {selected.merge.label}.
+                    Available and Out of service split the arrangement.
+                  </p>
+                ) : null}
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium">Seat capacity</p>
+                {selected.merge ? (
+                  <p className="font-heading text-2xl font-semibold tabular-nums">
+                    {selected.merge.seats}
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {selected.merge.memberLabels
+                        .map((label) => {
+                          const member = tables.find(
+                            (row) => row.label === label,
+                          )
+                          return `${label} (${member?.seats ?? "?"})`
+                        })
+                        .join(" + ")}
+                    </span>
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => adjustSeats(selected.id, -1)}
+                    >
+                      <Minus className="size-4" />
+                    </Button>
+                    <span className="min-w-10 text-center font-heading text-2xl font-semibold tabular-nums">
+                      {selected.seats}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => adjustSeats(selected.id, 1)}
+                    >
+                      <Plus className="size-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium">Expected time</p>
                 <div className="flex items-center gap-3">
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => adjustSeats(selected.id, -1)}
+                    onClick={() =>
+                      adjustExpected(selected.id, -EXPECTED_MINUTES_STEP)
+                    }
                   >
                     <Minus className="size-4" />
                   </Button>
-                  <span className="min-w-10 text-center font-heading text-2xl font-semibold tabular-nums">
-                    {selected.seats}
+                  <span className="min-w-16 text-center font-heading text-2xl font-semibold tabular-nums">
+                    {selected.merge?.expectedMinutes ??
+                      selected.expectedMinutes}
+                    <span className="ml-1 text-sm font-normal text-muted-foreground">
+                      min
+                    </span>
                   </span>
                   <Button
                     size="icon"
                     variant="outline"
-                    onClick={() => adjustSeats(selected.id, 1)}
+                    onClick={() =>
+                      adjustExpected(selected.id, EXPECTED_MINUTES_STEP)
+                    }
                   >
                     <Plus className="size-4" />
                   </Button>
                 </div>
-              )}
-            </div>
-
-            <div>
-              <p className="mb-2 text-sm font-medium">Expected time</p>
-              <div className="flex items-center gap-3">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => adjustExpected(selected.id, -EXPECTED_MINUTES_STEP)}
-                >
-                  <Minus className="size-4" />
-                </Button>
-                <span className="min-w-16 text-center font-heading text-2xl font-semibold tabular-nums">
-                  {selected.merge?.expectedMinutes ?? selected.expectedMinutes}
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">min</span>
-                </span>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  onClick={() => adjustExpected(selected.id, EXPECTED_MINUTES_STEP)}
-                >
-                  <Plus className="size-4" />
-                </Button>
+                {selected.merge ? (
+                  <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="size-3" />
+                    {formatDurationMinutes(
+                      remainingMinutes(selected.merge.expiresAt, new Date()),
+                    )}{" "}
+                    left on this arrangement
+                  </p>
+                ) : (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Max / expected turn time. Merges last this long by default.
+                  </p>
+                )}
               </div>
-              {selected.merge ? (
-                <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="size-3" />
-                  {formatDurationMinutes(remainingMinutes(selected.merge.expiresAt, new Date()))} left
-                  on this arrangement
-                </p>
-              ) : (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Max / expected turn time. Merges last this long by default.
-                </p>
-              )}
-            </div>
 
-            <div>
-              <p className="mb-2 text-sm font-medium">Merge tables</p>
-              {selected.merge ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    {selected.merge.label} · {selected.merge.seats} seats ·{" "}
-                    {formatDurationMinutes(selected.merge.expectedMinutes)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Unlock a member and drag it onto an empty cell to split, or
-                    drop another available table here to add it.
-                  </p>
-                  <Button variant="outline" className="w-full" onClick={() => void splitSelected()}>
-                    <Unlink className="size-4" /> Split tables
-                  </Button>
-                </div>
-              ) : selectedMergeable ? (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Unlock this table, then drag it onto another available table to merge.
-                    The picker below is a fallback.
-                  </p>
-                  {mergePartners.length === 0 ? (
+              <div>
+                <p className="mb-2 text-sm font-medium">Merge tables</p>
+                {selected.merge ? (
+                  <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      No other available tables to merge right now.
+                      {selected.merge.label} · {selected.merge.seats} seats ·{" "}
+                      {formatDurationMinutes(selected.merge.expectedMinutes)}
                     </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {mergePartners.map((table) => {
-                        const picked = mergePick.includes(table.id)
-                        return (
-                          <button
-                            key={table.id}
-                            type="button"
-                            onClick={() => toggleMergePick(table.id)}
-                            className={cn(
-                              "rounded-md border px-2 py-1 text-sm font-medium transition-colors",
-                              picked
-                                ? "border-primary bg-primary text-primary-foreground"
-                                : "border-border bg-background text-muted-foreground hover:text-foreground",
-                            )}
-                          >
-                            {table.label} · {table.seats}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                  <Button
-                    className="w-full"
-                    variant="outline"
-                    disabled={mergePick.length === 0 || merging}
-                    onClick={() => void combineSelected()}
-                  >
-                    <Combine className="size-4" /> Merge tables
-                  </Button>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Only available tables without a reservation can be merged. Unlock one
-                  and drop it onto another on the floor.
-                </p>
-              )}
-            </div>
+                    <p className="text-xs text-muted-foreground">
+                      Unlock a member and drag it onto an empty cell to split,
+                      or drop another available table here to add it.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => void splitSelected()}
+                    >
+                      <Unlink className="size-4" /> Split tables
+                    </Button>
+                  </div>
+                ) : selectedMergeable ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      Unlock this table, then drag it onto another available
+                      table to merge. The picker below is a fallback.
+                    </p>
+                    {mergePartners.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        No other available tables to merge right now.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {mergePartners.map((table) => {
+                          const picked = mergePick.includes(table.id)
+                          return (
+                            <button
+                              key={table.id}
+                              type="button"
+                              onClick={() => toggleMergePick(table.id)}
+                              className={cn(
+                                "rounded-md border px-2 py-1 text-sm font-medium transition-colors",
+                                picked
+                                  ? "border-primary bg-primary text-primary-foreground"
+                                  : "border-border bg-background text-muted-foreground hover:text-foreground",
+                              )}
+                            >
+                              {table.label} · {table.seats}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      disabled={mergePick.length === 0 || merging}
+                      onClick={() => void combineSelected()}
+                    >
+                      <Combine className="size-4" /> Merge tables
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Only available tables without a reservation can be merged.
+                    Unlock one and drop it onto another on the floor.
+                  </p>
+                )}
+              </div>
 
-            <Button
-              variant="outline"
-              className="w-full text-destructive hover:text-destructive"
-              onClick={() => removeTable(selected.id)}
-            >
-              <Trash2 className="size-4" /> Remove table
-            </Button>
-          </div>
-        ) : (
-          <p className="py-10 text-center text-sm text-muted-foreground">
-            Select a table to edit its status, expected time, and capacity.
-          </p>
-        )}
-      </div>
+              <Button
+                variant="outline"
+                className="w-full text-destructive hover:text-destructive"
+                onClick={() => removeTable(selected.id)}
+              >
+                <Trash2 className="size-4" /> Remove table
+              </Button>
+            </div>
+          ) : (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Select a table to edit its status, expected time, and capacity.
+            </p>
+          )}
+        </div>
       </div>
       <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
-        <SheetContent side="bottom" className="max-h-[78vh] rounded-t-2xl p-0 lg:hidden">
+        <SheetContent
+          side="bottom"
+          className="max-h-[78vh] rounded-t-2xl p-0 lg:hidden"
+        >
           <SheetHeader className="border-b border-border pr-12">
-            <SheetTitle>{selected ? `Table ${selected.merge ? selected.merge.label : selected.label}` : "Selected table"}</SheetTitle>
+            <SheetTitle>
+              {selected
+                ? `Table ${selected.merge ? selected.merge.label : selected.label}`
+                : "Selected table"}
+            </SheetTitle>
             <SheetDescription>
-              {selected ? `${TABLE_STATUS_META[selected.displayStatus].label} · ${selected.merge?.seats ?? selected.seats} seats` : "Choose a table on the floor plan."}
+              {selected
+                ? `${TABLE_STATUS_META[selected.displayStatus].label} · ${selected.merge?.seats ?? selected.seats} seats`
+                : "Choose a table on the floor plan."}
             </SheetDescription>
           </SheetHeader>
           {selected ? (
             <div className="flex flex-col gap-4 overflow-y-auto p-4">
               {selected.reservation ? (
                 <div className="rounded-lg border border-border bg-secondary/40 p-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Reservation</p>
-                  <p className="font-medium">{selected.reservation.guestName}</p>
-                  <p className="text-sm text-muted-foreground">{selected.reservation.time} · party of {selected.reservation.partySize}</p>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Reservation
+                  </p>
+                  <p className="font-medium">
+                    {selected.reservation.guestName}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {selected.reservation.time} · party of{" "}
+                    {selected.reservation.partySize}
+                  </p>
                   {selected.reservation.status === "confirmed" ? (
-                    <Button className="mt-3 w-full" disabled={seating} onClick={() => {
-                      const row = reservations.find((r) => r.id === selected.reservation?.id)
-                      if (row) void seatParty(row)
-                    }}>
+                    <Button
+                      className="mt-3 w-full"
+                      disabled={seating}
+                      onClick={() => {
+                        const row = reservations.find(
+                          (r) => r.id === selected.reservation?.id,
+                        )
+                        if (row) void seatParty(row)
+                      }}
+                    >
                       <Armchair data-icon="inline-start" /> Seat party
                     </Button>
                   ) : null}
                 </div>
-              ) : <p className="text-sm text-muted-foreground">No reservation on this table right now.</p>}
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No reservation on this table right now.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 {STATUS_ORDER.map((status) => (
-                  <Button key={status} size="sm" variant={selected.displayStatus === status ? "default" : "outline"} onClick={() => void setStatus(selected.id, status)}>
+                  <Button
+                    key={status}
+                    size="sm"
+                    variant={
+                      selected.displayStatus === status ? "default" : "outline"
+                    }
+                    onClick={() => void setStatus(selected.id, status)}
+                  >
                     {TABLE_STATUS_META[status].label}
                   </Button>
                 ))}
               </div>
               {selected.merge ? (
-                <Button variant="outline" onClick={() => void splitSelected()}><Unlink data-icon="inline-start" /> Split tables</Button>
+                <Button variant="outline" onClick={() => void splitSelected()}>
+                  <Unlink data-icon="inline-start" /> Split tables
+                </Button>
               ) : null}
-              <Button variant="outline" onClick={() => toggleUnlock(selected.id)}>
-                {selectedUnlocked ? <Lock data-icon="inline-start" /> : <LockOpen data-icon="inline-start" />}
+              <Button
+                variant="outline"
+                onClick={() => toggleUnlock(selected.id)}
+              >
+                {selectedUnlocked ? (
+                  <Lock data-icon="inline-start" />
+                ) : (
+                  <LockOpen data-icon="inline-start" />
+                )}
                 {selectedUnlocked ? "Lock position" : "Unlock to move"}
               </Button>
             </div>

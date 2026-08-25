@@ -28,12 +28,9 @@ CREATE POLICY "Allow public read operating_windows"
   TO public
   USING (true);
 
+-- REAZED-290: OH-PRIV — drop authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE);
+-- GRANT SELECT / REVOKE INSERT, UPDATE, DELETE for anon, authenticated.
 DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows" ON operating_windows;
-CREATE POLICY "Allow authenticated full access to operating_windows"
-  ON operating_windows FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to operating_windows" ON operating_windows;
 CREATE POLICY "Allow service_role full access to operating_windows"
@@ -41,6 +38,9 @@ CREATE POLICY "Allow service_role full access to operating_windows"
   TO service_role
   USING (true)
   WITH CHECK (true);
+
+GRANT SELECT ON TABLE operating_windows TO anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON TABLE operating_windows FROM anon, authenticated;
 
 -- ── blocked_dates ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS blocked_dates (

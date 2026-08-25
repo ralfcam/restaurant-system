@@ -11,7 +11,10 @@
   trigger `enforce_booking_rules`. Linked/remote also has
   `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only)
   and `20260818162000_operating_hour_segments.sql` (`replace_operating_windows`;
-  version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`).
+  version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
+  `20260825140000_operating_windows_privilege.sql` (SELECT-only
+  `anon`/`authenticated` grants; apply on already-baselined remotes — not a
+  full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)
@@ -30,8 +33,8 @@
 
 ## Personas (stable IDs)
 
-| Persona | Email | Password | User ID | Notes |
-| --- | --- | --- | --- | --- |
+| Persona     | Email              | Password      | User ID                                | Notes                                                                                                                                                                               |
+| ----------- | ------------------ | ------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Staff admin | `admin@test.local` | `password123` | `11111111-1111-1111-1111-111111111111` | **Local dev only.** Signs in at `/auth/login`; grants `/admin`, `/pos`, `/kds` (staff routes authorize any authenticated user). Email pre-confirmed. Never seed against production. |
 
 When integration tests need more stable IDs, document additional personas here as

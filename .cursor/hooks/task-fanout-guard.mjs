@@ -61,7 +61,8 @@ function main() {
       return
     }
     if (failure) {
-      if (isTaskTool(input.tool_name)) persist(onTaskFailure(loadReservations()))
+      if (isTaskTool(input.tool_name))
+        persist(onTaskFailure(loadReservations()))
       writeStdoutJson({})
       return
     }

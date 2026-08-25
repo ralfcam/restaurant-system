@@ -1,6 +1,12 @@
 import assert from "node:assert/strict"
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { after, before, test } from "node:test"
@@ -86,23 +92,38 @@ test("topology reproduces staging trailing main", () => {
 test("a head cut from main is refused — retargeting would drag staging..main", () => {
   // The trap the descendant check alone misses: main IS a descendant of the
   // older staging, so check 1 passes and only the drag-in check catches it.
-  assert.equal(gitExit(["merge-base", "--is-ancestor", "staging", heads.main]), 0)
+  assert.equal(
+    gitExit(["merge-base", "--is-ancestor", "staging", heads.main]),
+    0,
+  )
   assert.equal(classify(heads.main), "stop-drag-in")
 })
 
 test("a head cut from staging retargets — drag-in does not fire", () => {
-  assert.equal(gitExit(["merge-base", "--is-ancestor", "staging", heads.fromStaging]), 0)
-  assert.equal(gitExit(["merge-base", "--is-ancestor", "main", heads.fromStaging]), 1)
+  assert.equal(
+    gitExit(["merge-base", "--is-ancestor", "staging", heads.fromStaging]),
+    0,
+  )
+  assert.equal(
+    gitExit(["merge-base", "--is-ancestor", "main", heads.fromStaging]),
+    1,
+  )
   assert.equal(classify(heads.fromStaging), "retarget")
 })
 
 test("a head predating staging's tip is refused pending a rebase", () => {
-  assert.equal(gitExit(["merge-base", "--is-ancestor", "staging", heads.base]), 1)
+  assert.equal(
+    gitExit(["merge-base", "--is-ancestor", "staging", heads.base]),
+    1,
+  )
   assert.equal(classify(heads.base), "stop-rebase")
 })
 
 test("a missing ref is cannot-verify, never a retarget", () => {
-  assert.equal(gitExit(["merge-base", "--is-ancestor", "staging", "no-such-ref"]), 128)
+  assert.equal(
+    gitExit(["merge-base", "--is-ancestor", "staging", "no-such-ref"]),
+    128,
+  )
   assert.equal(classify("no-such-ref"), "stop-cannot-verify")
 })
 

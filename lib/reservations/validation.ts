@@ -35,7 +35,10 @@ export type ReservationPayload = {
  * injected so this stays a pure function that's trivial to unit test across
  * date boundaries without mocking the clock or timezone helpers.
  */
-export function validateReservationPayload(payload: ReservationPayload, today: string): string | null {
+export function validateReservationPayload(
+  payload: ReservationPayload,
+  today: string,
+): string | null {
   const guestName = payload.guestName?.trim() ?? ""
   if (!guestName) return "Please enter your name."
   if (guestName.length > MAX_NAME_LEN) return "Name is too long."
@@ -76,9 +79,11 @@ export function validateReservationPayload(payload: ReservationPayload, today: s
   }
 
   const phone = payload.phone?.trim() ?? ""
-  if (!phone || !PHONE_RE.test(phone)) return "Please provide a valid phone number."
+  if (!phone || !PHONE_RE.test(phone))
+    return "Please provide a valid phone number."
 
-  if (payload.notes && payload.notes.length > MAX_NOTES_LEN) return "Notes are too long."
+  if (payload.notes && payload.notes.length > MAX_NOTES_LEN)
+    return "Notes are too long."
 
   return null
 }

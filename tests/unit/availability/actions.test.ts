@@ -33,9 +33,24 @@ const segmentedMonday: OperatingDay[] = DEFAULT_OPERATING_DAYS.map((day) =>
         day_of_week: 1,
         is_closed: false,
         segments: [
-          { label: "Morning", opens_at: "09:00", closes_at: "11:00", sort_order: 0 },
-          { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 1 },
-          { label: "Dinner", opens_at: "18:00", closes_at: "22:00", sort_order: 2 },
+          {
+            label: "Morning",
+            opens_at: "09:00",
+            closes_at: "11:00",
+            sort_order: 0,
+          },
+          {
+            label: "Lunch",
+            opens_at: "12:00",
+            closes_at: "14:00",
+            sort_order: 1,
+          },
+          {
+            label: "Dinner",
+            opens_at: "18:00",
+            closes_at: "22:00",
+            sort_order: 2,
+          },
         ],
       }
     : day,
@@ -63,8 +78,18 @@ describe("upsertOperatingWindows", () => {
             day_of_week: 2,
             is_closed: false,
             segments: [
-              { label: "Brunch", opens_at: "09:00", closes_at: "13:00", sort_order: 0 },
-              { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 1 },
+              {
+                label: "Brunch",
+                opens_at: "09:00",
+                closes_at: "13:00",
+                sort_order: 0,
+              },
+              {
+                label: "Lunch",
+                opens_at: "12:00",
+                closes_at: "14:00",
+                sort_order: 1,
+              },
             ],
           }
         : day,

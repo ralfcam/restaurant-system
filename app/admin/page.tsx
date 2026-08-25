@@ -77,10 +77,7 @@ export default async function AdminDashboardPage() {
               </li>
             ) : (
               upcoming.map((r) => (
-                <li
-                  key={r.id}
-                  className="flex items-center gap-4 px-5 py-3.5"
-                >
+                <li key={r.id} className="flex items-center gap-4 px-5 py-3.5">
                   <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-md bg-secondary text-xs font-medium">
                     <span className="font-heading text-sm">{r.time}</span>
                   </div>
@@ -88,7 +85,9 @@ export default async function AdminDashboardPage() {
                     <p className="truncate font-medium">{r.guest_name}</p>
                     <p className="text-sm text-muted-foreground">
                       Party of {r.party_size}
-                      {r.table_label ? ` · Table ${r.table_label}` : " · unassigned"}
+                      {r.table_label
+                        ? ` · Table ${r.table_label}`
+                        : " · unassigned"}
                       {r.notes ? ` · ${r.notes}` : ""}
                     </p>
                   </div>
@@ -120,10 +119,7 @@ export default async function AdminDashboardPage() {
               const count = TABLES.filter((t) => t.status === status).length
               const meta = TABLE_STATUS_META[status]
               return (
-                <div
-                  key={status}
-                  className="flex items-center justify-between"
-                >
+                <div key={status} className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm">
                     <span className={`size-2.5 rounded-full ${meta.dot}`} />
                     {meta.label}

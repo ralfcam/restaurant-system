@@ -23,7 +23,9 @@ export function parseToolInput(raw) {
   if (typeof raw !== "string") return {}
   try {
     const parsed = JSON.parse(raw)
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {}
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {}
   } catch {
     return {}
   }

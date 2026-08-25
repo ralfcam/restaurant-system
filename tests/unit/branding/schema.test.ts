@@ -49,23 +49,37 @@ describe("branding CMS schema and surfaces", () => {
 
   it("seed keeps the CMS singleton blank by default (no logo, no hero photo)", () => {
     const seed = readFileSync(path.join(root, "supabase/seed.sql"), "utf8")
-    expect(seed).toMatch(/INSERT INTO restaurant_settings \([\s\S]*logo_url,[\s\S]*hero_image_url,/)
+    expect(seed).toMatch(
+      /INSERT INTO restaurant_settings \([\s\S]*logo_url,[\s\S]*hero_image_url,/,
+    )
     expect(seed).toMatch(/VALUES \(1, NULL, NULL, NULL, NULL, true\)/)
   })
 
   it("staff branding page exists and leftover test fixtures are gone", () => {
-    expect(existsSync(path.join(root, "app/admin/settings/page.tsx"))).toBe(true)
+    expect(existsSync(path.join(root, "app/admin/settings/page.tsx"))).toBe(
+      true,
+    )
     expect(existsSync(path.join(root, "public/test-logo-sync.png"))).toBe(false)
     expect(existsSync(path.join(root, "public/test-logo-tiny.png"))).toBe(false)
-    expect(existsSync(path.join(root, "public/test-logo-upload.png"))).toBe(false)
+    expect(existsSync(path.join(root, "public/test-logo-upload.png"))).toBe(
+      false,
+    )
     expect(existsSync(path.join(root, "public/images/logo.png"))).toBe(false)
     expect(existsSync(path.join(root, "public/images/logo.jpg"))).toBe(false)
-    expect(existsSync(path.join(root, "public/images/hero-dining.png"))).toBe(false)
+    expect(existsSync(path.join(root, "public/images/hero-dining.png"))).toBe(
+      false,
+    )
   })
 
   it("guest header and login render BrandMark only when a custom url is set", () => {
-    const header = readFileSync(path.join(root, "components/site/site-header.tsx"), "utf8")
-    const login = readFileSync(path.join(root, "app/auth/login/page.tsx"), "utf8")
+    const header = readFileSync(
+      path.join(root, "components/site/site-header.tsx"),
+      "utf8",
+    )
+    const login = readFileSync(
+      path.join(root, "app/auth/login/page.tsx"),
+      "utf8",
+    )
     expect(header).toMatch(/useRestaurantLogo/)
     expect(header).toMatch(/<BrandMark src=\{logoUrl\}/)
     expect(header).not.toMatch(/SITE_LOGO\.src/)

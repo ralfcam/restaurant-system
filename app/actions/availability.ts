@@ -22,14 +22,17 @@ export type {
   OperatingWindowRow,
 } from "@/lib/reservations/operating-hours"
 
-const WINDOW_COLUMNS = "day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note"
+const WINDOW_COLUMNS =
+  "day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note"
 
 /**
  * Detects PostgREST schema-cache / missing-table errors. These occur when the
  * `blocked_dates` table doesn't exist yet or the PostgREST cache is stale
  * (codes PGRST116 / PGRST205, or messages mentioning the schema cache).
  */
-function isSchemaCacheError(error: { code?: string; message?: string } | null): boolean {
+function isSchemaCacheError(
+  error: { code?: string; message?: string } | null,
+): boolean {
   if (!error) return false
   return (
     error.code === "PGRST116" ||
@@ -47,7 +50,9 @@ function defaultDay(dayOfWeek: number): OperatingDay {
  * Fetch the operating day (closed flag + opening-hour segments) for a date.
  * Falls back to the seeded default if not configured.
  */
-export async function getOperatingWindowForDate(dateISO: string): Promise<OperatingDay> {
+export async function getOperatingWindowForDate(
+  dateISO: string,
+): Promise<OperatingDay> {
   const dayOfWeek = getDayOfWeekInRestaurantTZ(dateISO)
 
   const supabase = createAnonClient()
@@ -61,7 +66,10 @@ export async function getOperatingWindowForDate(dateISO: string): Promise<Operat
     return defaultDay(dayOfWeek)
   }
 
-  return groupRowsByDay(data as OperatingWindowRow[])[dayOfWeek] ?? defaultDay(dayOfWeek)
+  return (
+    groupRowsByDay(data as OperatingWindowRow[])[dayOfWeek] ??
+    defaultDay(dayOfWeek)
+  )
 }
 
 /**
@@ -86,7 +94,10 @@ export async function isDateBlocked(dateISO: string): Promise<boolean> {
 /**
  * Get all blocked dates in a given month (for calendar visualization).
  */
-export async function getBlockedDatesInMonth(year: number, month: number): Promise<string[]> {
+export async function getBlockedDatesInMonth(
+  year: number,
+  month: number,
+): Promise<string[]> {
   const startDate = `${year}-${String(month).padStart(2, "0")}-01`
   const endDate = new Date(year, month, 0).toISOString().slice(0, 10)
 
@@ -110,7 +121,9 @@ export async function getBlockedDatesInMonth(year: number, month: number): Promi
  * Used by the calendar to evaluate disabled dates without per-date server calls.
  * Falls back to safe defaults if the table doesn't exist yet.
  */
-export async function getAllOperatingWindowsMap(): Promise<Record<number, OperatingWindow>> {
+export async function getAllOperatingWindowsMap(): Promise<
+  Record<number, OperatingWindow>
+> {
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("operating_windows")
@@ -128,7 +141,10 @@ export async function getAllOperatingWindowsMap(): Promise<Record<number, Operat
  * Fetch all blocked dates within a date range (inclusive).
  * Used by the calendar to bulk-evaluate disabled dates without per-date server calls.
  */
-export async function getBlockedDatesInRange(startISO: string, endISO: string): Promise<string[]> {
+export async function getBlockedDatesInRange(
+  startISO: string,
+  endISO: string,
+): Promise<string[]> {
   const supabase = createAnonClient()
   const { data, error } = await supabase
     .from("blocked_dates")
@@ -236,7 +252,8 @@ export async function toggleBlockedDate(
       .delete()
       .eq("date", safeISO)
     if (error) {
-      if (isSchemaCacheError(error)) return { blocked: true, error: `PGRST116: ${error.message}` }
+      if (isSchemaCacheError(error))
+        return { blocked: true, error: `PGRST116: ${error.message}` }
       return { blocked: true, error: error.message }
     }
     return { blocked: false }
@@ -246,7 +263,8 @@ export async function toggleBlockedDate(
       .from("blocked_dates")
       .insert({ date: safeISO, reason: "Admin blocked" })
     if (error) {
-      if (isSchemaCacheError(error)) return { blocked: false, error: `PGRST116: ${error.message}` }
+      if (isSchemaCacheError(error))
+        return { blocked: false, error: `PGRST116: ${error.message}` }
       return { blocked: false, error: error.message }
     }
     return { blocked: true }

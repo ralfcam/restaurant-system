@@ -234,7 +234,7 @@ One line per question asked and the operator's confirmed answer:
 
 | Todo id               | Delegation                                                                                                                 |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `write-spec`          | Write the approved spec to `docs/specs/REQ-###-<slug>.md` directly (no subagent — design owns this write)              |
+| `write-spec`          | Write the approved spec to `docs/specs/REQ-###-<slug>.md` directly (no subagent — design owns this write)                  |
 | `product-gaps-phase5` | Invoke the `docs-updater` subagent to apply design ledger writes to `docs/findings/product-gaps.md` (omit if no deferrals) |
 
 ## Next in the Cycle
