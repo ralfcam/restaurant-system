@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useState, type PointerEvent } from "react"
-import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink, Lock, LockOpen } from "lucide-react"
+import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink, Lock, LockOpen, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import {
   TABLE_STATUS_META,
@@ -111,6 +111,8 @@ export function FloorPlan({
   )
   const [seating, setSeating] = useState(false)
   const [mergePick, setMergePick] = useState<string[]>([])
+  const [activeFilter, setActiveFilter] = useState<TableStatus | "all">("all")
+  const [editMode, setEditMode] = useState(false)
   const [merging, setMerging] = useState(false)
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
   const [slotInterval, setSlotInterval] = useState<SlotIntervalMinutes>(
@@ -137,7 +139,15 @@ export function FloorPlan({
   )
 
   const groups = useMemo(() => groupTablesForDisplay(displayedTables), [displayedTables])
+  const visibleIds = useMemo(
+    () => new Set(tables.filter((table) => activeFilter === "all" || table.displayStatus === activeFilter).map((table) => table.id)),
+    [tables, activeFilter],
+  )
   const canvas = useMemo(() => floorCanvasCells(displayedTables), [displayedTables])
+  const statusCounts = useMemo(
+    () => STATUS_ORDER.map((status) => ({ status, count: tables.filter((table) => table.displayStatus === status).length })),
+    [tables],
+  )
   const upcoming = useMemo(
     () =>
       reservations
@@ -514,13 +524,22 @@ export function FloorPlan({
             </div>
           </div>
 
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filter tables by status">
+            <button type="button" onClick={() => setActiveFilter("all")} className={cn("min-w-24 rounded-lg border px-3 py-2 text-left text-xs font-medium", activeFilter === "all" ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground")}>
+              <span className="block text-base font-semibold tabular-nums">{tables.length}</span>All tables
+            </button>
+            {statusCounts.map(({ status, count }) => (
+              <button key={status} type="button" onClick={() => setActiveFilter(status)} className={cn("min-w-24 rounded-lg border px-3 py-2 text-left text-xs font-medium", activeFilter === status ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-muted-foreground")}>
+                <span className="block text-base font-semibold tabular-nums">{count}</span>{TABLE_STATUS_META[status].label}
+              </button>
+            ))}
+          </div>
           <div className="mb-3 flex items-start gap-2 rounded-md border border-border bg-secondary/60 px-3 py-2 text-xs text-foreground">
             <Lock className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
-            <p>
-              Unlock a table (padlock) to drag it. Drop an available table onto
-              another to merge. Drag a merged table onto an empty cell to split.
-              Locked tables stay put.
-            </p>
+            <p className="flex-1">{editMode ? "Edit mode is on. Unlock a table to drag it, then lock it again when you are done." : "Service mode is on. Select tables to manage the dining room; positions are protected."}</p>
+            <Button size="sm" variant={editMode ? "default" : "outline"} onClick={() => { setEditMode((value) => !value); if (editMode) setUnlockedIds(new Set()) }}>
+              <Pencil data-icon="inline-start" /> {editMode ? "Done" : "Edit layout"}
+            </Button>
           </div>
           <div className="overflow-auto rounded-lg border border-dashed border-border bg-secondary/30 p-3">
             <div
@@ -564,12 +583,12 @@ export function FloorPlan({
                 )
               })}
 
-              {displayedTables.map((t) => {
+              {displayedTables.filter((t) => visibleIds.has(t.id)).map((t) => {
                 const meta = TABLE_STATUS_META[t.displayStatus]
                 const isSelected = t.id === (selected?.id ?? selectedId)
                 const silhouette = tableShapeForSeats(t.seats)
-                const unlocked = unlockedIds.has(t.id)
-                const canMove = unlocked && !merging
+    const unlocked = editMode && unlockedIds.has(t.id)
+    const canMove = editMode && unlocked && !merging
                 const targetKey = dropKeyFor(t)
                 const isDropTarget = dropTargetKey === targetKey
                 const cell = { x: t.x, y: t.y }
@@ -713,13 +732,24 @@ export function FloorPlan({
                   <span className="w-12 shrink-0 font-heading text-sm font-semibold tabular-nums">
                     {row.time}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => {
+                      const assignedTable = row.table_label
+                        ? tables.find((table) => table.label === row.table_label)
+                        : null
+                      if (assignedTable) setSelectedId(assignedTable.id)
+                    }}
+                    disabled={!row.table_label}
+                    title={row.table_label ? "Focus table" : "Waiting for table assignment"}
+                  >
                     <p className="truncate text-sm font-medium">{row.guest_name}</p>
                     <p className="text-xs text-muted-foreground">
                       Party of {row.party_size}
                       {row.table_label ? ` · Table ${row.table_label}` : " · waiting for a table"}
                     </p>
-                  </div>
+                  </button>
                   <ReservationStatusBadge status={row.status} />
                 </li>
               ))}
