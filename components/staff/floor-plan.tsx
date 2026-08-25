@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useRef, useState, type PointerEvent } from "react"
-import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink, Lock, LockOpen, Pencil } from "lucide-react"
+import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink, Lock, LockOpen, Pencil, LocateFixed } from "lucide-react"
 import { toast } from "sonner"
 import {
   TABLE_STATUS_META,
@@ -57,6 +57,13 @@ import {
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 
 const STATUS_ORDER: TableStatus[] = [
   "available",
@@ -109,6 +116,7 @@ export function FloorPlan({
   const [selectedId, setSelectedId] = useState<string | null>(
     fallbackData?.tables[0]?.id ?? null,
   )
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false)
   const [seating, setSeating] = useState(false)
   const [mergePick, setMergePick] = useState<string[]>([])
   const [activeFilter, setActiveFilter] = useState<TableStatus | "all">("all")
@@ -463,8 +471,42 @@ export function FloorPlan({
     await splitArrangement(selected.merge.id, selected.merge.label)
   }
 
+  function focusFloor() {
+    canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" })
+  }
+
+  function selectTable(id: string) {
+    setSelectedId(id)
+    setMergePick([])
+    setMobileInspectorOpen(true)
+  }
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
+    <>
+      <div className="sticky top-2 z-30 mb-4 flex items-center gap-2 rounded-xl border border-border bg-card/95 p-2 shadow-sm backdrop-blur lg:hidden">
+        <Button
+          size="sm"
+          variant={editMode ? "default" : "outline"}
+          onClick={() => {
+            setEditMode((value) => !value)
+            if (editMode) setUnlockedIds(new Set())
+          }}
+        >
+          <Pencil data-icon="inline-start" /> {editMode ? "Editing" : "Service"}
+        </Button>
+        <button
+          type="button"
+          className="min-w-0 flex-1 truncate rounded-md border border-border bg-background px-3 py-2 text-left text-xs font-medium"
+          onClick={() => setActiveFilter("all")}
+          aria-label={`Current floor filter: ${activeFilter === "all" ? "all tables" : TABLE_STATUS_META[activeFilter].label}`}
+        >
+          Filter: {activeFilter === "all" ? "All tables" : TABLE_STATUS_META[activeFilter].label}
+        </button>
+        <Button size="icon" variant="outline" onClick={focusFloor} aria-label="Center floor plan" title="Center floor plan">
+          <LocateFixed data-icon="inline-start" />
+        </Button>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
       <div className="space-y-6">
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -646,8 +688,7 @@ export function FloorPlan({
                           skipClickAfterDrag.current = false
                           return
                         }
-                        setSelectedId(t.id)
-                        setMergePick([])
+                        selectTable(t.id)
                       }}
                       onPointerDown={(event) => onChipPointerDown(t, event)}
                       onPointerMove={onChipPointerMove}
@@ -758,7 +799,7 @@ export function FloorPlan({
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-5">
+      <div className="hidden rounded-xl border border-border bg-card p-5 lg:block">
         {selected ? (
           <div className="space-y-5">
             <div>
@@ -1000,6 +1041,50 @@ export function FloorPlan({
           </p>
         )}
       </div>
-    </div>
+      </div>
+      <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
+        <SheetContent side="bottom" className="max-h-[78vh] rounded-t-2xl p-0 lg:hidden">
+          <SheetHeader className="border-b border-border pr-12">
+            <SheetTitle>{selected ? `Table ${selected.merge ? selected.merge.label : selected.label}` : "Selected table"}</SheetTitle>
+            <SheetDescription>
+              {selected ? `${TABLE_STATUS_META[selected.displayStatus].label} · ${selected.merge?.seats ?? selected.seats} seats` : "Choose a table on the floor plan."}
+            </SheetDescription>
+          </SheetHeader>
+          {selected ? (
+            <div className="flex flex-col gap-4 overflow-y-auto p-4">
+              {selected.reservation ? (
+                <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Reservation</p>
+                  <p className="font-medium">{selected.reservation.guestName}</p>
+                  <p className="text-sm text-muted-foreground">{selected.reservation.time} · party of {selected.reservation.partySize}</p>
+                  {selected.reservation.status === "confirmed" ? (
+                    <Button className="mt-3 w-full" disabled={seating} onClick={() => {
+                      const row = reservations.find((r) => r.id === selected.reservation?.id)
+                      if (row) void seatParty(row)
+                    }}>
+                      <Armchair data-icon="inline-start" /> Seat party
+                    </Button>
+                  ) : null}
+                </div>
+              ) : <p className="text-sm text-muted-foreground">No reservation on this table right now.</p>}
+              <div className="grid grid-cols-2 gap-2">
+                {STATUS_ORDER.map((status) => (
+                  <Button key={status} size="sm" variant={selected.displayStatus === status ? "default" : "outline"} onClick={() => void setStatus(selected.id, status)}>
+                    {TABLE_STATUS_META[status].label}
+                  </Button>
+                ))}
+              </div>
+              {selected.merge ? (
+                <Button variant="outline" onClick={() => void splitSelected()}><Unlink data-icon="inline-start" /> Split tables</Button>
+              ) : null}
+              <Button variant="outline" onClick={() => toggleUnlock(selected.id)}>
+                {selectedUnlocked ? <Lock data-icon="inline-start" /> : <LockOpen data-icon="inline-start" />}
+                {selectedUnlocked ? "Lock position" : "Unlock to move"}
+              </Button>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
+    </>
   )
 }
