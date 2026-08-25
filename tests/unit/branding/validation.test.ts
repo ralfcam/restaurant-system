@@ -27,8 +27,12 @@ describe("validateLogoUpload", () => {
   })
 
   it("rejects a missing file", () => {
-    expect(validateLogoUpload({ ...valid, base64: "" })).toBe("Please choose an image file.")
-    expect(validateLogoUpload({ ...valid, size: 0 })).toBe("Please choose an image file.")
+    expect(validateLogoUpload({ ...valid, base64: "" })).toBe(
+      "Please choose an image file.",
+    )
+    expect(validateLogoUpload({ ...valid, size: 0 })).toBe(
+      "Please choose an image file.",
+    )
   })
 
   it("rejects an unsupported content type", () => {
@@ -48,9 +52,15 @@ describe("validateLogoUpload", () => {
   })
 
   it("accepts JPEG aliases and an empty type when the file name has an image extension", () => {
-    expect(validateLogoUpload({ ...valid, contentType: "image/jpg" })).toBeNull()
     expect(
-      validateLogoUpload({ ...valid, contentType: "", fileName: "brand-mark.webp" }),
+      validateLogoUpload({ ...valid, contentType: "image/jpg" }),
+    ).toBeNull()
+    expect(
+      validateLogoUpload({
+        ...valid,
+        contentType: "",
+        fileName: "brand-mark.webp",
+      }),
     ).toBeNull()
   })
 })
@@ -77,7 +87,9 @@ describe("isMissingBucketError", () => {
   it("detects the storage bucket-not-found message", () => {
     expect(isMissingBucketError({ message: "Bucket not found" })).toBe(true)
     expect(isMissingBucketError({ error: "Bucket not found" })).toBe(true)
-    expect(isMissingBucketError({ message: "new row violates row-level security" })).toBe(false)
+    expect(
+      isMissingBucketError({ message: "new row violates row-level security" }),
+    ).toBe(false)
   })
 })
 
@@ -103,8 +115,12 @@ describe("validateHeroUpload", () => {
   })
 
   it("rejects a missing file", () => {
-    expect(validateHeroUpload({ ...valid, base64: "" })).toBe("Please choose an image file.")
-    expect(validateHeroUpload({ ...valid, size: 0 })).toBe("Please choose an image file.")
+    expect(validateHeroUpload({ ...valid, base64: "" })).toBe(
+      "Please choose an image file.",
+    )
+    expect(validateHeroUpload({ ...valid, size: 0 })).toBe(
+      "Please choose an image file.",
+    )
   })
 
   it("rejects an unsupported content type, including SVG (logo-only)", () => {

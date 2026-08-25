@@ -19,7 +19,9 @@ describe("floor tables schema and live surfaces", () => {
     expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS table_merges/)
     expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS table_merge_members/)
     expect(baseline).toMatch(/status_events_entity_type_check/)
-    expect(baseline).toMatch(/entity_type IN \('table', 'reservation', 'order'\)/)
+    expect(baseline).toMatch(
+      /entity_type IN \('table', 'reservation', 'order'\)/,
+    )
 
     const seed = read("supabase/seed.sql")
     expect(seed).toMatch(/INSERT INTO tables/)
@@ -27,7 +29,9 @@ describe("floor tables schema and live surfaces", () => {
   })
 
   it("forward migration creates tables on already-applied baselines", () => {
-    const migration = read("supabase/migrations/20260818180000_floor_tables.sql")
+    const migration = read(
+      "supabase/migrations/20260818180000_floor_tables.sql",
+    )
     expect(migration).toMatch(/CREATE TABLE IF NOT EXISTS tables/)
     expect(migration).toMatch(/ADD TABLE tables/)
     expect(migration).toMatch(/status_events_entity_type_check/)
@@ -61,10 +65,11 @@ describe("floor tables schema and live surfaces", () => {
   })
 
   it("forward migration adds expected time and merge tables", () => {
-    const migration = read("supabase/migrations/20260818193000_table_expected_minutes_and_merges.sql")
+    const migration = read(
+      "supabase/migrations/20260818193000_table_expected_minutes_and_merges.sql",
+    )
     expect(migration).toMatch(/expected_minutes/)
     expect(migration).toMatch(/CREATE TABLE IF NOT EXISTS table_merges/)
     expect(migration).toMatch(/table_merge_members/)
   })
 })
-

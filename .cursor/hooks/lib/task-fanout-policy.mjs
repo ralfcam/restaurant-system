@@ -52,7 +52,9 @@ function asReservation(x) {
 
 export function pruneExpired(reservations, now = Date.now()) {
   if (!Array.isArray(reservations)) return []
-  return reservations.map(asReservation).filter((r) => r && now - r.ts < RESERVATION_TTL_MS)
+  return reservations
+    .map(asReservation)
+    .filter((r) => r && now - r.ts < RESERVATION_TTL_MS)
 }
 
 export function inflightCount(reservations, now = Date.now()) {
@@ -65,7 +67,10 @@ export function tryReserve(reservations, now = Date.now()) {
   if (live.length >= TASK_FANOUT_INFLIGHT_CAP) {
     return { deny: true, reservations: live }
   }
-  return { deny: false, reservations: [...live, { status: "pending", ts: now }] }
+  return {
+    deny: false,
+    reservations: [...live, { status: "pending", ts: now }],
+  }
 }
 
 /** Convert the oldest pending slot to running. Total in-flight is unchanged. */

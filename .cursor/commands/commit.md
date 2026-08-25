@@ -206,18 +206,18 @@ enforce.
 Before reviewing the diff, verify close-out artifacts from `/sdd-to-tdd`. Any
 missing item → **CHANGES-REQUESTED** (unless noted as note-only):
 
-| Check                                                                                                                         | Resolution                                                 |
-| ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Thread has **Docs sync packet** + **docs-updater report**, OR explicit `skip_reason` in packet/thread                         | Else CHANGES-REQUESTED                                     |
-| `docs/verifier-reports/tdd/<plan-slug>.md` exists (`plan_slug` from packet or thread)                                         | Else CHANGES-REQUESTED                                     |
-| **`## Traceability (final)`** has a row per `criteria_shipped`                                                                | Else CHANGES-REQUESTED                                     |
-| `criteria_manual_uat` entries present with `manual-uat` status (no test required)                                             | Note only — do not fail                                    |
-| Unresolved **Drift flagged** on P0/money/auth paths in docs-updater report                                                    | CHANGES-REQUESTED                                          |
-| Each path in `uat_flows_to_stamp` has refreshed `Possibly stale` marker                                                       | Else CHANGES-REQUESTED                                     |
+| Check                                                                                                                                | Resolution                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| Thread has **Docs sync packet** + **docs-updater report**, OR explicit `skip_reason` in packet/thread                                | Else CHANGES-REQUESTED                                     |
+| `docs/verifier-reports/tdd/<plan-slug>.md` exists (`plan_slug` from packet or thread)                                                | Else CHANGES-REQUESTED                                     |
+| **`## Traceability (final)`** has a row per `criteria_shipped`                                                                       | Else CHANGES-REQUESTED                                     |
+| `criteria_manual_uat` entries present with `manual-uat` status (no test required)                                                    | Note only — do not fail                                    |
+| Unresolved **Drift flagged** on P0/money/auth paths in docs-updater report                                                           | CHANGES-REQUESTED                                          |
+| Each path in `uat_flows_to_stamp` has refreshed `Possibly stale` marker                                                              | Else CHANGES-REQUESTED                                     |
 | `node .cursor/checks/harness-lint.mjs <plan-slug>` exits 0 (structural lint of the tdd log + findings ledger — trajectory, not code) | Else CHANGES-REQUESTED, citing its violation list verbatim |
-| `node .cursor/checks/harness-lint.mjs` exits 0 (repo-wide harness link / capability / always-apply budget lint)                | Else CHANGES-REQUESTED, citing its violation list verbatim |
-| `node --test ".cursor/checks/**/*.test.mjs"` exits 0 (guard-policy + harness-lint resolver tests)                             | Else CHANGES-REQUESTED                                     |
-| `## Run metrics` block present in the tdd log                                                                                 | Note only — do not fail                                    |
+| `node .cursor/checks/harness-lint.mjs` exits 0 (repo-wide harness link / capability / always-apply budget lint)                      | Else CHANGES-REQUESTED, citing its violation list verbatim |
+| `node --test ".cursor/checks/**/*.test.mjs"` exits 0 (guard-policy + harness-lint resolver tests)                                    | Else CHANGES-REQUESTED                                     |
+| `## Run metrics` block present in the tdd log                                                                                        | Note only — do not fail                                    |
 
 UAT runbooks: staleness stamp only — never require scenario rewrites here.
 
@@ -392,7 +392,7 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
 - **PASS, on `staging` (per Step 5a):** `/push` run from `staging` already
   resolves and preps the open promotion PR automatically (its head is this
   branch) — no separate invocation needed. Only pin `/push
-  <promotion-PR-URL>` if auto-discovery would be ambiguous (e.g. more than one
+<promotion-PR-URL>` if auto-discovery would be ambiguous (e.g. more than one
   open PR shares this head). Once prepped, the aggregated
   `Fixes REAZED-###[, ...]` line is on the promotion PR so the operator's merge
   actually triggers Done for leftover direct commits.

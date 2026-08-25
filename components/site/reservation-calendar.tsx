@@ -3,7 +3,10 @@
 import { useState, useMemo } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { getTodayInRestaurantTZ, getDayOfWeekInRestaurantTZ } from "@/lib/timezone"
+import {
+  getTodayInRestaurantTZ,
+  getDayOfWeekInRestaurantTZ,
+} from "@/lib/timezone"
 import {
   type OperatingWindow,
   DEFAULT_OPERATING_DAYS,
@@ -120,15 +123,18 @@ export function ReservationCalendar({
     }
   }
 
-  const monthName = firstDay.toLocaleString("default", { month: "long", year: "numeric" })
+  const monthName = firstDay.toLocaleString("default", {
+    month: "long",
+    year: "numeric",
+  })
 
   return (
-    <div className={cn(
-      "rounded-sm border p-2",
-      dark
-        ? "border-white/15 bg-zinc-900"
-        : "border-border/60 bg-white",
-    )}>
+    <div
+      className={cn(
+        "rounded-sm border p-2",
+        dark ? "border-white/15 bg-zinc-900" : "border-border/60 bg-white",
+      )}
+    >
       {/* Header */}
       <div className="mb-2 flex items-center justify-between gap-1">
         <button
@@ -143,10 +149,12 @@ export function ReservationCalendar({
         >
           <ChevronLeft className="size-3" />
         </button>
-        <h3 className={cn(
-          "text-[11px] font-semibold tracking-wide flex-1 text-center",
-          dark ? "text-white/90" : "text-foreground",
-        )}>
+        <h3
+          className={cn(
+            "text-[11px] font-semibold tracking-wide flex-1 text-center",
+            dark ? "text-white/90" : "text-foreground",
+          )}
+        >
           {monthName}
         </h3>
         <button
@@ -199,50 +207,63 @@ export function ReservationCalendar({
             // In adminMode, closed-by-schedule days are in disabledDates —
             // prevent toggleBlockedDate from firing for them since blocking
             // a permanently closed day is redundant and confusing.
-            const isClosed = adminMode && disabledDates.has(dateISO) && !isBlocked
+            const isClosed =
+              adminMode && disabledDates.has(dateISO) && !isBlocked
 
             return (
               <button
                 key={`${weekIdx}-${dayIdx}`}
                 type="button"
-                onClick={() => { if (!isDisabled && !isClosed) onChange(dateISO) }}
+                onClick={() => {
+                  if (!isDisabled && !isClosed) onChange(dateISO)
+                }}
                 disabled={isDisabled}
                 className={cn(
                   "w-6 h-6 text-[10px] font-medium rounded-sm transition-colors border",
                   "disabled:cursor-not-allowed disabled:opacity-15 disabled:line-through disabled:pointer-events-none",
                   isCurrentMonth ? "" : "opacity-30",
                   // Admin mode: blocked dates get danger highlight
-                  adminMode && isBlocked && (
-                    "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/60"
-                  ),
+                  adminMode &&
+                    isBlocked &&
+                    "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20 hover:border-destructive/60",
                   // Normal selected state (only when not blocked in admin mode)
-                  isSelected && !isDisabled && !(adminMode && isBlocked) && (dark
-                    ? "border-white bg-white text-zinc-950 font-semibold"
-                    : "border-foreground bg-foreground text-background font-semibold"
-                  ),
-                  isToday && !isSelected && !isDisabled && !(adminMode && isBlocked) && (dark
-                    ? "border-white/50 bg-white/20 text-white font-semibold"
-                    : "border-foreground/40 bg-foreground/8 text-foreground font-semibold"
-                  ),
-                  !isSelected && !isToday && !isDisabled && !(adminMode && isBlocked) && (dark
-                    ? "border-white/20 text-white/80 hover:border-white/40 hover:bg-white/10"
-                    : "border-border/60 text-foreground hover:border-foreground/40 hover:bg-secondary"
-                  ),
+                  isSelected &&
+                    !isDisabled &&
+                    !(adminMode && isBlocked) &&
+                    (dark
+                      ? "border-white bg-white text-zinc-950 font-semibold"
+                      : "border-foreground bg-foreground text-background font-semibold"),
+                  isToday &&
+                    !isSelected &&
+                    !isDisabled &&
+                    !(adminMode && isBlocked) &&
+                    (dark
+                      ? "border-white/50 bg-white/20 text-white font-semibold"
+                      : "border-foreground/40 bg-foreground/8 text-foreground font-semibold"),
+                  !isSelected &&
+                    !isToday &&
+                    !isDisabled &&
+                    !(adminMode && isBlocked) &&
+                    (dark
+                      ? "border-white/20 text-white/80 hover:border-white/40 hover:bg-white/10"
+                      : "border-border/60 text-foreground hover:border-foreground/40 hover:bg-secondary"),
                 )}
               >
                 {date.getDate()}
               </button>
             )
-          })
+          }),
         )}
       </div>
 
       {/* Show a subtle hint while the parent is still loading operating rules */}
       {!operatingWindows && (
-        <div className={cn(
-          "text-center text-[10px] mt-2 py-1",
-          dark ? "text-white/40" : "text-foreground/40",
-        )}>
+        <div
+          className={cn(
+            "text-center text-[10px] mt-2 py-1",
+            dark ? "text-white/40" : "text-foreground/40",
+          )}
+        >
           Loading schedule...
         </div>
       )}

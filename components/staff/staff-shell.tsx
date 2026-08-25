@@ -31,11 +31,31 @@ type StaffUser = { email?: string | null; name?: string | null } | null
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, role: "Admin" },
-  { href: "/admin/reservations", label: "Reservations", icon: CalendarClock, role: "Admin" },
-  { href: "/admin/scheduling", label: "Scheduling", icon: Clock, role: "Admin" },
-  { href: "/admin/floor", label: "Floor Plan", icon: LayoutGrid, role: "Admin" },
+  {
+    href: "/admin/reservations",
+    label: "Reservations",
+    icon: CalendarClock,
+    role: "Admin",
+  },
+  {
+    href: "/admin/scheduling",
+    label: "Scheduling",
+    icon: Clock,
+    role: "Admin",
+  },
+  {
+    href: "/admin/floor",
+    label: "Floor Plan",
+    icon: LayoutGrid,
+    role: "Admin",
+  },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, role: "Admin" },
-  { href: "/admin/settings", label: "Branding", icon: ImageIcon, role: "Admin" },
+  {
+    href: "/admin/settings",
+    label: "Branding",
+    icon: ImageIcon,
+    role: "Admin",
+  },
   { href: "/pos", label: "Point of Sale", icon: Receipt, role: "Cashier" },
   { href: "/kds", label: "Kitchen Display", icon: ChefHat, role: "Kitchen" },
 ]
@@ -81,9 +101,7 @@ function SidebarContent({
   onNavigate?: () => void
   user?: StaffUser
 }) {
-  const initials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "ST"
+  const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "ST"
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -172,7 +190,9 @@ export function StaffShell({
               </p>
             ) : null}
           </div>
-          {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+          {actions ? (
+            <div className="flex items-center gap-2">{actions}</div>
+          ) : null}
         </header>
 
         <main className="flex-1 p-4 md:p-8">{children}</main>

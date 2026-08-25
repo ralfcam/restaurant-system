@@ -16,6 +16,7 @@ not treat this command as a TDD release gate. After TDD, the operator runs
 <instructions>
 
 Enforce strictly:
+
 - DO NOT rewrite the entire file unless the input clearly requires a full rewrite.
 - DO NOT make speculative changes.
 - DO NOT change public behavior unless required to fix a clear defect or design issue.
@@ -27,6 +28,7 @@ Enforce strictly:
 Task: Review the provided file(s) first, then revise only the parts that clearly need improvement.
 
 For code files:
+
 - Find correctness bugs, security risks, performance issues, weak validation, poor error handling, and obvious maintainability problems.
 - Prefer the smallest **correct** fix (see
   [.cursor/rules/pre-production-status.mdc](.cursor/rules/pre-production-status.mdc)):
@@ -34,11 +36,13 @@ For code files:
 - Preserve surrounding style and architecture.
 
 For plan/spec files:
+
 - Improve clarity, sequencing, dependencies, risks, edge cases, and acceptance criteria.
 - Keep the original intent intact.
 - Tighten ambiguous language and remove gaps.
 
 Reasoning protocol:
+
 1. Review the file carefully.
 2. Identify only the highest-priority issues.
 3. Revise the file with minimal changes.
@@ -64,4 +68,4 @@ Tone: professional and actionable. Length: concise.
 1. **Review** — bullet list of the most important findings.
 2. **Revision** — bullet list of the changes made, or "no edit needed".
 3. **Remaining risks** — unresolved concerns, assumptions, or follow-up items.
-</output_format>
+   </output_format>

@@ -46,7 +46,10 @@ describe("timeToMinutes", () => {
 describe("isReservationDueForAssignment", () => {
   it("is due at the booked time", () => {
     expect(
-      isReservationDueForAssignment(reservation({ id: "r1", time: "18:00" }), NOW),
+      isReservationDueForAssignment(
+        reservation({ id: "r1", time: "18:00" }),
+        NOW,
+      ),
     ).toBe(true)
   })
 
@@ -91,7 +94,12 @@ describe("isReservationDueForAssignment", () => {
         NOW,
       ),
     ).toBe(false)
-    for (const status of ["seated", "completed", "cancelled", "no_show"] as ReservationStatus[]) {
+    for (const status of [
+      "seated",
+      "completed",
+      "cancelled",
+      "no_show",
+    ] as ReservationStatus[]) {
       expect(
         isReservationDueForAssignment(reservation({ id: "r1", status }), NOW),
       ).toBe(false)
@@ -155,8 +163,18 @@ describe("planAutoAssignments", () => {
   it("at the same time prefers the larger party and never double-books", () => {
     const planned = planAutoAssignments(
       [
-        reservation({ id: "two", time: "18:00", party_size: 2, created_at: "2026-08-01T11:00:00.000Z" }),
-        reservation({ id: "four", time: "18:00", party_size: 4, created_at: "2026-08-01T12:00:00.000Z" }),
+        reservation({
+          id: "two",
+          time: "18:00",
+          party_size: 2,
+          created_at: "2026-08-01T11:00:00.000Z",
+        }),
+        reservation({
+          id: "four",
+          time: "18:00",
+          party_size: 4,
+          created_at: "2026-08-01T12:00:00.000Z",
+        }),
       ],
       tables,
       NOW,

@@ -10,7 +10,9 @@ import {
   checkTaskDelegation,
 } from "../hooks/lib/task-delegation-policy.mjs"
 
-const hooks = JSON.parse(readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"))
+const hooks = JSON.parse(
+  readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
+)
 
 function hookByCommand(event, needle) {
   return (hooks.hooks[event] || []).find((h) => h.command.includes(needle))
@@ -24,7 +26,10 @@ test("task-delegation-guard is registered on preToolUse Task, fail-open", () => 
 })
 
 test("task-delegation-guard.mjs wires checkTaskDelegation", () => {
-  const src = readFileSync(join(process.cwd(), ".cursor", "hooks", "task-delegation-guard.mjs"), "utf8")
+  const src = readFileSync(
+    join(process.cwd(), ".cursor", "hooks", "task-delegation-guard.mjs"),
+    "utf8",
+  )
   assert.match(src, /checkTaskDelegation/)
 })
 
@@ -42,7 +47,10 @@ test("getPinnedModel returns null for an unknown subagent type", () => {
 })
 
 test("detectModelOverride denies model passed on a pinned subagent type", () => {
-  const hit = detectModelOverride("linear-resolver", "claude-opus-5-thinking-high")
+  const hit = detectModelOverride(
+    "linear-resolver",
+    "claude-opus-5-thinking-high",
+  )
   assert.equal(hit.kind, "model-override")
   assert.equal(hit.pinned, getPinnedModel("linear-resolver"))
 })
@@ -52,11 +60,17 @@ test("detectModelOverride allows omitting model on a pinned subagent type", () =
 })
 
 test("detectModelOverride allows model on a subagent type with no pin", () => {
-  assert.equal(detectModelOverride("explore", "claude-opus-5-thinking-high"), null)
+  assert.equal(
+    detectModelOverride("explore", "claude-opus-5-thinking-high"),
+    null,
+  )
 })
 
 test("detectGeneralPurposeLinearWrite denies a generalPurpose prompt instructing save_comment", () => {
-  const hit = detectGeneralPurposeLinearWrite("generalPurpose", "Post this via save_comment on REAZED-1386")
+  const hit = detectGeneralPurposeLinearWrite(
+    "generalPurpose",
+    "Post this via save_comment on REAZED-1386",
+  )
   assert.equal(hit.kind, "generalPurpose-linear-write")
 })
 
@@ -69,11 +83,23 @@ test("detectGeneralPurposeLinearWrite denies a generalPurpose prompt referencing
 })
 
 test("detectGeneralPurposeLinearWrite allows an ordinary generalPurpose prompt", () => {
-  assert.equal(detectGeneralPurposeLinearWrite("generalPurpose", "Summarize the auth module for me"), null)
+  assert.equal(
+    detectGeneralPurposeLinearWrite(
+      "generalPurpose",
+      "Summarize the auth module for me",
+    ),
+    null,
+  )
 })
 
 test("detectGeneralPurposeLinearWrite allows a Linear-write prompt on a non-generalPurpose type", () => {
-  assert.equal(detectGeneralPurposeLinearWrite("linear-resolver", "Post this via save_comment"), null)
+  assert.equal(
+    detectGeneralPurposeLinearWrite(
+      "linear-resolver",
+      "Post this via save_comment",
+    ),
+    null,
+  )
 })
 
 test("checkTaskDelegation prefers the model-override hit when both conditions are present", () => {
@@ -87,7 +113,11 @@ test("checkTaskDelegation prefers the model-override hit when both conditions ar
 
 test("checkTaskDelegation returns null for a clean generalPurpose Task", () => {
   assert.equal(
-    checkTaskDelegation({ subagentType: "generalPurpose", model: undefined, prompt: "Explore the repo" }),
+    checkTaskDelegation({
+      subagentType: "generalPurpose",
+      model: undefined,
+      prompt: "Explore the repo",
+    }),
     null,
   )
 })

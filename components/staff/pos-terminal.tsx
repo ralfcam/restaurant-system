@@ -68,10 +68,17 @@ export function PosTerminal() {
     if (cart.length === 0 || sending) return
     setSending(true)
     try {
-      const result = await createKitchenOrder({ table, server, lines: cart.map(({ itemId, qty, notes }) => ({ itemId, qty, notes })) })
-      toast.success(`Order #${result.orderNumber} sent to kitchen · Table ${table}`, {
-        description: `${cart.reduce((s, l) => s + l.qty, 0)} items fired`,
+      const result = await createKitchenOrder({
+        table,
+        server,
+        lines: cart.map(({ itemId, qty, notes }) => ({ itemId, qty, notes })),
       })
+      toast.success(
+        `Order #${result.orderNumber} sent to kitchen · Table ${table}`,
+        {
+          description: `${cart.reduce((s, l) => s + l.qty, 0)} items fired`,
+        },
+      )
       setCart([])
     } catch {
       toast.error("Could not send order to kitchen")
@@ -236,11 +243,13 @@ export function PosTerminal() {
               disabled={cart.length === 0 || sending}
               onClick={sendToKitchen}
             >
-              <Send className="size-4" /> {sending ? "Sending…" : "Send to kitchen"}
+              <Send className="size-4" />{" "}
+              {sending ? "Sending…" : "Send to kitchen"}
             </Button>
           </div>
           <p className="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-            <ChefHat className="size-3.5" /> Fires instantly to the Kitchen Display
+            <ChefHat className="size-3.5" /> Fires instantly to the Kitchen
+            Display
           </p>
         </div>
       </div>

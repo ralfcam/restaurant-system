@@ -12,7 +12,8 @@ import { attachMergesToTables } from "@/lib/floor/floor-units"
  * Shared SWR key so the dining-room grid and any other live floor surface
  * read from — and revalidate against — the same cache entry.
  */
-export const FLOOR_PLAN_SWR_KEY = (date: string) => ["floor-plan", date] as const
+export const FLOOR_PLAN_SWR_KEY = (date: string) =>
+  ["floor-plan", date] as const
 
 const FLOOR_REFRESH_MS = 5000
 
@@ -30,7 +31,11 @@ export function useFloorPlan(date: string, fallbackData?: FloorSnapshot) {
 
   const merges = data?.merges ?? []
   const tables = attachMergesToTables(
-    overlayReservationsOnTables(data?.tables ?? [], data?.reservations ?? [], merges),
+    overlayReservationsOnTables(
+      data?.tables ?? [],
+      data?.reservations ?? [],
+      merges,
+    ),
     merges,
   )
 

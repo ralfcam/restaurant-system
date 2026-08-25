@@ -3,7 +3,11 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react"
 import { Clock, ArrowRight, Check, AlarmClock } from "lucide-react"
 import { type OrderTicketStatus } from "@/lib/data"
-import { getActiveKitchenOrders, updateKitchenOrderStatus, type KdsOrder } from "@/app/actions/operations"
+import {
+  getActiveKitchenOrders,
+  updateKitchenOrderStatus,
+  type KdsOrder,
+} from "@/app/actions/operations"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
@@ -43,7 +47,10 @@ export function KdsBoard() {
     }
     void load()
     const id = window.setInterval(() => void load(), 5000)
-    return () => { cancelled = true; window.clearInterval(id) }
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
   }, [])
 
   const active = orders.filter((o) => o.status !== "ready")
@@ -197,17 +204,26 @@ function TicketCard({
             className="w-full text-accent hover:text-accent"
             onClick={async () => {
               await updateKitchenOrderStatus(order.id, "completed")
-              setOrders((current) => current.filter((item) => item.id !== order.id))
+              setOrders((current) =>
+                current.filter((item) => item.id !== order.id),
+              )
             }}
           >
             <Check className="size-4" /> Picked up
           </Button>
         ) : (
-          <Button className="w-full" onClick={async () => {
-            const next = order.status === "new" ? "preparing" : "ready"
-            await updateKitchenOrderStatus(order.id, next)
-            setOrders((current) => current.map((item) => item.id === order.id ? { ...item, status: next } : item))
-          }}>
+          <Button
+            className="w-full"
+            onClick={async () => {
+              const next = order.status === "new" ? "preparing" : "ready"
+              await updateKitchenOrderStatus(order.id, next)
+              setOrders((current) =>
+                current.map((item) =>
+                  item.id === order.id ? { ...item, status: next } : item,
+                ),
+              )
+            }}
+          >
             {order.status === "new" ? "Start preparing" : "Mark ready"}
             <ArrowRight className="size-4" />
           </Button>

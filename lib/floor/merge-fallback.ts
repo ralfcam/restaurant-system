@@ -50,12 +50,16 @@ export function encodeMergeState(payload: MergeStatePayload): string {
   return JSON.stringify(payload)
 }
 
-export function decodeMergeState(reason: string | null | undefined): MergeStatePayload | null {
+export function decodeMergeState(
+  reason: string | null | undefined,
+): MergeStatePayload | null {
   if (!reason?.startsWith("{")) return null
   try {
     const parsed = JSON.parse(reason) as Partial<MergeStatePayload>
     if (parsed.v !== 1) return null
-    const tableIds = Array.isArray(parsed.tableIds) ? parsed.tableIds.map(String) : []
+    const tableIds = Array.isArray(parsed.tableIds)
+      ? parsed.tableIds.map(String)
+      : []
     if (!parsed.dissolved && tableIds.length < 2) return null
     if (!parsed.dissolved && (!parsed.expiresAt || !parsed.status)) return null
     return {
@@ -80,7 +84,9 @@ export function mergeStateFromTables(
 ): MergeStatePayload {
   const members = tableIds
     .map((id) => tables.find((table) => table.id === id))
-    .filter((table): table is { id: string; label: string; seats: number } => Boolean(table))
+    .filter((table): table is { id: string; label: string; seats: number } =>
+      Boolean(table),
+    )
   return {
     v: 1,
     tableIds: members.map((table) => table.id),
@@ -92,7 +98,9 @@ export function mergeStateFromTables(
   }
 }
 
-export function dissolvedMergeState(current?: MergeStatePayload | FallbackMerge | null): MergeStatePayload {
+export function dissolvedMergeState(
+  current?: MergeStatePayload | FallbackMerge | null,
+): MergeStatePayload {
   return {
     v: 1,
     tableIds: current?.tableIds ?? [],
@@ -110,7 +118,9 @@ const DISSOLVED = new Set(["split", "expired"])
 export type FallbackMerge = MergeStatePayload & { id: string }
 
 /** Latest event per merge id; dissolved arrangements are omitted. */
-export function activeMergesFromEvents(events: MergeEventRow[]): FallbackMerge[] {
+export function activeMergesFromEvents(
+  events: MergeEventRow[],
+): FallbackMerge[] {
   const latest = new Map<string, MergeEventRow>()
   const ordered = [...events].sort((a, b) =>
     String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")),

@@ -29,7 +29,9 @@ describe("reservation widget grouped slot cards", () => {
   it("Réserver stays disabled until a slot is selected and picking a card does not skip guest details", () => {
     const source = readReservationWidgetSource()
 
-    const pickSlotMatch = source.match(/function pickSlot\s*\([^)]*\)\s*\{([^}]*)\}/)
+    const pickSlotMatch = source.match(
+      /function pickSlot\s*\([^)]*\)\s*\{([^}]*)\}/,
+    )
     expect(pickSlotMatch).not.toBeNull()
     expect(pickSlotMatch?.[1]).not.toMatch(/setStep\s*\(\s*2\s*\)/)
     expect(source).toMatch(/\bonPick=\{pickSlot\}/)
@@ -42,7 +44,10 @@ describe("reservation widget grouped slot cards", () => {
 
     const reserveIdx = source.search(/data-testid=["']reserve["']/)
     expect(reserveIdx).toBeGreaterThanOrEqual(0)
-    const aroundReserve = source.slice(Math.max(0, reserveIdx - 500), reserveIdx + 500)
+    const aroundReserve = source.slice(
+      Math.max(0, reserveIdx - 500),
+      reserveIdx + 500,
+    )
     expect(aroundReserve).toMatch(/disabled=\{[^}]*\bslot\b/)
     expect(aroundReserve).toMatch(/setStep\s*\(\s*2\s*\)/)
     expect(aroundReserve).not.toMatch(/\bcreateReservation\b/)

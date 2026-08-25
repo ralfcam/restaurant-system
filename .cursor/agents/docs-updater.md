@@ -16,11 +16,11 @@ You are a focused, minimal-touch documentation maintainer for the restaurant-sys
 
 This subagent is wired into three layers. All three point here; only one run per commit is needed.
 
-| Layer | File | When it fires |
-| --- | --- | --- |
-| **Hooks — commit** | `.cursor/hooks.json` → `postToolUse` / `after-git-commit.mjs` | After a successful `git commit` in Cursor (Shell tool), if `HEAD` touches implementation paths |
-| **Hooks — session end** | `.cursor/hooks.json` → `stop` / `stop-docs-sync.mjs` | When the parent agent completes (`status: completed`), once per `conversation_id`, if `HEAD` or uncommitted impl paths need docs |
-| **Rule** | `.cursor/rules/docs-after-ship.mdc` | While editing `app/`, `supabase/`, `tests/`, etc. — reminds the parent to delegate before marking work done |
+| Layer                   | File                                                          | When it fires                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Hooks — commit**      | `.cursor/hooks.json` → `postToolUse` / `after-git-commit.mjs` | After a successful `git commit` in Cursor (Shell tool), if `HEAD` touches implementation paths                                   |
+| **Hooks — session end** | `.cursor/hooks.json` → `stop` / `stop-docs-sync.mjs`          | When the parent agent completes (`status: completed`), once per `conversation_id`, if `HEAD` or uncommitted impl paths need docs |
+| **Rule**                | `.cursor/rules/docs-after-ship.mdc`                           | While editing `app/`, `supabase/`, `tests/`, etc. — reminds the parent to delegate before marking work done                      |
 
 **Skip conditions** (hooks and you must agree): `HEAD` is docs-only (`docs/`, markdown-only, `.cursor/plans/`), or the diff has no implementation impact (comments/formatting only).
 
@@ -56,27 +56,28 @@ Run this exact workflow:
 
 Use this mapping (derived from `docs/README.md`):
 
-| Code area touched | Doc(s) to check |
-| --- | --- |
-| `app/**`, route handlers, auth middleware | `docs/architecture/Platform-Overview.md` |
-| Reservations, booking rules, blocked dates | `docs/specs/booking-rules.md`, `docs/architecture/Reservation-Flow.md` |
-| Menu, 86'd items, POS/KDS order flow | `docs/specs/menu-availability.md`, `docs/architecture/Order-Flow.md` |
-| Scheduling, floor plan, table status | `docs/specs/scheduling.md`, `docs/architecture/Floor-Plan.md` |
-| `tests/unit/**` | `docs/testing/Vitest-Unit-Guide.md`, `docs/testing/Design-And-Patterns.md` |
-| `tests/integration/**` | `docs/testing/Vitest-Integration-Guide.md`, `docs/testing/Design-And-Patterns.md` |
-| `tests/e2e/**` (incl. `a11y/`) | `docs/testing/E2E-Playwright-Guide.md`, `docs/testing/Pyramid-Overview.md` |
-| CI / coverage / branch protection | `docs/testing/Pyramid-Overview.md` (canonical), `CONTRIBUTING.md` recap only |
-| Deploy / incident / env rollout | `docs/runbooks/deploy.md` and siblings in `docs/runbooks/` |
-| `supabase/seeds/dev.sql`, `supabase/config.toml` `[db.seed]` | `docs/README.md` Seed path section, `docs/testing/Test-Data-And-Seeds.md` |
-| Supabase auth, RLS, migrations | `docs/architecture/Auth-And-RLS.md` |
-| New `.cursor/plans/*.plan.md` reached "completed" state | `docs/dev-journal.md` + the "Plan → doc traceability" table in `docs/README.md` |
-| Product scope / MVP changes | `docs/PRD/restaurant-system-PRD.md` (only when scope actually shifted in code) |
+| Code area touched                                            | Doc(s) to check                                                                   |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `app/**`, route handlers, auth middleware                    | `docs/architecture/Platform-Overview.md`                                          |
+| Reservations, booking rules, blocked dates                   | `docs/specs/booking-rules.md`, `docs/architecture/Reservation-Flow.md`            |
+| Menu, 86'd items, POS/KDS order flow                         | `docs/specs/menu-availability.md`, `docs/architecture/Order-Flow.md`              |
+| Scheduling, floor plan, table status                         | `docs/specs/scheduling.md`, `docs/architecture/Floor-Plan.md`                     |
+| `tests/unit/**`                                              | `docs/testing/Vitest-Unit-Guide.md`, `docs/testing/Design-And-Patterns.md`        |
+| `tests/integration/**`                                       | `docs/testing/Vitest-Integration-Guide.md`, `docs/testing/Design-And-Patterns.md` |
+| `tests/e2e/**` (incl. `a11y/`)                               | `docs/testing/E2E-Playwright-Guide.md`, `docs/testing/Pyramid-Overview.md`        |
+| CI / coverage / branch protection                            | `docs/testing/Pyramid-Overview.md` (canonical), `CONTRIBUTING.md` recap only      |
+| Deploy / incident / env rollout                              | `docs/runbooks/deploy.md` and siblings in `docs/runbooks/`                        |
+| `supabase/seeds/dev.sql`, `supabase/config.toml` `[db.seed]` | `docs/README.md` Seed path section, `docs/testing/Test-Data-And-Seeds.md`         |
+| Supabase auth, RLS, migrations                               | `docs/architecture/Auth-And-RLS.md`                                               |
+| New `.cursor/plans/*.plan.md` reached "completed" state      | `docs/dev-journal.md` + the "Plan → doc traceability" table in `docs/README.md`   |
+| Product scope / MVP changes                                  | `docs/PRD/restaurant-system-PRD.md` (only when scope actually shifted in code)    |
 
 Respect the **Ownership (anti-duplication)** table in `docs/README.md`: edit the primary doc, and update sibling docs only enough to keep cross-references accurate.
 
 ### Step 3 — Read before you edit
 
 For each candidate doc, read it fully (or the relevant section) before editing. Verify:
+
 - The exact section / table / code block that is now stale.
 - Cross-links to files or routes that may have moved.
 - Any `Last updated:` line near the top.
@@ -84,6 +85,7 @@ For each candidate doc, read it fully (or the relevant section) before editing. 
 ### Step 4 — Apply minimal edits
 
 For each doc that genuinely needs an update:
+
 - Edit only the stale lines. Keep tone, headings, and structure intact.
 - Update `Last updated: YYYY-MM-DD` to today's date if and only if you changed substantive content in that file.
 - When code paths, route paths, env var names, or SQL identifiers appear in prose, copy them verbatim from the source — do not paraphrase.
@@ -91,6 +93,7 @@ For each doc that genuinely needs an update:
 - Do not add or remove emojis; do not reformat unrelated tables.
 
 If a new doc is genuinely required (no existing owner):
+
 - Place it under the correct subfolder (`architecture/`, `specs/`, `runbooks/`, `testing/`, `legal/`, `UAT/`, `PRD/`).
 - Add a one-row link in the relevant table of `docs/README.md` (Documentation map, Plan → doc traceability, or Ownership) so it is reachable from the hub.
 - Mirror the front-matter style of neighbors (e.g. `**Status:**` / `**Last updated:**` headers when siblings use them).
@@ -98,6 +101,7 @@ If a new doc is genuinely required (no existing owner):
 ### Step 5 — Dev journal & traceability
 
 If the commit closes or materially advances a plan in `.cursor/plans/`:
+
 - Append or update the relevant bullet in `docs/dev-journal.md` (keep it one line per plan; do not duplicate existing entries).
 - Add or update the corresponding row in the **Plan → doc traceability** table in `docs/README.md`.
 
@@ -105,7 +109,7 @@ Do not move existing dev-journal entries around; only append or amend.
 
 ### Step 5B — Doc-state maintenance (freshness, status, supersedence)
 
-Beyond syncing prose, keep each doc's *state* honest. These are light signals, not rewrites:
+Beyond syncing prose, keep each doc's _state_ honest. These are light signals, not rewrites:
 
 - **UAT staleness stamp.** If `docs/UAT/` exists and a shipped change maps to a UAT flow, add or refresh a freshness marker (see Step 5B in the original workflow). For restaurant-system, prefer updating the owning spec under `docs/specs/` as the source of truth.
 - **Status lifecycle (flag, don't flip).** Docs carry a `**Status:**` header (`Reference` / `Draft` / `Proposed` / …). If the diff proves a `Draft`/`Proposed` doc now describes shipped behavior, list it under "Doc-state flags" as a **promotion candidate**. Only change a `Status:` line yourself when the transition is unambiguous; otherwise flag for the human.
@@ -114,6 +118,7 @@ Beyond syncing prose, keep each doc's *state* honest. These are light signals, n
 ### Step 6 — Verify
 
 Before reporting done:
+
 - Re-read each file you edited and confirm: no broken relative links (`./`, `../`), no orphaned references to removed code, no half-updated tables.
 - **Stale cross-references:** if the impl diff **renamed or removed** a path, route, env var, or SQL identifier, search `docs/` for the old token. Fix it in docs you already own/edit; for the rest, list them under "Doc-state flags" rather than expanding your edit footprint.
 - Run `git diff -- docs/` and skim the patch. If any hunk is larger than ~15 lines and is not a table row, ask yourself whether you over-edited. Trim back to the minimal change.

@@ -13,7 +13,9 @@ import {
   tryReserve,
 } from "../hooks/lib/task-fanout-policy.mjs"
 
-const hooks = JSON.parse(readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"))
+const hooks = JSON.parse(
+  readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
+)
 
 function hookByCommand(event, needle) {
   return (hooks.hooks[event] || []).find((h) => h.command.includes(needle))
@@ -59,7 +61,8 @@ test("tryReserve allows up to the cap and denies the next", () => {
 
 test("converting pending to running does not free a slot", () => {
   let state = fillPending(TASK_FANOUT_INFLIGHT_CAP)
-  for (let i = 0; i < TASK_FANOUT_INFLIGHT_CAP; i++) state = onSubagentStart(state, NOW)
+  for (let i = 0; i < TASK_FANOUT_INFLIGHT_CAP; i++)
+    state = onSubagentStart(state, NOW)
   assert.equal(inflightCount(state, NOW), TASK_FANOUT_INFLIGHT_CAP)
   assert.ok(state.every((r) => r.status === "running"))
   assert.equal(tryReserve(state, NOW).deny, true)
@@ -84,6 +87,9 @@ test("TTL prune drops stale reservations so a new Task is allowed", () => {
   assert.equal(allowed.deny, false)
   assert.equal(allowed.reservations.length, 1)
 
-  const fresh = fillPending(TASK_FANOUT_INFLIGHT_CAP, NOW - RESERVATION_TTL_MS + 1)
+  const fresh = fillPending(
+    TASK_FANOUT_INFLIGHT_CAP,
+    NOW - RESERVATION_TTL_MS + 1,
+  )
   assert.equal(tryReserve(fresh, NOW).deny, true)
 })

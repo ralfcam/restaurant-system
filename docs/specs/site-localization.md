@@ -46,7 +46,7 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
    is removed.
 8. **Admin stays unlocalized** — `/admin` is not locale-prefixed and is not
    redirected to `/fr`.
-9. **Translation quality** *(manual-UAT)* — Both languages read naturally; no
+9. **Translation quality** _(manual-UAT)_ — Both languages read naturally; no
    layout overflow or clipping in FR or EN.
 10. **Header switcher wired** — `LanguageSwitcher` is rendered by `SiteHeader`
     (shared navbar), not inside page `<main>`. It appears in the desktop actions

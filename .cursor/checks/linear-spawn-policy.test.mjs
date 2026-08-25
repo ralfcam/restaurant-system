@@ -5,7 +5,9 @@ import { join } from "node:path"
 import { test } from "node:test"
 import { detectLinearSpawn } from "../hooks/lib/linear-spawn-policy.mjs"
 
-const hooks = JSON.parse(readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"))
+const hooks = JSON.parse(
+  readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
+)
 const LINEAR = "plugin-linear-linear"
 const VERCEL = "plugin-vercel-vercel"
 
@@ -20,21 +22,37 @@ test("linear-spawn-guard is registered on beforeMCPExecution, fail-open", () => 
 })
 
 test("linear-spawn-guard.mjs wires detectLinearSpawn", () => {
-  const src = readFileSync(join(process.cwd(), ".cursor", "hooks", "linear-spawn-guard.mjs"), "utf8")
+  const src = readFileSync(
+    join(process.cwd(), ".cursor", "hooks", "linear-spawn-guard.mjs"),
+    "utf8",
+  )
   assert.match(src, /detectLinearSpawn/)
 })
 
 test("detectLinearSpawn denies assignee as a string and as null", () => {
-  assert.equal(detectLinearSpawn(LINEAR, "save_issue", { assignee: "Cursor" }).kind, "assignee")
-  assert.equal(detectLinearSpawn(LINEAR, "save_issue", { assignee: null }).kind, "assignee")
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_issue", { assignee: "Cursor" }).kind,
+    "assignee",
+  )
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_issue", { assignee: null }).kind,
+    "assignee",
+  )
 })
 
 test("detectLinearSpawn denies delegate", () => {
-  assert.equal(detectLinearSpawn(LINEAR, "save_issue", { delegate: "Cursor" }).kind, "delegate")
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_issue", { delegate: "Cursor" }).kind,
+    "delegate",
+  )
 })
 
 test("detectLinearSpawn denies @Cursor in a comment body", () => {
-  assert.equal(detectLinearSpawn(LINEAR, "save_comment", { body: "@Cursor please look" }).kind, "mention")
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_comment", { body: "@Cursor please look" })
+      .kind,
+    "mention",
+  )
 })
 
 test("detectLinearSpawn denies @Cursor injected only via a patch op", () => {
@@ -48,21 +66,37 @@ test("detectLinearSpawn denies @Cursor injected only via a patch op", () => {
 
 test("detectLinearSpawn denies @Cursor even when surrounding prose negates it", () => {
   assert.equal(
-    detectLinearSpawn(LINEAR, "save_comment", { body: "do not assign to @Cursor" }).kind,
+    detectLinearSpawn(LINEAR, "save_comment", {
+      body: "do not assign to @Cursor",
+    }).kind,
     "mention",
   )
 })
 
 test("detectLinearSpawn allows a state-only save_issue", () => {
-  assert.equal(detectLinearSpawn(LINEAR, "save_issue", { id: "REAZED-1", state: "In Progress" }), null)
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_issue", {
+      id: "REAZED-1",
+      state: "In Progress",
+    }),
+    null,
+  )
 })
 
 test("detectLinearSpawn allows an ordinary comment", () => {
-  assert.equal(detectLinearSpawn(LINEAR, "save_comment", { body: "Work started: plan foo" }), null)
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_comment", {
+      body: "Work started: plan foo",
+    }),
+    null,
+  )
 })
 
 test("detectLinearSpawn denies @Cursor in a save_document title", () => {
-  const hit = detectLinearSpawn(LINEAR, "save_document", { title: "Plan for @Cursor", content: "ok" })
+  const hit = detectLinearSpawn(LINEAR, "save_document", {
+    title: "Plan for @Cursor",
+    content: "ok",
+  })
   assert.equal(hit.kind, "mention")
   assert.equal(hit.field, "title")
 })
@@ -98,7 +132,10 @@ test("detectLinearSpawn allows a clean save_document", () => {
 
 test("detectLinearSpawn does not scan save_project (knowingly out of scope)", () => {
   assert.equal(
-    detectLinearSpawn(LINEAR, "save_project", { name: "Platform", description: "@Cursor please look" }),
+    detectLinearSpawn(LINEAR, "save_project", {
+      name: "Platform",
+      description: "@Cursor please look",
+    }),
     null,
   )
 })
@@ -109,19 +146,30 @@ test("detectLinearSpawn allows get_issue (read-only; not a spawn door)", () => {
 
 test("detectLinearSpawn does not scan save_comment.patch (schema has no patch)", () => {
   assert.equal(
-    detectLinearSpawn(LINEAR, "save_comment", { body: "ok", patch: [{ text: "@Cursor please look" }] }),
+    detectLinearSpawn(LINEAR, "save_comment", {
+      body: "ok",
+      patch: [{ text: "@Cursor please look" }],
+    }),
     null,
   )
 })
 
 test("detectLinearSpawn allows the same spawn payload on a non-Linear server", () => {
-  assert.equal(detectLinearSpawn(VERCEL, "save_comment", { body: "@Cursor please look" }), null)
-  assert.equal(detectLinearSpawn(VERCEL, "save_issue", { assignee: "Cursor" }), null)
+  assert.equal(
+    detectLinearSpawn(VERCEL, "save_comment", { body: "@Cursor please look" }),
+    null,
+  )
+  assert.equal(
+    detectLinearSpawn(VERCEL, "save_issue", { assignee: "Cursor" }),
+    null,
+  )
 })
 
 function runSpawnGuard(payload) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [join(process.cwd(), ".cursor", "hooks", "linear-spawn-guard.mjs")])
+    const child = spawn(process.execPath, [
+      join(process.cwd(), ".cursor", "hooks", "linear-spawn-guard.mjs"),
+    ])
     let out = ""
     let err = ""
     child.stdout.on("data", (d) => {

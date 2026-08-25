@@ -111,7 +111,7 @@ first-execution delegation — do not fold it into CLOSE-OUT.
   [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
 - **Post the START summary verbatim — never invent, expand, or re-summarize
   it yourself.** The orchestrator composed the bounded `## Linear Plan
-  Digest` (Problem / Approach / Out-of-scope findings included) and hands it
+Digest` (Problem / Approach / Out-of-scope findings included) and hands it
   to you as the exact `save_comment` body. Rewrite any `@Cursor` token in it
   to "the Cursor integration" (the only permitted mutation) before the call.
   `Full plan:` points at the plan-file basename only —

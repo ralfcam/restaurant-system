@@ -31,15 +31,16 @@ Tidy the code produced by the Red+Green phases for this one criterion, enforce t
 
 Refactor is where architectural constraints get enforced, so consult the installed **Agent Skills** that match the files and libraries the Green diff touched, and apply their checklists. Read the skill's `SKILL.md` and follow it — do not act from memory. Select by what was touched:
 
-| You touched… | Consult skill |
-| --- | --- |
-| `app/**`, route handlers, `cookies()`/`headers()`/`params`, server vs client, metadata, App Router | `nextjs` |
-| `components/**/*.tsx`, hooks, a11y, render perf | `react-best-practices` |
-| Supabase client/SSR, Auth/sessions/JWT/cookies, RLS | `supabase` |
-| SQL, schema design, query/index performance | `supabase-postgres-best-practices` |
-| any other installed skill whose path/import patterns match your diff | that skill |
+| You touched…                                                                                       | Consult skill                      |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `app/**`, route handlers, `cookies()`/`headers()`/`params`, server vs client, metadata, App Router | `nextjs`                           |
+| `components/**/*.tsx`, hooks, a11y, render perf                                                    | `react-best-practices`             |
+| Supabase client/SSR, Auth/sessions/JWT/cookies, RLS                                                | `supabase`                         |
+| SQL, schema design, query/index performance                                                        | `supabase-postgres-best-practices` |
+| any other installed skill whose path/import patterns match your diff                               | that skill                         |
 
 **Scope discipline — this is still the Refactor phase, not a migration:**
+
 - **Apply** only conformance fixes that are behavior-preserving and confined to this criterion's code — e.g. React 19 `useRef(null)`, awaiting async `cookies()`/`headers()`/`params` (Next 16), `server-only` boundaries, restricted-key / webhook-signature handling, an RLS-safe query shape. The green test must stay green **and unchanged**.
 - **Do NOT** act on skill suggestions that are migrations, library swaps, or redesigns (Pages→App Router, CSS-in-JS→shadcn, ORM swaps, managed-auth adoption, broad perf rework). Those exceed behavior-preserving scope — record them as `## Residual findings` (category-tagged) for the orchestrator to triage; never detour into them now.
 - A skill that flags a real correctness bug **outside** this criterion is a finding, not a fix.
@@ -73,10 +74,10 @@ Refactor is where architectural constraints get enforced, so consult the install
 
 ## Adversarial review pass (mandatory — do this before you write the report)
 
-Re-verification proves the code *works*; it does not prove the change is *clean
-or safe*. Before signing off, take a deliberately cynical pass over the Red+Green
+Re-verification proves the code _works_; it does not prove the change is _clean
+or safe_. Before signing off, take a deliberately cynical pass over the Red+Green
 diff — assume a problem exists and go find it (the BMAD adversarial-review
-pattern). Look for what's *missing*, not only what's wrong: an unguarded
+pattern). Look for what's _missing_, not only what's wrong: an unguarded
 auth/role branch, a money/rounding invariant the test didn't pin, an unhandled
 error path, a spec↔code mismatch, duplication, a risky query shape, dead code
 left by Green.
@@ -102,7 +103,7 @@ top-down by intent, not by file:
 - Risk-tag the 1–3 highest-blast-radius stops — `[auth]`, `[booking]`,
   `[schema]`, `[public-api]`, `[security]` — so the reviewer's attention lands
   where being wrong costs the most.
-Keep it to the change you touched; do not narrate the whole codebase.
+  Keep it to the change you touched; do not narrate the whole codebase.
 
 ## Retrospective (pattern-promotion candidate)
 
@@ -134,7 +135,7 @@ Reusable pattern: <one-line recipe worth promoting to docs/testing, or "none">
 to surface debt, so treat it adversarially: assume issues exist and report what
 the adversarial pass turned up. **"none" is allowed only after you state what you
 scanned** to earn it; a reflexive "none" is a failed review, not a clean one.
-Keep it an *out-of-scope deferral log*, not a journal: list only debt that is
+Keep it an _out-of-scope deferral log_, not a journal: list only debt that is
 **out of scope, won't be handled this run, and is a real issue** — tangled
 abstractions, duplication beyond this criterion, missing coverage, an adjacent
 smell, a spec↔code mismatch you couldn't fix without changing behavior or scope.

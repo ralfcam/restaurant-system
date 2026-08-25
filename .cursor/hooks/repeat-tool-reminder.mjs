@@ -49,7 +49,8 @@ export function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize)
   if (value && typeof value === "object") {
     const out = {}
-    for (const key of Object.keys(value).sort()) out[key] = canonicalize(value[key])
+    for (const key of Object.keys(value).sort())
+      out[key] = canonicalize(value[key])
     return out
   }
   return value
@@ -65,7 +66,12 @@ function chainKey(toolName, toolInput) {
 }
 
 function agentId(input) {
-  return input.conversation_id || input.generation_id || input.session_id || "default"
+  return (
+    input.conversation_id ||
+    input.generation_id ||
+    input.session_id ||
+    "default"
+  )
 }
 
 function loadState() {
@@ -100,7 +106,11 @@ export function recordCall(chain, toolName, toolInput) {
   const idx = THRESHOLDS.indexOf(next.count)
   if (idx === 0) next.pending = FIRST_REMINDER
   else if (idx > 0)
-    next.pending = detailedReminder(toolName, next.count, JSON.stringify(canonicalize(toolInput ?? {})))
+    next.pending = detailedReminder(
+      toolName,
+      next.count,
+      JSON.stringify(canonicalize(toolInput ?? {})),
+    )
   return next
 }
 

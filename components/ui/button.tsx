@@ -37,7 +37,7 @@ const buttonVariants = cva(
       variant: "default",
       size: "default",
     },
-  }
+  },
 )
 
 function Button({
@@ -52,8 +52,7 @@ function Button({
   // (e.g. a Next.js <Link>, which is an <a>), so it is not a native button.
   // Default `nativeButton` to false in that case to preserve correct
   // semantics/accessibility unless the caller explicitly overrides it.
-  const resolvedNativeButton =
-    nativeButton ?? (render ? false : undefined)
+  const resolvedNativeButton = nativeButton ?? (render ? false : undefined)
 
   return (
     <ButtonPrimitive

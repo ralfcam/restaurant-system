@@ -96,12 +96,12 @@ what the operator does next is noise — drop it rather than grading it.
 Run the command yourself. A quoted result from the transcript is never evidence,
 however precise it looks. Grade every claim:
 
-| Grade | Meaning |
-| ----- | ------- |
-| `CONFIRMED` | Re-ran it this turn; matches. |
-| `STALE` | True when written, false now. Cite what moved and when. |
-| `WRONG` | Was false when written. Cite the correct result and, where visible, the mistake that produced it. |
-| `UNVERIFIABLE` | Cannot be checked now — say what would be needed. |
+| Grade          | Meaning                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------- |
+| `CONFIRMED`    | Re-ran it this turn; matches.                                                                     |
+| `STALE`        | True when written, false now. Cite what moved and when.                                           |
+| `WRONG`        | Was false when written. Cite the correct result and, where visible, the mistake that produced it. |
+| `UNVERIFIABLE` | Cannot be checked now — say what would be needed.                                                 |
 
 `STALE` is a distinct grade on purpose: a fact that expired between the thread
 and this run is not a lie, and mis-grading it as `WRONG` destroys trust in the

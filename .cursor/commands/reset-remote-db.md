@@ -21,6 +21,7 @@ migrations + seed, replicating the manual `supabase db reset --linked` flow.
 > this command must be revised before use.)
 
 Repo facts you can rely on:
+
 - Stack: Next.js 16 App Router · Supabase (SSR + service role) · shadcn · pnpm.
   None of this changes the reset mechanics.
 - Schema lives in `supabase/migrations/00000000000000_baseline.sql` (single
@@ -41,6 +42,7 @@ Execute these steps in order. Stop only on a real anomaly (wrong/unexpected targ
 not logged in with no way to authenticate, or a non-zero exit from the reset).
 
 1. **Confirm CLI + login + link target.** Run:
+
    ```powershell
    npx supabase --version
    npx supabase projects list
@@ -59,6 +61,7 @@ not logged in with no way to authenticate, or a non-zero exit from the reset).
 
 3. **Run the reset (non-interactive).** Because the target is non-production, run it
    directly — `--yes` answers the destructive-confirmation prompt:
+
    ```powershell
    npx supabase db reset --linked --yes
    ```
@@ -99,4 +102,4 @@ Tone: concise, technical. Report exactly these sections:
 2. **Command** — the exact `db reset` invocation run (note `--no-seed` if used).
 3. **Result** — exit code, and confirmation that migrations applied + seed loaded when configured (or the failure detail).
 4. **Next** — optional smoke-check offer, or any follow-up the operator should know.
-</output_format>
+   </output_format>

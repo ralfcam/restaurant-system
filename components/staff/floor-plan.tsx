@@ -1,12 +1,20 @@
 "use client"
 
 import { useMemo, useRef, useState, type PointerEvent } from "react"
-import { Plus, Trash2, Minus, Users, Armchair, Clock, Combine, Unlink, Lock, LockOpen } from "lucide-react"
-import { toast } from "sonner"
 import {
-  TABLE_STATUS_META,
-  type TableStatus,
-} from "@/lib/data"
+  Plus,
+  Trash2,
+  Minus,
+  Users,
+  Armchair,
+  Clock,
+  Combine,
+  Unlink,
+  Lock,
+  LockOpen,
+} from "lucide-react"
+import { toast } from "sonner"
+import { TABLE_STATUS_META, type TableStatus } from "@/lib/data"
 import { updateSlotIntervalMinutes } from "@/app/actions/branding"
 import {
   ALLOWED_SLOT_INTERVALS,
@@ -80,7 +88,11 @@ function toMergeDropTable(table: {
     displayStatus: table.displayStatus,
     mergeId: table.merge?.id ?? table.mergeId ?? null,
     merge: table.merge
-      ? { id: table.merge.id, status: table.merge.status, memberIds: table.merge.memberIds }
+      ? {
+          id: table.merge.id,
+          status: table.merge.status,
+          memberIds: table.merge.memberIds,
+        }
       : null,
     reservation: table.reservation,
   }
@@ -104,8 +116,16 @@ export function FloorPlan({
   fallbackData?: FloorSnapshot
   initialSlotInterval?: SlotIntervalMinutes
 }) {
-  const { tables: loadedTables, reservations, mutate, isValidating } = useFloorPlan(date, fallbackData)
-  const tables = useMemo(() => spreadOverlappingTables(loadedTables), [loadedTables])
+  const {
+    tables: loadedTables,
+    reservations,
+    mutate,
+    isValidating,
+  } = useFloorPlan(date, fallbackData)
+  const tables = useMemo(
+    () => spreadOverlappingTables(loadedTables),
+    [loadedTables],
+  )
   const [selectedId, setSelectedId] = useState<string | null>(
     fallbackData?.tables[0]?.id ?? null,
   )
@@ -116,7 +136,9 @@ export function FloorPlan({
   const [slotInterval, setSlotInterval] = useState<SlotIntervalMinutes>(
     clampSlotIntervalMinutes(initialSlotInterval),
   )
-  const [draftPositions, setDraftPositions] = useState<Record<string, FloorCell>>({})
+  const [draftPositions, setDraftPositions] = useState<
+    Record<string, FloorCell>
+  >({})
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
@@ -125,7 +147,9 @@ export function FloorPlan({
 
   const selected = tables.find((t) => t.id === selectedId) ?? tables[0] ?? null
   const totalSeats = tables.reduce((sum, table) => table.seats + sum, 0)
-  const mergeCount = new Set(tables.flatMap((table) => (table.merge ? [table.merge.id] : []))).size
+  const mergeCount = new Set(
+    tables.flatMap((table) => (table.merge ? [table.merge.id] : [])),
+  ).size
 
   const displayedTables = useMemo(
     () =>
@@ -136,8 +160,14 @@ export function FloorPlan({
     [tables, draftPositions],
   )
 
-  const groups = useMemo(() => groupTablesForDisplay(displayedTables), [displayedTables])
-  const canvas = useMemo(() => floorCanvasCells(displayedTables), [displayedTables])
+  const groups = useMemo(
+    () => groupTablesForDisplay(displayedTables),
+    [displayedTables],
+  )
+  const canvas = useMemo(
+    () => floorCanvasCells(displayedTables),
+    [displayedTables],
+  )
   const upcoming = useMemo(
     () =>
       reservations
@@ -153,9 +183,12 @@ export function FloorPlan({
   )
 
   const mergePartners = tables.filter(
-    (table) => table.id !== selected?.id && isDragMergeable(toMergeDropTable(table)),
+    (table) =>
+      table.id !== selected?.id && isDragMergeable(toMergeDropTable(table)),
   )
-  const selectedMergeable = selected ? isDragMergeable(toMergeDropTable(selected)) : false
+  const selectedMergeable = selected
+    ? isDragMergeable(toMergeDropTable(selected))
+    : false
   const selectedUnlocked = selected ? unlockedIds.has(selected.id) : false
 
   function dropKeyFor(table: (typeof tables)[number]) {
@@ -217,9 +250,13 @@ export function FloorPlan({
   async function adjustExpected(id: string, delta: number) {
     const selectedTable = tables.find((t) => t.id === id)
     if (!selectedTable) return
-    const current = selectedTable.merge?.expectedMinutes ?? selectedTable.expectedMinutes
+    const current =
+      selectedTable.merge?.expectedMinutes ?? selectedTable.expectedMinutes
     try {
-      await updateTableState({ id, expectedMinutes: clampExpectedMinutes(current + delta) })
+      await updateTableState({
+        id,
+        expectedMinutes: clampExpectedMinutes(current + delta),
+      })
       await mutate()
     } catch {
       toast.error("Could not update expected time")
@@ -267,7 +304,10 @@ export function FloorPlan({
 
   async function seatParty(reservation: ReservationRow) {
     setSeating(true)
-    const { error } = await transitionReservationStatus(reservation.id, "seated")
+    const { error } = await transitionReservationStatus(
+      reservation.id,
+      "seated",
+    )
     setSeating(false)
     if (error) {
       toast.error("Could not seat party", { description: error })
@@ -279,7 +319,9 @@ export function FloorPlan({
 
   function toggleMergePick(id: string) {
     setMergePick((current) =>
-      current.includes(id) ? current.filter((row) => row !== id) : [...current, id],
+      current.includes(id)
+        ? current.filter((row) => row !== id)
+        : [...current, id],
     )
   }
 
@@ -288,7 +330,9 @@ export function FloorPlan({
     try {
       const arrangement = await mergeTables({ tableIds })
       if ("error" in arrangement) {
-        toast.error("Could not merge tables", { description: arrangement.error })
+        toast.error("Could not merge tables", {
+          description: arrangement.error,
+        })
         return
       }
       await mutate()
@@ -306,7 +350,8 @@ export function FloorPlan({
   }
 
   function inspectorMergeError(): string | null {
-    if (!selected || mergePick.length === 0) return "Select at least two tables to merge."
+    if (!selected || mergePick.length === 0)
+      return "Select at least two tables to merge."
     const picked = dropTables.filter(
       (table) => table.id === selected.id || mergePick.includes(table.id),
     )
@@ -344,7 +389,10 @@ export function FloorPlan({
     return clientToFloorCell(event.clientX, event.clientY, rect)
   }
 
-  function onChipPointerDown(table: (typeof tables)[number], event: PointerEvent<HTMLButtonElement>) {
+  function onChipPointerDown(
+    table: (typeof tables)[number],
+    event: PointerEvent<HTMLButtonElement>,
+  ) {
     if (!unlockedIds.has(table.id) || merging) return
     if ((event.target as HTMLElement).closest("[data-floor-lock]")) return
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -420,7 +468,10 @@ export function FloorPlan({
         return
       }
       const sourceTable = tables.find((table) => table.id === drag.id)
-      const splitOk = await splitArrangement(split.mergeId, sourceTable?.merge?.label)
+      const splitOk = await splitArrangement(
+        split.mergeId,
+        sourceTable?.merge?.label,
+      )
       if (!splitOk) {
         clearDraft(drag.id)
         return
@@ -460,7 +511,9 @@ export function FloorPlan({
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-heading text-lg font-semibold">Dining Room</h2>
+                <h2 className="font-heading text-lg font-semibold">
+                  Dining Room
+                </h2>
                 <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
                   <span className="relative flex size-2">
                     <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
@@ -469,7 +522,9 @@ export function FloorPlan({
                   Live
                 </span>
                 {isValidating ? (
-                  <span className="text-xs text-muted-foreground">Updating…</span>
+                  <span className="text-xs text-muted-foreground">
+                    Updating…
+                  </span>
                 ) : null}
               </div>
               <p className="text-sm text-muted-foreground">
@@ -504,7 +559,11 @@ export function FloorPlan({
                 ))}
               </div>
               {unlockedIds.size > 0 ? (
-                <Button size="sm" variant="outline" onClick={() => setUnlockedIds(new Set())}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setUnlockedIds(new Set())}
+                >
                   <Lock className="size-4" /> Lock all
                 </Button>
               ) : null}
@@ -554,10 +613,15 @@ export function FloorPlan({
                     style={bounds}
                   >
                     <div className="absolute bottom-1 left-2 text-[10px] leading-tight text-muted-foreground">
-                      <p className="font-medium text-foreground">{merge.seats} seats</p>
+                      <p className="font-medium text-foreground">
+                        {merge.seats} seats
+                      </p>
                       <p className="flex items-center gap-0.5">
                         <Clock className="size-2.5" />
-                        {formatDurationMinutes(remainingMinutes(merge.expiresAt, new Date()))} left
+                        {formatDurationMinutes(
+                          remainingMinutes(merge.expiresAt, new Date()),
+                        )}{" "}
+                        left
                       </p>
                     </div>
                   </div>
@@ -578,7 +642,9 @@ export function FloorPlan({
                     key={t.id}
                     className={cn(
                       "absolute flex items-center justify-center",
-                      draggingId === t.id || isDropTarget || isSelected ? "z-20" : "z-10",
+                      draggingId === t.id || isDropTarget || isSelected
+                        ? "z-20"
+                        : "z-10",
                     )}
                     style={{
                       ...floorCellStyle(cell),
@@ -591,8 +657,14 @@ export function FloorPlan({
                       data-testid="floor-move-lock"
                       role="button"
                       tabIndex={0}
-                      aria-label={unlocked ? `Lock table ${t.label}` : `Unlock table ${t.label}`}
-                      title={unlocked ? "Lock this table" : "Unlock to rearrange"}
+                      aria-label={
+                        unlocked
+                          ? `Lock table ${t.label}`
+                          : `Unlock table ${t.label}`
+                      }
+                      title={
+                        unlocked ? "Lock this table" : "Unlock to rearrange"
+                      }
                       className={cn(
                         "absolute left-0.5 top-0.5 z-20 flex size-8 items-center justify-center rounded-full border-2 bg-card shadow-md",
                         unlocked
@@ -611,7 +683,11 @@ export function FloorPlan({
                         toggleUnlock(t.id)
                       }}
                     >
-                      {unlocked ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
+                      {unlocked ? (
+                        <LockOpen className="size-4" />
+                      ) : (
+                        <Lock className="size-4" />
+                      )}
                     </span>
                     <button
                       type="button"
@@ -648,7 +724,9 @@ export function FloorPlan({
                         silhouette === "round" ? "rounded-full" : "rounded-lg",
                         tableChipSizeClass(t.seats),
                         meta.color,
-                        canMove ? "cursor-grab active:cursor-grabbing" : "cursor-pointer",
+                        canMove
+                          ? "cursor-grab active:cursor-grabbing"
+                          : "cursor-pointer",
                         draggingId === t.id ? "opacity-80" : null,
                         isSelected
                           ? "ring-2 ring-primary ring-offset-2 ring-offset-card"
@@ -668,7 +746,8 @@ export function FloorPlan({
                         {t.label}
                       </span>
                       <span className="mt-1 flex items-center gap-0.5 text-xs">
-                        <Users className="size-3" /> {t.reservation?.partySize ?? t.seats}
+                        <Users className="size-3" />{" "}
+                        {t.reservation?.partySize ?? t.seats}
                       </span>
                       {t.reservation ? (
                         <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
@@ -714,10 +793,14 @@ export function FloorPlan({
                     {row.time}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{row.guest_name}</p>
+                    <p className="truncate text-sm font-medium">
+                      {row.guest_name}
+                    </p>
                     <p className="text-xs text-muted-foreground">
                       Party of {row.party_size}
-                      {row.table_label ? ` · Table ${row.table_label}` : " · waiting for a table"}
+                      {row.table_label
+                        ? ` · Table ${row.table_label}`
+                        : " · waiting for a table"}
                     </p>
                   </div>
                   <ReservationStatusBadge status={row.status} />
@@ -736,7 +819,9 @@ export function FloorPlan({
                 Selected
               </p>
               <h3 className="font-heading text-2xl font-semibold">
-                {selected.merge ? `Tables ${selected.merge.label}` : `Table ${selected.label}`}
+                {selected.merge
+                  ? `Tables ${selected.merge.label}`
+                  : `Table ${selected.label}`}
               </h3>
               {selected.merge ? (
                 <p className="text-sm text-muted-foreground">
@@ -752,10 +837,13 @@ export function FloorPlan({
                 </p>
                 <p className="font-medium">{selected.reservation.guestName}</p>
                 <p className="text-sm text-muted-foreground">
-                  {selected.reservation.time} · party of {selected.reservation.partySize}
+                  {selected.reservation.time} · party of{" "}
+                  {selected.reservation.partySize}
                 </p>
                 <div className="mt-2">
-                  <ReservationStatusBadge status={selected.reservation.status} />
+                  <ReservationStatusBadge
+                    status={selected.reservation.status}
+                  />
                 </div>
                 {selected.reservation.status === "confirmed" ? (
                   <Button
@@ -763,7 +851,9 @@ export function FloorPlan({
                     size="sm"
                     disabled={seating}
                     onClick={() => {
-                      const row = reservations.find((r) => r.id === selected.reservation?.id)
+                      const row = reservations.find(
+                        (r) => r.id === selected.reservation?.id,
+                      )
                       if (row) void seatParty(row)
                     }}
                   >
@@ -784,11 +874,16 @@ export function FloorPlan({
                 className="w-full"
                 onClick={() => toggleUnlock(selected.id)}
               >
-                {selectedUnlocked ? <Lock className="size-4" /> : <LockOpen className="size-4" />}
+                {selectedUnlocked ? (
+                  <Lock className="size-4" />
+                ) : (
+                  <LockOpen className="size-4" />
+                )}
                 {selectedUnlocked ? "Lock position" : "Unlock to move"}
               </Button>
               <p className="mt-2 text-xs text-muted-foreground">
-                Cell {selected.x + 1}, {selected.y + 1}. Unlock, then drag on the floor plan.
+                Cell {selected.x + 1}, {selected.y + 1}. Unlock, then drag on
+                the floor plan.
               </p>
             </div>
 
@@ -813,8 +908,8 @@ export function FloorPlan({
               </div>
               {selected.merge ? (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Status updates every table in {selected.merge.label}. Available and Out of
-                  service split the arrangement.
+                  Status updates every table in {selected.merge.label}.
+                  Available and Out of service split the arrangement.
                 </p>
               ) : null}
             </div>
@@ -862,18 +957,24 @@ export function FloorPlan({
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => adjustExpected(selected.id, -EXPECTED_MINUTES_STEP)}
+                  onClick={() =>
+                    adjustExpected(selected.id, -EXPECTED_MINUTES_STEP)
+                  }
                 >
                   <Minus className="size-4" />
                 </Button>
                 <span className="min-w-16 text-center font-heading text-2xl font-semibold tabular-nums">
                   {selected.merge?.expectedMinutes ?? selected.expectedMinutes}
-                  <span className="ml-1 text-sm font-normal text-muted-foreground">min</span>
+                  <span className="ml-1 text-sm font-normal text-muted-foreground">
+                    min
+                  </span>
                 </span>
                 <Button
                   size="icon"
                   variant="outline"
-                  onClick={() => adjustExpected(selected.id, EXPECTED_MINUTES_STEP)}
+                  onClick={() =>
+                    adjustExpected(selected.id, EXPECTED_MINUTES_STEP)
+                  }
                 >
                   <Plus className="size-4" />
                 </Button>
@@ -881,8 +982,10 @@ export function FloorPlan({
               {selected.merge ? (
                 <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
                   <Clock className="size-3" />
-                  {formatDurationMinutes(remainingMinutes(selected.merge.expiresAt, new Date()))} left
-                  on this arrangement
+                  {formatDurationMinutes(
+                    remainingMinutes(selected.merge.expiresAt, new Date()),
+                  )}{" "}
+                  left on this arrangement
                 </p>
               ) : (
                 <p className="mt-2 text-xs text-muted-foreground">
@@ -903,15 +1006,19 @@ export function FloorPlan({
                     Unlock a member and drag it onto an empty cell to split, or
                     drop another available table here to add it.
                   </p>
-                  <Button variant="outline" className="w-full" onClick={() => void splitSelected()}>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => void splitSelected()}
+                  >
                     <Unlink className="size-4" /> Split tables
                   </Button>
                 </div>
               ) : selectedMergeable ? (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">
-                    Unlock this table, then drag it onto another available table to merge.
-                    The picker below is a fallback.
+                    Unlock this table, then drag it onto another available table
+                    to merge. The picker below is a fallback.
                   </p>
                   {mergePartners.length === 0 ? (
                     <p className="text-sm text-muted-foreground">
@@ -950,8 +1057,8 @@ export function FloorPlan({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Only available tables without a reservation can be merged. Unlock one
-                  and drop it onto another on the floor.
+                  Only available tables without a reservation can be merged.
+                  Unlock one and drop it onto another on the floor.
                 </p>
               )}
             </div>

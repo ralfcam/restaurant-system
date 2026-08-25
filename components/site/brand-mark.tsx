@@ -30,7 +30,13 @@ export function BrandMark({
       )}
       style={{ width: size, height: size }}
     >
-      <Image src={src} alt={alt} fill className="object-cover" sizes={`${size}px`} />
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className="object-cover"
+        sizes={`${size}px`}
+      />
     </span>
   )
 }

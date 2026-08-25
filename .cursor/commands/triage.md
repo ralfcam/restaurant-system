@@ -330,7 +330,7 @@ or executed:
 
 | Todo id pattern | Delegation / action                                                                                                                                                                                                                                  |
 | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `groom-*`       | `linear-resolver` GROOM batch (consolidation / priority / Backlog↔Todo + cancellation-only triage moves — never In Progress/In Review/Done)                                                                                                         |
+| `groom-*`       | `linear-resolver` GROOM batch (consolidation / priority / Backlog↔Todo + cancellation-only triage moves — never In Progress/In Review/Done)                                                                                                          |
 | `register-*`    | `linear-resolver` REGISTER-FINDINGS batch (file ledger findings — Issue-filing policy applied: floor, attach-over-create ladder, per-run cap)                                                                                                        |
 | `sweep-*`       | `linear-resolver` GROOM prunable-class sweep-batch cancellation (one operator confirmation covers the named batch)                                                                                                                                   |
 | `backfill-*`    | `linear-resolver` GROOM milestone/estimate backfill on issues missing one                                                                                                                                                                            |
@@ -550,9 +550,9 @@ next command without a separate operator invocation in a new turn:
   point at **`/dispatch`** first (it will put Urgent/High on the local lane).
 - **Recommended burndown batches** (preferred over single-issue picks): an
   epic/umbrella whose children look related in Linear — name the epic/cluster
-  + its children + the signal behind grouping them. This is a **coarse
-  hint**; `/dispatch` owns write-sets and may split or drop members that
-  overlap. Do not treat a cluster as proof they share a worktree.
+  - its children + the signal behind grouping them. This is a **coarse
+    hint**; `/dispatch` owns write-sets and may split or drop members that
+    overlap. Do not treat a cluster as proof they share a worktree.
 - **After grooms, next command is `/dispatch`** (never a `/dispatch` or
   `/sdd-to-tdd` todo). `/dispatch` emits the pasteable local-lane
   `/sdd-to-tdd REAZED-###` (stay on `staging`) and 1–3 background worktree

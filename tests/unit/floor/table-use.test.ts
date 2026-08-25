@@ -40,20 +40,26 @@ describe("merge arrangement defaults", () => {
 
   it("expires after the expected minutes from the start time", () => {
     const start = new Date("2026-08-18T18:00:00.000Z")
-    expect(mergeExpiresAt(start, 90).toISOString()).toBe("2026-08-18T19:30:00.000Z")
+    expect(mergeExpiresAt(start, 90).toISOString()).toBe(
+      "2026-08-18T19:30:00.000Z",
+    )
     expect(isMergeExpired("2026-08-18T19:30:00.000Z", start)).toBe(false)
-    expect(isMergeExpired("2026-08-18T19:30:00.000Z", new Date("2026-08-18T19:30:00.000Z"))).toBe(true)
+    expect(
+      isMergeExpired(
+        "2026-08-18T19:30:00.000Z",
+        new Date("2026-08-18T19:30:00.000Z"),
+      ),
+    ).toBe(true)
   })
 })
 
 describe("merge status coherence", () => {
   it("only available tables that are not already merged can be combined", () => {
-    expect(canMergeTables([{ status: "available" }])).toBe("Select at least two tables to merge.")
+    expect(canMergeTables([{ status: "available" }])).toBe(
+      "Select at least two tables to merge.",
+    )
     expect(
-      canMergeTables([
-        { status: "available" },
-        { status: "reserved" },
-      ]),
+      canMergeTables([{ status: "available" }, { status: "reserved" }]),
     ).toBe("Only available tables can be merged.")
     expect(
       canMergeTables([
@@ -62,10 +68,7 @@ describe("merge status coherence", () => {
       ]),
     ).toBe("A selected table is already in an arrangement.")
     expect(
-      canMergeTables([
-        { status: "available" },
-        { status: "available" },
-      ]),
+      canMergeTables([{ status: "available" }, { status: "available" }]),
     ).toBeNull()
     expect(
       canAddTablesToMerge({ status: "available" }, [{ status: "available" }]),
@@ -88,9 +91,16 @@ describe("merge status coherence", () => {
   it("expires unused available arrangements only", () => {
     const expiresAt = "2026-08-18T19:00:00.000Z"
     const now = new Date("2026-08-18T19:00:00.000Z")
-    expect(shouldExpireMerge({ status: "available", expiresAt }, now)).toBe(true)
+    expect(shouldExpireMerge({ status: "available", expiresAt }, now)).toBe(
+      true,
+    )
     expect(shouldExpireMerge({ status: "seated", expiresAt }, now)).toBe(false)
-    expect(shouldExpireMerge({ status: "available", expiresAt: "2026-08-18T20:00:00.000Z" }, now)).toBe(false)
+    expect(
+      shouldExpireMerge(
+        { status: "available", expiresAt: "2026-08-18T20:00:00.000Z" },
+        now,
+      ),
+    ).toBe(false)
   })
 })
 
@@ -101,8 +111,12 @@ describe("merge labels and remaining time", () => {
       { id: "t4", label: "4" },
       { id: "t5", label: "5" },
     ]
-    expect(labelsInSameMerge("3", tables, [{ tableIds: ["t3", "t4"] }])).toEqual(["3", "4"])
-    expect(labelsInSameMerge("5", tables, [{ tableIds: ["t3", "t4"] }])).toEqual(["5"])
+    expect(
+      labelsInSameMerge("3", tables, [{ tableIds: ["t3", "t4"] }]),
+    ).toEqual(["3", "4"])
+    expect(
+      labelsInSameMerge("5", tables, [{ tableIds: ["t3", "t4"] }]),
+    ).toEqual(["5"])
   })
 
   it("formats remaining expected time", () => {
@@ -110,7 +124,10 @@ describe("merge labels and remaining time", () => {
     expect(formatDurationMinutes(90)).toBe("1h 30m")
     expect(formatDurationMinutes(120)).toBe("2h")
     expect(
-      remainingMinutes("2026-08-18T19:30:00.000Z", new Date("2026-08-18T18:00:00.000Z")),
+      remainingMinutes(
+        "2026-08-18T19:30:00.000Z",
+        new Date("2026-08-18T18:00:00.000Z"),
+      ),
     ).toBe(90)
   })
 })

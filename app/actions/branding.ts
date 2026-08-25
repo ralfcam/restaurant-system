@@ -79,7 +79,9 @@ async function createBrandingBucketIfMissing(
 }
 
 async function removeStoredLogos(db: ServiceDb): Promise<{ error?: string }> {
-  const { error } = await db.storage.from(BRANDING_BUCKET).remove(LOGO_STORAGE_PATHS)
+  const { error } = await db.storage
+    .from(BRANDING_BUCKET)
+    .remove(LOGO_STORAGE_PATHS)
   if (error && !isMissingBucketError(error)) {
     console.error("[branding] storage remove:", error.message)
     return { error: "Could not remove the stored logo. Please try again." }
@@ -105,7 +107,10 @@ export async function uploadRestaurantLogo(
 
   const contentType = resolveLogoContentType(input.contentType, input.fileName)
   if (!contentType) {
-    return { logoUrl: "", error: "Please upload a PNG, JPG, SVG, or WEBP image." }
+    return {
+      logoUrl: "",
+      error: "Please upload a PNG, JPG, SVG, or WEBP image.",
+    }
   }
 
   const bytes = logoBytesFromBase64(input.base64)
@@ -125,18 +130,25 @@ export async function uploadRestaurantLogo(
   }
   if (uploadError) {
     console.error("[branding] upload error:", uploadError.message)
-    return { logoUrl: "", error: "Could not upload the logo. Please try again." }
+    return {
+      logoUrl: "",
+      error: "Could not upload the logo. Please try again.",
+    }
   }
 
   const stalePaths = LOGO_STORAGE_PATHS.filter((stored) => stored !== path)
   if (stalePaths.length > 0) {
-    const { error: cleanupError } = await db.storage.from(BRANDING_BUCKET).remove(stalePaths)
+    const { error: cleanupError } = await db.storage
+      .from(BRANDING_BUCKET)
+      .remove(stalePaths)
     if (cleanupError) {
       console.error("[branding] stale logo cleanup:", cleanupError.message)
     }
   }
 
-  const { data: publicUrlData } = db.storage.from(BRANDING_BUCKET).getPublicUrl(path)
+  const { data: publicUrlData } = db.storage
+    .from(BRANDING_BUCKET)
+    .getPublicUrl(path)
   const logoUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`
 
   const { error: settingsError } = await db
@@ -144,7 +156,10 @@ export async function uploadRestaurantLogo(
     .upsert({ id: 1, logo_url: logoUrl, updated_at: new Date().toISOString() })
   if (settingsError) {
     console.error("[branding] settings update error:", settingsError.message)
-    return { logoUrl: "", error: "Logo uploaded but could not be saved. Please try again." }
+    return {
+      logoUrl: "",
+      error: "Logo uploaded but could not be saved. Please try again.",
+    }
   }
 
   revalidateBrandingSurfaces()
@@ -173,11 +188,17 @@ export async function removeRestaurantLogo(): Promise<{ error?: string }> {
   return {}
 }
 
-async function removeStoredHeroImages(db: ServiceDb): Promise<{ error?: string }> {
-  const { error } = await db.storage.from(BRANDING_BUCKET).remove(HERO_STORAGE_PATHS)
+async function removeStoredHeroImages(
+  db: ServiceDb,
+): Promise<{ error?: string }> {
+  const { error } = await db.storage
+    .from(BRANDING_BUCKET)
+    .remove(HERO_STORAGE_PATHS)
   if (error && !isMissingBucketError(error)) {
     console.error("[branding] hero storage remove:", error.message)
-    return { error: "Could not remove the stored hero image. Please try again." }
+    return {
+      error: "Could not remove the stored hero image. Please try again.",
+    }
   }
   return {}
 }
@@ -197,7 +218,10 @@ export async function uploadRestaurantHeroImage(
 
   const contentType = resolveHeroContentType(input.contentType, input.fileName)
   if (!contentType) {
-    return { heroImageUrl: "", error: "Please upload a PNG, JPG, or WEBP image." }
+    return {
+      heroImageUrl: "",
+      error: "Please upload a PNG, JPG, or WEBP image.",
+    }
   }
 
   const bytes = logoBytesFromBase64(input.base64)
@@ -217,26 +241,43 @@ export async function uploadRestaurantHeroImage(
   }
   if (uploadError) {
     console.error("[branding] hero upload error:", uploadError.message)
-    return { heroImageUrl: "", error: "Could not upload the hero image. Please try again." }
+    return {
+      heroImageUrl: "",
+      error: "Could not upload the hero image. Please try again.",
+    }
   }
 
   const stalePaths = HERO_STORAGE_PATHS.filter((stored) => stored !== path)
   if (stalePaths.length > 0) {
-    const { error: cleanupError } = await db.storage.from(BRANDING_BUCKET).remove(stalePaths)
+    const { error: cleanupError } = await db.storage
+      .from(BRANDING_BUCKET)
+      .remove(stalePaths)
     if (cleanupError) {
       console.error("[branding] stale hero cleanup:", cleanupError.message)
     }
   }
 
-  const { data: publicUrlData } = db.storage.from(BRANDING_BUCKET).getPublicUrl(path)
+  const { data: publicUrlData } = db.storage
+    .from(BRANDING_BUCKET)
+    .getPublicUrl(path)
   const heroImageUrl = `${publicUrlData.publicUrl}?v=${Date.now()}`
 
   const { error: settingsError } = await db
     .from("restaurant_settings")
-    .upsert({ id: 1, hero_image_url: heroImageUrl, updated_at: new Date().toISOString() })
+    .upsert({
+      id: 1,
+      hero_image_url: heroImageUrl,
+      updated_at: new Date().toISOString(),
+    })
   if (settingsError) {
-    console.error("[branding] hero settings update error:", settingsError.message)
-    return { heroImageUrl: "", error: "Hero image uploaded but could not be saved. Please try again." }
+    console.error(
+      "[branding] hero settings update error:",
+      settingsError.message,
+    )
+    return {
+      heroImageUrl: "",
+      error: "Hero image uploaded but could not be saved. Please try again.",
+    }
   }
 
   revalidateBrandingSurfaces()
@@ -290,11 +331,13 @@ export async function updateSlotIntervalMinutes(
   if (!staffUser) throw new Error("Unauthorized")
 
   const slot_interval_minutes = clampSlotIntervalMinutes(minutes)
-  const { error } = await createServiceClient().from("restaurant_settings").upsert({
-    id: 1,
-    slot_interval_minutes,
-    updated_at: new Date().toISOString(),
-  })
+  const { error } = await createServiceClient()
+    .from("restaurant_settings")
+    .upsert({
+      id: 1,
+      slot_interval_minutes,
+      updated_at: new Date().toISOString(),
+    })
   if (error) {
     console.error("[branding] updateSlotIntervalMinutes:", error.message)
     return { error: "Could not save slot interval. Please try again." }
