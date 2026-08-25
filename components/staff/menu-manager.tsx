@@ -1,7 +1,15 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Plus, Pencil, Trash2, Search, Star, UtensilsCrossed, Loader2 } from "lucide-react"
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Search,
+  Star,
+  UtensilsCrossed,
+  Loader2,
+} from "lucide-react"
 import { toast } from "sonner"
 import { MENUS, type MenuId } from "@/lib/data"
 import { parsePriceValue } from "@/lib/menu-catalog"
@@ -102,7 +110,9 @@ export function MenuManager({
   initialChefsPicksEnabled?: boolean
 }) {
   const [items, setItems] = useState<MenuItemRow[]>(initialItems)
-  const [chefsPicksEnabled, setChefsPicksEnabledState] = useState(initialChefsPicksEnabled)
+  const [chefsPicksEnabled, setChefsPicksEnabledState] = useState(
+    initialChefsPicksEnabled,
+  )
   const [savingChefsPicks, setSavingChefsPicks] = useState(false)
   const [filter, setFilter] = useState<Filter>("All")
   const [query, setQuery] = useState("")
@@ -157,8 +167,15 @@ export function MenuManager({
       toast.error("Section labels are required")
       return
     }
-    const existing = draft.id ? items.find((item) => item.id === draft.id) : null
-    if (draft.popular && draft.available && !existing?.popular && chefsPicksCount >= 5) {
+    const existing = draft.id
+      ? items.find((item) => item.id === draft.id)
+      : null
+    if (
+      draft.popular &&
+      draft.available &&
+      !existing?.popular &&
+      chefsPicksCount >= 5
+    ) {
       toast.error("Chef's picks are full", {
         description: "Unpin one of the five dishes before adding another.",
       })
@@ -235,7 +252,9 @@ export function MenuManager({
       toast.error("Could not update chef's picks", { description: error })
       return
     }
-    toast.success(enabled ? "Chef's picks are visible." : "Chef's picks are hidden.")
+    toast.success(
+      enabled ? "Chef's picks are visible." : "Chef's picks are hidden.",
+    )
   }
 
   async function handleToggle(item: MenuItemRow) {
@@ -265,11 +284,19 @@ export function MenuManager({
           </span>
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-sm font-semibold">Homepage chef&apos;s picks</h2>
-              <Badge variant="secondary">{displayedChefsPicksCount}/5 displayed</Badge>
+              <h2 className="text-sm font-semibold">
+                Homepage chef&apos;s picks
+              </h2>
+              <Badge variant="secondary">
+                {displayedChefsPicksCount}/5 displayed
+              </Badge>
             </div>
             <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-              The first 5 pinned dishes appear on the homepage, ordered by sort order. The section hides automatically when no dishes are pinned.{chefsPicksCount > 5 ? ` ${chefsPicksCount - 5} older pin${chefsPicksCount - 5 === 1 ? " is" : "s are"} currently hidden; unpin them to match the new limit.` : ""}
+              The first 5 pinned dishes appear on the homepage, ordered by sort
+              order. The section hides automatically when no dishes are pinned.
+              {chefsPicksCount > 5
+                ? ` ${chefsPicksCount - 5} older pin${chefsPicksCount - 5 === 1 ? " is" : "s are"} currently hidden; unpin them to match the new limit.`
+                : ""}
             </p>
           </div>
         </div>
@@ -347,7 +374,10 @@ export function MenuManager({
                       <Star className="size-3.5 shrink-0 fill-primary text-primary" />
                     ) : null}
                     {!item.available ? (
-                      <Badge variant="secondary" className="shrink-0 text-destructive">
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 text-destructive"
+                      >
                         86&apos;d
                       </Badge>
                     ) : null}
@@ -415,7 +445,9 @@ export function MenuManager({
               <Input
                 id="name"
                 value={draft.name}
-                onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                onChange={(e) =>
+                  setDraft((d) => ({ ...d, name: e.target.value }))
+                }
                 placeholder="e.g. Entrecôte de bœuf 350g"
               />
             </div>
@@ -464,7 +496,9 @@ export function MenuManager({
                 <Input
                   id="price"
                   value={draft.price}
-                  onChange={(e) => setDraft((d) => ({ ...d, price: e.target.value }))}
+                  onChange={(e) =>
+                    setDraft((d) => ({ ...d, price: e.target.value }))
+                  }
                   placeholder="50.-"
                 />
               </div>
@@ -555,7 +589,8 @@ export function MenuManager({
               <div>
                 <p className="text-sm font-medium">Pin to chef&apos;s picks</p>
                 <p className="text-xs text-muted-foreground">
-                  Shows this dish on the homepage and keeps its star badge on the menu. Up to 5 dishes.
+                  Shows this dish on the homepage and keeps its star badge on
+                  the menu. Up to 5 dishes.
                 </p>
               </div>
               <Switch
@@ -575,13 +610,19 @@ export function MenuManager({
               </div>
               <Switch
                 checked={draft.available}
-                onCheckedChange={(v) => setDraft((d) => ({ ...d, available: v }))}
+                onCheckedChange={(v) =>
+                  setDraft((d) => ({ ...d, available: v }))
+                }
               />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={saving}
+            >
               Cancel
             </Button>
             <Button onClick={save} disabled={saving}>

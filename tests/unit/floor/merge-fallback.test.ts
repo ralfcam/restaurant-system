@@ -23,7 +23,12 @@ describe("merge fallback persistence", () => {
         status: "available",
       },
     )
-    expect(payload).toMatchObject({ v: 1, label: "3+4", seats: 6, tableIds: ["t3", "t4"] })
+    expect(payload).toMatchObject({
+      v: 1,
+      label: "3+4",
+      seats: 6,
+      tableIds: ["t3", "t4"],
+    })
     expect(decodeMergeState(encodeMergeState(payload))).toEqual(payload)
     expect(decodeMergeState("merge:3+4")).toBeNull()
 
@@ -43,12 +48,20 @@ describe("merge fallback persistence", () => {
       {
         entity_id: "m2",
         to_status: "available",
-        reason: encodeMergeState({ ...payload, tableIds: ["t5", "t6"], label: "5+6" }),
+        reason: encodeMergeState({
+          ...payload,
+          tableIds: ["t5", "t6"],
+          label: "5+6",
+        }),
         created_at: "2026-08-18T18:05:00.000Z",
       },
     ])
     expect(active).toEqual([
-      expect.objectContaining({ id: "m2", label: "5+6", tableIds: ["t5", "t6"] }),
+      expect.objectContaining({
+        id: "m2",
+        label: "5+6",
+        tableIds: ["t5", "t6"],
+      }),
     ])
   })
 
@@ -61,12 +74,16 @@ describe("merge fallback persistence", () => {
     expect(
       isMissingRelationError({
         code: "PGRST205",
-        message: "Could not find the table 'public.table_merges' in the schema cache",
+        message:
+          "Could not find the table 'public.table_merges' in the schema cache",
       }),
     ).toBe(true)
-    expect(isMissingRelationError({ code: "42P01", message: 'relation "table_merges" does not exist' })).toBe(
-      true,
-    )
+    expect(
+      isMissingRelationError({
+        code: "42P01",
+        message: 'relation "table_merges" does not exist',
+      }),
+    ).toBe(true)
     expect(isMissingRelationError({ message: "invalid input" })).toBe(false)
   })
 })

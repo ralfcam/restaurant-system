@@ -22,7 +22,10 @@ export default function LoginPage() {
     setErrorMsg(null)
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
     setLoading(false)
     if (error) {
       setErrorMsg("Invalid email or password. Please try again.")
@@ -39,7 +42,9 @@ export default function LoginPage() {
         <div className="mb-8 flex flex-col items-center gap-3 text-center">
           <BrandMark src={logoUrl} className="rounded-xl" />
           <div>
-            <h1 className="font-heading text-2xl font-semibold">{RESTAURANT.name}</h1>
+            <h1 className="font-heading text-2xl font-semibold">
+              {RESTAURANT.name}
+            </h1>
             <p className="text-sm text-muted-foreground">Staff console</p>
           </div>
         </div>
@@ -83,7 +88,9 @@ export default function LoginPage() {
             </div>
             <Button type="submit" className="mt-1 w-full" disabled={loading}>
               {loading ? (
-                <><Loader2 className="size-4 animate-spin" /> Signing in…</>
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Signing in…
+                </>
               ) : (
                 "Sign in"
               )}

@@ -43,12 +43,16 @@ function thenable<T>(value: T) {
   const self = new Proxy(builder, {
     get(target, prop) {
       if (prop === "then") {
-        return (resolve: (value: T) => unknown, reject?: (reason: unknown) => unknown) =>
-          Promise.resolve(value).then(resolve, reject)
+        return (
+          resolve: (value: T) => unknown,
+          reject?: (reason: unknown) => unknown,
+        ) => Promise.resolve(value).then(resolve, reject)
       }
       if (prop === "single" || prop === "maybeSingle") {
         const payload = value as { data: Row | Row[] | null; error: unknown }
-        const row = Array.isArray(payload.data) ? payload.data[0] ?? null : payload.data
+        const row = Array.isArray(payload.data)
+          ? (payload.data[0] ?? null)
+          : payload.data
         return async () => ({ data: row, error: row ? null : payload.error })
       }
       return () => self
@@ -60,7 +64,9 @@ function thenable<T>(value: T) {
 const lunchWindow = {
   day_of_week: 2,
   is_closed: false,
-  segments: [{ label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 0 }],
+  segments: [
+    { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 0 },
+  ],
 }
 
 describe("getAvailableSlots", () => {

@@ -5,9 +5,16 @@ import {
   toAssignableTables,
   type TableMergeRef,
 } from "@/lib/floor/floor-units"
-import { overlayReservationsOnTables, type AssignableTable } from "@/lib/reservations/auto-assign"
+import {
+  overlayReservationsOnTables,
+  type AssignableTable,
+} from "@/lib/reservations/auto-assign"
 
-function table(label: string, seats: number, id = `t-${label}`): AssignableTable {
+function table(
+  label: string,
+  seats: number,
+  id = `t-${label}`,
+): AssignableTable {
   return { id, label, seats, status: "available" }
 }
 
@@ -25,7 +32,9 @@ describe("toAssignableTables", () => {
       [table("1", 2), table("3", 2), table("4", 4), table("8", 8)],
       [merge34],
     )
-    expect(assignable.map((row) => ({ label: row.label, seats: row.seats }))).toEqual([
+    expect(
+      assignable.map((row) => ({ label: row.label, seats: row.seats })),
+    ).toEqual([
       { label: "1", seats: 2 },
       { label: "3", seats: 6 },
       { label: "8", seats: 8 },

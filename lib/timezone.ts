@@ -46,7 +46,10 @@ export function dateTimeToUTC(dateISO: string, timeString: string): Date {
   const date = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0))
 
   // The offset is the difference between what UTC thinks and TZ thinks the time is
-  const offset = new Date(date.toLocaleString("en-US", { timeZone: RESTAURANT_TZ })).getTime() - date.getTime()
+  const offset =
+    new Date(
+      date.toLocaleString("en-US", { timeZone: RESTAURANT_TZ }),
+    ).getTime() - date.getTime()
 
   return new Date(date.getTime() - offset)
 }
@@ -65,7 +68,15 @@ export function getDayOfWeekInRestaurantTZ(dateISO: string): number {
   })
 
   const dayName = formatter.format(date)
-  const dayIndex = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(dayName)
+  const dayIndex = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ].indexOf(dayName)
   return dayIndex >= 0 ? dayIndex : 0
 }
 
@@ -73,7 +84,10 @@ export function getDayOfWeekInRestaurantTZ(dateISO: string): number {
  * Check if a time string (HH:MM) is in the past relative to now in the restaurant's timezone.
  * Only returns true if the date is today; returns false for future dates.
  */
-export function isTimeInPastRestaurantTZ(dateISO: string, timeString: string): boolean {
+export function isTimeInPastRestaurantTZ(
+  dateISO: string,
+  timeString: string,
+): boolean {
   const today = getTodayInRestaurantTZ()
   if (dateISO !== today) return false
 
@@ -114,7 +128,8 @@ export function isTimeWithinOperatingHours(
   const segments = operatingWindow.segments ?? []
   if (segments.length > 0) {
     const inSegment = segments.some(
-      (segment) => timeString >= segment.opens_at && timeString <= segment.closes_at,
+      (segment) =>
+        timeString >= segment.opens_at && timeString <= segment.closes_at,
     )
     if (!inSegment) {
       const summary = segments
@@ -132,7 +147,10 @@ export function isTimeWithinOperatingHours(
     return { valid: false, reason: "Unable to verify operating hours" }
   }
 
-  if (timeString < operatingWindow.opens_at || timeString > operatingWindow.closes_at) {
+  if (
+    timeString < operatingWindow.opens_at ||
+    timeString > operatingWindow.closes_at
+  ) {
     return {
       valid: false,
       reason: `Reservations are only available between ${operatingWindow.opens_at} and ${operatingWindow.closes_at}`,

@@ -20,7 +20,11 @@
  * mcp_server_name/command as the server key. Payload shapes and the
  * liveness standard: .cursor/rules/hook-authoring.mdc.
  */
-import { readStdinJson, writeStdoutJson, extractMcpCall } from "./lib/mcp-payload.mjs"
+import {
+  readStdinJson,
+  writeStdoutJson,
+  extractMcpCall,
+} from "./lib/mcp-payload.mjs"
 import { detectOversizedComment } from "./lib/linear-comment-size-policy.mjs"
 
 function main() {
@@ -32,7 +36,11 @@ function main() {
       return
     }
 
-    const hit = detectOversizedComment(extracted.server, extracted.toolName, extracted.args)
+    const hit = detectOversizedComment(
+      extracted.server,
+      extracted.toolName,
+      extracted.args,
+    )
     if (hit) {
       writeStdoutJson({
         permission: "deny",

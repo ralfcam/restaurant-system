@@ -3,8 +3,8 @@ import {
   CalendarClock,
   Users,
   Armchair,
-  Receipt,
   ArrowRight,
+  CheckCircle2,
 } from "lucide-react"
 import { TABLES, TABLE_STATUS_META } from "@/lib/data"
 import { getReservationsByDate } from "@/app/actions/reservations"
@@ -41,34 +41,19 @@ export default async function AdminDashboardPage() {
         </Button>
       }
     >
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          icon={CalendarClock}
-          label="Reservations today"
-          value={todays.length}
-          hint="Across all services"
-          tone="primary"
-        />
-        <StatCard
-          icon={Users}
-          label="Expected covers"
-          value={covers}
-          hint="Total guests booked"
-        />
-        <StatCard
-          icon={Armchair}
-          label="Tables seated"
-          value={`${seated}/${TABLES.length}`}
-          hint={`${available} available now`}
-          tone="accent"
-        />
-        <StatCard
-          icon={Receipt}
-          label="Avg. check"
-          value="$68"
-          hint="Last 7 days"
-        />
-      </div>
+      <section aria-label="Tonight's service" className="grid gap-4 sm:grid-cols-3">
+        <StatCard icon={CalendarClock} label="Bookings tonight" value={todays.length} hint="Confirmed and seated" tone="primary" />
+        <StatCard icon={Users} label="Expected covers" value={covers} hint="Guests on the books" />
+        <StatCard icon={Armchair} label="Floor occupancy" value={`${seated}/${TABLES.length}`} hint={`${available} tables available`} tone="accent" />
+      </section>
+
+      <section className="mt-6 flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+        <div className="flex items-start gap-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"><CheckCircle2 className="size-5" /></span>
+          <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Service is live</p><p className="mt-1 text-sm text-muted-foreground">{seated} tables seated · {available} ready for guests</p></div>
+        </div>
+        <Button variant="outline" render={<Link href="/admin/floor" />}>Open floor plan <ArrowRight data-icon="inline-end" /></Button>
+      </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
         {/* Upcoming reservations */}
@@ -92,10 +77,7 @@ export default async function AdminDashboardPage() {
               </li>
             ) : (
               upcoming.map((r) => (
-                <li
-                  key={r.id}
-                  className="flex items-center gap-4 px-5 py-3.5"
-                >
+                <li key={r.id} className="flex items-center gap-4 px-5 py-3.5">
                   <div className="flex size-11 shrink-0 flex-col items-center justify-center rounded-md bg-secondary text-xs font-medium">
                     <span className="font-heading text-sm">{r.time}</span>
                   </div>
@@ -103,7 +85,9 @@ export default async function AdminDashboardPage() {
                     <p className="truncate font-medium">{r.guest_name}</p>
                     <p className="text-sm text-muted-foreground">
                       Party of {r.party_size}
-                      {r.table_label ? ` · Table ${r.table_label}` : " · unassigned"}
+                      {r.table_label
+                        ? ` · Table ${r.table_label}`
+                        : " · unassigned"}
                       {r.notes ? ` · ${r.notes}` : ""}
                     </p>
                   </div>
@@ -135,10 +119,7 @@ export default async function AdminDashboardPage() {
               const count = TABLES.filter((t) => t.status === status).length
               const meta = TABLE_STATUS_META[status]
               return (
-                <div
-                  key={status}
-                  className="flex items-center justify-between"
-                >
+                <div key={status} className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm">
                     <span className={`size-2.5 rounded-full ${meta.dot}`} />
                     {meta.label}

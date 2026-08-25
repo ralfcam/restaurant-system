@@ -70,6 +70,7 @@ single finding. Treat docs/specs/ as the only acceptance bar. Work through
 all seven parts in order. Do not skip a part.
 
 Execution strategy (wave-ordered — dependencies flow downward):
+
 - Wave 0 — Foundation (run first): PART 1 env & config conformance to spec NFRs.
 - Wave 1 — Parallel deep dives (dispatch simultaneously; no cross-deps).
   Wave at the Task fan-out cap in `.cursor/rules/task-fanout.mdc`.
@@ -85,6 +86,7 @@ Execution strategy (wave-ordered — dependencies flow downward):
   rely solely on subagent claims for anything you will label Blocker.
 
 Ownership boundaries (each defect appears once, under its single owner):
+
 - Spec-vs-code for any doc that has a docs/specs/ file + verifier report
   is OWNED by PART 2 (per-spec).
 - Booking/reservation/availability deviations: OWNED by PART 2 (booking-rules,
@@ -96,12 +98,14 @@ Ownership boundaries (each defect appears once, under its single owner):
   owns observability NFR conformance.
 
 Re-audit diffing:
+
 - Before writing findings, read the most recent prior audit output and
   remediation plan (e.g. .cursor/plans/audit_remediation_plan_*.plan.md).
 - Label every finding NEW | KNOWN | RESOLVED | REGRESSION.
 
 Accepted designs — verify the guard still exists, do not re-flag the
 design itself; flag only drift:
+
 - Service-role client (`lib/supabase/service.ts`) used only in server actions,
   never on client boundary — intentional RLS bypass for admin ops.
 - Mock data in `lib/data.ts` coexisting with Supabase-backed features during MVP
@@ -120,6 +124,7 @@ and map each env-gated control to the spec that requires it.
 a var is declared/used, never as the bar.
 
 For every env-gated behaviour a docs/specs/ file REQUIRES:
+
 - Verify the var and its guard implement that spec requirement.
 - Verify per-environment enforcement matches what the spec requires.
 
@@ -127,6 +132,7 @@ Two finding types only: DEVIATION | COVERAGE GAP.
 
 Mandatory control checks (cite the governing spec for each; if no spec
 governs it, record a COVERAGE GAP):
+
 - NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY: present and
   used only on client-safe boundaries; never conflated with service role.
 - SUPABASE_SERVICE_ROLE_KEY: never NEXT_PUBLIC_; never imported in any
@@ -147,6 +153,7 @@ For EVERY spec file in docs/specs/ (exclude README.md), deploy one
 `spec-verifier` Task. Wave at the fan-out cap. `model: inherit`.
 
 2A. Spec → report mapping (deterministic)
+
 - Every spec → docs/verifier-reports/<spec-basename>.md
   (nested under docs/verifier-reports/prd/ only if the spec lives in a prd/ subfolder).
 - Report basename MUST equal spec basename.
@@ -154,13 +161,14 @@ For EVERY spec file in docs/specs/ (exclude README.md), deploy one
 - Enumerate docs/specs/ at run time — do not hardcode the spec list.
 
 2B. Verifier Sub-Agent brief (hand verbatim with [SPEC PATH] and [REPORT PATH])
-  Objective: Review implementation of [Feature/Module] against [SPEC PATH].
-  Read-only diagnostic — do not write feature code.
-  Focus: error handling, security (authz/RLS/input validation), observability,
-  architectural coherence (booking invariants, menu 86 rules, scheduling constraints).
-  Output: Markdown at [REPORT PATH] with file:line evidence and severity tags.
+Objective: Review implementation of [Feature/Module] against [SPEC PATH].
+Read-only diagnostic — do not write feature code.
+Focus: error handling, security (authz/RLS/input validation), observability,
+architectural coherence (booking invariants, menu 86 rules, scheduling constraints).
+Output: Markdown at [REPORT PATH] with file:line evidence and severity tags.
 
 2C. Self-checks after fan-out
+
 - Confirm one report per non-index spec.
 - Spot-re-verify Blocker/High claims before promoting to main audit.
 - Update docs/verifier-reports/README.md if it exists.
@@ -171,6 +179,7 @@ PART 3 — CROSS-CUTTING SPEC CONFORMANCE & COVERAGE
 Bar is always docs/specs/. Architecture docs are BACKGROUND ONLY.
 
 3A. Reservation / order status models
+
 - Bar: reservation and order-ticket specs under docs/specs/.
 - Map reservation statuses, table statuses, order-ticket statuses, and transitions
   in code (migrations CHECK constraints, TypeScript unions, server actions) to specs.
@@ -178,21 +187,25 @@ Bar is always docs/specs/. Architecture docs are BACKGROUND ONLY.
   does not define.
 
 3B. Observability NFR conformance
+
 - Bar: platform-NFR specs (logging, error boundaries, health checks if specified).
 - DEVIATION: spec-required observability not implemented.
 - COVERAGE GAP: capture path with no governing scrubbing/logging rule.
 
 3C. Third-party integration coverage
+
 - Bar: feature specs authorizing each third-party (Supabase → auth/data specs;
   Vercel Analytics if specified).
 - COVERAGE GAP: third-party in code that no spec authorizes.
 
 3D. Security controls conformance
+
 - Bar: auth/identity and platform-NFR specs.
 - DEVIATION: spec-required control missing or weaker in code.
 - COVERAGE GAP: security-relevant behaviour with no governing spec.
 
 3E. Booking Deviation Consolidation (Wave 2)
+
 - Consolidate booking/reservation/availability deviations from PART 2 reports.
 - Do not re-derive; cite report paths.
 
@@ -202,12 +215,14 @@ PART 4 — PRODUCTION SECURITY CONFORMANCE
 Bar: security & platform-NFR specs in docs/specs/.
 
 4A. Middleware and auth chain
+
 - Inspect middleware.ts → lib/supabase/proxy.ts: session refresh, protected
   admin routes, auth callback handling.
 - Server actions: auth resolved BEFORE side effects (reservation write, menu update).
 - DEVIATION | COVERAGE GAP only.
 
 4B. Supabase and database
+
 - Service role key: server-only; not in Client Component trees.
 - RLS: for every user-facing table a spec governs, RLS enabled AND FORCE ROW
   LEVEL SECURITY — list tables with ENABLE but no FORCE.
@@ -216,6 +231,7 @@ Bar: security & platform-NFR specs in docs/specs/.
 - DEVIATION | COVERAGE GAP only.
 
 4C. Server actions and data integrity
+
 - Bar: booking-rules, menu-availability, scheduling specs.
 - Input validation (party size, date/time, blocked dates) before DB writes.
 - Menu 86 / availability toggles enforced server-side, not UI-only.
@@ -227,19 +243,23 @@ PART 5 — SPEC TEST COVERAGE
 Bar: acceptance criteria in each docs/specs/ file. docs/testing/ is BACKGROUND ONLY.
 
 5A. Spec criterion → test mapping
+
 - COVERAGE GAP: criterion with no test. DEVIATION: test contradicts spec.
 - If tests/ does not exist yet, report systematic COVERAGE GAP for all criteria.
 
 5B. Spec-critical tests gated in CI
+
 - Verify lint/typecheck/test jobs run on PRs when CI exists.
 - Rollup integrity: summary job fails if any needed job fails.
 
 5C. Test execution integrity
+
 - Integration/RLS tests must run against real local Supabase when they exist —
   skipped suites prove nothing. Cite config.
 - Runs use `RESTAURANT_INTEGRATION_STRICT=true` when integration tests exist.
 
 5D. NFR test coverage
+
 - Confirm automated checks for platform-NFR criteria or state "cannot verify from repo".
 
 ---
@@ -248,13 +268,17 @@ PART 6 — APP ROUTER & DEPENDENCY CONFORMANCE
 Bar: docs/specs/ for auth/validation; platform NFRs for supply chain.
 
 6A. App Router correctness
-- Server Actions: auth before side effects; `"use server"` files checked for
-  bare passthrough without session validation.
+
+- Server Actions: Grep for `"use server"`, then `codegraph_explore` for the
+  export chain (per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc);
+  fall back to grep-only if MCP is down); auth before side effects; bare
+  passthrough without session validation.
 - Dynamic route params validated before DB queries per owning spec.
 - next.config.mjs: flag entries weakening spec-required security posture.
 - DEVIATION | COVERAGE GAP only.
 
 6B. Dependency integrity
+
 - @supabase/supabase-js and @supabase/ssr pinned; pnpm-lock.yaml committed.
 - CI uses --frozen-lockfile when CI exists.
 - DEVIATION | COVERAGE GAP only.
@@ -287,9 +311,11 @@ Tone: technical, direct, zero filler
 ---
 
 # Production-Readiness Audit — restaurant-system
-*Audited: [timestamp of run]*
+
+_Audited: [timestamp of run]_
 
 ## Executive Summary
+
 - Verdict: shippable as-is | shippable with fixes | not shippable
 - Top 3 risks
 - Most critical spec-vs-code deviation
@@ -297,26 +323,36 @@ Tone: technical, direct, zero filler
 - Spec-conformance verdict
 
 ## Confirmed Controls
+
 One line per control present and correct, with evidence.
 
 ## Findings (Parts 1, 3–6)
+
 **[SEVERITY] [PART.SECTION-N] Short title** — NEW | KNOWN | REGRESSION
+
 - Evidence: `path:line` or `ENV_VAR` or spec ref
 - Risk · Fix · Effort: S | M | L
 
 ## Spec–Code Deviations (consolidated from Part 2 + Part 3)
 
 ## Spec Coverage & Conformance (Part 7)
+
 ### Spec Coverage Matrix
+
 ### Conformance Verdict
+
 ### Cross-Cutting Gaps (≥3 specs)
 
 ## Per-Spec Verifier Reports (Part 2)
+
 Each agent writes docs/verifier-reports/<basename>.md with:
+
 - Verdict · Findings (Error/Security/Observability/Architecture) · Confirmed · Cannot Verify
 
 ## Cannot Verify
+
 ## Recommended Next Actions
+
 </output_format>
 
 ---

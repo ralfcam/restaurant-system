@@ -7,7 +7,10 @@ import { ImagePlus, Loader2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
-import { removeRestaurantLogo, uploadRestaurantLogo } from "@/app/actions/branding"
+import {
+  removeRestaurantLogo,
+  uploadRestaurantLogo,
+} from "@/app/actions/branding"
 import { resolveLogoContentType } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 
@@ -58,7 +61,8 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
     setIsSaving(true)
     try {
       const base64 = await fileToBase64(file)
-      const contentType = resolveLogoContentType(file.type, file.name) ?? file.type
+      const contentType =
+        resolveLogoContentType(file.type, file.name) ?? file.type
       const result = await uploadRestaurantLogo({
         base64,
         contentType,
@@ -111,7 +115,11 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             // next/image's optimization pipeline, which isn't meant for
             // ephemeral object URLs.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={preview} alt="Logo preview" className="size-full object-cover" />
+            <img
+              src={preview}
+              alt="Logo preview"
+              className="size-full object-cover"
+            />
           ) : displaySrc ? (
             <Image
               src={displaySrc}
@@ -143,7 +151,9 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             {logoUrl ? "Choose a different image" : "Choose an image"}
           </Button>
           {file ? (
-            <p className="truncate text-xs text-muted-foreground">{file.name}</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {file.name}
+            </p>
           ) : null}
         </div>
       </div>
@@ -162,7 +172,11 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             onClick={handleRemove}
             disabled={isRemoving}
           >
-            {isRemoving ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+            {isRemoving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Trash2 className="size-4" />
+            )}
             Remove logo
           </Button>
         ) : null}

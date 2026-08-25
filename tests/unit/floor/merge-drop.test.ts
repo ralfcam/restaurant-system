@@ -25,14 +25,20 @@ function table(
 describe("resolveMergeDrop", () => {
   it("merges two available tables when one is dropped on the other", () => {
     const tables = [table("t3"), table("t4"), table("t5")]
-    expect(resolveMergeDrop("t3", "t4", tables)).toEqual({ tableIds: ["t3", "t4"] })
+    expect(resolveMergeDrop("t3", "t4", tables)).toEqual({
+      tableIds: ["t3", "t4"],
+    })
     expect(isDragMergeable(tables[0]!)).toBe(true)
   })
 
   it("adds an available table dropped onto an available arrangement", () => {
     const tables = [
-      table("t3", { merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] } }),
-      table("t4", { merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] } }),
+      table("t3", {
+        merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] },
+      }),
+      table("t4", {
+        merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] },
+      }),
       table("t5"),
     ]
     expect(resolveMergeDrop("t5", "t3", tables)).toEqual({
@@ -55,14 +61,24 @@ describe("resolveMergeDrop", () => {
     ).toEqual({ error: "Only available tables can be merged." })
     expect(
       resolveMergeDrop("t3", "t5", [
-        table("t3", { merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] } }),
-        table("t4", { merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] } }),
-        table("t5", { merge: { id: "m-56", status: "available", memberIds: ["t5", "t6"] } }),
+        table("t3", {
+          merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] },
+        }),
+        table("t4", {
+          merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] },
+        }),
+        table("t5", {
+          merge: { id: "m-56", status: "available", memberIds: ["t5", "t6"] },
+        }),
       ]),
-    ).toEqual({ error: "Split an arrangement before combining it with another." })
-    expect(isDragMergeable(table("t2", { status: "seated", displayStatus: "seated" }))).toBe(
-      false,
-    )
+    ).toEqual({
+      error: "Split an arrangement before combining it with another.",
+    })
+    expect(
+      isDragMergeable(
+        table("t2", { status: "seated", displayStatus: "seated" }),
+      ),
+    ).toBe(false)
   })
 })
 
@@ -73,7 +89,9 @@ describe("resolveSplitDrop", () => {
     })
     const tables = [
       merged,
-      table("t4", { merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] } }),
+      table("t4", {
+        merge: { id: "m-34", status: "available", memberIds: ["t3", "t4"] },
+      }),
     ]
     expect(isDragSplittable(merged)).toBe(true)
     expect(canDragFloorTable(merged)).toBe(true)

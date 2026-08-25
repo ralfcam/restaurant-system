@@ -19,7 +19,11 @@
  * crashing hook never blocks every Task launch. Payload shapes and the
  * liveness standard: .cursor/rules/hook-authoring.mdc.
  */
-import { readStdinJson, writeStdoutJson, checkTaskDelegation } from "./lib/task-delegation-policy.mjs"
+import {
+  readStdinJson,
+  writeStdoutJson,
+  checkTaskDelegation,
+} from "./lib/task-delegation-policy.mjs"
 
 const MESSAGES = {
   "model-override": (subagentType, pinned) => ({
@@ -30,7 +34,8 @@ const MESSAGES = {
       "model argument and let the pin apply.",
   }),
   "generalPurpose-linear-write": () => ({
-    user_message: "Blocked a generalPurpose Task instructing a Linear MCP write.",
+    user_message:
+      "Blocked a generalPurpose Task instructing a Linear MCP write.",
     agent_message:
       "task-delegation guard: this generalPurpose Task's prompt instructs a Linear MCP write " +
       "(save_comment / save_issue / save_document / plugin-linear-linear). generalPurpose has never " +
@@ -46,7 +51,10 @@ function main() {
       writeStdoutJson({})
       return
     }
-    const ti = input.tool_input && typeof input.tool_input === "object" ? input.tool_input : {}
+    const ti =
+      input.tool_input && typeof input.tool_input === "object"
+        ? input.tool_input
+        : {}
     const hit = checkTaskDelegation({
       subagentType: ti.subagent_type,
       model: ti.model,

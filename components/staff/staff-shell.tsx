@@ -31,44 +31,79 @@ type StaffUser = { email?: string | null; name?: string | null } | null
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, role: "Admin" },
-  { href: "/admin/reservations", label: "Reservations", icon: CalendarClock, role: "Admin" },
-  { href: "/admin/scheduling", label: "Scheduling", icon: Clock, role: "Admin" },
-  { href: "/admin/floor", label: "Floor Plan", icon: LayoutGrid, role: "Admin" },
+  {
+    href: "/admin/reservations",
+    label: "Reservations",
+    icon: CalendarClock,
+    role: "Admin",
+  },
+  {
+    href: "/admin/scheduling",
+    label: "Scheduling",
+    icon: Clock,
+    role: "Admin",
+  },
+  {
+    href: "/admin/floor",
+    label: "Floor Plan",
+    icon: LayoutGrid,
+    role: "Admin",
+  },
   { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, role: "Admin" },
-  { href: "/admin/settings", label: "Branding", icon: ImageIcon, role: "Admin" },
+  {
+    href: "/admin/settings",
+    label: "Branding",
+    icon: ImageIcon,
+    role: "Admin",
+  },
   { href: "/pos", label: "Point of Sale", icon: Receipt, role: "Cashier" },
   { href: "/kds", label: "Kitchen Display", icon: ChefHat, role: "Kitchen" },
+]
+
+const NAV_GROUPS = [
+  { label: "Service", items: NAV.filter((item) => ["/admin", "/admin/reservations", "/admin/floor"].includes(item.href)) },
+  { label: "Operations", items: NAV.filter((item) => ["/pos", "/kds", "/admin/scheduling"].includes(item.href)) },
+  { label: "Setup", items: NAV.filter((item) => ["/admin/menu", "/admin/settings"].includes(item.href)) },
 ]
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
   return (
-    <nav className="flex flex-1 flex-col gap-1 px-3">
-      {NAV.map((item) => {
-        const active =
-          item.href === "/admin"
-            ? pathname === "/admin"
-            : pathname.startsWith(item.href)
+    <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+      {NAV_GROUPS.map((group) => (
+        <div key={group.label} className="flex flex-col gap-1">
+          <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/45">
+            {group.label}
+          </p>
+          {group.items.map((item) => {
+            const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
+            const Icon = item.icon
+            return (
+              <Link key={item.href} href={item.href} onClick={onNavigate} className={cn(
+                "flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+              )}>
+                <Icon className="size-5 shrink-0" />
+                <span className="flex-1">{item.label}</span>
+                <span className="text-[10px] uppercase tracking-wide opacity-60">{item.role}</span>
+              </Link>
+            )
+          })}
+        </div>
+      ))}
+    </nav>
+  )
+} 
+
+function MobileBottomNav() {
+  const pathname = usePathname()
+  const items = NAV.filter((item) => ["/admin", "/admin/reservations", "/pos"].includes(item.href))
+  return (
+    <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+      {items.map((item) => {
+        const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
         const Icon = item.icon
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onNavigate}
-            className={cn(
-              "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-              active
-                ? "bg-sidebar-primary text-sidebar-primary-foreground"
-                : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-            )}
-          >
-            <Icon className="size-5 shrink-0" />
-            <span className="flex-1">{item.label}</span>
-            <span className="text-[10px] uppercase tracking-wide opacity-60">
-              {item.role}
-            </span>
-          </Link>
-        )
+        return <Link key={item.href} href={item.href} className={cn("flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium", active ? "text-primary" : "text-muted-foreground")} aria-current={active ? "page" : undefined}><Icon className="size-5" /><span>{item.label === "Point of Sale" ? "POS" : item.label}</span></Link>
       })}
     </nav>
   )
@@ -81,9 +116,7 @@ function SidebarContent({
   onNavigate?: () => void
   user?: StaffUser
 }) {
-  const initials = user?.email
-    ? user.email.slice(0, 2).toUpperCase()
-    : "ST"
+  const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "ST"
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
@@ -146,7 +179,7 @@ export function StaffShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-10 flex items-center gap-4 border-b border-border bg-background/95 px-4 py-4 backdrop-blur md:px-8">
+        <header className="relative flex items-center gap-4 border-b border-border bg-background px-4 py-4 md:sticky md:top-0 md:z-10 md:bg-background/95 md:px-8 md:backdrop-blur">
           <Sheet>
             <SheetTrigger
               render={
@@ -172,10 +205,13 @@ export function StaffShell({
               </p>
             ) : null}
           </div>
-          {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+          {actions ? (
+            <div className="flex items-center gap-2">{actions}</div>
+          ) : null}
         </header>
 
-        <main className="flex-1 p-4 md:p-8">{children}</main>
+        <main className="flex-1 p-4 pb-24 md:p-8 lg:pb-8">{children}</main>
+        <MobileBottomNav />
       </div>
     </div>
   )

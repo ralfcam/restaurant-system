@@ -66,14 +66,21 @@ describe("uploadRestaurantLogo", () => {
     mocks.upload.mockResolvedValue({ error: null })
     mocks.remove.mockResolvedValue({ error: null })
     mocks.upsert.mockResolvedValue({ error: null })
-    mocks.createBucket.mockResolvedValue({ data: { name: "branding" }, error: null })
-    mocks.getPublicUrl.mockReturnValue({ data: { publicUrl: "https://cdn.example/logo.png" } })
+    mocks.createBucket.mockResolvedValue({
+      data: { name: "branding" },
+      error: null,
+    })
+    mocks.getPublicUrl.mockReturnValue({
+      data: { publicUrl: "https://cdn.example/logo.png" },
+    })
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000)
   })
 
   it("rejects unauthenticated callers", async () => {
     mocks.requireStaffUser.mockResolvedValue(null)
-    await expect(uploadRestaurantLogo(pngUpload)).rejects.toThrow("Unauthorized")
+    await expect(uploadRestaurantLogo(pngUpload)).rejects.toThrow(
+      "Unauthorized",
+    )
     expect(mocks.upload).not.toHaveBeenCalled()
   })
 
@@ -96,7 +103,11 @@ describe("uploadRestaurantLogo", () => {
       expect.any(Uint8Array),
       expect.objectContaining({ contentType: "image/png", upsert: true }),
     )
-    expect(mocks.remove).toHaveBeenCalledWith(["logo.jpg", "logo.svg", "logo.webp"])
+    expect(mocks.remove).toHaveBeenCalledWith([
+      "logo.jpg",
+      "logo.svg",
+      "logo.webp",
+    ])
     expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 1,
@@ -104,7 +115,9 @@ describe("uploadRestaurantLogo", () => {
       }),
     )
     const paths = mocks.revalidatePath.mock.calls.map((call) => call[0])
-    expect(paths).toEqual(expect.arrayContaining(["/admin", "/", "/menu", "/auth/login"]))
+    expect(paths).toEqual(
+      expect.arrayContaining(["/admin", "/", "/menu", "/auth/login"]),
+    )
   })
 
   it("creates the branding bucket when it is missing, then uploads", async () => {
@@ -125,7 +138,9 @@ describe("uploadRestaurantLogo", () => {
 
   it("returns the upload error when the branding bucket cannot be created", async () => {
     mocks.upload.mockResolvedValue({ error: { message: "Bucket not found" } })
-    mocks.createBucket.mockResolvedValue({ error: { message: "permission denied" } })
+    mocks.createBucket.mockResolvedValue({
+      error: { message: "permission denied" },
+    })
     const result = await uploadRestaurantLogo(pngUpload)
     expect(result.error).toBe("Could not upload the logo. Please try again.")
     expect(mocks.upload).toHaveBeenCalledTimes(1)
@@ -166,12 +181,19 @@ describe("removeRestaurantLogo", () => {
   it("deletes stored logo objects, nulls logo_url, and revalidates", async () => {
     const result = await removeRestaurantLogo()
     expect(result).toEqual({})
-    expect(mocks.remove).toHaveBeenCalledWith(["logo.png", "logo.jpg", "logo.svg", "logo.webp"])
+    expect(mocks.remove).toHaveBeenCalledWith([
+      "logo.png",
+      "logo.jpg",
+      "logo.svg",
+      "logo.webp",
+    ])
     expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, logo_url: null }),
     )
     const paths = mocks.revalidatePath.mock.calls.map((call) => call[0])
-    expect(paths).toEqual(expect.arrayContaining(["/admin", "/", "/auth/login"]))
+    expect(paths).toEqual(
+      expect.arrayContaining(["/admin", "/", "/auth/login"]),
+    )
   })
 })
 
@@ -182,13 +204,21 @@ describe("getRestaurantLogoUrl", () => {
   })
 
   it("does not require a staff session", async () => {
-    mocks.maybeSingle.mockResolvedValue({ data: { logo_url: "https://cdn.example/logo.png" }, error: null })
-    await expect(getRestaurantLogoUrl()).resolves.toBe("https://cdn.example/logo.png")
+    mocks.maybeSingle.mockResolvedValue({
+      data: { logo_url: "https://cdn.example/logo.png" },
+      error: null,
+    })
+    await expect(getRestaurantLogoUrl()).resolves.toBe(
+      "https://cdn.example/logo.png",
+    )
     expect(mocks.requireStaffUser).not.toHaveBeenCalled()
   })
 
   it("returns null when no custom logo is stored", async () => {
-    mocks.maybeSingle.mockResolvedValue({ data: { logo_url: null }, error: null })
+    mocks.maybeSingle.mockResolvedValue({
+      data: { logo_url: null },
+      error: null,
+    })
     await expect(getRestaurantLogoUrl()).resolves.toBeNull()
   })
 })
@@ -206,14 +236,21 @@ describe("uploadRestaurantHeroImage", () => {
     mocks.upload.mockResolvedValue({ error: null })
     mocks.remove.mockResolvedValue({ error: null })
     mocks.upsert.mockResolvedValue({ error: null })
-    mocks.createBucket.mockResolvedValue({ data: { name: "branding" }, error: null })
-    mocks.getPublicUrl.mockReturnValue({ data: { publicUrl: "https://cdn.example/hero.png" } })
+    mocks.createBucket.mockResolvedValue({
+      data: { name: "branding" },
+      error: null,
+    })
+    mocks.getPublicUrl.mockReturnValue({
+      data: { publicUrl: "https://cdn.example/hero.png" },
+    })
     vi.spyOn(Date, "now").mockReturnValue(1_700_000_000_000)
   })
 
   it("rejects unauthenticated callers", async () => {
     mocks.requireStaffUser.mockResolvedValue(null)
-    await expect(uploadRestaurantHeroImage(pngUpload)).rejects.toThrow("Unauthorized")
+    await expect(uploadRestaurantHeroImage(pngUpload)).rejects.toThrow(
+      "Unauthorized",
+    )
     expect(mocks.upload).not.toHaveBeenCalled()
   })
 
@@ -238,7 +275,9 @@ describe("uploadRestaurantHeroImage", () => {
   it("stores the object, writes hero_image_url, and revalidates guest + staff surfaces", async () => {
     const result = await uploadRestaurantHeroImage(pngUpload)
     expect(result.error).toBeUndefined()
-    expect(result.heroImageUrl).toBe("https://cdn.example/hero.png?v=1700000000000")
+    expect(result.heroImageUrl).toBe(
+      "https://cdn.example/hero.png?v=1700000000000",
+    )
     expect(mocks.createBucket).not.toHaveBeenCalled()
     expect(mocks.upload).toHaveBeenCalledWith(
       "hero.png",
@@ -253,7 +292,9 @@ describe("uploadRestaurantHeroImage", () => {
       }),
     )
     const paths = mocks.revalidatePath.mock.calls.map((call) => call[0])
-    expect(paths).toEqual(expect.arrayContaining(["/admin", "/", "/menu", "/auth/login"]))
+    expect(paths).toEqual(
+      expect.arrayContaining(["/admin", "/", "/menu", "/auth/login"]),
+    )
   })
 
   it("creates the branding bucket when it is missing, then uploads", async () => {
@@ -271,9 +312,13 @@ describe("uploadRestaurantHeroImage", () => {
 
   it("returns the upload error when the branding bucket cannot be created", async () => {
     mocks.upload.mockResolvedValue({ error: { message: "Bucket not found" } })
-    mocks.createBucket.mockResolvedValue({ error: { message: "permission denied" } })
+    mocks.createBucket.mockResolvedValue({
+      error: { message: "permission denied" },
+    })
     const result = await uploadRestaurantHeroImage(pngUpload)
-    expect(result.error).toBe("Could not upload the hero image. Please try again.")
+    expect(result.error).toBe(
+      "Could not upload the hero image. Please try again.",
+    )
     expect(mocks.upload).toHaveBeenCalledTimes(1)
   })
 })
@@ -298,12 +343,18 @@ describe("removeRestaurantHeroImage", () => {
   it("deletes stored hero objects, nulls hero_image_url, and revalidates", async () => {
     const result = await removeRestaurantHeroImage()
     expect(result).toEqual({})
-    expect(mocks.remove).toHaveBeenCalledWith(["hero.png", "hero.jpg", "hero.webp"])
+    expect(mocks.remove).toHaveBeenCalledWith([
+      "hero.png",
+      "hero.jpg",
+      "hero.webp",
+    ])
     expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, hero_image_url: null }),
     )
     const paths = mocks.revalidatePath.mock.calls.map((call) => call[0])
-    expect(paths).toEqual(expect.arrayContaining(["/admin", "/", "/auth/login"]))
+    expect(paths).toEqual(
+      expect.arrayContaining(["/admin", "/", "/auth/login"]),
+    )
   })
 })
 
@@ -318,12 +369,17 @@ describe("getRestaurantHeroImageUrl", () => {
       data: { hero_image_url: "https://cdn.example/hero.png" },
       error: null,
     })
-    await expect(getRestaurantHeroImageUrl()).resolves.toBe("https://cdn.example/hero.png")
+    await expect(getRestaurantHeroImageUrl()).resolves.toBe(
+      "https://cdn.example/hero.png",
+    )
     expect(mocks.requireStaffUser).not.toHaveBeenCalled()
   })
 
   it("returns null when no custom hero image is stored", async () => {
-    mocks.maybeSingle.mockResolvedValue({ data: { hero_image_url: null }, error: null })
+    mocks.maybeSingle.mockResolvedValue({
+      data: { hero_image_url: null },
+      error: null,
+    })
     await expect(getRestaurantHeroImageUrl()).resolves.toBeNull()
   })
 })

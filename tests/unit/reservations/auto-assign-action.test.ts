@@ -42,12 +42,16 @@ function thenable<T>(value: T) {
   const self = new Proxy(builder, {
     get(target, prop) {
       if (prop === "then") {
-        return (resolve: (value: T) => unknown, reject?: (reason: unknown) => unknown) =>
-          Promise.resolve(value).then(resolve, reject)
+        return (
+          resolve: (value: T) => unknown,
+          reject?: (reason: unknown) => unknown,
+        ) => Promise.resolve(value).then(resolve, reject)
       }
       if (prop === "single" || prop === "maybeSingle") {
         const payload = value as { data: Row | Row[] | null; error: unknown }
-        const row = Array.isArray(payload.data) ? payload.data[0] ?? null : payload.data
+        const row = Array.isArray(payload.data)
+          ? (payload.data[0] ?? null)
+          : payload.data
         return async () => ({ data: row, error: row ? null : payload.error })
       }
       return () => self
@@ -68,7 +72,8 @@ describe("autoAssignDueReservations", () => {
 
   it("rejects unauthenticated callers", async () => {
     mocks.requireStaffUser.mockResolvedValue(null)
-    const { autoAssignDueReservations } = await import("@/app/actions/reservations")
+    const { autoAssignDueReservations } =
+      await import("@/app/actions/reservations")
     const result = await autoAssignDueReservations()
     expect(result).toEqual({ assigned: [], error: "Unauthorized." })
     expect(mocks.from).not.toHaveBeenCalled()
@@ -146,14 +151,23 @@ describe("autoAssignDueReservations", () => {
       }
     })
 
-    const { autoAssignDueReservations } = await import("@/app/actions/reservations")
+    const { autoAssignDueReservations } =
+      await import("@/app/actions/reservations")
     const result = await autoAssignDueReservations()
 
     expect(result.error).toBeUndefined()
     expect(result.assigned).toEqual([
       { reservationId: "res-1", tableLabel: "3" },
     ])
-    expect(updates.some((row) => row.table === "reservations" && row.patch.table_label === "3")).toBe(true)
-    expect(updates.some((row) => row.table === "tables" && row.patch.status === "reserved")).toBe(true)
+    expect(
+      updates.some(
+        (row) => row.table === "reservations" && row.patch.table_label === "3",
+      ),
+    ).toBe(true)
+    expect(
+      updates.some(
+        (row) => row.table === "tables" && row.patch.status === "reserved",
+      ),
+    ).toBe(true)
   })
 })

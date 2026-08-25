@@ -12,7 +12,7 @@
  *   gates     commit.md names lint, typecheck, test:unit, gate open, harness-lint
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
-import { dirname, join, resolve } from "node:path"
+import { join, resolve } from "node:path"
 
 const ROOT = process.cwd()
 const violations = []
@@ -60,7 +60,10 @@ function checkLinks() {
       if (/^(https?:|mailto:|#)/i.test(href)) continue
       if (href.includes("<") || href.includes(">")) continue
       if (href.startsWith("../") || href.startsWith("./")) {
-        fail("links", `${file}: sibling-relative link ${href} — use repo-root-relative`)
+        fail(
+          "links",
+          `${file}: sibling-relative link ${href} — use repo-root-relative`,
+        )
         continue
       }
       const pathOnly = href.split("#")[0]
@@ -72,12 +75,21 @@ function checkLinks() {
 }
 
 function checkFanout() {
-  const rule = readFileSync(join(ROOT, ".cursor", "rules", "task-fanout.mdc"), "utf8")
-  const policy = readFileSync(join(ROOT, ".cursor", "hooks", "lib", "task-fanout-policy.mjs"), "utf8")
+  const rule = readFileSync(
+    join(ROOT, ".cursor", "rules", "task-fanout.mdc"),
+    "utf8",
+  )
+  const policy = readFileSync(
+    join(ROOT, ".cursor", "hooks", "lib", "task-fanout-policy.mjs"),
+    "utf8",
+  )
   const ruleN = /TASK_FANOUT_INFLIGHT_CAP\s*=\s*(\d+)/.exec(rule)
   const polN = /export const TASK_FANOUT_INFLIGHT_CAP\s*=\s*(\d+)/.exec(policy)
   if (!ruleN || !polN) {
-    fail("fanout", "could not read TASK_FANOUT_INFLIGHT_CAP from rule and policy")
+    fail(
+      "fanout",
+      "could not read TASK_FANOUT_INFLIGHT_CAP from rule and policy",
+    )
     return
   }
   if (ruleN[1] !== polN[1]) {
@@ -86,16 +98,29 @@ function checkFanout() {
 }
 
 function checkPrefix() {
-  for (const rel of [".cursor/commands/dispatch.md", ".cursor/rules/staging-accumulator.mdc"]) {
+  for (const rel of [
+    ".cursor/commands/dispatch.md",
+    ".cursor/rules/staging-accumulator.mdc",
+  ]) {
     const text = readFileSync(join(ROOT, rel), "utf8")
-    if (!text.includes("sdd/REAZED-")) fail("prefix", `${rel} must name sdd/REAZED-`)
+    if (!text.includes("sdd/REAZED-"))
+      fail("prefix", `${rel} must name sdd/REAZED-`)
     if (/sdd\/SG-/.test(text)) fail("prefix", `${rel} still mentions sdd/SG-`)
   }
 }
 
 function checkGates() {
-  const commit = readFileSync(join(ROOT, ".cursor", "commands", "commit.md"), "utf8")
-  for (const needle of ["pnpm lint", "pnpm typecheck", "pnpm test:unit", "gate open", "harness-lint.mjs"]) {
+  const commit = readFileSync(
+    join(ROOT, ".cursor", "commands", "commit.md"),
+    "utf8",
+  )
+  for (const needle of [
+    "pnpm lint",
+    "pnpm typecheck",
+    "pnpm test:unit",
+    "gate open",
+    "harness-lint.mjs",
+  ]) {
     if (!commit.includes(needle)) fail("gates", `commit.md must name ${needle}`)
   }
 }

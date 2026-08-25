@@ -9,6 +9,7 @@ const packageJsonPath = path.join(repoRoot, "package.json")
 function readPackageJson() {
   return JSON.parse(readFileSync(packageJsonPath, "utf8")) as {
     devDependencies?: Record<string, string>
+    scripts?: Record<string, string>
   }
 }
 
@@ -41,5 +42,11 @@ describe("eslint toolchain", () => {
       await eslint.isPathIgnored("supabase/.branches/_current_branch"),
     ).toBe(true)
     expect(await eslint.isPathIgnored("eslint.config.mjs")).toBe(false)
+  })
+
+  it("lint script passes --max-warnings 0 to eslint", () => {
+    const pkg = readPackageJson()
+
+    expect(pkg.scripts?.lint).toContain("--max-warnings 0")
   })
 })

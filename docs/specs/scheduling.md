@@ -145,18 +145,32 @@ surface that error.
   [docs/runbooks/deploy.md](../runbooks/deploy.md) — not by mutating
   `operating_windows` on that shared project from CI.
 
+**16. OH-PRIV — Opening-hours table writes are not a Data API staff path** —
+`anon` and `authenticated` MAY `SELECT` `operating_windows` (guest widget /
+public reads). They MUST NOT `INSERT`, `UPDATE`, or `DELETE` those rows.
+There MUST NOT be an `authenticated` `FOR ALL` (or other write) RLS policy on
+`operating_windows`. Table privileges MUST `GRANT SELECT` to `anon` and
+`authenticated` and `REVOKE INSERT, UPDATE, DELETE` from those roles. Staff
+Save stays `requireStaffUser` + `service_role` `replace_operating_windows`
+(`upsertOperatingWindows`). `EXECUTE` on that RPC remains `service_role` only
+(§15). Mutating automated coverage stays local-isolated (§15). Linked remote
+`tilcqrudqxznnpepxjqq` MUST receive the same privilege surface via a forward
+migration (do not `db push` the forked history); apply that file per
+[docs/runbooks/deploy.md](../runbooks/deploy.md).
+
 ## Implementation trace (non-normative)
 
-| Criterion | Shipped in | Tests |
-| --- | --- | --- |
-| Guest note (§13) | `operating_windows.guest_note` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260818162000_operating_hour_segments.sql`; `components/staff/scheduling-manager.tsx`; `app/actions/availability.ts` (`WINDOW_COLUMNS`, `replace_operating_windows`) | `tests/unit/scheduling/schema.test.ts`, `tests/unit/availability/actions.test.ts` |
-| FP-10 | `restaurant_settings.slot_interval_minutes` — baseline + `supabase/migrations/20260823130000_restaurant_info_and_chefs_picks.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `updateSlotIntervalMinutes`); `app/admin/floor/page.tsx` → `components/staff/floor-plan.tsx` | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts` |
-| OH-SAVE (§15) | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; linked-remote apply stays runbook + manual-UAT. | `tests/unit/scheduling/hours-mutation-target.test.ts`; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only) |
+| Criterion        | Shipped in                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Tests                                                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guest note (§13) | `operating_windows.guest_note` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260818162000_operating_hour_segments.sql`; `components/staff/scheduling-manager.tsx`; `app/actions/availability.ts` (`WINDOW_COLUMNS`, `replace_operating_windows`)                                                                                                                                                                                | `tests/unit/scheduling/schema.test.ts`, `tests/unit/availability/actions.test.ts`                                                                              |
+| FP-10            | `restaurant_settings.slot_interval_minutes` — baseline + `supabase/migrations/20260823130000_restaurant_info_and_chefs_picks.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `updateSlotIntervalMinutes`); `app/admin/floor/page.tsx` → `components/staff/floor-plan.tsx`                                                                                                                                                                          | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts`                                                                                 |
+| OH-SAVE (§15)    | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; linked-remote apply stays runbook + manual-UAT.                                    | `tests/unit/scheduling/hours-mutation-target.test.ts`; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only)                     |
+| OH-PRIV (§16)    | `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` for `anon, authenticated` and `DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"` (no `CREATE`) — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql` (`NOTIFY pgrst, 'reload schema'`). Staff Save remains `service_role` `replace_operating_windows` (§15). Linked-remote apply stays runbook + manual-UAT. | `tests/unit/scheduling/schema.test.ts`; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (authenticated Data API DML denial, local only) |
 
 ## References
 
 - [../architecture/Floor-Plan.md](../architecture/Floor-Plan.md)
-- [../runbooks/deploy.md](../runbooks/deploy.md) (linked remote apply of `20260818162000_operating_hour_segments`)
+- [../runbooks/deploy.md](../runbooks/deploy.md) (linked remote apply of `20260818162000_operating_hour_segments` and `20260825140000_operating_windows_privilege`)
 - [../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md)
 - `lib/floor/layout.ts`
 - `lib/reservations/auto-assign.ts`

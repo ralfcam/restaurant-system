@@ -116,7 +116,10 @@ export async function getHomepageChefsPicks(): Promise<{
   ])
 
   if (settings.error) {
-    console.error("[menu] get chef picks setting error:", settings.error.message)
+    console.error(
+      "[menu] get chef picks setting error:",
+      settings.error.message,
+    )
   }
   if (items.error) {
     console.error("[menu] get chef picks error:", items.error.message)
@@ -125,12 +128,16 @@ export async function getHomepageChefsPicks(): Promise<{
   return {
     enabled: settings.data?.chefs_picks_enabled ?? true,
     items: items.error
-      ? mockMenuRows(true).filter((item) => item.popular).slice(0, CHEFS_PICKS_LIMIT)
+      ? mockMenuRows(true)
+          .filter((item) => item.popular)
+          .slice(0, CHEFS_PICKS_LIMIT)
       : ((items.data ?? []) as MenuItemRow[]),
   }
 }
 
-export async function setChefsPicksEnabled(enabled: boolean): Promise<{ error?: string }> {
+export async function setChefsPicksEnabled(
+  enabled: boolean,
+): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "Unauthorized." }
 
@@ -184,7 +191,10 @@ export async function upsertMenuItem(
       .select("popular")
       .eq("id", item.id)
       .maybeSingle()
-    if (!existing?.popular && await wouldExceedChefsPicksLimit(supabase, item.id)) {
+    if (
+      !existing?.popular &&
+      (await wouldExceedChefsPicksLimit(supabase, item.id))
+    ) {
       return { error: CHEFS_PICKS_LIMIT_ERROR }
     }
   }
@@ -211,7 +221,7 @@ export async function createMenuItem(
   if (!staffUser) return { error: "Unauthorized." }
 
   const supabase = await createClient()
-  if (item.popular && await wouldExceedChefsPicksLimit(supabase)) {
+  if (item.popular && (await wouldExceedChefsPicksLimit(supabase))) {
     return { error: CHEFS_PICKS_LIMIT_ERROR }
   }
 

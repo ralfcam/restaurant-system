@@ -8,7 +8,12 @@
  *
  * No-ops unless the guard is armed. Always returns {} (never blocks a subagent).
  */
-import { readStdinJson, writeStdoutJson, incDepth, decDepth } from "./lib/tdd-guard-policy.mjs"
+import {
+  readStdinJson,
+  writeStdoutJson,
+  incDepth,
+  decDepth,
+} from "./lib/tdd-guard-policy.mjs"
 
 function main() {
   try {

@@ -29,7 +29,7 @@ STOP and send it back to the orchestrator to update the spec first.
 
 ## Hard limits (non-negotiable)
 
-- **Write scope is `tests/**` ONLY.** You MUST NOT create or edit any file under `app/`, `lib/`, `components/`, `hooks/`, `supabase/`, `scripts/`, config files, or anything that is not a test. If making the test even *compile* seems to require touching source, STOP and report that the criterion needs a Green-phase stub — do not add it yourself.
+- **Write scope is `tests/**` ONLY.** You MUST NOT create or edit any file under `app/`, `lib/`, `components/`, `hooks/`, `supabase/`, `scripts/`, config files, or anything that is not a test. If making the test even _compile_ seems to require touching source, STOP and report that the criterion needs a Green-phase stub — do not add it yourself.
 - **Do not make the test pass.** Writing production code, stubbing return values in source, or weakening the assertion to force green are all forbidden. A passing test at the end of your run is a failure of your job.
 - **One criterion, one test.** Do not write tests for other criteria "while you're here". Do not add multiple unrelated assertions.
 - **Reuse what exists.** Prefer adding your test to the existing test file that owns the area, and reuse existing fixtures, factories, seeds, and helpers under `tests/**` rather than inventing parallel ones. Naming: `tests/unit/**/*.test.ts`, `tests/integration/**/*.integ.test.ts`.
@@ -42,12 +42,13 @@ STOP and send it back to the orchestrator to update the spec first.
 Integration suites (`tests/integration/**/*.integ.test.ts`) are wrapped in
 `describe.skipIf(!authEnvReady)`, where `authEnvReady` requires
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY`, and the harness's
-`beforeAll` only *warns* (doesn't fail) when Postgres at `127.0.0.1:54322` is
+`beforeAll` only _warns_ (doesn't fail) when Postgres at `127.0.0.1:54322` is
 unreachable. So when local Supabase isn't running, the whole suite **skips and
 reports green** — there is no failing test, and the TDD loop becomes vacuous.
 
 If your criterion targets an integration/RLS/DB test, you MUST confirm the test
 actually ran before claiming RED:
+
 1. Ensure local Supabase is up and seeded (`npx supabase start; npx supabase db reset --local`) and the env keys are present. If you cannot bring it up, STOP with the infra-blocked report.
 2. Run with the strict flag so a down DB fails hard instead of skipping. In PowerShell: `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration <path>`.
 3. **Preflight the output for skips (un-glossable):** after the run, scan the
@@ -68,6 +69,7 @@ only for an unfamiliar area, not for these basics.
 
 **Pick the lowest layer that proves the criterion** (the plan usually names it —
 honor it):
+
 - Pure logic / service / validator / transition matrix → **unit** under
   `tests/unit/<area>/` (`api/`, `services/`, `utils/`, `schemas/`, `security/`),
   named `*.test.ts(x)`.
@@ -77,6 +79,7 @@ honor it):
   your Red.
 
 **Unit layer:**
+
 - Mock all I/O at the service boundary — Supabase admin, server actions, external APIs
   (`tests/unit/setup.ts` + local `vi.mock`). Never touch real network or Postgres.
 - Server-action tests: mock `createClient` / `createServiceClient` from `@/lib/supabase/*`
@@ -86,6 +89,7 @@ honor it):
   `setup.ts` (or switch to real timers per-file if `waitFor` hangs).
 
 **Integration layer** (local Supabase required — see the infra rules above):
+
 - Auth via session cookie helpers + `invokeRouteHandler` for server actions/routes;
   DB via service-role or anon client as appropriate; clean up with table truncation
   helpers in `tests/integration/helpers/`.
@@ -93,6 +97,7 @@ honor it):
   inventing rows ad hoc.
 
 **Assertion shape — this is what "fails for the right reason" means:**
+
 - Assert **one exact HTTP status** per scenario (`expect(res.status).toBe(403)`),
   never a loose union like `expect([200, 500]).toContain(...)`.
 - For mutating server actions (reservations, menu 86, blocked dates), assert
@@ -101,7 +106,10 @@ honor it):
 
 ## Workflow
 
-1. Read the criterion and the spec excerpt you were handed. Read 1–2 sibling tests in the target folder to match style and imports.
+1. Read the criterion and the spec excerpt you were handed. Locate existing
+   coverage/fixtures with Grep/Read first, then `codegraph_explore` for a named
+   helper, per [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc). Read
+   1–2 sibling tests in the target folder to match style and imports.
 2. Write the single test in the target file (create the file if it does not exist). The assertion must express the criterion's expected behavior precisely — name the test after the behavior, not the implementation.
 3. Run only the target test:
    - Unit: `pnpm test:unit <relative/path/to/file.test.ts>` (fallback: `pnpm exec vitest run <path>`)
@@ -112,7 +120,7 @@ honor it):
    integration suites skipping because local Supabase/env is unavailable), you
    are **infra-blocked**: STOP and use the BLOCKED report — do NOT treat a skip
    as a RED and do NOT advance to Green.
-5. Confirm it is **RED for the right reason**: the failure must be an *assertion* failure (expected vs. received) or a "function/export does not exist yet" failure that reflects missing behavior — NOT a syntax error, a typo'd import path, or a broken test harness. If it fails for the wrong reason, fix the *test* (never source) until it fails for the right reason.
+5. Confirm it is **RED for the right reason**: the failure must be an _assertion_ failure (expected vs. received) or a "function/export does not exist yet" failure that reflects missing behavior — NOT a syntax error, a typo'd import path, or a broken test harness. If it fails for the wrong reason, fix the _test_ (never source) until it fails for the right reason.
 6. Stop. Do not stage or commit. Leave the working tree dirty for the Green phase.
 
 ## Report (exactly this shape)
@@ -130,11 +138,12 @@ Touched files: <list — must all be under tests/**>
 ```
 
 **Always emit the `## Residual findings` block**, even when empty ("none"), and
-keep it disciplined — this is an *out-of-scope deferral log*, not a phase journal.
+keep it disciplined — this is an _out-of-scope deferral log_, not a phase journal.
 While reading the sibling tests and the target area to write your test, scan
-adversarially for what's *missing* (an uncovered sibling behavior, a wrong-looking
+adversarially for what's _missing_ (an uncovered sibling behavior, a wrong-looking
 existing test, a missing fixture); report "none" only after you've actually
 looked, not reflexively. Even so, only list a finding when **all three** hold:
+
 1. **Out of scope** — not part of the criterion you were handed, AND
 2. **Won't be handled this run** — NOT something a later criterion in this plan
    will implement (those are plan dependencies, not findings), AND

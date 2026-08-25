@@ -16,6 +16,9 @@ export const RESTAURANT_LOGO_SWR_KEY = "restaurant-logo"
  * callers should render the restaurant name only in that case.
  */
 export function useRestaurantLogo() {
-  const { data, mutate, isLoading } = useSWR(RESTAURANT_LOGO_SWR_KEY, getRestaurantLogoUrl)
+  const { data, mutate, isLoading } = useSWR(
+    RESTAURANT_LOGO_SWR_KEY,
+    getRestaurantLogoUrl,
+  )
   return { logoUrl: data ?? null, isLoading, mutate }
 }

@@ -16,7 +16,9 @@ describe("hours mutation target isolation", () => {
     expect(isIsolatedHoursMutationTarget("http://localhost:54321")).toBe(true)
     expect(isIsolatedHoursMutationTarget("http://[::1]:54321")).toBe(true)
 
-    expect(() => assertIsolatedHoursMutationTarget(SHARED_HOURS_PROJECT)).toThrow()
+    expect(() =>
+      assertIsolatedHoursMutationTarget(SHARED_HOURS_PROJECT),
+    ).toThrow()
     expect(() => assertIsolatedHoursMutationTarget(OTHER_REMOTE)).toThrow()
     expect(() => assertIsolatedHoursMutationTarget(undefined)).toThrow()
     expect(() => assertIsolatedHoursMutationTarget("")).toThrow()

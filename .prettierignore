@@ -1,0 +1,25 @@
+# install / build
+node_modules
+.next
+out
+build
+coverage
+pnpm-lock.yaml
+
+# test artifacts
+playwright-report
+test-results
+
+# supabase CLI (also gitignored)
+supabase/.temp
+supabase/.branches
+
+# local indexes / hook state
+.cursor/hooks/state
+.codegraph
+.vercel
+
+# snapshot trees — /sdd-to-tdd and /commit leave these prettierignored
+docs/eval
+docs/verifier-reports
+docs/findings/runs

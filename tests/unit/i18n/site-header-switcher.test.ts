@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 
-const siteHeaderPath = path.join(process.cwd(), "components", "site", "site-header.tsx")
+const siteHeaderPath = path.join(
+  process.cwd(),
+  "components",
+  "site",
+  "site-header.tsx",
+)
 
 function readSiteHeaderSource() {
   return readFileSync(siteHeaderPath, "utf8")

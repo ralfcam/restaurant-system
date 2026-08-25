@@ -11,7 +11,12 @@ const mocks = vi.hoisted(() => ({
   events: [] as Array<Record<string, unknown>>,
   membersSelectError: null as { code: string; message: string } | null,
   mergeLookup: {
-    data: { id: "merge-1", expected_minutes: 120, expires_at: "2026-08-18T19:30:00.000Z", status: "available" } as Record<string, unknown> | null,
+    data: {
+      id: "merge-1",
+      expected_minutes: 120,
+      expires_at: "2026-08-18T19:30:00.000Z",
+      status: "available",
+    } as Record<string, unknown> | null,
     error: null as { code: string; message: string } | null,
   },
 }))
@@ -31,12 +36,20 @@ vi.mock("@/lib/supabase/service", () => ({
         return {
           select: () => ({
             in: async (column: string, ids: string[]) => ({
-              data: mocks.tables.filter((row) => ids.includes(String(row[column] ?? row.id))),
+              data: mocks.tables.filter((row) =>
+                ids.includes(String(row[column] ?? row.id)),
+              ),
               error: null,
             }),
             eq: () => ({
-              maybeSingle: async () => ({ data: mocks.tables[0] ?? null, error: null }),
-              single: async () => ({ data: mocks.tables[0] ?? null, error: mocks.tables[0] ? null : { message: "missing" } }),
+              maybeSingle: async () => ({
+                data: mocks.tables[0] ?? null,
+                error: null,
+              }),
+              single: async () => ({
+                data: mocks.tables[0] ?? null,
+                error: mocks.tables[0] ? null : { message: "missing" },
+              }),
             }),
             order: async () => ({ data: mocks.tables, error: null }),
           }),
@@ -73,7 +86,10 @@ vi.mock("@/lib/supabase/service", () => ({
               return {
                 then: (resolve: (value: unknown) => unknown) =>
                   Promise.resolve({ data, error: null }).then(resolve),
-                maybeSingle: async () => ({ data: data[0] ?? null, error: null }),
+                maybeSingle: async () => ({
+                  data: data[0] ?? null,
+                  error: null,
+                }),
               }
             },
           }),
@@ -89,7 +105,9 @@ vi.mock("@/lib/supabase/service", () => ({
           eq: () => ({
             like: () => ({
               order: async () => ({
-                data: mocks.events.filter((row) => String(row.reason ?? "").startsWith("{")),
+                data: mocks.events.filter((row) =>
+                  String(row.reason ?? "").startsWith("{"),
+                ),
                 error: null,
               }),
             }),
@@ -110,24 +128,47 @@ describe("mergeTables", () => {
     mocks.insertEvent.mockReset()
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
     mocks.tables = [
-      { id: "t3", label: "3", seats: 2, status: "available", expected_minutes: 90, x: 0, y: 0 },
-      { id: "t4", label: "4", seats: 4, status: "available", expected_minutes: 120, x: 1, y: 0 },
+      {
+        id: "t3",
+        label: "3",
+        seats: 2,
+        status: "available",
+        expected_minutes: 90,
+        x: 0,
+        y: 0,
+      },
+      {
+        id: "t4",
+        label: "4",
+        seats: 4,
+        status: "available",
+        expected_minutes: 120,
+        x: 1,
+        y: 0,
+      },
     ]
     mocks.members = []
     mocks.events = []
     mocks.membersSelectError = null
     mocks.mergeLookup = {
-      data: { id: "merge-1", expected_minutes: 120, expires_at: "2026-08-18T19:30:00.000Z", status: "available" },
+      data: {
+        id: "merge-1",
+        expected_minutes: 120,
+        expires_at: "2026-08-18T19:30:00.000Z",
+        status: "available",
+      },
       error: null,
     }
     mocks.insertMerge.mockImplementation((row: Record<string, unknown>) => ({
       data: { id: "merge-1", ...row },
       error: null,
     }))
-    mocks.insertMembers.mockImplementation(async (rows: Array<{ merge_id: string; table_id: string }>) => {
-      if (Array.isArray(rows)) mocks.members.push(...rows)
-      return { error: null }
-    })
+    mocks.insertMembers.mockImplementation(
+      async (rows: Array<{ merge_id: string; table_id: string }>) => {
+        if (Array.isArray(rows)) mocks.members.push(...rows)
+        return { error: null }
+      },
+    )
     mocks.insertEvent.mockResolvedValue({ error: null })
   })
 
@@ -160,7 +201,8 @@ describe("mergeTables", () => {
   it("persists via status_events when table_merge_members is missing (live UAT path)", async () => {
     mocks.membersSelectError = {
       code: "PGRST205",
-      message: "Could not find the table 'public.table_merge_members' in the schema cache",
+      message:
+        "Could not find the table 'public.table_merge_members' in the schema cache",
     }
     const { mergeTables } = await import("@/app/actions/operations")
     const merge = await mergeTables({ tableIds: ["t3", "t4"] })
@@ -184,7 +226,8 @@ describe("mergeTables", () => {
       data: null,
       error: {
         code: "PGRST205",
-        message: "Could not find the table 'public.table_merges' in the schema cache",
+        message:
+          "Could not find the table 'public.table_merges' in the schema cache",
       },
     })
     const { mergeTables } = await import("@/app/actions/operations")
@@ -236,7 +279,8 @@ describe("mergeTables", () => {
       data: null,
       error: {
         code: "PGRST205",
-        message: "Could not find the table 'public.table_merges' in the schema cache",
+        message:
+          "Could not find the table 'public.table_merges' in the schema cache",
       },
     }
     mocks.events.push({

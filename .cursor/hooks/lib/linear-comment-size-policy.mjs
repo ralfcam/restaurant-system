@@ -31,7 +31,9 @@ import { isLinearServer } from "./mcp-payload.mjs"
 export const START_SUMMARY_MAX_CHARS = 8000
 
 function asArgs(args) {
-  return args !== null && typeof args === "object" && !Array.isArray(args) ? args : {}
+  return args !== null && typeof args === "object" && !Array.isArray(args)
+    ? args
+    : {}
 }
 
 export function detectOversizedComment(server, toolName, args) {

@@ -76,7 +76,8 @@ for estimate and prunable-class; do not hardcode Linear point values):
 - **Unit-decidable:** the criterion can be proven at `tests/unit/**` without
   an integration, e2e, or deployed gate.
 - **Write-set disjoint** from the local-lane issue (files from
-  `Grep/Read` on named symbols, or `cannot verify` — and `cannot
+  `codegraph_explore` on named symbols per
+  [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc), or `cannot verify` — and `cannot
   verify` is not eligible).
 - **Not prunable-class** (README: Backlog + Medium-or-lower + no `security` +
   45+ days stale). Todo membership already excludes that class; still drop

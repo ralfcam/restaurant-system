@@ -28,7 +28,7 @@ to fix another means you have the wrong fix; stop and report.
 ## Hard limits (non-negotiable)
 
 - **Do not edit, delete, weaken, or "fix" any test.** Write scope EXCLUDES `tests/**`. If the test looks wrong, STOP and report it — do not change it to get green.
-- **Minimal code only.** Implement just enough to satisfy the assertion. No speculative abstractions, no extra config, no handling of cases the test does not exercise, no new public API beyond what the test requires. Refactoring/cleanup is the next phase's job, not yours — leave obvious cleanup as-is and note it.
+- **Minimal code only.** Climb [.cursor/rules/minimality.mdc](.cursor/rules/minimality.mdc) before writing: implement just enough to satisfy the assertion. No speculative abstractions, no extra config, no handling of cases the test does not exercise, no new public API beyond what the test requires. Refactoring/cleanup is the next phase's job, not yours — leave obvious cleanup as-is and note it.
 - **Stay in source.** Edit only application code (`app/`, `lib/`, `components/`, `hooks/`, `supabase/` helpers, etc.) needed by this test. Do not add new dependencies unless the test cannot pass without one (and then report it explicitly).
 - **Never edit the spec.** `docs/specs/**` is read-only context for you — the spec is the source of truth, not something Green negotiates. If the test contradicts the spec, STOP and report it.
 - **A skipped test is NOT green.** "GREEN" requires the target test to **actually execute and pass**. If your run reports it as **skipped** or collects **0 tests** (integration/RLS suites silently skip via `describe.skipIf(!authEnvReady)` when local Supabase/env is unavailable), you have NOT satisfied the criterion — STOP with the infra-blocked report below. Never declare green off a skipped suite, and never expect Red to have handed you a real failure if its run only skipped.
@@ -46,21 +46,25 @@ has no separate docs-lookup subagent.
 **Consult the relevant Agent Skill for correct-by-default patterns.** Open the
 installed skill that matches what you're writing and follow its `SKILL.md`.
 
-| Writing… | Skill |
-| --- | --- |
-| `app/**` route handler, server vs client, `cookies()`/`headers()`/`params`, metadata | `nextjs` |
-| `components/**/*.tsx`, hooks | `react-best-practices` |
-| Supabase client/SSR, Auth/sessions/JWT/cookies, RLS | `supabase` |
-| SQL, schema | `supabase-postgres-best-practices` |
-| any other installed skill whose path/import patterns match | that skill |
+| Writing…                                                                             | Skill                              |
+| ------------------------------------------------------------------------------------ | ---------------------------------- |
+| `app/**` route handler, server vs client, `cookies()`/`headers()`/`params`, metadata | `nextjs`                           |
+| `components/**/*.tsx`, hooks                                                         | `react-best-practices`             |
+| Supabase client/SSR, Auth/sessions/JWT/cookies, RLS                                  | `supabase`                         |
+| SQL, schema                                                                          | `supabase-postgres-best-practices` |
+| any other installed skill whose path/import patterns match                           | that skill                         |
 
 **Bounded to implementation-time and the minimal change.** Use a skill only to get
-*this test's* code correct (e.g. await async `cookies()`/`headers()`/`params`,
+_this test's_ code correct (e.g. await async `cookies()`/`headers()`/`params`,
 `useRef(null)`, a `server-only` boundary, restricted-key / webhook-signature
 handling, an RLS-safe query). Skills must **not** grow scope — no migrations,
 library swaps, speculative abstractions, or handling cases the test doesn't
 exercise. Anything a skill suggests beyond the failing test is not yours: leave it
 for Refactor or log it as a `## Residual findings` entry.
+
+Named-symbol callers/exists go to `codegraph_explore` per
+[.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc); Grep/Read first
+for fixtures, specs, SQL, and directives.
 
 ## Workflow
 
@@ -89,11 +93,12 @@ Minimality note: <one line confirming nothing beyond the test's needs was added;
 ```
 
 **Always emit the `## Residual findings` block**, even when empty ("none"), and
-keep it disciplined — this is an *out-of-scope deferral log*, not a phase journal.
+keep it disciplined — this is an _out-of-scope deferral log_, not a phase journal.
 Writing the minimal fix puts you closest to the surrounding code, so scan
 adversarially as you go — an adjacent bug you stepped around, a security smell, a
 risky pattern, dead/duplicated code — and report "none" only after you've looked,
 not reflexively. Even so, only list a finding when **all three** hold:
+
 1. **Out of scope** — not part of the criterion you were handed, AND
 2. **Won't be handled this run** — NOT something a later criterion in this plan
    will implement (those are plan dependencies, not findings), AND

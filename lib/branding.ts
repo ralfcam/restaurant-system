@@ -104,7 +104,9 @@ export function resolveLogoContentType(
   return null
 }
 
-export function validateLogoUpload(input: Partial<LogoUploadInput>): string | null {
+export function validateLogoUpload(
+  input: Partial<LogoUploadInput>,
+): string | null {
   if (!input.base64 || typeof input.size !== "number" || input.size <= 0) {
     return "Please choose an image file."
   }
@@ -117,7 +119,10 @@ export function validateLogoUpload(input: Partial<LogoUploadInput>): string | nu
   return null
 }
 
-export function logoStoragePath(contentType: string, fileName?: string): string {
+export function logoStoragePath(
+  contentType: string,
+  fileName?: string,
+): string {
   const resolved = resolveLogoContentType(contentType, fileName)
   return `logo.${LOGO_CONTENT_TYPES[resolved ?? contentType]}`
 }
@@ -137,7 +142,9 @@ export function resolveHeroContentType(
   return null
 }
 
-export function validateHeroUpload(input: Partial<LogoUploadInput>): string | null {
+export function validateHeroUpload(
+  input: Partial<LogoUploadInput>,
+): string | null {
   if (!input.base64 || typeof input.size !== "number" || input.size <= 0) {
     return "Please choose an image file."
   }
@@ -150,7 +157,10 @@ export function validateHeroUpload(input: Partial<LogoUploadInput>): string | nu
   return null
 }
 
-export function heroStoragePath(contentType: string, fileName?: string): string {
+export function heroStoragePath(
+  contentType: string,
+  fileName?: string,
+): string {
   const resolved = resolveHeroContentType(contentType, fileName)
   return `hero.${HERO_CONTENT_TYPES[resolved ?? contentType]}`
 }
@@ -163,10 +173,12 @@ export function logoBytesFromBase64(base64: string): Uint8Array {
   return Uint8Array.from(Buffer.from(base64, "base64"))
 }
 
-export function isMissingBucketError(error: {
-  message?: string
-  error?: string
-} | null): boolean {
+export function isMissingBucketError(
+  error: {
+    message?: string
+    error?: string
+  } | null,
+): boolean {
   if (!error) return false
   const text = `${error.message ?? ""} ${error.error ?? ""}`.toLowerCase()
   return text.includes("bucket not found")
@@ -182,7 +194,10 @@ export function brandingBucketOptions() {
     public: true,
     fileSizeLimit: Math.max(MAX_LOGO_BYTES, MAX_HERO_BYTES),
     allowedMimeTypes: Array.from(
-      new Set([...Object.keys(LOGO_CONTENT_TYPES), ...Object.keys(HERO_CONTENT_TYPES)]),
+      new Set([
+        ...Object.keys(LOGO_CONTENT_TYPES),
+        ...Object.keys(HERO_CONTENT_TYPES),
+      ]),
     ),
   }
 }

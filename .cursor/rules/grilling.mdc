@@ -23,8 +23,8 @@ look up yourself):
    operator can often just confirm rather than compose an answer from
    scratch.
 3. **Look up any fact yourself** (filesystem, `Grep`/`Glob`, existing specs,
-   prior reports, or `Grep/Read` when the routing table in
-   [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc) says graph-first
+   prior reports, or `codegraph_explore` when the routing table in
+   [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc) says graph-first
    — unique named-symbol callers/exists, not specs/SQL/fixtures) rather than
    asking. Only put genuine *decisions* — things that require a human's
    judgment, preference, or authority — to the human. Asking a question you

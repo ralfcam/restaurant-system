@@ -56,7 +56,9 @@ export type OperatingWindowRow = {
  */
 export type OperatingWindow = OperatingDay
 
-export const SUGGESTED_SEGMENTS: ReadonlyArray<Omit<OperatingSegment, "sort_order">> = [
+export const SUGGESTED_SEGMENTS: ReadonlyArray<
+  Omit<OperatingSegment, "sort_order">
+> = [
   { label: "Morning", opens_at: "09:00", closes_at: "11:00" },
   { label: "Lunch", opens_at: "12:00", closes_at: "14:00" },
   { label: "Dinner", opens_at: "18:00", closes_at: "22:00" },
@@ -69,10 +71,15 @@ const DEFAULT_OPEN_SEGMENT: OperatingSegment = {
   sort_order: 0,
 }
 
-export const DEFAULT_OPERATING_DAYS: OperatingDay[] = DAY_NAMES.map((_, day_of_week) =>
-  day_of_week === 0
-    ? { day_of_week, is_closed: true, segments: [] }
-    : { day_of_week, is_closed: false, segments: [{ ...DEFAULT_OPEN_SEGMENT }] },
+export const DEFAULT_OPERATING_DAYS: OperatingDay[] = DAY_NAMES.map(
+  (_, day_of_week) =>
+    day_of_week === 0
+      ? { day_of_week, is_closed: true, segments: [] }
+      : {
+          day_of_week,
+          is_closed: false,
+          segments: [{ ...DEFAULT_OPEN_SEGMENT }],
+        },
 )
 
 /** Strip seconds / pad hours so PG `TIME` ("09:00:00") compares as "09:00". */
@@ -107,8 +114,14 @@ export function slotUntilTime(
 }
 
 /** Inclusive: both `opens_at` and `closes_at` are bookable instants. */
-function segmentContainsTimeInclusive(segment: OperatingSegment, time: string): boolean {
-  return time >= normalizeTime(segment.opens_at) && time <= normalizeTime(segment.closes_at)
+function segmentContainsTimeInclusive(
+  segment: OperatingSegment,
+  time: string,
+): boolean {
+  return (
+    time >= normalizeTime(segment.opens_at) &&
+    time <= normalizeTime(segment.closes_at)
+  )
 }
 
 /**
@@ -117,7 +130,10 @@ function segmentContainsTimeInclusive(segment: OperatingSegment, time: string): 
  * and the last slot of the day (e.g. Dinner 22:00) must remain bookable.
  * Exclusive grouping is assignment-only — see `assignSegmentForTime`.
  */
-export function isTimeWithinSegments(time: string, segments: OperatingSegment[]): boolean {
+export function isTimeWithinSegments(
+  time: string,
+  segments: OperatingSegment[],
+): boolean {
   const t = normalizeTime(time)
   if (!TIME_RE.test(t)) return false
   return assignSegmentForTime(t, segments) !== undefined
@@ -135,7 +151,9 @@ export function assignSegmentForTime(
   segments: OperatingSegment[],
 ): OperatingSegment | undefined {
   const t = normalizeTime(time)
-  const containing = segments.filter((segment) => segmentContainsTimeInclusive(segment, t))
+  const containing = segments.filter((segment) =>
+    segmentContainsTimeInclusive(segment, t),
+  )
   const openingAtTime = containing.findLast(
     (segment) => normalizeTime(segment.opens_at) === t,
   )
@@ -149,7 +167,9 @@ type BookableSlotGroup = {
 }
 
 /** Blank/whitespace → undefined so guest payloads omit the key (BW-4). Persist with `?? null`. */
-function trimmedGuestNote(value: string | null | undefined): string | undefined {
+function trimmedGuestNote(
+  value: string | null | undefined,
+): string | undefined {
   const note = value?.trim()
   return note ? note : undefined
 }
@@ -207,7 +227,15 @@ export function formatSegmentsSummary(segments: OperatingSegment[]): string {
     .join(", ")
 }
 
-const DAY_LABELS_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const
+const DAY_LABELS_SHORT = [
+  "Sun",
+  "Mon",
+  "Tue",
+  "Wed",
+  "Thu",
+  "Fri",
+  "Sat",
+] as const
 const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0] as const
 
 /**
@@ -220,9 +248,10 @@ export function summarizeOperatingDays(days: OperatingDay[]): string {
   const byDay = new Map(days.map((day) => [day.day_of_week, day]))
   const ordered = MONDAY_FIRST.map((dayOfWeek) => {
     const day = byDay.get(dayOfWeek)
-    const summary = !day || day.is_closed || day.segments.length === 0
-      ? "Closed"
-      : formatSegmentsSummary(day.segments)
+    const summary =
+      !day || day.is_closed || day.segments.length === 0
+        ? "Closed"
+        : formatSegmentsSummary(day.segments)
     return { dayOfWeek, summary }
   })
 
@@ -232,15 +261,20 @@ export function summarizeOperatingDays(days: OperatingDay[]): string {
     if (previous?.summary === entry.summary) {
       previous.end = entry.dayOfWeek
     } else {
-      groups.push({ start: entry.dayOfWeek, end: entry.dayOfWeek, summary: entry.summary })
+      groups.push({
+        start: entry.dayOfWeek,
+        end: entry.dayOfWeek,
+        summary: entry.summary,
+      })
     }
   }
 
   return groups
     .map(({ start, end, summary }) => {
-      const daysLabel = start === end
-        ? DAY_LABELS_SHORT[start]
-        : `${DAY_LABELS_SHORT[start]}–${DAY_LABELS_SHORT[end]}`
+      const daysLabel =
+        start === end
+          ? DAY_LABELS_SHORT[start]
+          : `${DAY_LABELS_SHORT[start]}–${DAY_LABELS_SHORT[end]}`
       return `${daysLabel} · ${summary}`
     })
     .join("; ")
@@ -251,9 +285,7 @@ export const DEFAULT_SLOT_INTERVAL_MINUTES = 30
 export type SlotIntervalMinutes = (typeof ALLOWED_SLOT_INTERVALS)[number]
 
 /** BW-3: guest slot spacing is 15, 30, or 60 minutes; anything else is 30. */
-export function clampSlotIntervalMinutes(
-  minutes: number,
-): SlotIntervalMinutes {
+export function clampSlotIntervalMinutes(minutes: number): SlotIntervalMinutes {
   for (const allowed of ALLOWED_SLOT_INTERVALS) {
     if (minutes === allowed) return allowed
   }
@@ -293,7 +325,9 @@ export function lastBookableTime(day: OperatingDay | undefined): string | null {
   }, "00:00")
 }
 
-export function nextSuggestedSegment(existing: OperatingSegment[]): OperatingSegment {
+export function nextSuggestedSegment(
+  existing: OperatingSegment[],
+): OperatingSegment {
   const suggested = SUGGESTED_SEGMENTS[existing.length]
   if (suggested) {
     return { ...suggested, sort_order: existing.length }
@@ -377,7 +411,9 @@ export function groupRowsByDay(rows: OperatingWindowRow[]): OperatingDay[] {
       .sort((a, b) => {
         const order = (a.sort_order ?? 0) - (b.sort_order ?? 0)
         if (order !== 0) return order
-        return normalizeTime(a.opens_at).localeCompare(normalizeTime(b.opens_at))
+        return normalizeTime(a.opens_at).localeCompare(
+          normalizeTime(b.opens_at),
+        )
       })
       .map((row, index) => {
         const note = trimmedGuestNote(row.guest_note)
@@ -429,7 +465,9 @@ export function flattenDaysToRows(days: OperatingDay[]): OperatingWindowRow[] {
   return rows
 }
 
-export function daysToWindowsMap(days: OperatingDay[]): Record<number, OperatingDay> {
+export function daysToWindowsMap(
+  days: OperatingDay[],
+): Record<number, OperatingDay> {
   const map: Record<number, OperatingDay> = {}
   for (const day of days) map[day.day_of_week] = day
   return map

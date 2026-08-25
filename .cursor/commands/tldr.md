@@ -61,7 +61,7 @@ optional**, because every accepted target shape already identifies its own lane:
 | -------------------------------------------------------------------------------------- | ------------------- |
 | `*.plan.md` — `@`-attached path, full path, or bare filename in either plans dir above | Plan (plan file)    |
 | a `<uuid>.jsonl` path, a transcript directory, or a bare chat `<uuid>`                 | Plan (conversation) |
-| `REAZED-###`, a Linear issue URL, or an `@`-pasted issue link                              | Issue               |
+| `REAZED-###`, a Linear issue URL, or an `@`-pasted issue link                          | Issue               |
 
 So `/tldr @c:\…\<uuid>.jsonl` and `/tldr Plan @c:\…\<uuid>.jsonl` behave
 identically. Strip a leading `@` from any target before resolving it. If a given
@@ -264,12 +264,12 @@ where the source says so, what the work is waiting on. Omit it only when the
 source affirmatively shows the work finished; when the source is silent on state,
 say that on the line rather than dropping it.
 
-| Section                       | Plan file                                                                                        | Conversation                                                                                  | Issue                                                                                   |
-| ----------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| **Status** (omit when concluded) | Approval markers (`## Permissions Requested`, `## First Execution Action`) plus frontmatter `todos:` statuses | Whether the final turn resolved the ask, plus how far a Red/Green/Refactor loop got           | The Linear workflow state                                                               |
-| **Why**                       | Problem / motivation (`overview`, opening rationale)                                             | The operator's original ask, from the first `[user]` turn                                     | Problem the issue exists to solve (title + description)                                 |
-| **How**                       | Chosen approach / locked decisions (not every todo)                                              | What was decided or done, as of the final turn                                                | Intended fix or acceptance shape stated on the issue; if empty, say it is not specified |
-| **Where**                     | Files, dirs, commands, specs, or product surfaces the plan names                                 | Files and surfaces the chat touched or named                                                  | Product/domain surface and any paths/specs named on the issue; if silent, say so        |
+| Section                          | Plan file                                                                                                     | Conversation                                                                        | Issue                                                                                   |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Status** (omit when concluded) | Approval markers (`## Permissions Requested`, `## First Execution Action`) plus frontmatter `todos:` statuses | Whether the final turn resolved the ask, plus how far a Red/Green/Refactor loop got | The Linear workflow state                                                               |
+| **Why**                          | Problem / motivation (`overview`, opening rationale)                                                          | The operator's original ask, from the first `[user]` turn                           | Problem the issue exists to solve (title + description)                                 |
+| **How**                          | Chosen approach / locked decisions (not every todo)                                                           | What was decided or done, as of the final turn                                      | Intended fix or acceptance shape stated on the issue; if empty, say it is not specified |
+| **Where**                        | Files, dirs, commands, specs, or product surfaces the plan names                                              | Files and surfaces the chat touched or named                                        | Product/domain surface and any paths/specs named on the issue; if silent, say so        |
 
 Header:
 

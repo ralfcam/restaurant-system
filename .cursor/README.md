@@ -59,19 +59,19 @@ flowchart TD
 
 ## Command map
 
-| Command | Job | Typical next |
-| --- | --- | --- |
-| [`/audit`](commands/audit.md) | Spec / test / tracking snapshot. PART 8 writes the ledger | `/triage` |
-| [`/triage`](commands/triage.md) | Groom Linear + ledger | `/dispatch` |
-| [`/dispatch`](commands/dispatch.md) | Split card: local Urgent/High on this `staging` checkout + 0–3 background worktrees | `/sdd-to-tdd REAZED-###` |
-| [`/design`](commands/design.md) | Greenfield spec — hub walk, grill, one new spec file | `/sdd-to-tdd @<file>` FEATURE |
-| [`/sdd-to-tdd`](commands/sdd-to-tdd.md) | Plan Mode, START, then Red → Green → Refactor | `/commit` |
-| [`/commit`](commands/commit.md) | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes | `/push` |
-| [`/push`](commands/push.md) | Human heads (`sdd/REAZED-###` or `staging` promotion). Never merges | You merge |
-| [`/intake`](commands/intake.md) | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges | You merge |
-| [`/capture`](commands/capture.md) | Observation → ledger | `/triage` |
-| [`/tldr`](commands/tldr.md) | Recap a plan, chat, or `REAZED-###` (Ask Mode) | — |
-| [`/reflect`](commands/reflect.md) | Re-check a thread’s claims against the tree | — |
+| Command                                 | Job                                                                                 | Typical next                  |
+| --------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------- |
+| [`/audit`](commands/audit.md)           | Spec / test / tracking snapshot. PART 8 writes the ledger                           | `/triage`                     |
+| [`/triage`](commands/triage.md)         | Groom Linear + ledger                                                               | `/dispatch`                   |
+| [`/dispatch`](commands/dispatch.md)     | Split card: local Urgent/High on this `staging` checkout + 0–3 background worktrees | `/sdd-to-tdd REAZED-###`      |
+| [`/design`](commands/design.md)         | Greenfield spec — hub walk, grill, one new spec file                                | `/sdd-to-tdd @<file>` FEATURE |
+| [`/sdd-to-tdd`](commands/sdd-to-tdd.md) | Plan Mode, START, then Red → Green → Refactor                                       | `/commit`                     |
+| [`/commit`](commands/commit.md)         | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes            | `/push`                       |
+| [`/push`](commands/push.md)             | Human heads (`sdd/REAZED-###` or `staging` promotion). Never merges                 | You merge                     |
+| [`/intake`](commands/intake.md)         | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                     | You merge                     |
+| [`/capture`](commands/capture.md)       | Observation → ledger                                                                | `/triage`                     |
+| [`/tldr`](commands/tldr.md)             | Recap a plan, chat, or `REAZED-###` (Ask Mode)                                      | —                             |
+| [`/reflect`](commands/reflect.md)       | Re-check a thread’s claims against the tree                                         | —                             |
 
 Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 
@@ -79,27 +79,27 @@ Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 
 ## Do not put on the loop
 
-| Skip | Why |
-| --- | --- |
-| `/audit` after every ticket | TDD + `/commit` already prove the criterion |
-| `/dispatch` writing Linear, git, or starting TDD | The card is pasteable only |
-| Background-dispatching auth / RLS / reservation or order status transitions / destructive deletes | Closed P0-surface list; those stay local |
-| `/intake` on a non-`cursor/` head | Use `/push` |
-| `/push` while an OPEN `cursor/` PR exists | Intake first |
-| Agent `gh pr merge` or Linear In Review / Done | You merge; automations own those states |
-| `/review` as a Linear Done gate | Mode 1 file/plan revise only |
+| Skip                                                                                              | Why                                         |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `/audit` after every ticket                                                                       | TDD + `/commit` already prove the criterion |
+| `/dispatch` writing Linear, git, or starting TDD                                                  | The card is pasteable only                  |
+| Background-dispatching auth / RLS / reservation or order status transitions / destructive deletes | Closed P0-surface list; those stay local    |
+| `/intake` on a non-`cursor/` head                                                                 | Use `/push`                                 |
+| `/push` while an OPEN `cursor/` PR exists                                                         | Intake first                                |
+| Agent `gh pr merge` or Linear In Review / Done                                                    | You merge; automations own those states     |
+| `/review` as a Linear Done gate                                                                   | Mode 1 file/plan revise only                |
 
 ---
 
 ## This folder
 
-| Path | What |
-| --- | --- |
-| [`commands/`](commands/) | Slash-command orchestrators |
-| [`agents/`](agents/) | Subagents (`spec-verifier`, `tdd-red`, …) |
-| [`rules/`](rules/) | Doctrine |
-| [`hooks/`](hooks/) | Mechanical guards |
-| [`checks/`](checks/) | Harness lints and policy tests |
+| Path                     | What                                      |
+| ------------------------ | ----------------------------------------- |
+| [`commands/`](commands/) | Slash-command orchestrators               |
+| [`agents/`](agents/)     | Subagents (`spec-verifier`, `tdd-red`, …) |
+| [`rules/`](rules/)       | Doctrine                                  |
+| [`hooks/`](hooks/)       | Mechanical guards                         |
+| [`checks/`](checks/)     | Harness lints and policy tests            |
 
 ## Next reading
 
