@@ -51,7 +51,36 @@ A second sighting, or a first stamp **>60 days** old → archive as
 Medium-or-lower + no `security` + no update in **45+ days**.
 
 **Milestone.** Assign an **existing** restaurant-system project milestone by
-exact Linear name. Never invent `Launch-blocking`.
+exact Linear name (em dash `—`). Never invent `Launch-blocking`. Agents
+must `list_milestones` then assign by the map below — never invent a name.
+
+| Signal                                             | Milestone                                  |
+| -------------------------------------------------- | ------------------------------------------ |
+| Bootstrap, staffing, repo/harness                  | `M1 — Project Kickoff`                     |
+| Spec-gap, PRD, spec-contradiction clarification    | `M2 — Requirements Sign-Off`               |
+| Architecture, schema, UX/wireframes                | `M3 — Design Approval`                     |
+| Feature implementation (pre-freeze)                | `M4 — Code Complete (Feature Freeze)`      |
+| test-debt, internal QA, `/audit`                   | `M5 — Alpha Release`                       |
+| product-gap / `/capture` that needs real users     | `M6 — Beta Release`                        |
+| UAT / deploy-gate / critical-bug polish            | `M7 — Release Candidate (RC)`              |
+| Launch-bound Urgent/High, security, money, go-live | `M8 — General Availability (GA) / Go-Live` |
+| Everything else (maintenance, after GA)            | `M9 — Project Closure (Retrospective)`     |
+
+Empty M1–M9 will look incomplete/ambiguous in `/dispatch` until they have
+member issues; that is acceptable.
+
+**Cycle.** Two Linear axes: **milestones** = SDLC phase (M1–M9 above);
+**cycles** = this sprint. Never invent a cycle name. Resolve the current
+cycle at apply time with `list_cycles({ teamId, type: "current" })` — do
+not hardcode a cycle number here.
+
+- **Todo means scheduled:** assign the team’s **current** Linear cycle.
+- **Backlog / new REGISTER FINDINGS issues:** no cycle (unscheduled).
+- **In Progress / In Review** missing a cycle: GROOM may set current cycle
+  as a **field-only** write (no state move; In Progress stays START-only).
+- If `list_cycles(current)` is empty: `cannot verify`, skip cycle, still
+  assign milestone.
+- Never auto-assign **next** or **previous**.
 
 **Estimate crosswalk** (audit Effort → Linear estimate):
 

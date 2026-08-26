@@ -160,14 +160,22 @@ issues missing project/cycle/estimate, and Backlog items ready to promote to Tod
 then operator-merge (never a state move — In Review/Done are automation-owned,
 see [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc));
 a stale In Progress item surfaces as a recommendation for the operator to nudge
-the assignee or re-check progress (never a GROOM state move off In Progress —
-`/sdd-to-tdd` START populates In Progress; GROOM must not target it); an
+the assignee or re-check progress (never a GROOM **state** move off In Progress —
+`/sdd-to-tdd` START populates In Progress; GROOM must not change that state;
+missing-cycle on In Progress is a field-only write); an
 unassigned high-priority issue surfaces as a recommendation for the **operator**
 to assign, because `linear-resolver` never writes `assignee` — that field is a
 Cloud Agent spawn door (see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)). Only **Backlog → Todo** promotion,
 cycle/project/milestone assignment, and estimate-setting route to a `linear-resolver`
-GROOM delegation — everything else in this bucket is prose.
+GROOM delegation — everything else in this bucket is prose. **Todo means
+scheduled:** every **Backlog → Todo** GROOM item also sets `cycle` to
+**current** (the batch may say "current cycle"; the resolver calls
+`list_cycles({ teamId, type: "current" })` at apply time). Missing-cycle
+on Todo stays a GROOM action; missing-cycle on In Progress / In Review is
+a **field-only** GROOM write (no state move). Do **not** put Backlog or
+newly filed REGISTER FINDINGS issues in a cycle. If current cycle cannot
+be read: skip cycle, report `cannot verify`, still assign milestone/state.
 
 (d) **New issues from the ledger** — apply the **Issue-filing policy** in
 `docs/findings/README.md` (the same policy `/sdd-to-tdd` STEP 4C and `/audit`
@@ -183,9 +191,10 @@ entry with no matching Linear issue (from PHASE 1's de-dupe):
   1:1 from which file it lives in (`security`/`tech-debt`/`test-debt`/
   `product-gap`); the `audit`/`feedback`/`ux`/`ui`/`spec-gap` provenance
   labels as applicable; priority via the crosswalk; and a **milestone**
-  (live Platform names per the README convention: `M8 — Launch Acceptance
-(Payment 3)` / `M6–M7` / `Post-launch hardening` — never invent
-  `Launch-blocking`).
+  from the README M1–M9 filing map (`list_milestones` then assign; never
+  invent `Launch-blocking`). New REGISTER FINDINGS issues stay **Backlog
+  without a cycle** (unscheduled — `/triage` assigns current cycle only on
+  Backlog → Todo).
 - **Below the filing floor** → do NOT propose filing. Instead propose a
   **`(seen: /triage <today>)`** stamp update on the line (first sighting) or,
   if it already carries a `(seen: …)` token that is now its **second** sighting
@@ -222,12 +231,14 @@ grooming stage: don't just intake, actively shrink the open set.
   relate-as-duplicate: confirm the default outcome is closing the duplicate to
   the **Duplicate** state (not just relating), unless the signal says the
   duplicate has distinct residual scope worth keeping open.
-- **Milestone/estimate backfill** — issues (open, non-terminal) missing a
+- **Milestone/estimate/cycle backfill** — issues (open, non-terminal) missing a
   `milestone` or `estimate` get a proposed backfill: milestone from the
-  README's live milestone convention (M8 for launch-bound UH/security/money;
-  M6–M7 for UAT/deploy-gate; Post-launch hardening otherwise), estimate from
+  README M1–M9 filing map (`list_milestones` then assign), estimate from
   the crosswalk when an Effort signal exists (audit-sourced) or left
-  "cannot verify" otherwise.
+  "cannot verify" otherwise. Missing **cycle** on Todo (and field-only on
+  In Progress / In Review) → current cycle via the same `list_cycles(current)`
+  call. Do not backfill cycle onto Backlog. If current cycle cannot be
+  read: skip cycle, report `cannot verify`, still apply milestone/estimate.
 - **WIP gate check** — count open **Urgent + High** priority issues in scope.
   If it exceeds the threshold (default **15**, overridable), the gate is
   **active**: state this prominently in Backlog Health (output format), tighten
@@ -275,9 +286,13 @@ is forbidden unless the operator explicitly requested that model for this run:
 
 - **Grooming batch (GROOM mode)** — re-prioritization, consolidation, and
   **Backlog → Todo / cancellation-only** state moves (never In Progress, In
-  Review, or Done — In Review/Done are automation-owned; In Progress is
+  Review, or Done **state** — In Review/Done are automation-owned; In Progress is
   START-writable from `/sdd-to-tdd` only, not GROOM; see
-  [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)):
+  [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
+  Every confirmed **Backlog → Todo** also sets `cycle` to **current** (resolver
+  resolves `list_cycles(type: "current")` at apply time; the batch may say
+  "current cycle" rather than a frozen number). Field-only cycle backfill on
+  In Progress / In Review is allowed (no state move):
   "Use the linear-resolver subagent to apply the confirmed grooming batch:
   set REAZED-### priority to High; relate REAZED-### as duplicate of REAZED-### (close to
   Duplicate); create parent '<title>' and set REAZED-###/REAZED-### parentId".
@@ -287,11 +302,12 @@ is forbidden unless the operator explicitly requested that model for this run:
   validated Backlog + priority ≤ Medium + no security label + 45+ days stale) —
   one confirmation covers the batch, still post the linking comment per issue."
   Report any the resolver excludes as not actually meeting the class.
-- **Milestone/estimate backfill (GROOM mode, `backfill-*`)** — the confirmed
+- **Milestone/estimate/cycle backfill (GROOM mode, `backfill-*`)** — the confirmed
   PHASE 2(e) backfill list: "Use the linear-resolver subagent to backfill
-  milestone/estimate on the confirmed batch: set REAZED-### milestone to
-  `M8 — Launch Acceptance (Payment 3)` (or `Post-launch hardening`),
-  estimate 3; …".
+  milestone/estimate/cycle on the confirmed batch: set REAZED-### milestone to
+  `<README M1–M9 name>`, estimate 3, cycle current; …". Show the live
+  current-cycle name/number on each backfill line. If current cycle cannot
+  be read, omit cycle and report `cannot verify`.
 - **New issues from the ledger (REGISTER-FINDINGS mode, `register-*`)** — the
   PHASE 2(d) at-or-above-floor items: "Use the linear-resolver subagent to
   register the confirmed ledger findings, applying the Issue-filing policy
@@ -336,7 +352,7 @@ or executed:
 | `groom-*`       | `linear-resolver` GROOM batch (consolidation / priority / Backlog↔Todo + cancellation-only triage moves — never In Progress/In Review/Done)                                                                                                          |
 | `register-*`    | `linear-resolver` REGISTER-FINDINGS batch (file ledger findings — Issue-filing policy applied: floor, attach-over-create ladder, per-run cap)                                                                                                        |
 | `sweep-*`       | `linear-resolver` GROOM prunable-class sweep-batch cancellation (one operator confirmation covers the named batch)                                                                                                                                   |
-| `backfill-*`    | `linear-resolver` GROOM milestone/estimate backfill on issues missing one                                                                                                                                                                            |
+| `backfill-*`    | `linear-resolver` GROOM milestone/estimate/cycle backfill on issues missing one (Todo + field-only In Progress/In Review for cycle; never Backlog cycle)                                                                                             |
 | `prune-ledger`  | Orchestrator moves filed/attached entries → `docs/findings/archive.md`; stamps `(seen: /triage <date>)` on below-floor entries left open; moves TTL-expired entries → `archive.md` as `wont-file (stale)`                                            |
 | `next-in-cycle` | Orchestrator-only advisory report (always the LAST todo): emit the "Next in the Cycle" section as prose from the applied/deferred results + WIP-gate verdict. Produces a report only — never executes, schedules, or delegates a downstream command. |
 
@@ -408,8 +424,9 @@ recipes). Cluster-vs-independent grouping here is a coarse Linear hint;
   lifecycle); In Progress is `/sdd-to-tdd` START only, never GROOM (see
   [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
   GROOM state moves are limited to **Backlog → Todo** and cancellation (with a
-  linking comment). "Close-ready" and "nudge-stale" are advisory prose
-  recommendations only — never a GROOM delegation.
+  linking comment). Field-only **cycle** backfill on In Progress / In Review
+  is allowed (no state move). "Close-ready" and "nudge-stale" are advisory
+  prose recommendations only — never a GROOM delegation.
 - DO NOT begin implementation during triage execution: no reading test/source
   files to plan a fix, no `tdd-red`/`tdd-green`/`tdd-refactor` delegation, no spec
   or code writes. Triage ends at Linear groom + ledger filing/pruning.
@@ -447,7 +464,7 @@ Format: structured Markdown, evidence-first. Tone: technical, direct, zero fille
   closed/canceled = <net> (source: prior "Platform backlog triage" archive
   section dated <date> | "no prior pass found — baseline")
 - Prunable-class sweep candidates: <count> issues (<IDs>) — see Plan — Pruning
-- Missing milestone/estimate: <count> issues — see Plan — Pruning
+- Missing milestone/estimate/cycle: <count> issues — see Plan — Pruning
 - Last runtime verdict: **VERIFIED | DEGRADED | NOT-VERIFIED** (env, date) —
   read from the `## Runtime Verdict` header of
   `docs/verifier-reports/cross-cutting/part-9-runtime-verification.md` (or
@@ -478,6 +495,7 @@ Per item:
 
 - Signal: <evidence + age/last-activity>
 - Delegation (promote / add-to-cycle/project / estimate only): `linear-resolver` GROOM — <exact issue IDs + fields>
+- Promote / add-to-cycle: cycle **current** (<live cycle name/number from `list_cycles(current)`>) | cannot verify (no current cycle)
 - Recommendation (close-ready / nudge-stale / needs-owner only — NOT a GROOM delegation; In Review/Done are automation-owned; In Progress is START-only, not GROOM; `assignee` is a Cloud Agent spawn door): `<prose, e.g. "run /push <promotion-PR-URL>, then operator merge" | "operator to nudge assignee" | "operator to assign an owner">`
 
 ## Plan — Pruning (PHASE 2(e) — aggressive grooming)
@@ -492,9 +510,9 @@ Per item:
 
 - <ID> → close to Duplicate, linked to survivor <ID> | kept open (distinct residual scope)
 
-**Milestone/estimate backfill:**
+**Milestone/estimate/cycle backfill:**
 
-- <ID> milestone: <M8 — Launch Acceptance (Payment 3)|M6–M7 — UAT Complete Production Deployment|Post-launch hardening> · estimate: <S/M/L → pts> | cannot verify (no Effort signal)
+- <ID> milestone: <README M1–M9 exact name> · estimate: <S/M/L → pts> | cannot verify (no Effort signal) · cycle: <live current name/number> | cannot verify (no current cycle)
 - Delegation: `linear-resolver` GROOM `backfill-*` — <IDs + fields>
 
 (or "none — no prunable-class issues, duplicates, or missing-property issues found")
@@ -507,7 +525,7 @@ Issue-filing policy):
 
 - Provenance: <(found: audit/… ) | (found: feedback/… ) | (found: REAZED-###/…)>
 - Proposed (standalone/umbrella only): priority <crosswalk result> · milestone
-  <M8|M6–M7|Post-launch hardening> · labels <category + provenance
+  <README M1–M9 exact name> · cycle none (Backlog, unscheduled) · labels <category + provenance
   (audit / feedback / spec-gap / ux / ui as applicable)>
 - Delegation: `linear-resolver` REGISTER-FINDINGS `register-*` — then prune
   (filed/attached) entry to `archive.md`
@@ -535,7 +553,7 @@ One line each: item · reason (MCP/scope/data/ledger not readable).
 
 - Applied: <batch → resolver result mapping (issue → change)>
 - Sweep cancellations: <IDs canceled> · excluded from sweep: <ID — why> | none
-- Milestone/estimate backfilled: <IDs → values> | none
+- Milestone/estimate/cycle backfilled: <IDs → values · cycle <name/number> | cannot verify> | none
 - Ledger filed + pruned: <entry → REAZED-### (filed|attached)>
 - Ledger stamped/expired: <entry → (seen: date) updated> | <entry → archived (wont-file, stale)>
 - Deferred / not confirmed: <items left unchanged and why>
