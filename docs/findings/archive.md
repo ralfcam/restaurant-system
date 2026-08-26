@@ -100,3 +100,7 @@ Resolved or filed items (append-only).
 - [x] C1 is install-health, not a `tsc` regression · `tests/unit/dev-toolchain/typecheck-toolchain.test.ts:16-30` · asserts declare+lock+`existsSync(node_modules/swr)`; never runs `tsc`, so a present-but-unresolvable types entry still passes; also fails on a clean checkout until `pnpm install` · low · (seen: /triage 2026-08-25) (found: C1/green) → wont-file (stale)
 - [x] No runtime coverage for Chef’s picks · `hooks/use-chefs-picks.ts` / `app/[locale]/page.tsx` · C2 only guards source types; `enabled` default, empty `items`, and `name_en` vs `name` locale fallback are untested · med · (seen: /triage 2026-08-25) (found: C2/red) → wont-file (stale)
 - [x] C3 is a source-regex, not an assignability check · `tests/unit/floor/layout.test.ts` · never type-checks `spreadOverlappingTables(useFloorPlan().tables)`; a stray `id: string` could pass without grid fields on default `AssignableTable` · low · (seen: /triage 2026-08-25) (found: C3/red) → wont-file (stale)
+
+## restaurant-system backlog triage 2026-08-26 (pass 2)
+
+Filed 0 · attached 0 · stamped 1 (manual table picker rank, below-floor first sighting) · TTL-archived 0 (same-day first stamps from pass 1 left open). REAZED-307 promoted Backlog → Todo + cycle #6.
