@@ -67,13 +67,15 @@ test("findings-write-guard is fail-open Write; docs-updater start/stop set the f
   assert.equal(stop.matcher, "docs-updater")
   assert.match(stop.command, /\bstop\b/)
   for (const event of ["subagentStart", "subagentStop"]) {
-    const others = (hooks.hooks[event] || []).filter((h) =>
-      /linear-resolver|feedback-validator/.test(h.matcher || h.command),
+    const others = (hooks.hooks[event] || []).filter(
+      (h) =>
+        h.command.includes("findings-write-guard.mjs") &&
+        /linear-resolver|feedback-validator/.test(h.matcher || ""),
     )
     assert.equal(
       others.length,
       0,
-      `${event} must not arm linear-resolver/feedback-validator`,
+      `${event} findings-write-guard must not arm linear-resolver/feedback-validator`,
     )
   }
 })

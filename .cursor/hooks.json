@@ -35,6 +35,10 @@
       {
         "command": "node .cursor/hooks/linear-comment-size-guard.mjs",
         "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/linear-write-guard.mjs",
+        "failClosed": false
       }
     ],
     "postToolUse": [
@@ -67,6 +71,10 @@
       {
         "command": "node .cursor/hooks/findings-write-guard.mjs start",
         "matcher": "docs-updater"
+      },
+      {
+        "command": "node .cursor/hooks/linear-write-guard.mjs start",
+        "matcher": "linear-resolver"
       }
     ],
     "subagentStop": [
@@ -79,6 +87,10 @@
       {
         "command": "node .cursor/hooks/findings-write-guard.mjs stop",
         "matcher": "docs-updater"
+      },
+      {
+        "command": "node .cursor/hooks/linear-write-guard.mjs stop",
+        "matcher": "linear-resolver"
       }
     ],
     "stop": [
