@@ -45,11 +45,11 @@ named `CreatePlan`; that block's `input.name` is the plan's name and is how you
 find the plan file. A conversation with no such block is still a valid target —
 recap the conversation itself.
 
-**Issues** default to the Platform project in the realized Linear workspace:
+**Issues** default to the restaurant-system project in the realized Linear workspace:
 
-- Workspace `realized` · Project **Platform** (`platform-12f333598a67`)
-- Owning team **Realized**, key **SG** → issues are `REAZED-###`
-- Project URL: https://linear.app/realized/project/platform-12f333598a67/issues
+- Workspace `realized` · Project **restaurant-system** (`restaurant-system-a19062c2799e`)
+- Owning team **Realized**, issues are `REAZED-###`
+- Project URL: https://linear.app/realized/project/restaurant-system-a19062c2799e
 - Canonical issue URL: `https://linear.app/realized/issue/REAZED-###`
 
 **Invocation:**

@@ -13,20 +13,22 @@ Linear data.
 
 <context>
 Linear workspace: https://linear.app/realized
-Platform project:  https://linear.app/realized/project/platform-12f333598a67/overview
+Default project:  https://linear.app/realized/project/restaurant-system-a19062c2799e
+Platform (optional override): https://linear.app/realized/project/platform-12f333598a67/overview
 
-Default scope is the **Platform** project in the **realized** workspace. The
+Default scope is the **restaurant-system** project in the **realized** workspace. The
 trailing argument after the command name overrides scope — accept a team key, a
 project name/URL, or an explicit issue-list; with no argument, default to the
-Platform project.
+restaurant-system project. Platform (`platform-12f333598a67`) is an optional
+trailing-argument override, not the default.
 
 Preset project specifics (defaults for the no-argument path — the values as last
 synced from Linear; confirm once at runtime per PHASE 0):
 
-- Workspace `realized` · Project **Platform** (`platform-12f333598a67`).
-- Owning team **Realized**, key **SG** → issues are `REAZED-###` (the prefix the
+- Workspace `realized` · Project **restaurant-system** (`restaurant-system-a19062c2799e`).
+- Owning team **Realized**, issues are `REAZED-###` (the prefix the
   whole cycle uses). Project lead: Jose Campos.
-- SG workflow states: open/non-terminal = **Backlog · Todo · In Progress · In
+- Realized workflow states: open/non-terminal = **Backlog · Todo · In Progress · In
   Review**; terminal = **Done · Canceled · Duplicate**. There is **no "Triage"
   state** on this team — do not assume one.
   If the argument overrides scope to a different team/project, treat these presets
@@ -77,19 +79,20 @@ Mode.
 ## PHASE 0 — Resolve scope and workflow states (read-only)
 
 1. Resolve the target from the argument (team / project / issue-list). With **no
-   argument**, use the preset default — the **Platform** project / **Realized
-   (SG)** team (see context) — and just _confirm_ it still resolves with one
+   argument**, use the preset default — the **restaurant-system** project /
+   **Realized** team (see context) — and just _confirm_ it still resolves with one
    `list_projects`/`get_project` (or `list_teams`/`get_team`) call, capturing its
    team(s). If the argument overrides scope, resolve that target from scratch
    instead. STOP and report if the scope can't be resolved — do not guess.
-2. Confirm the team's workflow states with `list_issue_statuses`. Preset for SG:
-   open/non-terminal **Backlog · Todo · In Progress · In Review**; terminal **Done
-   · Canceled · Duplicate** (no "Triage" state). Treat the live result as
-   authoritative — if it differs from the preset (states renamed/added, or a
-   different team was scoped), adopt the live names and note the drift.
+2. Confirm the team's workflow states with `list_issue_statuses`. Preset for
+   Realized: open/non-terminal **Backlog · Todo · In Progress · In Review**;
+   terminal **Done · Canceled · Duplicate** (no "Triage" state). Treat the live
+   result as authoritative — if it differs from the preset (states renamed/added,
+   or a different team was scoped), adopt the live names and note the drift.
 3. Pull the supporting catalog you'll reference: `list_issue_labels`,
    `list_cycles` (current + upcoming), `list_milestones`, `list_users` (for
    assignee checks).
+4. Grep ledger before MCP: Grep `docs/findings/archive.md` and open `docs/findings/*.md` for `REAZED-###` before the first `list_issues` / `get_issue`.
 
 ## PHASE 1 — Inspect all open issues in parallel (read-only) — user step 1
 

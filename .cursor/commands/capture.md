@@ -362,6 +362,7 @@ Capture Plan. When the accelerator lane fired, also emit exactly one
 - Carry these todos into the plan frontmatter (if using a `.plan.md` file) or the
   **PHASE 5 Execution Todos** output section — execution honors the list one todo
   at a time.
+- Validation Summary row count must equal PHASE 5 slug count.
 
 ## PHASE 5 — EXECUTION (after plan approval; NOT in Plan Mode)
 

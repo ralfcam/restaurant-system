@@ -73,7 +73,8 @@ first-execution delegation — do not fold it into CLOSE-OUT.
 - **Register findings:** when the durable ledger has entries. The primary source
   is the categorized files under **`docs/findings/`** —
   `security.md` · `tech-debt.md` · `test-debt.md` · `product-gaps.md` (each holds
-  open `- [ ]` items; `archive.md` is history, **ignore it**). The orchestrator
+  open `- [ ]` items; `archive.md` is history — Grep it for already-filed IDs,
+  do not ignore it). The orchestrator
   appends category-tagged findings to these throughout the run, and may also point
   you at its plan's Out-of-Scope Findings table. Handoff: the active file paths
   (read them yourself) plus the source issue ID/URL (if any) to link findings back
@@ -99,6 +100,10 @@ first-execution delegation — do not fold it into CLOSE-OUT.
   Linear MCP calls. You MAY **read** the `docs/findings/*.md` files and others to
   gather context — but you never modify them; the orchestrator prunes the active
   files and archives them with the issue IDs you return.
+- Grep ledger before MCP: Grep `docs/findings/archive.md` and open `docs/findings/*.md` for `REAZED-###` before the first `list_issues` / `get_issue`.
+- **Pin flat MCP args.** Call `list_issues` with `{ project, state, query, limit, fields }`
+  and `get_issue` with `{ id }`. Do not walk `GetDynamicTools` unless the tool is
+  missing from the namespace.
 - **Never spawn a Cloud Agent.** Do not set `save_issue.assignee` (any
   value, including `null`) or `save_issue.delegate`, and do not write
   `@Cursor` in `save_comment.body`, issue title/description, `save_document`
@@ -316,8 +321,9 @@ Digest` (Problem / Approach / Out-of-scope findings included) and hands it
 
 1. **Read the ledger.** Read the active files under `docs/findings/` —
    `security.md`, `tech-debt.md`, `test-debt.md`, `product-gaps.md` — and collect
-   the open `- [ ]` entries (skip `archive.md` and any line already carrying an
-   issue ID). The file an entry lives in is its category. Include any extra
+   the open `- [ ]` entries (do not treat `archive.md` as open candidates; skip
+   any line already carrying an issue ID). The file an entry lives in is its
+   category. Include any extra
    findings the orchestrator passed inline. If all files are absent/empty and none
    were passed inline, report "ledger empty" and stop.
 2. **Resolve the team.** Determine the target team: if a source issue was given,

@@ -12,7 +12,8 @@ behind every pick.
 
 <context>
 Linear workspace: https://linear.app/realized
-Platform project:  https://linear.app/realized/project/platform-12f333598a67/overview
+Default project:  https://linear.app/realized/project/restaurant-system-a19062c2799e
+Platform (optional override): https://linear.app/realized/project/platform-12f333598a67/overview
 
 `/dispatch` sits between `/triage` and `/sdd-to-tdd` on this repo's `staging`
 accumulator flow. Ground truth:
@@ -22,9 +23,10 @@ and
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)
 (Done on a closing-linked merge into `staging` or the default branch).
 
-Default scope is the **Platform** project in the **realized** workspace, team
+Default scope is the **restaurant-system** project in the **realized** workspace, team
 **Realized** (`REAZED-###`). With no argument, use that preset; a trailing
-argument may override to a team key, project, or explicit issue-list.
+argument may override to a team key, project, or explicit issue-list — including
+Platform (`platform-12f333598a67`), which is an optional override, not the default.
 
 Linear MCP READ primitives you use (all non-mutating, allowed in Plan Mode):
 `list_projects`, `get_project`, `list_teams`, `get_team`, `list_issue_statuses`,
@@ -69,7 +71,7 @@ before picking anything.
 
 ## PHASE 1 — Inventory (read-only)
 
-1. Confirm scope (default: Platform / Realized). STOP if it cannot be
+1. Confirm scope (default: restaurant-system / Realized). STOP if it cannot be
    resolved.
 2. In **one** parallel tool block:
    - `list_issue_statuses`
