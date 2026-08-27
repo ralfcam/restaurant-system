@@ -194,24 +194,28 @@ Review/Done below). A **prunable-class sweep batch** (see
 `docs/findings/README.md` Issue-filing policy) may move several issues to
 Canceled under one operator confirmation on the named batch instead of
 per-issue confirmation — still one linking comment per issue. GROOM must
-**never** target **In Progress, In Review, or Done**. In Review and Done only
-ever change via the GitHub PR automations above. In Progress is START-writable
-from `/sdd-to-tdd` execution only (PR open remains the backup) — not by GROOM.
+**never** move **workflow state** of **In Progress, In Review, or Done**. In
+Review and Done only ever change via the GitHub PR automations above. In
+Progress is START-writable from `/sdd-to-tdd` execution only (PR open
+remains the backup) — not by GROOM. GROOM **may** write **cycle** as a
+**field-only** update on In Progress / In Review (current cycle, no state
+move) when `/triage` names a missing-cycle backfill — see the cycle policy
+in `docs/findings/README.md`.
 
-## Issue-property conventions (milestone, estimate, filing policy)
+## Issue-property conventions (milestone, cycle, estimate, filing policy)
 
 The **filing floor, attach-over-create ladder, per-run issue cap, ledger TTL,
-milestone convention** (live Platform names: `M8 — Launch Acceptance
-(Payment 3)` / `M6–M7 — UAT Complete Production Deployment` /
-`Post-launch hardening` — never invent `Launch-blocking`), and
-**estimate crosswalk** live in `docs/findings/README.md` — the single policy
-`linear-resolver`, `/sdd-to-tdd` STEP 4C, `/triage`, and `/audit` PART 8 all
-cite. This file governs *workflow state* (In Progress via START + PR-open
-backup; In Review/Done via automations; and the GROOM-settable states above);
+milestone convention** (M1–M9 names + filing map — never invent
+`Launch-blocking`), **cycle policy** (Todo = current cycle; Backlog /
+REGISTER FINDINGS unscheduled), and **estimate crosswalk** live in
+`docs/findings/README.md` — the single policy `linear-resolver`, `/sdd-to-tdd`
+STEP 4C, `/triage`, and `/audit` PART 8 all cite. This file governs
+*workflow state* (In Progress via START + PR-open backup; In Review/Done via
+automations; and the GROOM-settable states above);
 `docs/findings/README.md` governs *which issues get created at all* and the
-non-workflow properties (priority, milestone, estimate, labels) set on them.
-Update that file, not this one, if the filing policy or property conventions
-change.
+non-workflow properties (priority, milestone, cycle, estimate, labels) set on
+them. Update that file, not this one, if the filing policy or property
+conventions change.
 
 ## Operator merge checklist
 

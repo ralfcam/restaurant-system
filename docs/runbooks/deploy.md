@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-27
 
 ## Vercel
 
@@ -72,10 +72,17 @@ missing). Do not push the whole history onto this project.
 the authenticated `FOR ALL` policy on `operating_windows`
 (`DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"`;
 no `CREATE`), then the same `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`
-strings as baseline for `anon, authenticated`. Until that file is applied on a
+strings as baseline for `anon, authenticated`, plus
+`GRANT ALL ON TABLE operating_windows TO service_role` in that same file
+(no third dated migration; `20260825140000` is not recorded on
+`tilcqrudqxznnpepxjqq`). The same file also
+`GRANT ALL ON TABLE blocked_dates TO service_role`, and the same for
+`reservations` and `menu_items` (EARLY-PRIV). That does not drop those tables'
+authenticated `FOR ALL` policies or change their anon/authenticated privileges.
+Until that file is applied on a
 forked remote that still has the old policy or DML grants, a logged-in Data API
 client can mutate hours. Spec: [../specs/scheduling.md](../specs/scheduling.md)
-OH-PRIV (§16). Apply per the recipe below; do not `db push`.
+OH-PRIV (§16), EARLY-PRIV (§17). Apply per the recipe below; do not `db push`.
 
 ### Apply a single forward migration on an already-baselined remote
 
@@ -107,6 +114,11 @@ replay history the remote has diverged from.
 
 ### Apply `20260825140000_operating_windows_privilege.sql` on an already-baselined remote
 
+**UAT freshness:** 2026-08-27 — apply this file, then
+`has_table_privilege('service_role', '<t>', 'SELECT')` (and INSERT/UPDATE/DELETE)
+for `operating_windows`, `blocked_dates`, `reservations`, and `menu_items`
+(EARLY-PRIV-remote-GRANT; deferred until remote apply).
+
 Do not use `db push` or `db reset --linked` for this — the file already ends
 with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
 replay history the remote has diverged from.
@@ -134,7 +146,12 @@ replay history the remote has diverged from.
    ```
 
    Confirm `has_table_privilege('authenticated', 'operating_windows', 'INSERT')`
-   is false and the authenticated `FOR ALL` policy is gone.
+   is false and the authenticated `FOR ALL` policy is gone. Confirm
+   `has_table_privilege('service_role', 'operating_windows', 'SELECT')` (and
+   INSERT/UPDATE/DELETE) is true — `GRANT ALL` is in that same file. Confirm
+   the same `has_table_privilege('service_role', '<t>', 'SELECT')` (and
+   INSERT/UPDATE/DELETE) is true for `blocked_dates`, `reservations`, and
+   `menu_items`.
 
 ### Reset database
 

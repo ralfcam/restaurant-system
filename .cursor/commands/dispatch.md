@@ -12,7 +12,8 @@ behind every pick.
 
 <context>
 Linear workspace: https://linear.app/realized
-Platform project:  https://linear.app/realized/project/platform-12f333598a67/overview
+Default project:  https://linear.app/realized/project/restaurant-system-a19062c2799e
+Platform (optional override): https://linear.app/realized/project/platform-12f333598a67/overview
 
 `/dispatch` sits between `/triage` and `/sdd-to-tdd` on this repo's `staging`
 accumulator flow. Ground truth:
@@ -22,13 +23,14 @@ and
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)
 (Done on a closing-linked merge into `staging` or the default branch).
 
-Default scope is the **Platform** project in the **realized** workspace, team
+Default scope is the **restaurant-system** project in the **realized** workspace, team
 **Realized** (`REAZED-###`). With no argument, use that preset; a trailing
-argument may override to a team key, project, or explicit issue-list.
+argument may override to a team key, project, or explicit issue-list — including
+Platform (`platform-12f333598a67`), which is an optional override, not the default.
 
 Linear MCP READ primitives you use (all non-mutating, allowed in Plan Mode):
 `list_projects`, `get_project`, `list_teams`, `get_team`, `list_issue_statuses`,
-`list_milestones`, `list_issues`, `get_issue`, `list_comments`,
+`list_milestones`, `list_cycles`, `list_issues`, `get_issue`, `list_comments`,
 `list_issue_labels`. You issue these reads **yourself** (read-only Task
 subagents have no MCP access).
 
@@ -69,19 +71,24 @@ before picking anything.
 
 ## PHASE 1 — Inventory (read-only)
 
-1. Confirm scope (default: Platform / Realized). STOP if it cannot be
+1. Confirm scope (default: restaurant-system / Realized). STOP if it cannot be
    resolved.
 2. In **one** parallel tool block:
    - `list_issue_statuses`
    - `list_milestones({ project })`
+   - `list_cycles({ teamId, type: "current" })` — capture the live current
+     cycle `id` / number / name. If empty, report `cannot verify` for cycle
+     and treat every issue as not-in-current-cycle (unscheduled). Never invent
+     a cycle name. Never use previous/next except as "not current".
    - `list_issues` for **Todo** (background candidates) and for open **Urgent**
      and **High** (local lane)
-   - `list_issues({ project, fields: ["projectMilestone", "statusType",
-"status", "priority", "estimate", "labels", "title"] })` for milestone
-     membership. There is no milestone filter param on `list_issues` — group
-     client-side by `projectMilestone`.
+   - `list_issues({ project, fields: ["projectMilestone", "cycleId",
+"statusType", "status", "priority", "estimate", "labels", "title"] })` for
+     milestone membership and cycle. There is no milestone filter param on
+     `list_issues` — group client-side by `projectMilestone`.
      Capture `id`, `title`, `priority`, `state`, `labels`, `estimate`, `project`,
-     `projectMilestone`, `statusType`, parent/relations on every issue read.
+     `projectMilestone`, `cycleId`, `statusType`, parent/relations on every
+     issue read.
 3. Confirm current git branch (`git branch --show-current`) so the local-lane
    recipe can say "stay on this `staging` checkout" or warn if the operator
    is not on `staging`.
@@ -192,17 +199,22 @@ two issues can share a worktree.
 
 Milestone rank does **not** change these eligibility gates. It is only a
 tiebreaker later, among equally-eligible disjoint background candidates
-(deferred-class last).
+(deferred-class last). Current-cycle membership is a further tiebreak after
+milestone rank — never a filter.
 
 ## PHASE 3 — Write-set split (read-only)
 
 Pick the **local lane** first: the top Urgent/High (Todo, or already In
 Progress from START) as a pasteable `/sdd-to-tdd REAZED-###`. It **stays on the
 current `staging` checkout**. Hub-walk it too so you can compare write-sets.
-Priority still wins: an Urgent issue beats every High. Milestone rank is a
-**lens inside the same priority**, not an override — it orders same-priority
-Urgent/High candidates and supplies the reported rationale. A High issue in
-an earlier milestone does not beat an Urgent issue in a later one.
+Ranking is **priority, then PHASE 1B milestone rank, then in current cycle
+before not**. "Not" includes unscheduled, previous, and next. Priority still
+wins: an Urgent issue beats every High — unscheduled Urgent still beats
+current-cycle High. Milestone rank is a **lens inside the same priority**,
+not an override. A High issue in an earlier milestone does not beat an Urgent
+issue in a later one. Among same-priority Urgent/High, apply milestone rank
+then the current-cycle tiebreak. Do **not** drop unscheduled Urgent/High.
+Never `save_issue`. Never assign a cycle from this command.
 
 Then, for remaining eligible Todo issues, compute a write-set. Start from the
 **declared scope** — the paths, globs, or code pattern the issue body names. A
@@ -225,8 +237,9 @@ Keep an issue on the background list only when its write-set is **disjoint**
 from the local-lane issue **and** from every other background pick. Cap
 **1–3** background items. Prefer smaller, cleaner disjoint sets over filling
 the cap. Among equally-eligible disjoint candidates, use PHASE 1B milestone
-rank as the tiebreaker (deferred-class last). Eligibility gates from PHASE 2
-stay unchanged.
+rank as the tiebreaker (deferred-class last), then the current-cycle
+tiebreak (in current cycle before not). Eligibility gates from PHASE 2 stay
+unchanged. Cycle is **not** a filter: do not drop unscheduled eligible Todo.
 
 Never Task a `tdd-*` agent. Never `save_issue`. Never `git switch`, never
 `git worktree add` yourself — the recipe is pasteable for the operator.
@@ -335,14 +348,16 @@ command does not invent an identity or open a spawn door:
 
 1. STEP 0 Plan Mode gate — stop with the exact sentence if not in Plan Mode.
 2. Read staging-accumulator.mdc. Inventory Todo + Urgent/High yourself via
-   Linear MCP (no subagent MCP). Rank milestones from PHASE 1B on this run's
-   reads only (recompute every run).
+   Linear MCP (no subagent MCP), including `list_cycles({ teamId, type:
+"current" })`. Rank milestones from PHASE 1B on this run's reads only
+   (recompute every run).
 3. Hub-walk every candidate. Apply eligibility. Drop `cannot verify`.
    Milestone rank does not reopen a dropped candidate.
 4. Pick local lane (top Urgent/High, stay on `staging`; same-priority order
-   uses milestone rank). Compute write-sets with `codegraph_explore` / Grep.
-   Select 1–3 disjoint background items; milestone rank is the tiebreaker
-   among equally-eligible disjoint sets.
+   uses milestone rank then current-cycle tiebreak). Compute write-sets with
+   `codegraph_explore` / Grep. Select 1–3 disjoint background items;
+   milestone rank then current-cycle is the tiebreaker among equally-eligible
+   disjoint sets.
 5. Emit the card with pasteable recipes. No writes, no todos, no TDD.
 
 </instructions>
@@ -372,6 +387,8 @@ command does not invent an identity or open a spawn door:
 - DO NOT infer milestone completion from code, deployment, or issue count.
 - DO NOT hardcode milestone names or numbers in the ranking.
 - DO NOT rank deferred/post-launch above launch-critical work.
+- DO NOT filter dispatch lanes to current-cycle-only. Cycle is a tiebreak
+  after priority and milestone rank, never a filter and never a Linear write.
 - DO NOT guess an ambiguous milestone status, dependency, or launch
   classification — report and stop.
 - GitHub stays read-only; no Supabase or Vercel access.
@@ -385,12 +402,14 @@ Format: structured Markdown, evidence-first. Tone: technical, direct, zero fille
 - Plan Mode: YES (proceeding) | NO (stopped — instruction to switch)
 - Scope: <team / project / issue-list resolved>
 - Current branch: <name> (on `staging` | not on `staging` — warn)
+- Current cycle: <number/name> | cannot verify
 
 ## Milestone focus
 
 - Selected: <name> — decided by <Earliest incomplete prerequisite |
   Explicit blocker/dependency | Gate impact | Target date |
   Remaining progress | only deferred/post-launch remains>
+- Current cycle: <number/name> (tiebreak only — not a filter) | cannot verify
 - Next: <name of next highest-priority milestone or gate> | none
 - Excluded: <name> (<complete | canceled>) — one line each, or none
 - Ambiguities: <one line each> | none. If any ambiguity blocks a pick,
@@ -400,6 +419,7 @@ Format: structured Markdown, evidence-first. Tone: technical, direct, zero fille
 
 - **[REAZED-###] title** — priority, state
 - Milestone: <name> (rank N) | none
+- Cycle: <n> (current) | none
 - Owning spec: `docs/specs/<path>` | cannot verify (then still name the
   issue; the operator runs `/sdd-to-tdd` on this checkout anyway)
 - Write-set: <files> · derived by <glob expansion | grep `<pattern>` | graph on `<symbol>`> | cannot verify
@@ -416,6 +436,7 @@ Per item:
 verify size), state Todo
 
 - Milestone: <name> (rank N) | none
+- Cycle: <n> (current) | none
 - Owning spec: `docs/specs/<path>`
 - Write-set: <files> · derived by <glob expansion | grep `<pattern>` | graph on `<symbol>`> (disjoint from local + other background picks)
 - Eligibility: each staging-accumulator bullet in one short clause

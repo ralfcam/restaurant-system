@@ -1,7 +1,7 @@
 # Menu availability
 
 **Status:** Draft  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-08-27
 
 ## Scope
 
@@ -17,7 +17,10 @@ _(Expand during first `/sdd-to-tdd` run.)_
    cannot be ordered from the guest path.
 2. **Staff toggle** — Staff can mark items available/unavailable; change persists
    in Supabase `menu_items` (seeded from `supabase/seed.sql`; staff writes via
-   `app/actions/menu.ts`).
+   `app/actions/menu.ts`). Table privileges MUST
+   `GRANT ALL ON TABLE menu_items TO service_role` in
+   `00000000000000_baseline.sql` and
+   `20260825140000_operating_windows_privilege.sql` (scheduling.md §17).
 3. **POS/KDS** — Order tickets reflect line items and status transitions
    (`new` → `preparing` → `ready`).
 

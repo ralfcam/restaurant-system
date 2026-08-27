@@ -41,6 +41,8 @@ CREATE POLICY "Allow service_role full access to operating_windows"
 
 GRANT SELECT ON TABLE operating_windows TO anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE operating_windows FROM anon, authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE operating_windows TO service_role;
 
 -- ── blocked_dates ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS blocked_dates (
@@ -72,6 +74,9 @@ CREATE POLICY "Allow service_role full access to blocked_dates"
   TO service_role
   USING (true)
   WITH CHECK (true);
+
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE blocked_dates TO service_role;
 
 -- ── reservations ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reservations (
@@ -117,6 +122,9 @@ CREATE POLICY "Allow service_role full access to reservations"
   USING (true)
   WITH CHECK (true);
 
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE reservations TO service_role;
+
 -- ── menu_items ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS menu_items (
   id TEXT PRIMARY KEY,
@@ -159,6 +167,9 @@ CREATE POLICY "Allow service_role full access to menu_items"
   TO service_role
   USING (true)
   WITH CHECK (true);
+
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE menu_items TO service_role;
 
 -- ── Booking rules trigger ────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION validate_reservation_availability()

@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-27
 
 ## Auth flow
 
@@ -33,14 +33,22 @@ data (`operating_windows`, `menu_items`,
 `restaurant_settings` singleton) loads from `supabase/seed.sql` on `db reset`.
 
 `operating_windows` is SELECT-only for `anon` and `authenticated`
-(`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). There is no authenticated
+(`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges
+`GRANT ALL ON TABLE operating_windows TO service_role`. There is no authenticated
 `FOR ALL` policy (`DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"`;
 no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Staff writes go
 through `replace_operating_windows` (`service_role` `EXECUTE` only). Identical
-GRANT/REVOKE and DROP live in `00000000000000_baseline.sql` and
+GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql` and
 `20260825140000_operating_windows_privilege.sql` (apply on already-baselined
 remotes per [../runbooks/deploy.md](../runbooks/deploy.md); do not `db push`).
 Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
+
+Early-baseline siblings `blocked_dates`, `reservations`, and `menu_items` also
+`GRANT ALL ON TABLE <t> TO service_role` in those same two files (after each
+table's service_role RLS block in baseline; before `NOTIFY pgrst` in the
+forward). That does not drop their authenticated `FOR ALL` policies or change
+anon/authenticated table privileges. Spec:
+[../specs/scheduling.md](../specs/scheduling.md) §17.
 
 ## Env vars
 

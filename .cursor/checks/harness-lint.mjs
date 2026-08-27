@@ -8,8 +8,11 @@
  * Checks:
  *   links     repo-root-relative markdown links in .cursor/{rules,commands,agents}
  *   fanout    TASK_FANOUT_INFLIGHT_CAP matches the number in task-fanout.mdc
- *   prefix    dispatch + staging-accumulator use sdd/REAZED- (not sdd/SG-)
+ *   prefix    dispatch + staging-accumulator use sdd/REAZED- (not sdd/SG-);
+ *             triage/tldr/dispatch default to restaurant-system (not SG→REAZED)
  *   gates     commit.md names lint, typecheck, test:unit, gate open, harness-lint
+ *   capture   capture.md pins Validation Summary row count = PHASE 5 slug count
+ *   ledger    linear-resolver + triage Grep ledger before MCP
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
@@ -107,6 +110,51 @@ function checkPrefix() {
       fail("prefix", `${rel} must name sdd/REAZED-`)
     if (/sdd\/SG-/.test(text)) fail("prefix", `${rel} still mentions sdd/SG-`)
   }
+  for (const rel of [
+    ".cursor/commands/triage.md",
+    ".cursor/commands/tldr.md",
+    ".cursor/commands/dispatch.md",
+  ]) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    const hasDefault =
+      text.includes("project/restaurant-system") ||
+      text.includes("Default project: **restaurant-system**")
+    if (!hasDefault)
+      fail(
+        "prefix",
+        `${rel} must name restaurant-system as the default project`,
+      )
+    if (text.includes("key **SG** → issues are `REAZED-###`"))
+      fail("prefix", `${rel} still claims SG emits REAZED-###`)
+  }
+}
+
+function checkCaptureSlugRule() {
+  const text = readFileSync(
+    join(ROOT, ".cursor", "commands", "capture.md"),
+    "utf8",
+  )
+  if (
+    !text.includes("Validation Summary row count must equal PHASE 5 slug count")
+  ) {
+    fail(
+      "capture",
+      "capture.md must pin Validation Summary row count = PHASE 5 slug count",
+    )
+  }
+}
+
+function checkLedgerFirst() {
+  const needle =
+    "Grep ledger before MCP: Grep `docs/findings/archive.md` and open `docs/findings/*.md` for `REAZED-###` before the first `list_issues` / `get_issue`."
+  for (const rel of [
+    ".cursor/agents/linear-resolver.md",
+    ".cursor/commands/triage.md",
+  ]) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    if (!text.includes(needle))
+      fail("ledger", `${rel} must Grep ledger before MCP`)
+  }
 }
 
 function checkGates() {
@@ -129,6 +177,8 @@ checkLinks()
 checkFanout()
 checkPrefix()
 checkGates()
+checkCaptureSlugRule()
+checkLedgerFirst()
 
 if (violations.length) {
   for (const v of violations) console.error(v)

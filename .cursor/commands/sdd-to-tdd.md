@@ -709,10 +709,10 @@ crosswalk, milestone/estimate conventions, and label taxonomy from
   the ledger.
 - New issues (rung 4 of the ladder only) are filed in the team's
   **backlog/triage** state with a **milestone** set per the README convention
-  (`M8 — Launch Acceptance (Payment 3)` for launch-bound, `M6–M7` for
-  UAT/deploy-gate, `Post-launch hardening` otherwise — never invent
-  `Launch-blocking`) and linked to the source issue (`relatedTo`) — never
-  auto-assigned, never marked done.
+  (`docs/findings/README.md` M1–M9 filing map — `list_milestones` then assign;
+  never invent `Launch-blocking`) and **without** a cycle (unscheduled
+  Backlog — `/triage` assigns current cycle on Backlog → Todo) and linked to
+  the source issue (`relatedTo`) — never auto-assigned, never marked done.
 - **Team/issue resolution:** FIX mode reuses the source issue's team; FEATURE
   mode uses the team the operator names (ask if ambiguous).
 - **Fallback when Linear is unavailable** (no team/issue context, MCP down, or
