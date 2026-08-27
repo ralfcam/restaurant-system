@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-27
 
 ## Current state
 
@@ -13,7 +13,8 @@
   and `20260818162000_operating_hour_segments.sql` (`replace_operating_windows`;
   version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
   `20260825140000_operating_windows_privilege.sql` (SELECT-only
-  `anon`/`authenticated` grants plus `GRANT ALL ON TABLE operating_windows TO service_role`;
+  `anon`/`authenticated` grants plus `GRANT ALL ON TABLE operating_windows TO service_role`,
+  and the same `GRANT ALL` for `blocked_dates`, `reservations`, `menu_items`;
   apply on already-baselined remotes — not a
   full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when

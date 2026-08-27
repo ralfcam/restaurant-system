@@ -102,4 +102,20 @@ describe("opening-hour segments schema and surfaces", () => {
     const forward = read(forwardRel)
     expect(forward).toContain(grantAll)
   })
+
+  it("early-baseline tables grant ALL to service_role in baseline and privilege forward files", () => {
+    const tables = ["blocked_dates", "reservations", "menu_items"] as const
+    const forwardRel =
+      "supabase/migrations/20260825140000_operating_windows_privilege.sql"
+
+    const baseline = read("supabase/migrations/00000000000000_baseline.sql")
+    expect(existsSync(path.join(root, forwardRel))).toBe(true)
+    const forward = read(forwardRel)
+
+    for (const t of tables) {
+      const grantAll = `GRANT ALL ON TABLE ${t} TO service_role`
+      expect(baseline).toContain(grantAll)
+      expect(forward).toContain(grantAll)
+    }
+  })
 })

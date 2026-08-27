@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-27
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -55,6 +55,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | OH-SAVE isolation + complete-replace pin (`pr35_coderabbit_oh_save`)  | 2026-08-25 | `specs/scheduling.md` (§15, by orchestrator), `runbooks/deploy.md`, `testing/Vitest-Integration-Guide.md`, `testing/Design-And-Patterns.md`, `findings/test-debt.md`                                         |
 | OH-PRIV hours privilege (`reazed-290_hours_privilege`)                | 2026-08-25 | `specs/scheduling.md` (§16 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Integration-Guide.md`, `testing/Test-Data-And-Seeds.md`           |
 | OH-PRIV service_role GRANT (`reazed-297_service-role_grant_5bde11c5`) | 2026-08-25 | `specs/scheduling.md` (§16 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`                                                  |
+| EARLY-PRIV sibling GRANT (`reazed-297_sibling_grants_097b94f3`)       | 2026-08-27 | `specs/scheduling.md` (§17 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`                                                  |
 
 ## Seed path
 

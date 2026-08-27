@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-27
 
 ## Auth flow
 
@@ -42,6 +42,13 @@ GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql` and
 `20260825140000_operating_windows_privilege.sql` (apply on already-baselined
 remotes per [../runbooks/deploy.md](../runbooks/deploy.md); do not `db push`).
 Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
+
+Early-baseline siblings `blocked_dates`, `reservations`, and `menu_items` also
+`GRANT ALL ON TABLE <t> TO service_role` in those same two files (after each
+table's service_role RLS block in baseline; before `NOTIFY pgrst` in the
+forward). That does not drop their authenticated `FOR ALL` policies or change
+anon/authenticated table privileges. Spec:
+[../specs/scheduling.md](../specs/scheduling.md) §17.
 
 ## Env vars
 

@@ -75,6 +75,9 @@ CREATE POLICY "Allow service_role full access to blocked_dates"
   USING (true)
   WITH CHECK (true);
 
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE blocked_dates TO service_role;
+
 -- ── reservations ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reservations (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -119,6 +122,9 @@ CREATE POLICY "Allow service_role full access to reservations"
   USING (true)
   WITH CHECK (true);
 
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE reservations TO service_role;
+
 -- ── menu_items ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS menu_items (
   id TEXT PRIMARY KEY,
@@ -161,6 +167,9 @@ CREATE POLICY "Allow service_role full access to menu_items"
   TO service_role
   USING (true)
   WITH CHECK (true);
+
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE menu_items TO service_role;
 
 -- ── Booking rules trigger ────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION validate_reservation_availability()

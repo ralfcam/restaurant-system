@@ -1,7 +1,7 @@
 # Booking rules
 
 **Status:** Draft  
-**Last updated:** 2026-08-24
+**Last updated:** 2026-08-27
 
 ## Scope
 
@@ -21,7 +21,10 @@ _(Expand during first `/sdd-to-tdd` run.)_
 4. **Confirmation code** — Successful booking returns a unique `conf_code` (format
    `TVL-####`).
 5. **RLS** — Guest-facing reservation reads/writes obey Supabase RLS; service role
-   used only in documented admin paths.
+   used only in documented admin paths. Table privileges MUST
+   `GRANT ALL ON TABLE reservations TO service_role` in
+   `00000000000000_baseline.sql` and
+   `20260825140000_operating_windows_privilege.sql` (scheduling.md §17).
 
 ## Guest booking widget (segmented slots)
 
