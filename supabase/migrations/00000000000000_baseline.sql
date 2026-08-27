@@ -181,12 +181,20 @@ REVOKE INSERT, UPDATE, DELETE ON TABLE menu_items FROM anon, authenticated;
 
 -- ── Booking rules trigger ────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION validate_reservation_availability()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO public
+AS $$
 DECLARE
   v_dow INT;
   v_has_rows BOOLEAN;
   v_has_open BOOLEAN;
   v_in_segment BOOLEAN;
+  v_occupancy_minutes INT;
+  v_buffer_minutes INT;
+  v_capacity INT;
+  v_occupying INT;
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -232,9 +240,40 @@ BEGIN
     END IF;
   END IF;
 
+  -- REAZED-309: BW-9 occupancy window + BW-10 early-release.
+  -- DEFINER so anon INSERT can cover-count reservations/tables (no public SELECT).
+  -- Identical occupancy block in baseline / 20260818162000 / 20260827180000.
+  IF NEW.status IN ('confirmed', 'seated') THEN
+    SELECT occupancy_duration_minutes, safety_buffer_minutes
+      INTO v_occupancy_minutes, v_buffer_minutes
+      FROM restaurant_settings
+     WHERE id = 1;
+    -- SELECT INTO NULLs both when id=1 is missing; columns themselves are NOT NULL.
+    v_occupancy_minutes := COALESCE(v_occupancy_minutes, 90);
+    v_buffer_minutes := COALESCE(v_buffer_minutes, 15);
+
+    SELECT COALESCE(SUM(seats), 0) INTO v_capacity FROM tables;
+
+    -- Same-date elapsed TIME (half-open). Do not add interval to TIME (wraps at 24h).
+    SELECT COALESCE(SUM(r.party_size), 0)
+      INTO v_occupying
+      FROM reservations r
+     WHERE r.date = NEW.date::DATE
+       AND r.status IN ('confirmed', 'seated')
+       AND r.id IS DISTINCT FROM NEW.id
+       AND NEW.time::TIME >= r.time::TIME
+       AND (NEW.time::TIME - r.time::TIME)
+             < (v_occupancy_minutes + v_buffer_minutes) * INTERVAL '1 minute';
+
+    IF v_occupying + NEW.party_size > v_capacity THEN
+      RAISE EXCEPTION 'Booking denied: This time is fully booked.'
+        USING ERRCODE = 'P0001';
+    END IF;
+  END IF;
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Atomic replace of the full weekly opening-hour schedule (staff / service role).
 -- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
@@ -450,16 +489,55 @@ CREATE TABLE IF NOT EXISTS restaurant_settings (
   slot_interval_minutes INT NOT NULL DEFAULT 30
     CONSTRAINT restaurant_settings_slot_interval_minutes_check
     CHECK (slot_interval_minutes IN (15, 30, 60)),
+  -- REAZED-309: occupancy duration + safety buffer (BW-11 clamps).
+  occupancy_duration_minutes INT NOT NULL DEFAULT 90
+    CONSTRAINT restaurant_settings_occupancy_duration_minutes_check
+    CHECK (
+      occupancy_duration_minutes BETWEEN 30 AND 240
+      AND occupancy_duration_minutes % 15 = 0
+    ),
+  safety_buffer_minutes INT NOT NULL DEFAULT 15
+    CONSTRAINT restaurant_settings_safety_buffer_minutes_check
+    CHECK (
+      safety_buffer_minutes BETWEEN 0 AND 60
+      AND safety_buffer_minutes % 5 = 0
+    ),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS slot_interval_minutes INT NOT NULL DEFAULT 30;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS occupancy_duration_minutes INT NOT NULL DEFAULT 90;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS safety_buffer_minutes INT NOT NULL DEFAULT 15;
 
 DO $$
 BEGIN
   ALTER TABLE restaurant_settings
     ADD CONSTRAINT restaurant_settings_slot_interval_minutes_check
     CHECK (slot_interval_minutes IN (15, 30, 60));
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE restaurant_settings
+    ADD CONSTRAINT restaurant_settings_occupancy_duration_minutes_check
+    CHECK (
+      occupancy_duration_minutes BETWEEN 30 AND 240
+      AND occupancy_duration_minutes % 15 = 0
+    );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$
+BEGIN
+  ALTER TABLE restaurant_settings
+    ADD CONSTRAINT restaurant_settings_safety_buffer_minutes_check
+    CHECK (
+      safety_buffer_minutes BETWEEN 0 AND 60
+      AND safety_buffer_minutes % 5 = 0
+    );
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;

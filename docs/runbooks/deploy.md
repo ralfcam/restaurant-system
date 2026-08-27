@@ -5,18 +5,65 @@
 
 ## Vercel
 
-- Repo: [ralfcam/restaurant-system](https://github.com/ralfcam/restaurant-system)
-- Merges to `main` deploy via v0/Vercel integration (see root README).
+Canonical host is the **git-linked** project `restaurant-system` on team
+`ralfcams-projects` — not the v0 chat project, and not `syntex-global`.
 
-## Env vars (production)
+- Dashboard: [ralfcams-projects/restaurant-system](https://vercel.com/ralfcams-projects/restaurant-system)
+- Git: [ralfcam/restaurant-system](https://github.com/ralfcam/restaurant-system)
+- Team slug: `ralfcams-projects`
+- `teamId` / `orgId`: `team_MP13K4M0To2S4Duu2kknllAb`
+- `projectId`: `prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz` (from `.vercel/project.json` after `vercel link`; that directory is gitignored)
+- Merges to `main` deploy.
+- Production aliases: [restaurant-system-ralfcams-projects.vercel.app](https://restaurant-system-ralfcams-projects.vercel.app), [restlink.realized.dev](https://restlink.realized.dev)
 
-Set in Vercel project settings:
+Historical / chat only: v0 project
+[prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO](https://v0.app/chat/projects/prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO)
+and hostname `next-js-restaurant-system-mvp.vercel.app` are a **different**
+project. Do not treat them as this app’s deploy target. Do not retarget
+`syntex-global` (`prj_oWhr772lrsaNsUKWhpa0FAgle2p4`, `ralfcam/Syntex-V0`).
 
-- `NEXT_PUBLIC_SUPABASE_URL`
+MCP (`plugin-vercel-vercel`) has **no env-var tools**. After a team-wide
+plugin grant, `get_project` / `list_deployments` work on this `prj_`. Use
+the CLI for `vercel link`, `vercel env`, and `vercel redeploy`. Keep
+`.vercel/` local. A narrow grant that omits this project 404s/403s — re-authorize.
+
+### CLI recipe
+
+Do **not** `npx vercel --prod` (or MCP `deploy_to_vercel`) — that uploads a
+new tree and bypasses the git link. After env changes, redeploy the existing
+git production deployment.
+
+Quote `production,preview` in PowerShell (`$targets = 'production,preview'`)
+so the comma is not parsed as an array.
+
+```powershell
+npx vercel whoami
+npx vercel link --yes --scope ralfcams-projects --project restaurant-system
+npx vercel env ls
+
+# URL is public (this runbook’s hosted ref). Keys: pipe from
+# `npx supabase projects api-keys --project-ref tilcqrudqxznnpepxjqq`, do not echo.
+$targets = 'production,preview'
+'https://tilcqrudqxznnpepxjqq.supabase.co' | npx vercel env add NEXT_PUBLIC_SUPABASE_URL $targets --yes --no-sensitive
+# anon → NEXT_PUBLIC_SUPABASE_ANON_KEY (same $targets, --no-sensitive)
+# service_role → SUPABASE_SERVICE_ROLE_KEY ($targets --sensitive)
+
+npx vercel ls restaurant-system --scope ralfcams-projects
+npx vercel redeploy <production-deployment-url>
+npx vercel inspect <new-or-aliased-url> --scope ralfcams-projects
+npx vercel curl / --deployment <production-url>
+```
+
+## Env vars (production + preview)
+
+CLI `vercel env add` (targets `production,preview` — staging PRs use the same
+hosted backend). Never use local Docker keys (`127.0.0.1:54321`).
+
+- `NEXT_PUBLIC_SUPABASE_URL` — `https://tilcqrudqxznnpepxjqq.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-Never expose the service role key to the client bundle.
+Never expose the service role key to the client bundle. Never commit it.
 
 ## Supabase
 
@@ -31,6 +78,7 @@ Never expose the service role key to the client bundle.
 | Forward: opening-hour segments       | `supabase/migrations/20260818162000_operating_hour_segments.sql`     | Yes on local reset; apply on already-baselined remotes              |
 | Forward: operating_windows privilege | `supabase/migrations/20260825140000_operating_windows_privilege.sql` | Yes on local reset; apply on already-baselined remotes              |
 | Forward: public catalog privileges   | `supabase/migrations/20260827160000_public_catalog_privileges.sql`   | Yes on local reset; apply when `20260825140000` is already recorded |
+| Forward: occupancy duration + buffer | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`   | Yes on local reset; apply on already-baselined remotes              |
 | Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
@@ -47,8 +95,9 @@ instead of adding dated migration files. Policy detail:
 `.cursor/rules/supabase-migrations.mdc`.
 
 `20260818162000_operating_hour_segments.sql`,
-`20260825140000_operating_windows_privilege.sql`, and
-`20260827160000_public_catalog_privileges.sql` are the forward-only exceptions
+`20260825140000_operating_windows_privilege.sql`,
+`20260827160000_public_catalog_privileges.sql`, and
+`20260827180000_occupancy_duration_buffer.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -205,6 +254,41 @@ replay history the remote has diverged from.
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
    `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
    is false for both. Confirm policy `"Allow public read reservations"` is gone.
+
+### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-08-27 — apply this file on `tilcqrudqxznnpepxjqq`
+(linked-remote occupancy forward apply; do not `db push`). Then confirm
+`occupancy_duration_minutes` / `safety_buffer_minutes` exist on
+`restaurant_settings` and `schema_migrations` has version `20260827180000`.
+
+Do not use `db push` or `db reset --linked` for this — a full push/reset would
+try to replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260827180000', 'occupancy_duration_buffer');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260827180000 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260827180000';
+   ```
+
+   Confirm `occupancy_duration_minutes` and `safety_buffer_minutes` on
+   `restaurant_settings` (defaults 90 and 15).
 
 ### Reset database
 

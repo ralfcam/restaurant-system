@@ -1,22 +1,46 @@
--- Forward migration for already-applied baseline (linked/remote).
--- Same objects are also defined idempotently in 00000000000000_baseline.sql
--- so `supabase db reset --local` stays equivalent.
+-- Forward migration for already-applied 20260823130000 (linked/remote).
+-- Same columns are also defined idempotently in 00000000000000_baseline.sql
+-- and 20260823130000_restaurant_info_and_chefs_picks.sql so
+-- `supabase db reset --local` stays equivalent.
 --
--- Opening-hour segments: multiple operating_windows rows per weekday.
+-- REAZED-309: occupancy duration (default 90) + safety buffer (default 15)
+-- with CHECKs matching BW-11 clamps. New dated file because remotes have
+-- already recorded earlier migrations; folding alone would not apply.
 
-ALTER TABLE operating_windows
-  DROP CONSTRAINT IF EXISTS operating_windows_day_of_week_key;
+ALTER TABLE public.restaurant_settings ADD COLUMN IF NOT EXISTS occupancy_duration_minutes INT NOT NULL DEFAULT 90;
+ALTER TABLE public.restaurant_settings ADD COLUMN IF NOT EXISTS safety_buffer_minutes INT NOT NULL DEFAULT 15;
 
-ALTER TABLE operating_windows
-  ADD COLUMN IF NOT EXISTS label TEXT;
+DO $$
+BEGIN
+  ALTER TABLE public.restaurant_settings
+    ADD CONSTRAINT restaurant_settings_occupancy_duration_minutes_check
+    CHECK (
+      occupancy_duration_minutes BETWEEN 30 AND 240
+      AND occupancy_duration_minutes % 15 = 0
+    );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
-ALTER TABLE operating_windows
-  ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0;
+DO $$
+BEGIN
+  ALTER TABLE public.restaurant_settings
+    ADD CONSTRAINT restaurant_settings_safety_buffer_minutes_check
+    CHECK (
+      safety_buffer_minutes BETWEEN 0 AND 60
+      AND safety_buffer_minutes % 5 = 0
+    );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
--- Optional guest-facing helper for this segment; blank/whitespace stored as NULL.
-ALTER TABLE operating_windows
-  ADD COLUMN IF NOT EXISTS guest_note TEXT;
+COMMENT ON COLUMN public.restaurant_settings.occupancy_duration_minutes IS
+  'Restaurant-wide occupancy duration in minutes. 30–240 step 15; default 90.';
+COMMENT ON COLUMN public.restaurant_settings.safety_buffer_minutes IS
+  'Restaurant-wide safety buffer in minutes after occupancy. 0–60 step 5; default 15.';
 
+-- Last-writer on remotes that already recorded earlier function definitions.
+-- Same body as baseline / 20260818162000 so `db reset --local` stays equivalent.
 CREATE OR REPLACE FUNCTION validate_reservation_availability()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -111,34 +135,3 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
--- Atomic replace of the full weekly opening-hour schedule (staff / service role).
--- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
-CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  -- WHERE TRUE satisfies hosted safe-delete (error 21000 without a predicate).
-  DELETE FROM operating_windows WHERE TRUE;
-
-  INSERT INTO operating_windows (
-    day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
-  )
-  SELECT
-    (w->>'day_of_week')::INT,
-    (w->>'opens_at')::TIME,
-    (w->>'closes_at')::TIME,
-    COALESCE((w->>'is_closed')::BOOLEAN, false),
-    NULLIF(BTRIM(w->>'label'), ''),
-    COALESCE((w->>'sort_order')::INT, 0),
-    NULLIF(BTRIM(w->>'guest_note'), '')
-  FROM jsonb_array_elements(p_windows) AS w;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
-
-NOTIFY pgrst, 'reload schema';

@@ -52,4 +52,26 @@ describe("reservation widget grouped slot cards", () => {
     expect(aroundReserve).toMatch(/setStep\s*\(\s*2\s*\)/)
     expect(aroundReserve).not.toMatch(/\bcreateReservation\b/)
   })
+
+  it("until-badge uses occupancy duration, not the safety buffer, and does not read expected_minutes", () => {
+    const source = readReservationWidgetSource()
+
+    const untilIdx = source.search(/data-testid=["']until["']/)
+    expect(untilIdx).toBeGreaterThanOrEqual(0)
+
+    const untilCalls = [
+      ...source.matchAll(/slotUntilTime\s*\(\s*([^)]*)\s*\)/g),
+    ]
+    expect(untilCalls.length).toBeGreaterThan(0)
+    for (const match of untilCalls) {
+      expect(match[1]).toMatch(/^\s*\w+\s*,\s*[\s\S]*occupanc/i)
+      expect(match[1]).not.toMatch(/buffer/i)
+      expect(match[1]).not.toMatch(/\+/)
+    }
+
+    const untilPath = source.slice(Math.max(0, untilIdx - 250), untilIdx + 400)
+    expect(untilPath).not.toMatch(/nextBookableTime/)
+    expect(untilPath).not.toMatch(/\bexpected_minutes\b/)
+    expect(source).not.toMatch(/tables\.expected_minutes/)
+  })
 })

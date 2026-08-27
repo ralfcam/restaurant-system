@@ -1,13 +1,13 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-27
 
 ## Stack
 
 - **App:** Next.js 16 App Router, React 19, TypeScript, Tailwind v4, shadcn/ui
 - **Data:** Supabase (Postgres, Auth, RLS) via `@supabase/ssr` and `@supabase/supabase-js`
-- **Deploy:** Vercel ([GitHub](https://github.com/ralfcam/restaurant-system))
+- **Deploy:** Vercel ([dashboard](https://vercel.com/ralfcams-projects/restaurant-system), [GitHub](https://github.com/ralfcam/restaurant-system))
 - **Tracking:** Linear — [restaurant-system](https://linear.app/realized/project/restaurant-system-a19062c2799e) (`REAZED-###`)
 
 ## Restaurant identity

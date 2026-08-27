@@ -16,7 +16,11 @@ import {
 /** Booked time minus expected turn; aliases {@link DEFAULT_EXPECTED_MINUTES} (90). */
 export const TABLE_ASSIGNMENT_LEAD_MINUTES = DEFAULT_EXPECTED_MINUTES
 
-const ACTIVE_RESERVATION_STATUSES: ReservationStatus[] = ["confirmed", "seated"]
+/** Confirmed and seated occupy a table or covers; completed, cancelled, and no_show do not. */
+export const ACTIVE_RESERVATION_STATUSES: readonly ReservationStatus[] = [
+  "confirmed",
+  "seated",
+]
 const TERMINAL_RESERVATION_STATUSES: ReservationStatus[] = [
   "completed",
   "cancelled",

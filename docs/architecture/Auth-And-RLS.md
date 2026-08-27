@@ -62,6 +62,13 @@ and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
 
+`validate_reservation_availability` (`enforce_booking_rules`) is
+`SECURITY DEFINER` so that insert-only path can still cover-count
+`reservations` / `tables` for the occupancy window (booking-rules BW-9).
+Occupancy last-writer body is identical in baseline,
+`20260818162000_operating_hour_segments.sql`, and
+`20260827180000_occupancy_duration_buffer.sql`.
+
 ## Env vars
 
 | Variable                        | Scope       |

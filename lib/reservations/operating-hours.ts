@@ -105,12 +105,59 @@ function wrapMinutesOfDay(totalMinutes: number): number {
   return ((totalMinutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY
 }
 
-/** Slot end time: start plus duration, wrapping modulo 24h (never `24:30`). */
+/** Display clock after adding minutes, wrapping modulo 24h (never `24:30`). */
+function addMinutesWrapped(start: string, addedMinutes: number): string {
+  return minutesToTime(wrapMinutesOfDay(timeToMinutes(start) + addedMinutes))
+}
+
+/**
+ * BW-2 until-badge: start plus occupancy duration (default 90), wrapping
+ * modulo 24h (never `24:30`). Does not add the safety buffer.
+ */
 export function slotUntilTime(
   start: string,
-  durationMinutes: number = DEFAULT_EXPECTED_MINUTES,
+  occupancyDurationMinutes: number = DEFAULT_EXPECTED_MINUTES,
 ): string {
-  return minutesToTime(wrapMinutesOfDay(timeToMinutes(start) + durationMinutes))
+  return addMinutesWrapped(start, occupancyDurationMinutes)
+}
+
+export const MIN_SAFETY_BUFFER_MINUTES = 0
+export const MAX_SAFETY_BUFFER_MINUTES = 60
+export const SAFETY_BUFFER_STEP_MINUTES = 5
+export const DEFAULT_SAFETY_BUFFER_MINUTES = 15
+
+/**
+ * BW-9 next-bookable instant: start plus occupancy plus safety buffer
+ * (defaults 90 + 15), wrapping modulo 24h. Separate from the until-badge.
+ */
+export function nextBookableTime(
+  start: string,
+  occupancyDurationMinutes: number = DEFAULT_EXPECTED_MINUTES,
+  safetyBufferMinutes: number = DEFAULT_SAFETY_BUFFER_MINUTES,
+): string {
+  return addMinutesWrapped(
+    start,
+    occupancyDurationMinutes + safetyBufferMinutes,
+  )
+}
+
+/**
+ * BW-11: safety buffer is 0–60 inclusive, step 5. Invalid including NaN
+ * and values outside that range → 15 (unlike occupancy, which bound-clamps
+ * via `clampExpectedMinutes` in table-use — no second 30–240 helper here).
+ */
+export function clampSafetyBufferMinutes(minutes: number): number {
+  if (
+    !Number.isFinite(minutes) ||
+    minutes < MIN_SAFETY_BUFFER_MINUTES ||
+    minutes > MAX_SAFETY_BUFFER_MINUTES
+  ) {
+    return DEFAULT_SAFETY_BUFFER_MINUTES
+  }
+  return (
+    Math.round(minutes / SAFETY_BUFFER_STEP_MINUTES) *
+    SAFETY_BUFFER_STEP_MINUTES
+  )
 }
 
 /** Inclusive: both `opens_at` and `closes_at` are bookable instants. */

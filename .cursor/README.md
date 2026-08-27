@@ -11,6 +11,15 @@ Linear IDs are **`REAZED-###`**, team **Realized**, project
 [restaurant-system](https://linear.app/realized/project/restaurant-system-a19062c2799e).
 Specs live in [`docs/specs/`](../docs/specs/).
 
+Vercel team **ralfcams-projects** (`team_MP13K4M0To2S4Duu2kknllAb`), git-linked
+project **restaurant-system** (`prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz`). Dashboard:
+[ralfcams-projects/restaurant-system](https://vercel.com/ralfcams-projects/restaurant-system).
+MCP namespace `plugin-vercel-vercel` (`get_project` / `list_deployments` on
+this `prj_`). Env vars and `vercel link` are **CLI-only** — this MCP has no
+env tools. Runbook:
+[`docs/runbooks/deploy.md`](../docs/runbooks/deploy.md). Rule:
+[`rules/vercel-project.mdc`](rules/vercel-project.mdc).
+
 **Plan Mode only:** [`/audit`](commands/audit.md), [`/triage`](commands/triage.md),
 [`/dispatch`](commands/dispatch.md), [`/sdd-to-tdd`](commands/sdd-to-tdd.md),
 [`/design`](commands/design.md).
