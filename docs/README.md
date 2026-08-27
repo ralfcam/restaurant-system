@@ -57,6 +57,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | OH-PRIV service_role GRANT (`reazed-297_service-role_grant_5bde11c5`) | 2026-08-25 | `specs/scheduling.md` (§16 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`                                                                                   |
 | EARLY-PRIV sibling GRANT (`reazed-297_sibling_grants_097b94f3`)       | 2026-08-27 | `specs/scheduling.md` (§17 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`                                                                                   |
 | RES-PRIV / PUBLIC-READ-PRIV (`reazed-308_privileges_be131e14`)        | 2026-08-27 | `specs/booking-rules.md` (AC-5 trace), `specs/scheduling.md` (§18 trace), `specs/menu-availability.md` (AC-2 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md` |
+| Vercel git-link + hosted env (`vercel_env_via_cli_8a5a7c45`)          | 2026-08-27 | `runbooks/deploy.md`, `architecture/Platform-Overview.md`, repo-root `README.md`                                                                                                                                                              |
 
 ## Seed path
 

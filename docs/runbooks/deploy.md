@@ -5,19 +5,65 @@
 
 ## Vercel
 
-- Repo: [ralfcam/restaurant-system](https://github.com/ralfcam/restaurant-system)
-- Merges to `main` deploy on Vercel. Linked v0 project:
-  [prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO](https://v0.app/chat/projects/prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO).
+Canonical host is the **git-linked** project `restaurant-system` on team
+`ralfcams-projects` — not the v0 chat project, and not `syntex-global`.
 
-## Env vars (production)
+- Dashboard: [ralfcams-projects/restaurant-system](https://vercel.com/ralfcams-projects/restaurant-system)
+- Git: [ralfcam/restaurant-system](https://github.com/ralfcam/restaurant-system)
+- Team slug: `ralfcams-projects`
+- `teamId` / `orgId`: `team_MP13K4M0To2S4Duu2kknllAb`
+- `projectId`: `prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz` (from `.vercel/project.json` after `vercel link`; that directory is gitignored)
+- Merges to `main` deploy.
+- Production aliases: [restaurant-system-ralfcams-projects.vercel.app](https://restaurant-system-ralfcams-projects.vercel.app), [restlink.realized.dev](https://restlink.realized.dev)
 
-Set in Vercel project settings:
+Historical / chat only: v0 project
+[prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO](https://v0.app/chat/projects/prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO)
+and hostname `next-js-restaurant-system-mvp.vercel.app` are a **different**
+project. Do not treat them as this app’s deploy target. Do not retarget
+`syntex-global` (`prj_oWhr772lrsaNsUKWhpa0FAgle2p4`, `ralfcam/Syntex-V0`).
 
-- `NEXT_PUBLIC_SUPABASE_URL`
+MCP (`plugin-vercel-vercel`) has **no env-var tools**. This MCP token’s
+`list_projects` may only return `syntex-global`; `get_project` /
+`list_deployments` on this `prj_` have 404’d / 403’d. Use the CLI for link,
+env, and redeploy; keep `.vercel/` local.
+
+### CLI recipe
+
+Do **not** `npx vercel --prod` (or MCP `deploy_to_vercel`) — that uploads a
+new tree and bypasses the git link. After env changes, redeploy the existing
+git production deployment.
+
+Quote `production,preview` in PowerShell (`$targets = 'production,preview'`)
+so the comma is not parsed as an array.
+
+```powershell
+npx vercel whoami
+npx vercel link --yes --scope ralfcams-projects --project restaurant-system
+npx vercel env ls
+
+# URL is public (this runbook’s hosted ref). Keys: pipe from
+# `npx supabase projects api-keys --project-ref tilcqrudqxznnpepxjqq`, do not echo.
+$targets = 'production,preview'
+'https://tilcqrudqxznnpepxjqq.supabase.co' | npx vercel env add NEXT_PUBLIC_SUPABASE_URL $targets --yes --no-sensitive
+# anon → NEXT_PUBLIC_SUPABASE_ANON_KEY (same $targets, --no-sensitive)
+# service_role → SUPABASE_SERVICE_ROLE_KEY ($targets --sensitive)
+
+npx vercel ls restaurant-system --scope ralfcams-projects
+npx vercel redeploy <production-deployment-url>
+npx vercel inspect <new-or-aliased-url> --scope ralfcams-projects
+npx vercel curl / --deployment <production-url>
+```
+
+## Env vars (production + preview)
+
+CLI `vercel env add` (targets `production,preview` — staging PRs use the same
+hosted backend). Never use local Docker keys (`127.0.0.1:54321`).
+
+- `NEXT_PUBLIC_SUPABASE_URL` — `https://tilcqrudqxznnpepxjqq.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
-Never expose the service role key to the client bundle.
+Never expose the service role key to the client bundle. Never commit it.
 
 ## Supabase
 

@@ -1,0 +1,49 @@
+---
+description: Git-linked Vercel project IDs; MCP vs CLI (env and link are CLI-only)
+globs: docs/runbooks/deploy.md,vercel.json,.vercel/**,README.md
+alwaysApply: false
+---
+
+# Vercel project identity
+
+This app’s host is the **git-linked** Vercel project on `ralfcams-projects`,
+not v0 chat and not `syntex-global`.
+
+- Team slug: `ralfcams-projects`
+- `teamId` / `orgId`: `team_MP13K4M0To2S4Duu2kknllAb`
+- Project slug: `restaurant-system`
+- `projectId`: `prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz` (also in local `.vercel/project.json`)
+- Dashboard: https://vercel.com/ralfcams-projects/restaurant-system
+- Git: https://github.com/ralfcam/restaurant-system (`ralfcam/restaurant-system`)
+- Production alias: https://restaurant-system-ralfcams-projects.vercel.app
+- MCP server: `plugin-vercel-vercel`
+- Runbook: [docs/runbooks/deploy.md](../../docs/runbooks/deploy.md)
+
+## MCP vs CLI
+
+| Task | Use |
+| --- | --- |
+| `vercel link`, `vercel env ls` / `add` / `rm` | **CLI only** (MCP has no env-var tools) |
+| Logs, inspect, list deployments | MCP **once** `prj_` is known; CLI if MCP 404s/403s |
+| Redeploy after env change | CLI `vercel redeploy <existing-production-url>` |
+
+This MCP token’s `list_projects` may only return `syntex-global`.
+`get_project` / `list_deployments` on this `prj_` have 404’d / 403’d — continue
+with CLI; do not invent another project id.
+
+## Do not
+
+- Do not `create_git_project` (409 — already linked).
+- Do not retarget `syntex-global` / `prj_oWhr772lrsaNsUKWhpa0FAgle2p4`
+  (`ralfcam/Syntex-V0`).
+- Do not treat v0 `prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO` or
+  `next-js-restaurant-system-mvp.vercel.app` as this app’s host.
+- Do not `npx vercel --prod` or MCP `deploy_to_vercel` to set env — that
+  uploads a new tree and bypasses the git link.
+- Do not point production at local Docker keys (`127.0.0.1:54321`). Hosted
+  backend is Supabase `tilcqrudqxznnpepxjqq`.
+- Do not print `SUPABASE_SERVICE_ROLE_KEY` in chat or commits. `.vercel/` stays
+  gitignored.
+
+Env targets: **production and preview** for `NEXT_PUBLIC_SUPABASE_URL`,
+`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.

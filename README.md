@@ -83,7 +83,11 @@ Start at [docs/README.md](docs/README.md). Acceptance criteria live in
 
 ## Deploy
 
-Merges to `main` deploy on Vercel. Runbook:
-[docs/runbooks/deploy.md](docs/runbooks/deploy.md).
+Merges to `main` deploy on the git-linked Vercel project
+[ralfcams-projects/restaurant-system](https://vercel.com/ralfcams-projects/restaurant-system)
+(`prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz`). Production alias:
+[restaurant-system-ralfcams-projects.vercel.app](https://restaurant-system-ralfcams-projects.vercel.app).
+Runbook: [docs/runbooks/deploy.md](docs/runbooks/deploy.md).
 
-Continue on v0: [v0 project](https://v0.app/chat/projects/prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO).
+Historical v0 chat project (not the hosting target):
+[prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO](https://v0.app/chat/projects/prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO).

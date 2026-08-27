@@ -81,6 +81,7 @@ not logged in with no way to authenticate, or a non-zero exit from the reset).
    or `npx supabase db lint --linked --fail-on error`.
 
 Do not push, deploy, or touch Vercel — this command only resets the linked DB.
+Vercel is https://vercel.com/ralfcams-projects/restaurant-system; this command still must not touch it.
 </instructions>
 
 <constraints>
