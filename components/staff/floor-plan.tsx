@@ -914,7 +914,8 @@ export function FloorPlan({
               Tonight’s book
             </h3>
             <p className="mb-3 text-xs text-muted-foreground">
-              Tables are auto-assigned 15 minutes before the booked time.
+              Tables are auto-assigned at booked time minus expected turn
+              (default 90).
             </p>
             {upcoming.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">

@@ -18,4 +18,20 @@ GRANT ALL ON TABLE blocked_dates TO service_role;
 GRANT ALL ON TABLE reservations TO service_role;
 GRANT ALL ON TABLE menu_items TO service_role;
 
+-- REAZED-308: RES-PRIV — drop public SELECT (keep DROP IF EXISTS; do not CREATE);
+-- GRANT INSERT / REVOKE SELECT, UPDATE, DELETE for anon, authenticated.
+DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
+GRANT INSERT ON TABLE reservations TO anon, authenticated;
+REVOKE SELECT, UPDATE, DELETE ON TABLE reservations FROM anon, authenticated;
+
+-- REAZED-308: PUBLIC-READ-PRIV — GRANT SELECT / REVOKE INSERT, UPDATE, DELETE
+-- for anon, authenticated.
+GRANT SELECT ON TABLE blocked_dates TO anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON TABLE blocked_dates FROM anon, authenticated;
+
+-- REAZED-308: PUBLIC-READ-PRIV — GRANT SELECT / REVOKE INSERT, UPDATE, DELETE
+-- for anon, authenticated on menu_items.
+GRANT SELECT ON TABLE menu_items TO anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON TABLE menu_items FROM anon, authenticated;
+
 NOTIFY pgrst, 'reload schema';

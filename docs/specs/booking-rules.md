@@ -20,11 +20,20 @@ _(Expand during first `/sdd-to-tdd` run.)_
    selected date are rejected.
 4. **Confirmation code** — Successful booking returns a unique `conf_code` (format
    `TVL-####`).
-5. **RLS** — Guest-facing reservation reads/writes obey Supabase RLS; service role
-   used only in documented admin paths. Table privileges MUST
-   `GRANT ALL ON TABLE reservations TO service_role` in
-   `00000000000000_baseline.sql` and
-   `20260825140000_operating_windows_privilege.sql` (scheduling.md §17).
+5. **RLS / RES-PRIV** — Guest booking is insert-only on `reservations`. Table
+   privileges MUST `GRANT INSERT ON TABLE reservations TO anon, authenticated`
+   and
+   `REVOKE SELECT, UPDATE, DELETE ON TABLE reservations FROM anon, authenticated`
+   in `00000000000000_baseline.sql`,
+   `20260825140000_operating_windows_privilege.sql`, and
+   `20260827160000_public_catalog_privileges.sql`. There MUST NOT be
+   `GRANT SELECT ON TABLE reservations TO anon` or `TO authenticated`. Policy
+   `Allow public insert reservations` stays. Policy
+   `Allow public read reservations` MUST be dropped (`DROP POLICY IF EXISTS` …;
+   no `CREATE`). Staff reads/writes stay `requireStaffUser` + `service_role` on
+   documented admin paths (`getReservationsByDate` and siblings).
+   `GRANT ALL TO service_role` stays (scheduling.md §17). Guest PII (name, phone,
+   notes) MUST NOT be readable via the anon key.
 
 ## Guest booking widget (segmented slots)
 
@@ -83,16 +92,17 @@ the route locale. An in-widget language toggle is out of scope.
 
 ## Implementation trace (non-normative)
 
-| Criterion | Shipped in                                                     | Tests                                                                                          |
-| --------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| BW-1      | `lib/reservations/operating-hours.ts` — `assignSegmentForTime` | `tests/unit/reservations/operating-hours.test.ts`                                              |
-| BW-2      | same — `slotUntilTime`, `wrapMinutesOfDay`                     | same — `slotUntilTime`                                                                         |
-| BW-3      | same — `clampSlotIntervalMinutes`                              | same — `clampSlotIntervalMinutes`                                                              |
-| BW-4      | same — `groupBookableSlots`                                    | same — `groupBookableSlots`                                                                    |
-| BW-5      | `app/actions/reservations.ts` — `getAvailableSlots`            | `tests/unit/reservations/available-slots.test.ts`                                              |
-| BW-6      | `components/site/reservation-widget.tsx`                       | `tests/unit/reservation-widget/segment-groups.test.ts`                                         |
-| BW-7      | same                                                           | same (Réserver gate)                                                                           |
-| BW-8      | same; `messages/en.json`, `messages/fr.json`                   | `tests/unit/reservation-widget/chrome-i18n.test.ts`, `tests/unit/i18n/messages-parity.test.ts` |
+| Criterion     | Shipped in                                                                                                                                                                                                                                                                                                                                                  | Tests                                                                                                                         |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| BW-1          | `lib/reservations/operating-hours.ts` — `assignSegmentForTime`                                                                                                                                                                                                                                                                                              | `tests/unit/reservations/operating-hours.test.ts`                                                                             |
+| BW-2          | same — `slotUntilTime`, `wrapMinutesOfDay`                                                                                                                                                                                                                                                                                                                  | same — `slotUntilTime`                                                                                                        |
+| BW-3          | same — `clampSlotIntervalMinutes`                                                                                                                                                                                                                                                                                                                           | same — `clampSlotIntervalMinutes`                                                                                             |
+| BW-4          | same — `groupBookableSlots`                                                                                                                                                                                                                                                                                                                                 | same — `groupBookableSlots`                                                                                                   |
+| BW-5          | `app/actions/reservations.ts` — `getAvailableSlots`                                                                                                                                                                                                                                                                                                         | `tests/unit/reservations/available-slots.test.ts`                                                                             |
+| BW-6          | `components/site/reservation-widget.tsx`                                                                                                                                                                                                                                                                                                                    | `tests/unit/reservation-widget/segment-groups.test.ts`                                                                        |
+| BW-7          | same                                                                                                                                                                                                                                                                                                                                                        | same (Réserver gate)                                                                                                          |
+| BW-8          | same; `messages/en.json`, `messages/fr.json`                                                                                                                                                                                                                                                                                                                | `tests/unit/reservation-widget/chrome-i18n.test.ts`, `tests/unit/i18n/messages-parity.test.ts`                                |
+| AC-5 RES-PRIV | `GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE` on `reservations`; `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); no `GRANT SELECT` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql`, `supabase/migrations/20260827160000_public_catalog_privileges.sql` | `tests/integration/reservations/public-privileges.integ.test.ts` → "anon can INSERT reservations and cannot SELECT guest PII" |
 
 ## References
 

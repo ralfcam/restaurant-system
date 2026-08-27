@@ -64,6 +64,18 @@ describe("floor tables schema and live surfaces", () => {
     expect(floor).not.toMatch(/t\.shape ===/)
   })
 
+  it("Tonight’s book copy uses expected-turn lead default 90", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+    const helper = floor.match(
+      /Tonight[\u2019']s book[\s\S]*?<p className="mb-3 text-xs text-muted-foreground">\s*([\s\S]*?)\s*<\/p>/,
+    )?.[1]
+
+    expect(helper).toBeTruthy()
+    expect(helper).not.toMatch(/15 minutes before the booked time/)
+    expect(helper).toMatch(/90/)
+    expect(helper).toMatch(/expected turn|90 minutes before the booked time/i)
+  })
+
   it("forward migration adds expected time and merge tables", () => {
     const migration = read(
       "supabase/migrations/20260818193000_table_expected_minutes_and_merges.sql",

@@ -61,9 +61,24 @@ const NAV = [
 ]
 
 const NAV_GROUPS = [
-  { label: "Service", items: NAV.filter((item) => ["/admin", "/admin/reservations", "/admin/floor"].includes(item.href)) },
-  { label: "Operations", items: NAV.filter((item) => ["/pos", "/kds", "/admin/scheduling"].includes(item.href)) },
-  { label: "Setup", items: NAV.filter((item) => ["/admin/menu", "/admin/settings"].includes(item.href)) },
+  {
+    label: "Service",
+    items: NAV.filter((item) =>
+      ["/admin", "/admin/reservations", "/admin/floor"].includes(item.href),
+    ),
+  },
+  {
+    label: "Operations",
+    items: NAV.filter((item) =>
+      ["/pos", "/kds", "/admin/scheduling"].includes(item.href),
+    ),
+  },
+  {
+    label: "Setup",
+    items: NAV.filter((item) =>
+      ["/admin/menu", "/admin/settings"].includes(item.href),
+    ),
+  },
 ]
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -76,16 +91,28 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
             {group.label}
           </p>
           {group.items.map((item) => {
-            const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
+            const active =
+              item.href === "/admin"
+                ? pathname === "/admin"
+                : pathname.startsWith(item.href)
             const Icon = item.icon
             return (
-              <Link key={item.href} href={item.href} onClick={onNavigate} className={cn(
-                "flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
-                active ? "bg-sidebar-primary text-sidebar-primary-foreground" : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-              )}>
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={cn(
+                  "flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors",
+                  active
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                )}
+              >
                 <Icon className="size-5 shrink-0" />
                 <span className="flex-1">{item.label}</span>
-                <span className="text-[10px] uppercase tracking-wide opacity-60">{item.role}</span>
+                <span className="text-[10px] uppercase tracking-wide opacity-60">
+                  {item.role}
+                </span>
               </Link>
             )
           })}
@@ -93,17 +120,38 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
       ))}
     </nav>
   )
-} 
+}
 
 function MobileBottomNav() {
   const pathname = usePathname()
-  const items = NAV.filter((item) => ["/admin", "/admin/reservations", "/pos"].includes(item.href))
+  const items = NAV.filter((item) =>
+    ["/admin", "/admin/reservations", "/pos"].includes(item.href),
+  )
   return (
-    <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
+    <nav
+      aria-label="Quick navigation"
+      className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+    >
       {items.map((item) => {
-        const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
+        const active =
+          item.href === "/admin"
+            ? pathname === "/admin"
+            : pathname.startsWith(item.href)
         const Icon = item.icon
-        return <Link key={item.href} href={item.href} className={cn("flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium", active ? "text-primary" : "text-muted-foreground")} aria-current={active ? "page" : undefined}><Icon className="size-5" /><span>{item.label === "Point of Sale" ? "POS" : item.label}</span></Link>
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            className={cn(
+              "flex min-h-16 flex-col items-center justify-center gap-1 text-xs font-medium",
+              active ? "text-primary" : "text-muted-foreground",
+            )}
+            aria-current={active ? "page" : undefined}
+          >
+            <Icon className="size-5" />
+            <span>{item.label === "Point of Sale" ? "POS" : item.label}</span>
+          </Link>
+        )
       })}
     </nav>
   )

@@ -89,7 +89,15 @@ before picking anything.
      Capture `id`, `title`, `priority`, `state`, `labels`, `estimate`, `project`,
      `projectMilestone`, `cycleId`, `statusType`, parent/relations on every
      issue read.
-3. Confirm current git branch (`git branch --show-current`) so the local-lane
+     A successful read returning empty `estimate` / empty `blocks` is a
+     **verified negative** (record it as fact). `cannot verify` is for
+     tool/MCP failure — only when the MCP call failed or the field was not
+     returned.
+3. `get_issue` with `includeRelations: true` on **every** High issue and
+   **every** Todo candidate (not a sample). Do not skip this read because
+   `list_issues` already requested `estimate`; `blocks` relations come from
+   `includeRelations`.
+4. Confirm current git branch (`git branch --show-current`) so the local-lane
    recipe can say "stay on this `staging` checkout" or warn if the operator
    is not on `staging`.
 
@@ -349,8 +357,9 @@ command does not invent an identity or open a spawn door:
 1. STEP 0 Plan Mode gate — stop with the exact sentence if not in Plan Mode.
 2. Read staging-accumulator.mdc. Inventory Todo + Urgent/High yourself via
    Linear MCP (no subagent MCP), including `list_cycles({ teamId, type:
-"current" })`. Rank milestones from PHASE 1B on this run's reads only
-   (recompute every run).
+"current" })` and `get_issue` with `includeRelations: true` on every High
+   and every Todo candidate. Rank milestones from PHASE 1B on this run's
+   reads only (recompute every run).
 3. Hub-walk every candidate. Apply eligibility. Drop `cannot verify`.
    Milestone rank does not reopen a dropped candidate.
 4. Pick local lane (top Urgent/High, stay on `staging`; same-priority order
@@ -454,7 +463,10 @@ cannot verify / prunable-class).
 
 ## Cannot Verify
 
-One line each: item · reason (MCP / spec / graph).
+One line each: item · reason (MCP / spec / graph). Empty `estimate` / empty
+`blocks` on a successful read is a **verified negative** (record it as fact).
+`cannot verify` is for tool/MCP failure — not a skipped read of a returned
+empty field.
 
 ## Cloud lane
 

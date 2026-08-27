@@ -23,3 +23,6 @@ supabase/.branches
 docs/eval
 docs/verifier-reports
 docs/findings/runs
+
+# harness-lint negative-control fixture (intentionally unformatted)
+.cursor/checks/fixtures/unformatted.md

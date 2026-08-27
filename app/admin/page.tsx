@@ -41,18 +41,49 @@ export default async function AdminDashboardPage() {
         </Button>
       }
     >
-      <section aria-label="Tonight's service" className="grid gap-4 sm:grid-cols-3">
-        <StatCard icon={CalendarClock} label="Bookings tonight" value={todays.length} hint="Confirmed and seated" tone="primary" />
-        <StatCard icon={Users} label="Expected covers" value={covers} hint="Guests on the books" />
-        <StatCard icon={Armchair} label="Floor occupancy" value={`${seated}/${TABLES.length}`} hint={`${available} tables available`} tone="accent" />
+      <section
+        aria-label="Tonight's service"
+        className="grid gap-4 sm:grid-cols-3"
+      >
+        <StatCard
+          icon={CalendarClock}
+          label="Bookings tonight"
+          value={todays.length}
+          hint="Confirmed and seated"
+          tone="primary"
+        />
+        <StatCard
+          icon={Users}
+          label="Expected covers"
+          value={covers}
+          hint="Guests on the books"
+        />
+        <StatCard
+          icon={Armchair}
+          label="Floor occupancy"
+          value={`${seated}/${TABLES.length}`}
+          hint={`${available} tables available`}
+          tone="accent"
+        />
       </section>
 
       <section className="mt-6 flex flex-col gap-4 rounded-xl border border-primary/25 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
         <div className="flex items-start gap-3">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground"><CheckCircle2 className="size-5" /></span>
-          <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">Service is live</p><p className="mt-1 text-sm text-muted-foreground">{seated} tables seated · {available} ready for guests</p></div>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+            <CheckCircle2 className="size-5" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              Service is live
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {seated} tables seated · {available} ready for guests
+            </p>
+          </div>
         </div>
-        <Button variant="outline" render={<Link href="/admin/floor" />}>Open floor plan <ArrowRight data-icon="inline-end" /></Button>
+        <Button variant="outline" render={<Link href="/admin/floor" />}>
+          Open floor plan <ArrowRight data-icon="inline-end" />
+        </Button>
       </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

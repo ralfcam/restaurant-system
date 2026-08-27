@@ -25,12 +25,13 @@ Never expose the service role key to the client bundle.
 
 ### Schema vs seed
 
-| Artifact                             | Path                                                                 | Loaded on `db reset`                                            |
-| ------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Schema (tables, RLS, triggers)       | `supabase/migrations/00000000000000_baseline.sql`                    | Yes — migrations step                                           |
-| Forward: opening-hour segments       | `supabase/migrations/20260818162000_operating_hour_segments.sql`     | Yes on local reset; apply on already-baselined remotes          |
-| Forward: operating_windows privilege | `supabase/migrations/20260825140000_operating_windows_privilege.sql` | Yes on local reset; apply on already-baselined remotes          |
-| Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml` |
+| Artifact                             | Path                                                                 | Loaded on `db reset`                                                |
+| ------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Schema (tables, RLS, triggers)       | `supabase/migrations/00000000000000_baseline.sql`                    | Yes — migrations step                                               |
+| Forward: opening-hour segments       | `supabase/migrations/20260818162000_operating_hour_segments.sql`     | Yes on local reset; apply on already-baselined remotes              |
+| Forward: operating_windows privilege | `supabase/migrations/20260825140000_operating_windows_privilege.sql` | Yes on local reset; apply on already-baselined remotes              |
+| Forward: public catalog privileges   | `supabase/migrations/20260827160000_public_catalog_privileges.sql`   | Yes on local reset; apply when `20260825140000` is already recorded |
+| Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
 `operating_windows` (7 rows), and `menu_items` (120 rows from the sample
@@ -45,8 +46,9 @@ Single idempotent baseline — extend `00000000000000_baseline.sql` for schema c
 instead of adding dated migration files. Policy detail:
 `.cursor/rules/supabase-migrations.mdc`.
 
-`20260818162000_operating_hour_segments.sql` and
-`20260825140000_operating_windows_privilege.sql` are the forward-only exceptions
+`20260818162000_operating_hour_segments.sql`,
+`20260825140000_operating_windows_privilege.sql`, and
+`20260827160000_public_catalog_privileges.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -73,16 +75,22 @@ the authenticated `FOR ALL` policy on `operating_windows`
 (`DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"`;
 no `CREATE`), then the same `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`
 strings as baseline for `anon, authenticated`, plus
-`GRANT ALL ON TABLE operating_windows TO service_role` in that same file
-(no third dated migration; `20260825140000` is not recorded on
-`tilcqrudqxznnpepxjqq`). The same file also
+`GRANT ALL ON TABLE operating_windows TO service_role` in that same file.
+The same file also
 `GRANT ALL ON TABLE blocked_dates TO service_role`, and the same for
 `reservations` and `menu_items` (EARLY-PRIV). That does not drop those tables'
-authenticated `FOR ALL` policies or change their anon/authenticated privileges.
-Until that file is applied on a
-forked remote that still has the old policy or DML grants, a logged-in Data API
-client can mutate hours. Spec: [../specs/scheduling.md](../specs/scheduling.md)
-OH-PRIV (§16), EARLY-PRIV (§17). Apply per the recipe below; do not `db push`.
+authenticated `FOR ALL` policies (REAZED-299). It also carries RES-PRIV
+(`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE` on `reservations`;
+`DROP POLICY IF EXISTS "Allow public read reservations"`, no `CREATE`) and
+PUBLIC-READ-PRIV (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` on
+`blocked_dates` and `menu_items`). If `20260825140000` is already recorded,
+those catalog strings must be applied via
+`20260827160000_public_catalog_privileges.sql` (editing an applied file does
+not re-run). Spec: [../specs/scheduling.md](../specs/scheduling.md)
+OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18). Apply per the recipes
+below; do not `db push`. Until `20260825140000` is applied on a forked remote
+that still has the old hours policy or DML grants, a logged-in Data API client
+can mutate hours.
 
 ### Apply a single forward migration on an already-baselined remote
 
@@ -151,7 +159,52 @@ replay history the remote has diverged from.
    INSERT/UPDATE/DELETE) is true — `GRANT ALL` is in that same file. Confirm
    the same `has_table_privilege('service_role', '<t>', 'SELECT')` (and
    INSERT/UPDATE/DELETE) is true for `blocked_dates`, `reservations`, and
-   `menu_items`.
+   `menu_items`. If this version is already recorded, apply
+   `20260827160000_public_catalog_privileges.sql` for RES-PRIV / PUBLIC-READ-PRIV
+   (below) instead of re-running this file.
+
+### Apply `20260827160000_public_catalog_privileges.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-08-27 — apply this file when `20260825140000` is already
+recorded (M1-linked-remote-apply; do not `db push`). Then confirm
+`has_table_privilege('anon', 'reservations', 'INSERT')` is true and
+`has_table_privilege('anon', 'reservations', 'SELECT')` is false; confirm
+`has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
+`has_table_privilege('anon', 'menu_items', 'SELECT')` are true and INSERT is
+false for both.
+
+Do not use `db push` or `db reset --linked` for this — the file already ends
+with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
+replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260827160000_public_catalog_privileges.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260827160000', 'public_catalog_privileges');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260827160000 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260827160000';
+   ```
+
+   Confirm `has_table_privilege('anon', 'reservations', 'INSERT')` is true and
+   `has_table_privilege('anon', 'reservations', 'SELECT')` is false. Confirm
+   the same INSERT/SELECT split for `authenticated`. Confirm
+   `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
+   `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
+   is false for both. Confirm policy `"Allow public read reservations"` is gone.
 
 ### Reset database
 
