@@ -14,10 +14,9 @@ Specs live in [`docs/specs/`](../docs/specs/).
 Vercel team **ralfcams-projects** (`team_MP13K4M0To2S4Duu2kknllAb`), git-linked
 project **restaurant-system** (`prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz`). Dashboard:
 [ralfcams-projects/restaurant-system](https://vercel.com/ralfcams-projects/restaurant-system).
-MCP namespace `plugin-vercel-vercel` (logs/deployments once `prj_` is known).
-Env vars and `vercel link` are **CLI-only** — this MCP has no env tools.
-`list_projects` on this MCP token may only return `syntex-global`; use
-`.vercel/project.json` or the dashboard `prj_`. Runbook:
+MCP namespace `plugin-vercel-vercel` (`get_project` / `list_deployments` on
+this `prj_`). Env vars and `vercel link` are **CLI-only** — this MCP has no
+env tools. Runbook:
 [`docs/runbooks/deploy.md`](../docs/runbooks/deploy.md). Rule:
 [`rules/vercel-project.mdc`](rules/vercel-project.mdc).
 

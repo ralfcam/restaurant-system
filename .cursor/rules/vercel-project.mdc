@@ -24,12 +24,13 @@ not v0 chat and not `syntex-global`.
 | Task | Use |
 | --- | --- |
 | `vercel link`, `vercel env ls` / `add` / `rm` | **CLI only** (MCP has no env-var tools) |
-| Logs, inspect, list deployments | MCP **once** `prj_` is known; CLI if MCP 404s/403s |
+| Logs, inspect, list deployments | MCP (`get_project`, `list_deployments`, `get_deployment`) |
 | Redeploy after env change | CLI `vercel redeploy <existing-production-url>` |
 
-This MCP token’s `list_projects` may only return `syntex-global`.
-`get_project` / `list_deployments` on this `prj_` have 404’d / 403’d — continue
-with CLI; do not invent another project id.
+`list_projects` on this team returns many apps; pick `restaurant-system` /
+`prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz` (git `ralfcam/restaurant-system`). A
+narrow MCP grant that omits this project 404s/403s — re-authorize rather
+than inventing another id.
 
 ## Do not
 

@@ -22,10 +22,10 @@ and hostname `next-js-restaurant-system-mvp.vercel.app` are a **different**
 project. Do not treat them as this app’s deploy target. Do not retarget
 `syntex-global` (`prj_oWhr772lrsaNsUKWhpa0FAgle2p4`, `ralfcam/Syntex-V0`).
 
-MCP (`plugin-vercel-vercel`) has **no env-var tools**. This MCP token’s
-`list_projects` may only return `syntex-global`; `get_project` /
-`list_deployments` on this `prj_` have 404’d / 403’d. Use the CLI for link,
-env, and redeploy; keep `.vercel/` local.
+MCP (`plugin-vercel-vercel`) has **no env-var tools**. After a team-wide
+plugin grant, `get_project` / `list_deployments` work on this `prj_`. Use
+the CLI for `vercel link`, `vercel env`, and `vercel redeploy`. Keep
+`.vercel/` local. A narrow grant that omits this project 404s/403s — re-authorize.
 
 ### CLI recipe
 
