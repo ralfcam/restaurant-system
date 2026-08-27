@@ -47,6 +47,27 @@ describe("branding CMS schema and surfaces", () => {
     expect(allSql).toMatch(/slot_interval_minutes IN \(15, 30, 60\)/)
   })
 
+  it("restaurant_settings occupancy duration defaults to 90 and safety buffer to 15", () => {
+    const migrationsDir = path.join(root, "supabase/migrations")
+    const files = [
+      "00000000000000_baseline.sql",
+      "20260823130000_restaurant_info_and_chefs_picks.sql",
+      "20260827180000_occupancy_duration_buffer.sql",
+    ]
+
+    for (const name of files) {
+      const fullPath = path.join(migrationsDir, name)
+      const sql = existsSync(fullPath) ? readFileSync(fullPath, "utf8") : ""
+
+      expect(sql).toMatch(/occupancy_duration_minutes INT NOT NULL DEFAULT 90/i)
+      expect(sql).toMatch(/safety_buffer_minutes INT NOT NULL DEFAULT 15/i)
+      expect(sql).toMatch(/occupancy_duration_minutes BETWEEN 30 AND 240/i)
+      expect(sql).toMatch(/occupancy_duration_minutes % 15 = 0/)
+      expect(sql).toMatch(/safety_buffer_minutes BETWEEN 0 AND 60/i)
+      expect(sql).toMatch(/safety_buffer_minutes % 5 = 0/)
+    }
+  })
+
   it("seed keeps the CMS singleton blank by default (no logo, no hero photo)", () => {
     const seed = readFileSync(path.join(root, "supabase/seed.sql"), "utf8")
     expect(seed).toMatch(

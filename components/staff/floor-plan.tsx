@@ -17,11 +17,20 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { TABLE_STATUS_META, type TableStatus } from "@/lib/data"
-import { updateSlotIntervalMinutes } from "@/app/actions/branding"
+import {
+  updateOccupancyDurationMinutes,
+  updateSafetyBufferMinutes,
+  updateSlotIntervalMinutes,
+} from "@/app/actions/branding"
 import {
   ALLOWED_SLOT_INTERVALS,
+  clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
+  DEFAULT_SAFETY_BUFFER_MINUTES,
   DEFAULT_SLOT_INTERVAL_MINUTES,
+  MAX_SAFETY_BUFFER_MINUTES,
+  MIN_SAFETY_BUFFER_MINUTES,
+  SAFETY_BUFFER_STEP_MINUTES,
   type SlotIntervalMinutes,
 } from "@/lib/reservations/operating-hours"
 import {
@@ -41,8 +50,11 @@ import { tableChipSizeClass, tableShapeForSeats } from "@/lib/table-shape"
 import {
   canMergeTables,
   clampExpectedMinutes,
+  DEFAULT_EXPECTED_MINUTES,
   EXPECTED_MINUTES_STEP,
   formatDurationMinutes,
+  MAX_EXPECTED_MINUTES,
+  MIN_EXPECTED_MINUTES,
   remainingMinutes,
 } from "@/lib/floor/table-use"
 import { groupTablesForDisplay } from "@/lib/floor/floor-units"
@@ -116,14 +128,89 @@ type FloorDrag = {
   moved: boolean
 }
 
+async function persistOptimisticSetting<T>(
+  next: T,
+  previous: T,
+  setValue: (value: T) => void,
+  update: (value: T) => Promise<{ error?: string }>,
+  fallbackError: string,
+) {
+  setValue(next)
+  try {
+    const result = await update(next)
+    if (result.error) {
+      setValue(previous)
+      toast.error(result.error)
+    }
+  } catch {
+    setValue(previous)
+    toast.error(fallbackError)
+  }
+}
+
+function MinutesStepperButtons({
+  value,
+  min,
+  max,
+  step,
+  decreaseAriaLabel,
+  increaseAriaLabel,
+  valueClassName,
+  onStep,
+}: {
+  value: number
+  min: number
+  max: number
+  step: number
+  decreaseAriaLabel: string
+  increaseAriaLabel: string
+  valueClassName: string
+  onStep: (next: number) => void
+}) {
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        aria-label={decreaseAriaLabel}
+        disabled={value <= min}
+        onClick={() => onStep(value - step)}
+      >
+        <Minus className="size-4" />
+      </Button>
+      <span
+        className={cn(
+          "text-center text-sm font-medium tabular-nums",
+          valueClassName,
+        )}
+      >
+        {value}
+      </span>
+      <Button
+        size="sm"
+        variant="outline"
+        aria-label={increaseAriaLabel}
+        disabled={value >= max}
+        onClick={() => onStep(value + step)}
+      >
+        <Plus className="size-4" />
+      </Button>
+    </>
+  )
+}
+
 export function FloorPlan({
   date,
   fallbackData,
   initialSlotInterval = DEFAULT_SLOT_INTERVAL_MINUTES,
+  initialOccupancyDuration = DEFAULT_EXPECTED_MINUTES,
+  initialSafetyBuffer = DEFAULT_SAFETY_BUFFER_MINUTES,
 }: {
   date: string
   fallbackData?: FloorSnapshot
   initialSlotInterval?: SlotIntervalMinutes
+  initialOccupancyDuration?: number
+  initialSafetyBuffer?: number
 }) {
   const {
     tables: loadedTables,
@@ -147,6 +234,12 @@ export function FloorPlan({
   const [unlockedIds, setUnlockedIds] = useState<Set<string>>(new Set())
   const [slotInterval, setSlotInterval] = useState<SlotIntervalMinutes>(
     clampSlotIntervalMinutes(initialSlotInterval),
+  )
+  const [occupancyDuration, setOccupancyDuration] = useState(
+    clampExpectedMinutes(initialOccupancyDuration),
+  )
+  const [safetyBuffer, setSafetyBuffer] = useState(
+    clampSafetyBufferMinutes(initialSafetyBuffer),
   )
   const [draftPositions, setDraftPositions] = useState<
     Record<string, FloorCell>
@@ -296,18 +389,39 @@ export function FloorPlan({
   }
 
   async function persistSlotInterval(minutes: SlotIntervalMinutes) {
-    const previous = slotInterval
-    setSlotInterval(minutes)
-    try {
-      const result = await updateSlotIntervalMinutes(minutes)
-      if (result.error) {
-        setSlotInterval(previous)
-        toast.error(result.error)
-      }
-    } catch {
-      setSlotInterval(previous)
-      toast.error("Could not save slot interval")
-    }
+    await persistOptimisticSetting(
+      minutes,
+      slotInterval,
+      setSlotInterval,
+      updateSlotIntervalMinutes,
+      "Could not save slot interval",
+    )
+  }
+
+  async function persistOccupancyDuration(minutes: number) {
+    await persistOptimisticSetting(
+      clampExpectedMinutes(minutes),
+      occupancyDuration,
+      setOccupancyDuration,
+      updateOccupancyDurationMinutes,
+      "Could not save occupancy duration",
+    )
+  }
+
+  async function persistSafetyBuffer(minutes: number) {
+    // minimality: clampSafetyBufferMinutes fail-to-defaults outside 0–60; bound first so 60+5 stays 60.
+    await persistOptimisticSetting(
+      clampSafetyBufferMinutes(
+        Math.min(
+          MAX_SAFETY_BUFFER_MINUTES,
+          Math.max(MIN_SAFETY_BUFFER_MINUTES, minutes),
+        ),
+      ),
+      safetyBuffer,
+      setSafetyBuffer,
+      updateSafetyBufferMinutes,
+      "Could not save safety buffer",
+    )
   }
 
   async function addTable() {
@@ -636,6 +750,52 @@ export function FloorPlan({
                       {minutes}
                     </Button>
                   ))}
+                </div>
+                <div
+                  data-testid="occupancy-duration-control"
+                  role="group"
+                  aria-labelledby="occupancy-duration-label"
+                  className="flex items-center gap-1.5"
+                >
+                  <span
+                    id="occupancy-duration-label"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Occupancy duration
+                  </span>
+                  <MinutesStepperButtons
+                    value={occupancyDuration}
+                    min={MIN_EXPECTED_MINUTES}
+                    max={MAX_EXPECTED_MINUTES}
+                    step={EXPECTED_MINUTES_STEP}
+                    decreaseAriaLabel="Decrease occupancy duration"
+                    increaseAriaLabel="Increase occupancy duration"
+                    valueClassName="min-w-10"
+                    onStep={(next) => void persistOccupancyDuration(next)}
+                  />
+                </div>
+                <div
+                  data-testid="safety-buffer-control"
+                  role="group"
+                  aria-labelledby="safety-buffer-label"
+                  className="flex items-center gap-1.5"
+                >
+                  <span
+                    id="safety-buffer-label"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Safety buffer
+                  </span>
+                  <MinutesStepperButtons
+                    value={safetyBuffer}
+                    min={MIN_SAFETY_BUFFER_MINUTES}
+                    max={MAX_SAFETY_BUFFER_MINUTES}
+                    step={SAFETY_BUFFER_STEP_MINUTES}
+                    decreaseAriaLabel="Decrease safety buffer"
+                    increaseAriaLabel="Increase safety buffer"
+                    valueClassName="min-w-8"
+                    onStep={(next) => void persistSafetyBuffer(next)}
+                  />
                 </div>
                 {unlockedIds.size > 0 ? (
                   <Button

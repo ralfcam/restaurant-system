@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-27
 
 ## Prerequisites
 
@@ -61,6 +61,11 @@ pnpm test:integration tests/integration/scheduling/replace-operating-windows.int
 - Setup: `tests/integration/setup.ts` (honours `RESTAURANT_INTEGRATION_STRICT`)
 - Helpers: `tests/integration/helpers/`
 - Tests: `tests/integration/**/*.integ.test.ts`
+- Occupancy window trigger:
+  `tests/integration/reservations/occupancy-window.integ.test.ts` (inserts a
+  far-future hold, then `createReservation`; mocks `next/cache`). Linked-remote
+  apply of `20260827180000_occupancy_duration_buffer.sql` is manual-UAT —
+  [../runbooks/deploy.md](../runbooks/deploy.md).
 
 ## Skip vs strict
 

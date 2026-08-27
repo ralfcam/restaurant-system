@@ -16,11 +16,19 @@ import {
 import { validateReservationPayload } from "@/lib/reservations/validation"
 import {
   bookableTimesForDay,
+  clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
   formatSegmentsSummary,
   isTimeWithinSegments,
+  nextBookableTime,
+  normalizeTime,
 } from "@/lib/reservations/operating-hours"
 import {
+  clampExpectedMinutes,
+  DEFAULT_EXPECTED_MINUTES,
+} from "@/lib/floor/table-use"
+import {
+  ACTIVE_RESERVATION_STATUSES,
   planAutoAssignments,
   type PlannedAssignment,
 } from "@/lib/reservations/auto-assign"
@@ -423,7 +431,7 @@ export async function autoAssignDueReservations(): Promise<{
     .from("reservations")
     .select("*")
     .eq("date", now.date)
-    .in("status", ["confirmed", "seated"])
+    .in("status", ACTIVE_RESERVATION_STATUSES)
     .order("time", { ascending: true })
 
   if (reservationError) {
@@ -517,15 +525,46 @@ export type SlotAvailability = {
   available: boolean
 }
 
+function occupancyDurationFromSettings(
+  minutes: number | null | undefined,
+): number {
+  return clampExpectedMinutes(minutes ?? DEFAULT_EXPECTED_MINUTES)
+}
+
+/**
+ * Guest-readable occupancy duration for the until-badge (BW-2).
+ * Named apart from the staff-gated `getOccupancyDurationMinutes` in branding
+ * so a wrong import cannot silently pin the badge at the unauthenticated default.
+ */
+export async function getGuestOccupancyDurationMinutes(): Promise<number> {
+  const db = createServiceClient()
+  const { data, error } = await db
+    .from("restaurant_settings")
+    .select("occupancy_duration_minutes")
+    .eq("id", 1)
+    .maybeSingle()
+  if (error) {
+    console.error(
+      "[reservations] getGuestOccupancyDurationMinutes:",
+      error.message,
+    )
+  }
+  return occupancyDurationFromSettings(data?.occupancy_duration_minutes)
+}
+
 /**
  * Returns which times from `bookableTimesForDay` are still bookable for a
  * given date + party size. Slot spacing is
- * `restaurant_settings.slot_interval_minutes`, clamped to 15 / 30 / 60.
+ * `restaurant_settings.slot_interval_minutes`, clamped to 15 / 30 / 60
+ * (BW-5 — one generator). Occupancy (BW-9) is applied to those generated
+ * times: the first free slot after a hold is the first generated instant
+ * at or after exclusive-end (20:45 on a 30-minute grid is 21:00).
  * A slot is unavailable when:
  *  - The date is blocked (holiday, special closure)
  *  - The date falls outside operating hours
  *  - It's in the past (today only)
- *  - Adding `partySize` covers would exceed the restaurant's total seating capacity
+ *  - Occupying covers on the half-open window
+ *    `[start, nextBookableTime(start))` plus `partySize` exceed total seats
  */
 export async function getAvailableSlots(
   date: string,
@@ -541,7 +580,9 @@ export async function getAvailableSlots(
   const db = createServiceClient()
   const { data: settings, error: settingsError } = await db
     .from("restaurant_settings")
-    .select("slot_interval_minutes")
+    .select(
+      "slot_interval_minutes, occupancy_duration_minutes, safety_buffer_minutes",
+    )
     .eq("id", 1)
     .maybeSingle()
   if (settingsError) {
@@ -553,9 +594,15 @@ export async function getAvailableSlots(
   const stepMinutes = clampSlotIntervalMinutes(
     settings?.slot_interval_minutes ?? 30,
   )
+  const occupancyDurationMinutes = occupancyDurationFromSettings(
+    settings?.occupancy_duration_minutes,
+  )
+  const safetyBufferMinutes = clampSafetyBufferMinutes(
+    settings?.safety_buffer_minutes ?? 15,
+  )
 
-  const TIME_SLOTS = bookableTimesForDay(operatingWindow, stepMinutes)
-  if (TIME_SLOTS.length === 0) {
+  const generatedSlots = bookableTimesForDay(operatingWindow, stepMinutes)
+  if (generatedSlots.length === 0) {
     return []
   }
 
@@ -582,27 +629,43 @@ export async function getAvailableSlots(
   // database trigger on insert, keeping both checks in sync.
   const { data, error } = await db
     .from("reservations")
-    .select("time, party_size")
+    .select("time, party_size, status")
     .eq("date", date)
-    .in("status", ["confirmed", "seated"])
+    .in("status", ACTIVE_RESERVATION_STATUSES)
 
   if (error) {
     console.error("[reservations] getAvailableSlots error:", error.message)
     // Fail open so the widget is never completely blocked.
-    return TIME_SLOTS.map((time) => ({ time, available: true }))
+    return generatedSlots.map((time) => ({ time, available: true }))
   }
 
-  // Sum booked covers per slot.
+  // Sum occupying covers on the half-open occupancy window
+  // [start, nextBookableTime(start)), not same-slot-only.
+  // Postgres TIME serializes as HH:MM:SS; generated slots are HH:MM.
+  // Compare exclusive-end to generatedSlots only (BW-5) — do not emit a
+  // slot at the free instant unless bookableTimesForDay already did.
   const bookedBySlot: Record<string, number> = {}
   for (const row of data ?? []) {
-    bookedBySlot[row.time] = (bookedBySlot[row.time] ?? 0) + row.party_size
+    if (!ACTIVE_RESERVATION_STATUSES.includes(row.status)) continue
+    const start = normalizeTime(row.time)
+    const exclusiveEnd = nextBookableTime(
+      start,
+      occupancyDurationMinutes,
+      safetyBufferMinutes,
+    )
+    for (const generated of generatedSlots) {
+      if (generated >= start && generated < exclusiveEnd) {
+        bookedBySlot[generated] =
+          (bookedBySlot[generated] ?? 0) + row.party_size
+      }
+    }
   }
 
   // "Now" in local restaurant timezone — block past slots on today's date.
   const todayISO = getTodayInRestaurantTZ()
   const nowTime = getNowTimeInRestaurantTZ()
 
-  return TIME_SLOTS.map((time) => {
+  return generatedSlots.map((time) => {
     // Slots are generated from segments; keep a defensive in-segment check.
     if (!isTimeWithinSegments(time, operatingWindow.segments)) {
       return { time, available: false }

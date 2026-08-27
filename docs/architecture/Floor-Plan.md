@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-27
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -9,7 +9,11 @@ Table statuses: `available` | `reserved` | `seated` | `cleaning` | `out_of_servi
 (see `lib/data.ts`). Transitions are enforced in `app/actions/operations.ts`.
 
 Each table has an admin-managed **expected turn time** (`tables.expected_minutes`,
-default 90). Temporary **merges** (`table_merges` / `table_merge_members`) add up
+default 90). Restaurant-wide occupancy duration and safety buffer (guest
+next-bookable; [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-11)
+sit in the same `/admin/floor` chrome as slot interval
+(`occupancy-duration-control`, `safety-buffer-control`); they are not per-table
+Expected time. Temporary **merges** (`table_merges` / `table_merge_members`) add up
 member seat capacity and last that expected time by default. Status changes apply
 to every member; Available and Out of service dissolve the arrangement. On
 `/admin/floor`, staff merge by **dropping an available table onto another**

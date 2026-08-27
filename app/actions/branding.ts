@@ -1,5 +1,6 @@
 "use server"
 
+import { cache } from "react"
 import { revalidatePath } from "next/cache"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
@@ -20,7 +21,13 @@ import {
   validateLogoUpload,
 } from "@/lib/branding"
 import {
+  clampExpectedMinutes,
+  DEFAULT_EXPECTED_MINUTES,
+} from "@/lib/floor/table-use"
+import {
+  clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
+  DEFAULT_SAFETY_BUFFER_MINUTES,
   DEFAULT_SLOT_INTERVAL_MINUTES,
   type SlotIntervalMinutes,
 } from "@/lib/reservations/operating-hours"
@@ -304,43 +311,111 @@ export async function removeRestaurantHeroImage(): Promise<{ error?: string }> {
   return {}
 }
 
-export async function getSlotIntervalMinutes(): Promise<SlotIntervalMinutes> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) return DEFAULT_SLOT_INTERVAL_MINUTES
+type RestaurantBookingSettings = {
+  slotInterval: SlotIntervalMinutes
+  occupancyDuration: number
+  safetyBuffer: number
+}
 
-  const { data, error } = await createServiceClient()
+const loadRestaurantBookingSettings = cache(
+  async (): Promise<RestaurantBookingSettings | null> => {
+    const staffUser = await requireStaffUser()
+    if (!staffUser) return null
+
+    const { data, error } = await createServiceClient()
+      .from("restaurant_settings")
+      .select(
+        "slot_interval_minutes, occupancy_duration_minutes, safety_buffer_minutes",
+      )
+      .eq("id", 1)
+      .maybeSingle()
+    if (error) {
+      console.error("[branding] loadRestaurantBookingSettings:", error.message)
+      return null
+    }
+    return {
+      slotInterval: clampSlotIntervalMinutes(
+        data?.slot_interval_minutes ?? DEFAULT_SLOT_INTERVAL_MINUTES,
+      ),
+      occupancyDuration: clampExpectedMinutes(
+        data?.occupancy_duration_minutes ?? DEFAULT_EXPECTED_MINUTES,
+      ),
+      safetyBuffer: clampSafetyBufferMinutes(
+        data?.safety_buffer_minutes ?? DEFAULT_SAFETY_BUFFER_MINUTES,
+      ),
+    }
+  },
+)
+
+async function upsertRestaurantSetting(
+  patch: {
+    slot_interval_minutes?: SlotIntervalMinutes
+    occupancy_duration_minutes?: number
+    safety_buffer_minutes?: number
+  },
+  logName: string,
+  errorMessage: string,
+): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("Unauthorized")
+
+  const { error } = await createServiceClient()
     .from("restaurant_settings")
-    .select("slot_interval_minutes")
-    .eq("id", 1)
-    .maybeSingle()
+    .upsert({
+      id: 1,
+      ...patch,
+      updated_at: new Date().toISOString(),
+    })
   if (error) {
-    console.error("[branding] getSlotIntervalMinutes:", error.message)
-    return DEFAULT_SLOT_INTERVAL_MINUTES
+    console.error(`[branding] ${logName}:`, error.message)
+    return { error: errorMessage }
   }
-  return clampSlotIntervalMinutes(
-    data?.slot_interval_minutes ?? DEFAULT_SLOT_INTERVAL_MINUTES,
-  )
+
+  revalidateBrandingSurfaces()
+  return {}
+}
+
+export async function getSlotIntervalMinutes(): Promise<SlotIntervalMinutes> {
+  const settings = await loadRestaurantBookingSettings()
+  return settings?.slotInterval ?? DEFAULT_SLOT_INTERVAL_MINUTES
 }
 
 export async function updateSlotIntervalMinutes(
   minutes: number,
 ): Promise<{ error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  return upsertRestaurantSetting(
+    { slot_interval_minutes: clampSlotIntervalMinutes(minutes) },
+    "updateSlotIntervalMinutes",
+    "Could not save slot interval. Please try again.",
+  )
+}
 
-  const slot_interval_minutes = clampSlotIntervalMinutes(minutes)
-  const { error } = await createServiceClient()
-    .from("restaurant_settings")
-    .upsert({
-      id: 1,
-      slot_interval_minutes,
-      updated_at: new Date().toISOString(),
-    })
-  if (error) {
-    console.error("[branding] updateSlotIntervalMinutes:", error.message)
-    return { error: "Could not save slot interval. Please try again." }
-  }
+export async function getOccupancyDurationMinutes(): Promise<number> {
+  const settings = await loadRestaurantBookingSettings()
+  return settings?.occupancyDuration ?? DEFAULT_EXPECTED_MINUTES
+}
 
-  revalidateBrandingSurfaces()
-  return {}
+export async function updateOccupancyDurationMinutes(
+  minutes: number,
+): Promise<{ error?: string }> {
+  return upsertRestaurantSetting(
+    { occupancy_duration_minutes: clampExpectedMinutes(minutes) },
+    "updateOccupancyDurationMinutes",
+    "Could not save occupancy duration. Please try again.",
+  )
+}
+
+export async function getSafetyBufferMinutes(): Promise<number> {
+  const settings = await loadRestaurantBookingSettings()
+  return settings?.safetyBuffer ?? DEFAULT_SAFETY_BUFFER_MINUTES
+}
+
+export async function updateSafetyBufferMinutes(
+  minutes: number,
+): Promise<{ error?: string }> {
+  return upsertRestaurantSetting(
+    { safety_buffer_minutes: clampSafetyBufferMinutes(minutes) },
+    "updateSafetyBufferMinutes",
+    "Could not save safety buffer. Please try again.",
+  )
 }

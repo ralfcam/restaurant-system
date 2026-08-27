@@ -17,6 +17,7 @@ import { TABLES, RESTAURANT } from "@/lib/data"
 import {
   createReservation,
   getAvailableSlots,
+  getGuestOccupancyDurationMinutes,
   type SlotAvailability,
 } from "@/app/actions/reservations"
 import {
@@ -28,6 +29,7 @@ import {
   getNowTimeInRestaurantTZ,
   getDayOfWeekInRestaurantTZ,
 } from "@/lib/timezone"
+import { DEFAULT_EXPECTED_MINUTES } from "@/lib/floor/table-use"
 import {
   type OperatingWindow,
   groupBookableSlots,
@@ -165,12 +167,14 @@ function slotGroupKey(group: SlotGroupView, index: number): string {
 
 function SlotCard({
   time,
+  occupancyDurationMinutes,
   dark,
   selected,
   onPick,
   t,
 }: {
   time: string
+  occupancyDurationMinutes: number
   dark: boolean
   selected: boolean
   onPick: (time: string) => void
@@ -200,7 +204,7 @@ function SlotCard({
         data-testid="until"
         className={cn(dark ? "bg-white/15 text-white/80" : "")}
       >
-        {t("until")} {slotUntilTime(time)}
+        {t("until")} {slotUntilTime(time, occupancyDurationMinutes)}
       </Badge>
     </Button>
   )
@@ -208,12 +212,14 @@ function SlotCard({
 
 function SlotGroupBlock({
   group,
+  occupancyDurationMinutes,
   dark,
   selectedTime,
   onPick,
   t,
 }: {
   group: SlotGroupView
+  occupancyDurationMinutes: number
   dark: boolean
   selectedTime: string | null
   onPick: (time: string) => void
@@ -251,6 +257,7 @@ function SlotGroupBlock({
           <SlotCard
             key={time}
             time={time}
+            occupancyDurationMinutes={occupancyDurationMinutes}
             dark={dark}
             selected={selectedTime === time}
             onPick={onPick}
@@ -303,6 +310,9 @@ export function ReservationWidget({
   const [submitting, setSubmitting] = useState(false)
   const [confCode, setConfCode] = useState("")
   const [slots, setSlots] = useState<SlotAvailability[]>([])
+  const [occupancyDurationMinutes, setOccupancyDurationMinutes] = useState(
+    DEFAULT_EXPECTED_MINUTES,
+  )
   const [loadingSlots, setLoadingSlots] = useState(true)
   const [operatingWindows, setOperatingWindows] = useState<Record<
     number,
@@ -312,6 +322,8 @@ export function ReservationWidget({
 
   // Cache for slot availability to avoid redundant server requests
   const slotCacheRef = useRef<Record<string, SlotAvailability[]>>({})
+  // Restaurant-wide occupancy (until-badge); one fetch per widget lifetime.
+  const occupancyDurationPromiseRef = useRef<Promise<number> | null>(null)
   // Debounce timer for fetch requests
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -346,9 +358,13 @@ export function ReservationWidget({
       return
     }
 
-    // Show loading state and fetch from server
+    // Occupancy is restaurant-wide — reuse one in-flight/resolved promise.
     setLoadingSlots(true)
-    const result = await getAvailableSlots(d, p)
+    occupancyDurationPromiseRef.current ??= getGuestOccupancyDurationMinutes()
+    const [result, occupancy] = await Promise.all([
+      getAvailableSlots(d, p),
+      occupancyDurationPromiseRef.current,
+    ])
 
     // Store in cache for future requests
     slotCacheRef.current[cacheKey] = result
@@ -357,6 +373,7 @@ export function ReservationWidget({
     // can render the "No availability for this date" message without
     // triggering an infinite loop by trying to auto-advance the date.
     setSlots(result)
+    setOccupancyDurationMinutes(occupancy)
     setLoadingSlots(false)
   }, [])
 
@@ -376,6 +393,9 @@ export function ReservationWidget({
     const mm = String(end.getMonth() + 1).padStart(2, "0")
     const dd = String(end.getDate()).padStart(2, "0")
     const endISO = `${yy}-${mm}-${dd}`
+
+    occupancyDurationPromiseRef.current ??= getGuestOccupancyDurationMinutes()
+    void occupancyDurationPromiseRef.current.then(setOccupancyDurationMinutes)
 
     Promise.all([
       getAllOperatingWindowsMap(),
@@ -818,6 +838,7 @@ export function ReservationWidget({
                           <SlotGroupBlock
                             key={slotGroupKey(group, index)}
                             group={group}
+                            occupancyDurationMinutes={occupancyDurationMinutes}
                             dark={dark}
                             selectedTime={slot}
                             onPick={pickSlot}

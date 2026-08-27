@@ -17,7 +17,7 @@ not v0 chat and not `syntex-global`.
 - Git: https://github.com/ralfcam/restaurant-system (`ralfcam/restaurant-system`)
 - Production alias: https://restaurant-system-ralfcams-projects.vercel.app
 - MCP server: `plugin-vercel-vercel`
-- Runbook: [docs/runbooks/deploy.md](../../docs/runbooks/deploy.md)
+- Runbook: [docs/runbooks/deploy.md](docs/runbooks/deploy.md)
 
 ## MCP vs CLI
 

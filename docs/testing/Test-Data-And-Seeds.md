@@ -18,7 +18,10 @@
   PUBLIC-READ-PRIV `GRANT SELECT` / `REVOKE` DML on `blocked_dates` and
   `menu_items`; apply on already-baselined remotes — not a full `db push`), and
   `20260827160000_public_catalog_privileges.sql` (same RES-PRIV / PUBLIC-READ-PRIV
-  strings when `20260825140000` is already recorded).
+  strings when `20260825140000` is already recorded), plus
+  `20260827180000_occupancy_duration_buffer.sql` (occupancy duration + safety
+  buffer columns and last-writer `validate_reservation_availability`; apply on
+  already-baselined remotes — not a full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)

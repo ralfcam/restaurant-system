@@ -78,6 +78,7 @@ Never expose the service role key to the client bundle. Never commit it.
 | Forward: opening-hour segments       | `supabase/migrations/20260818162000_operating_hour_segments.sql`     | Yes on local reset; apply on already-baselined remotes              |
 | Forward: operating_windows privilege | `supabase/migrations/20260825140000_operating_windows_privilege.sql` | Yes on local reset; apply on already-baselined remotes              |
 | Forward: public catalog privileges   | `supabase/migrations/20260827160000_public_catalog_privileges.sql`   | Yes on local reset; apply when `20260825140000` is already recorded |
+| Forward: occupancy duration + buffer | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`   | Yes on local reset; apply on already-baselined remotes              |
 | Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
@@ -94,8 +95,9 @@ instead of adding dated migration files. Policy detail:
 `.cursor/rules/supabase-migrations.mdc`.
 
 `20260818162000_operating_hour_segments.sql`,
-`20260825140000_operating_windows_privilege.sql`, and
-`20260827160000_public_catalog_privileges.sql` are the forward-only exceptions
+`20260825140000_operating_windows_privilege.sql`,
+`20260827160000_public_catalog_privileges.sql`, and
+`20260827180000_occupancy_duration_buffer.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -252,6 +254,41 @@ replay history the remote has diverged from.
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
    `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
    is false for both. Confirm policy `"Allow public read reservations"` is gone.
+
+### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-08-27 — apply this file on `tilcqrudqxznnpepxjqq`
+(linked-remote occupancy forward apply; do not `db push`). Then confirm
+`occupancy_duration_minutes` / `safety_buffer_minutes` exist on
+`restaurant_settings` and `schema_migrations` has version `20260827180000`.
+
+Do not use `db push` or `db reset --linked` for this — a full push/reset would
+try to replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260827180000', 'occupancy_duration_buffer');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260827180000 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260827180000';
+   ```
+
+   Confirm `occupancy_duration_minutes` and `safety_buffer_minutes` on
+   `restaurant_settings` (defaults 90 and 15).
 
 ### Reset database
 

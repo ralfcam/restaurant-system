@@ -1,7 +1,11 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { FloorPlan } from "@/components/staff/floor-plan"
 import { getAuthUser } from "@/app/actions/auth"
-import { getSlotIntervalMinutes } from "@/app/actions/branding"
+import {
+  getOccupancyDurationMinutes,
+  getSafetyBufferMinutes,
+  getSlotIntervalMinutes,
+} from "@/app/actions/branding"
 import { getFloorSnapshot } from "@/app/actions/reservations"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 
@@ -9,11 +13,14 @@ export const dynamic = "force-dynamic"
 
 export default async function FloorPage() {
   const today = getTodayInRestaurantTZ()
-  const [authUser, snapshot, slotInterval] = await Promise.all([
-    getAuthUser(),
-    getFloorSnapshot(today),
-    getSlotIntervalMinutes(),
-  ])
+  const [authUser, snapshot, slotInterval, occupancyDuration, safetyBuffer] =
+    await Promise.all([
+      getAuthUser(),
+      getFloorSnapshot(today),
+      getSlotIntervalMinutes(),
+      getOccupancyDurationMinutes(),
+      getSafetyBufferMinutes(),
+    ])
 
   return (
     <StaffShell
@@ -25,6 +32,8 @@ export default async function FloorPage() {
         date={today}
         fallbackData={snapshot}
         initialSlotInterval={slotInterval}
+        initialOccupancyDuration={occupancyDuration}
+        initialSafetyBuffer={safetyBuffer}
       />
     </StaffShell>
   )

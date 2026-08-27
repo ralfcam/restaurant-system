@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest"
-import { DEFAULT_EXPECTED_MINUTES } from "@/lib/floor/table-use"
+import {
+  clampExpectedMinutes,
+  DEFAULT_EXPECTED_MINUTES,
+} from "@/lib/floor/table-use"
 import {
   assignSegmentForTime,
   bookableTimesForDay,
+  clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
   flattenDaysToRows,
   formatSegmentsSummary,
@@ -10,6 +14,7 @@ import {
   groupBookableSlots,
   groupRowsByDay,
   isTimeWithinSegments,
+  nextBookableTime,
   nextSuggestedSegment,
   normalizeTime,
   slotUntilTime,
@@ -77,6 +82,22 @@ describe("slotUntilTime", () => {
     expect(slotUntilTime("23:00")).toBe("00:30")
     expect(slotUntilTime("23:00")).not.toBe("24:30")
   })
+
+  it("until-badge uses occupancy duration, not the safety buffer", () => {
+    expect(slotUntilTime("19:00")).toBe("20:30")
+    expect(slotUntilTime("19:00", 90)).toBe("20:30")
+    expect(slotUntilTime("19:00", 90)).not.toBe("20:45")
+    expect(slotUntilTime("19:00", 120)).toBe("21:00")
+    expect(slotUntilTime("23:00")).toBe("00:30")
+  })
+})
+
+describe("nextBookableTime", () => {
+  it("next-bookable instant is occupancy duration plus safety buffer", () => {
+    expect(nextBookableTime("19:00")).toBe("20:45")
+    expect(nextBookableTime("19:00", 90, 0)).toBe("20:30")
+    expect(nextBookableTime("23:00", 90, 15)).toBe("00:45")
+  })
 })
 
 describe("clampSlotIntervalMinutes", () => {
@@ -86,6 +107,21 @@ describe("clampSlotIntervalMinutes", () => {
     expect(clampSlotIntervalMinutes(60)).toBe(60)
     expect(clampSlotIntervalMinutes(20)).toBe(30)
     expect(clampSlotIntervalMinutes(Number.NaN)).toBe(30)
+  })
+})
+
+describe("clampExpectedMinutes / clampSafetyBufferMinutes", () => {
+  it("clamps occupancy duration and safety buffer to BW-11 ranges", () => {
+    expect(clampExpectedMinutes(15)).toBe(30)
+    expect(clampExpectedMinutes(Number.NaN)).toBe(90)
+    expect(clampExpectedMinutes(45)).toBe(45)
+    expect(clampExpectedMinutes(240)).toBe(240)
+    expect(clampExpectedMinutes(241)).toBe(240)
+
+    expect(clampSafetyBufferMinutes(15)).toBe(15)
+    expect(clampSafetyBufferMinutes(7)).toBe(5)
+    expect(clampSafetyBufferMinutes(Number.NaN)).toBe(15)
+    expect(clampSafetyBufferMinutes(61)).toBe(15)
   })
 })
 

@@ -69,6 +69,14 @@ const lunchWindow = {
   ],
 }
 
+const dinnerWindow = {
+  day_of_week: 2,
+  is_closed: false,
+  segments: [
+    { label: "Dinner", opens_at: "18:00", closes_at: "22:00", sort_order: 0 },
+  ],
+}
+
 describe("getAvailableSlots", () => {
   beforeEach(() => {
     mocks.isDateBlocked.mockReset()
@@ -80,7 +88,14 @@ describe("getAvailableSlots", () => {
     mocks.getOperatingWindowForDate.mockResolvedValue(lunchWindow)
     mocks.from.mockImplementation((name: string) => {
       if (name === "restaurant_settings") {
-        return thenable({ data: { slot_interval_minutes: 15 }, error: null })
+        return thenable({
+          data: {
+            slot_interval_minutes: 15,
+            occupancy_duration_minutes: 90,
+            safety_buffer_minutes: 15,
+          },
+          error: null,
+        })
       }
       if (name === "tables") {
         return thenable({ data: [{ seats: 40 }], error: null })
@@ -96,5 +111,157 @@ describe("getAvailableSlots", () => {
     const { getAvailableSlots } = await import("@/app/actions/reservations")
     const slots = await getAvailableSlots("2026-08-25", 2)
     expect(slots.map((slot) => slot.time)).toContain("12:15")
+  })
+
+  describe("occupancy-window cover counting", () => {
+    const totalCapacity = 40
+
+    function stubFrom(reservations: Row[]) {
+      mocks.from.mockImplementation((name: string) => {
+        if (name === "restaurant_settings") {
+          return thenable({
+            data: {
+              slot_interval_minutes: 15,
+              occupancy_duration_minutes: 90,
+              safety_buffer_minutes: 15,
+            },
+            error: null,
+          })
+        }
+        if (name === "tables") {
+          return thenable({ data: [{ seats: totalCapacity }], error: null })
+        }
+        if (name === "reservations") {
+          return thenable({ data: reservations, error: null })
+        }
+        return thenable({ data: [], error: null })
+      })
+    }
+
+    beforeEach(() => {
+      mocks.getOperatingWindowForDate.mockResolvedValue(dinnerWindow)
+    })
+
+    it("counts occupying covers across the occupancy window, not only the same slot", async () => {
+      const { getAvailableSlots } = await import("@/app/actions/reservations")
+      const date = "2026-08-25"
+
+      stubFrom([
+        {
+          time: "19:00",
+          party_size: totalCapacity,
+          status: "confirmed",
+        },
+      ])
+      const fullHold = await getAvailableSlots(date, 2)
+      expect(fullHold.map((slot) => slot.time)).toEqual(
+        expect.arrayContaining(["20:30", "20:45"]),
+      )
+      expect(fullHold.find((slot) => slot.time === "20:30")).toEqual({
+        time: "20:30",
+        available: false,
+      })
+      expect(fullHold.find((slot) => slot.time === "20:45")).toEqual({
+        time: "20:45",
+        available: true,
+      })
+
+      stubFrom([
+        {
+          time: "19:00",
+          party_size: 2,
+          status: "confirmed",
+        },
+      ])
+      const leftover = await getAvailableSlots(date, 2)
+      expect(leftover.find((slot) => slot.time === "19:00")).toEqual({
+        time: "19:00",
+        available: true,
+      })
+    })
+
+    it("releases 20:30 when a full-floor 19:00 hold is completed, cancelled, or no_show, while seated still occupies", async () => {
+      const { getAvailableSlots } = await import("@/app/actions/reservations")
+      const date = "2026-08-25"
+
+      for (const status of ["completed", "cancelled", "no_show"]) {
+        stubFrom([
+          {
+            time: "19:00",
+            party_size: totalCapacity,
+            status,
+          },
+        ])
+        const released = await getAvailableSlots(date, 2)
+        expect(released.map((slot) => slot.time)).toEqual(
+          expect.arrayContaining(["20:30"]),
+        )
+        expect(released.find((slot) => slot.time === "20:30")).toEqual({
+          time: "20:30",
+          available: true,
+        })
+      }
+
+      stubFrom([
+        {
+          time: "19:00",
+          party_size: totalCapacity,
+          status: "seated",
+        },
+      ])
+      const seatedHold = await getAvailableSlots(date, 2)
+      expect(seatedHold.find((slot) => slot.time === "20:30")).toEqual({
+        time: "20:30",
+        available: false,
+      })
+    })
+
+    it("offers 21:00 as the first generated slot at or after exclusive-end on a 30-minute grid", async () => {
+      const { getAvailableSlots } = await import("@/app/actions/reservations")
+      const date = "2026-08-25"
+
+      mocks.from.mockImplementation((name: string) => {
+        if (name === "restaurant_settings") {
+          return thenable({
+            data: {
+              slot_interval_minutes: 30,
+              occupancy_duration_minutes: 90,
+              safety_buffer_minutes: 15,
+            },
+            error: null,
+          })
+        }
+        if (name === "tables") {
+          return thenable({ data: [{ seats: totalCapacity }], error: null })
+        }
+        if (name === "reservations") {
+          return thenable({
+            data: [
+              {
+                time: "19:00",
+                party_size: totalCapacity,
+                status: "confirmed",
+              },
+            ],
+            error: null,
+          })
+        }
+        return thenable({ data: [], error: null })
+      })
+
+      const slots = await getAvailableSlots(date, 2)
+      expect(slots.map((slot) => slot.time)).toEqual(
+        expect.arrayContaining(["20:30", "21:00"]),
+      )
+      expect(slots.map((slot) => slot.time)).not.toContain("20:45")
+      expect(slots.find((slot) => slot.time === "20:30")).toEqual({
+        time: "20:30",
+        available: false,
+      })
+      expect(slots.find((slot) => slot.time === "21:00")).toEqual({
+        time: "21:00",
+        available: true,
+      })
+    })
   })
 })
