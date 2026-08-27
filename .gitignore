@@ -39,3 +39,6 @@ supabase/.temp
 
 # CodeGraph local index (SQLite knowledge graph; rebuilt via `codegraph init`)
 .codegraph/
+
+.vercel
+.env*
