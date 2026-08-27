@@ -12,11 +12,13 @@
   `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only)
   and `20260818162000_operating_hour_segments.sql` (`replace_operating_windows`;
   version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
-  `20260825140000_operating_windows_privilege.sql` (SELECT-only
-  `anon`/`authenticated` grants plus `GRANT ALL ON TABLE operating_windows TO service_role`,
-  and the same `GRANT ALL` for `blocked_dates`, `reservations`, `menu_items`;
-  apply on already-baselined remotes — not a
-  full `db push`).
+  `20260825140000_operating_windows_privilege.sql` (OH-PRIV SELECT-only on
+  `operating_windows` plus `GRANT ALL` for `operating_windows`, `blocked_dates`,
+  `reservations`, `menu_items`; RES-PRIV insert-only on `reservations`;
+  PUBLIC-READ-PRIV `GRANT SELECT` / `REVOKE` DML on `blocked_dates` and
+  `menu_items`; apply on already-baselined remotes — not a full `db push`), and
+  `20260827160000_public_catalog_privileges.sql` (same RES-PRIV / PUBLIC-READ-PRIV
+  strings when `20260825140000` is already recorded).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)

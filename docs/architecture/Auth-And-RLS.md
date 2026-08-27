@@ -46,9 +46,21 @@ Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
 Early-baseline siblings `blocked_dates`, `reservations`, and `menu_items` also
 `GRANT ALL ON TABLE <t> TO service_role` in those same two files (after each
 table's service_role RLS block in baseline; before `NOTIFY pgrst` in the
-forward). That does not drop their authenticated `FOR ALL` policies or change
-anon/authenticated table privileges. Spec:
-[../specs/scheduling.md](../specs/scheduling.md) §17.
+forward). That does not drop their authenticated `FOR ALL` policies
+(REAZED-299). Spec: [../specs/scheduling.md](../specs/scheduling.md) §17.
+
+Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
+and `authenticated` (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`).
+`reservations` is insert-only (`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE`);
+`DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
+INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
+Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
+`00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
+and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
+`20260825140000` is already recorded; do not `db push`). Spec:
+[../specs/scheduling.md](../specs/scheduling.md) §18,
+[../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
 
 ## Env vars
 
