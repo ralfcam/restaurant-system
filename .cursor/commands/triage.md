@@ -329,6 +329,14 @@ is forbidden unless the operator explicitly requested that model for this run:
   token is **60+ days old**, instead move the line to `docs/findings/archive.md`
   as `wont-file (stale)` (see README Ledger TTL). Both are local-file writes on
   `docs/findings/*.md` at execution time and are allowed (see Constraints).
+  After those writes, same-turn dirty-set Prettier (mirror `/commit`; never
+  `prettier --write .`): `pnpm exec prettier --check` the five ledger files
+  (`docs/findings/archive.md`, `docs/findings/product-gaps.md`,
+  `docs/findings/security.md`, `docs/findings/tech-debt.md`,
+  `docs/findings/test-debt.md` — never `docs/findings/runs`). If red: `pnpm exec
+prettier --write` those paths only, then re-check the same five in this same
+  turn. Do not PASS on the first red check. If the re-check is still red, fail
+  (format).
 - **Next-in-the-Cycle report (`next-in-cycle`)** — orchestrator-only, always the
   LAST todo in the run. No `linear-resolver` delegation, no Linear write, no file
   write: it consumes the Applied vs Deferred results above and the PHASE 2(e)
@@ -347,14 +355,14 @@ every Linear write.
 todos may ONLY be these types — anything else is invalid and must not be emitted
 or executed:
 
-| Todo id pattern | Delegation / action                                                                                                                                                                                                                                  |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `groom-*`       | `linear-resolver` GROOM batch (consolidation / priority / Backlog↔Todo + cancellation-only triage moves — never In Progress/In Review/Done)                                                                                                          |
-| `register-*`    | `linear-resolver` REGISTER-FINDINGS batch (file ledger findings — Issue-filing policy applied: floor, attach-over-create ladder, per-run cap)                                                                                                        |
-| `sweep-*`       | `linear-resolver` GROOM prunable-class sweep-batch cancellation (one operator confirmation covers the named batch)                                                                                                                                   |
-| `backfill-*`    | `linear-resolver` GROOM milestone/estimate/cycle backfill on issues missing one (Todo + field-only In Progress/In Review for cycle; never Backlog cycle)                                                                                             |
-| `prune-ledger`  | Orchestrator moves filed/attached entries → `docs/findings/archive.md`; stamps `(seen: /triage <date>)` on below-floor entries left open; moves TTL-expired entries → `archive.md` as `wont-file (stale)`                                            |
-| `next-in-cycle` | Orchestrator-only advisory report (always the LAST todo): emit the "Next in the Cycle" section as prose from the applied/deferred results + WIP-gate verdict. Produces a report only — never executes, schedules, or delegates a downstream command. |
+| Todo id pattern | Delegation / action                                                                                                                                                                                                                                                                                                                                                           |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `groom-*`       | `linear-resolver` GROOM batch (consolidation / priority / Backlog↔Todo + cancellation-only triage moves — never In Progress/In Review/Done)                                                                                                                                                                                                                                   |
+| `register-*`    | `linear-resolver` REGISTER-FINDINGS batch (file ledger findings — Issue-filing policy applied: floor, attach-over-create ladder, per-run cap)                                                                                                                                                                                                                                 |
+| `sweep-*`       | `linear-resolver` GROOM prunable-class sweep-batch cancellation (one operator confirmation covers the named batch)                                                                                                                                                                                                                                                            |
+| `backfill-*`    | `linear-resolver` GROOM milestone/estimate/cycle backfill on issues missing one (Todo + field-only In Progress/In Review for cycle; never Backlog cycle)                                                                                                                                                                                                                      |
+| `prune-ledger`  | Orchestrator moves filed/attached entries → `docs/findings/archive.md`; stamps `(seen: /triage <date>)` on below-floor entries left open; moves TTL-expired entries → `archive.md` as `wont-file (stale)`; then same-turn `pnpm exec prettier --check` the five ledger files (red → `pnpm exec prettier --write` those paths only, then re-check; never `prettier --write .`) |
+| `next-in-cycle` | Orchestrator-only advisory report (always the LAST todo): emit the "Next in the Cycle" section as prose from the applied/deferred results + WIP-gate verdict. Produces a report only — never executes, schedules, or delegates a downstream command.                                                                                                                          |
 
 Triage ends at Linear groom + ledger filing/pruning + the `next-in-cycle` report.
 It NEVER emits a todo or execution step for a downstream cycle command
@@ -380,8 +388,10 @@ recipes). Cluster-vs-independent grouping here is a coarse Linear hint;
 - DO NOT write to `docs/specs/` or any local file other than the ledger
   writes named in the `prune-ledger` todo (PHASE 4): moving filed/attached
   entries to `docs/findings/archive.md`, stamping/updating a `(seen: /triage
-  <date>)` token on a below-floor entry left open, and archiving a
-  TTL-expired entry as `wont-file (stale)`. Triage never promotes a
+  <date>)` token on a below-floor entry left open, archiving a
+  TTL-expired entry as `wont-file (stale)`, and the same-turn Prettier
+  `--check` / `--write` of those five ledger files (never `prettier --write
+  .`; never `docs/findings/runs`). Triage never promotes a
   contradictory implementation into a spec — spec authorship is owned solely by
   `/sdd-to-tdd`. Your only write surfaces are Linear (via `linear-resolver`) and
   those ledger edits.
@@ -547,7 +557,10 @@ Per ledger entry or groom whose intent contradicts a normative `docs/specs/` rul
 
 ## Cannot Verify
 
-One line each: item · reason (MCP/scope/data/ledger not readable).
+One line each: item · reason (MCP/scope/data/ledger not readable). Empty
+`estimate` / empty `blocks` on a successful read is a **verified negative**
+(record it as fact). `cannot verify` is for tool/MCP failure — not a skipped
+read of a returned empty field.
 
 ## Applied vs Deferred (execution only — omit while in Plan Mode)
 

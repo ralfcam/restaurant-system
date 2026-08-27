@@ -6,16 +6,28 @@
  * Exit 0 if clean, 1 if any violation.
  *
  * Checks:
- *   links     repo-root-relative markdown links in .cursor/{rules,commands,agents}
- *   fanout    TASK_FANOUT_INFLIGHT_CAP matches the number in task-fanout.mdc
- *   prefix    dispatch + staging-accumulator use sdd/REAZED- (not sdd/SG-);
- *             triage/tldr/dispatch default to restaurant-system (not SG→REAZED)
- *   gates     commit.md names lint, typecheck, test:unit, gate open, harness-lint
- *   capture   capture.md pins Validation Summary row count = PHASE 5 slug count
- *   ledger    linear-resolver + triage Grep ledger before MCP
+ *   links            repo-root-relative markdown links in .cursor/{rules,commands,agents}
+ *   fanout           TASK_FANOUT_INFLIGHT_CAP matches the number in task-fanout.mdc
+ *   prefix           dispatch + staging-accumulator use sdd/REAZED- (not sdd/SG-);
+ *                    triage/tldr/dispatch default to restaurant-system (not SG→REAZED)
+ *   gates            commit.md names lint, typecheck, test:unit, gate open, harness-lint
+ *   capture          capture.md pins Validation Summary row count = PHASE 5 slug count
+ *   ledger           linear-resolver + triage Grep ledger before MCP
+ *   findings-format  prettier --check on the five docs/findings/*.md bus files
+ *   dispatch         includeRelations + verified-negative vs cannot-verify
  */
+import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
+
+const FINDINGS_LEDGER = [
+  "docs/findings/archive.md",
+  "docs/findings/product-gaps.md",
+  "docs/findings/security.md",
+  "docs/findings/tech-debt.md",
+  "docs/findings/test-debt.md",
+]
+const PNPM = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
 
 const ROOT = process.cwd()
 const violations = []
@@ -173,12 +185,65 @@ function checkGates() {
   }
 }
 
+function checkFindingsFormat() {
+  const triage = readFileSync(
+    join(ROOT, ".cursor", "commands", "triage.md"),
+    "utf8",
+  )
+  const pruneRow = triage
+    .split("\n")
+    .find((line) => line.includes("| `prune-ledger`"))
+  if (!pruneRow?.includes("pnpm exec prettier --check")) {
+    fail(
+      "findings-format",
+      "triage.md prune-ledger path must name pnpm exec prettier --check",
+    )
+  }
+  const r = spawnSync(
+    PNPM,
+    ["exec", "prettier", "--check", ...FINDINGS_LEDGER],
+    { encoding: "utf8", cwd: ROOT, shell: true },
+  )
+  if (r.error || r.status == null || r.status !== 0) {
+    const detail = [r.stderr, r.stdout, r.error?.message]
+      .filter(Boolean)
+      .join("\n")
+      .trim()
+    fail(
+      "findings-format",
+      detail ||
+        "prettier --check failed (prettier missing or files unformatted)",
+    )
+  }
+}
+
+function checkDispatchNeedles() {
+  const dispatch = readFileSync(
+    join(ROOT, ".cursor", "commands", "dispatch.md"),
+    "utf8",
+  )
+  if (!dispatch.includes("includeRelations"))
+    fail("dispatch", "dispatch.md must contain includeRelations")
+  for (const rel of [
+    ".cursor/commands/dispatch.md",
+    ".cursor/commands/triage.md",
+  ]) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    if (!text.includes("verified negative"))
+      fail("dispatch", `${rel} must pin verified negative`)
+    if (!text.includes("cannot verify` is for tool/MCP failure"))
+      fail("dispatch", `${rel} must pin cannot verify is for tool/MCP failure`)
+  }
+}
+
 checkLinks()
 checkFanout()
 checkPrefix()
 checkGates()
 checkCaptureSlugRule()
 checkLedgerFirst()
+checkFindingsFormat()
+checkDispatchNeedles()
 
 if (violations.length) {
   for (const v of violations) console.error(v)
