@@ -6,7 +6,8 @@
 ## Vercel
 
 - Repo: [ralfcam/restaurant-system](https://github.com/ralfcam/restaurant-system)
-- Merges to `main` deploy via v0/Vercel integration (see root README).
+- Merges to `main` deploy on Vercel. Linked v0 project:
+  [prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO](https://v0.app/chat/projects/prj_Be4qMWXY4RzLyIZOq2jgTicLj4CO).
 
 ## Env vars (production)
 
