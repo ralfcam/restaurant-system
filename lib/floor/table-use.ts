@@ -1,5 +1,6 @@
 /**
- * Expected table turn time and temporary merge rules for /admin/floor.
+ * Expected table turn time, temporary merge rules, and occupancy counts
+ * for /admin/floor and /admin Dashboard widgets.
  *
  * Pure helpers so status, duration, and capacity stay consistent in the UI
  * and in server actions without hitting Supabase.
@@ -142,4 +143,24 @@ export function sharedTableStatus(statuses: TableStatus[]): TableStatus {
   if (statuses.includes("cleaning")) return "cleaning"
   if (statuses.includes("out_of_service")) return "out_of_service"
   return "available"
+}
+
+/** Physical-row occupancy for Dashboard widgets (FP-11). */
+export function countFloorOccupancy(tables: Array<{ status: TableStatus }>) {
+  const byStatus: Record<TableStatus, number> = {
+    available: 0,
+    seated: 0,
+    reserved: 0,
+    cleaning: 0,
+    out_of_service: 0,
+  }
+  for (const table of tables) {
+    byStatus[table.status] += 1
+  }
+  return {
+    seated: byStatus.seated,
+    total: tables.length,
+    available: byStatus.available,
+    byStatus,
+  }
 }

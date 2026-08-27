@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -58,6 +58,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | EARLY-PRIV sibling GRANT (`reazed-297_sibling_grants_097b94f3`)       | 2026-08-27 | `specs/scheduling.md` (§17 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`                                                                                                                                             |
 | RES-PRIV / PUBLIC-READ-PRIV (`reazed-308_privileges_be131e14`)        | 2026-08-27 | `specs/booking-rules.md` (AC-5 trace), `specs/scheduling.md` (§18 trace), `specs/menu-availability.md` (AC-2 trace), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`                                                           |
 | REAZED-309 occupancy buffer (`reazed-309_occupancy_buffer_1862f023`)  | 2026-08-27 | `specs/booking-rules.md` (BW-9–BW-11), `specs/scheduling.md` (FP-10), `architecture/Reservation-Flow.md`, `architecture/Floor-Plan.md`, `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Integration-Guide.md`, `testing/Test-Data-And-Seeds.md` |
+| REAZED-306 live occupancy (`reazed-306_live_occupancy_44f250a2`)      | 2026-08-28 | `specs/scheduling.md` (FP-11 trace), `architecture/Floor-Plan.md`, `testing/Design-And-Patterns.md`                                                                                                                                                                                                     |
 | Vercel git-link + hosted env (`vercel_env_via_cli_8a5a7c45`)          | 2026-08-27 | `runbooks/deploy.md`, `architecture/Platform-Overview.md`, repo-root `README.md`                                                                                                                                                                                                                        |
 
 ## Seed path

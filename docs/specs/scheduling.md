@@ -1,11 +1,12 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 ## Scope
 
-Staff scheduling (`app/admin/scheduling`), floor plan (`app/admin/floor`).
+Staff scheduling (`app/admin/scheduling`), floor plan (`app/admin/floor`),
+and `/admin` Dashboard floor-occupancy widgets (FP-11).
 Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 `supabase/migrations/00000000000000_baseline.sql`; default hours seeded in
 `supabase/seed.sql`. Dining-room tables persist in `tables` (see FP-1).
@@ -123,6 +124,18 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     chrome, buffer default 15) drive guest next-bookable availability and
     MUST NOT be confused with per-table Expected time.
 
+15. **FP-11 — Dashboard occupancy is live floor inventory** — `/admin` Floor
+    occupancy, Service is live copy, and Floor status MUST count persisted
+    `tables` rows from the same live snapshot as `/admin/floor`
+    (`getFloorSnapshot`). They MUST NOT use the static `TABLES` seed in
+    `lib/data.ts`. Occupancy is seated-count / table-count of those snapshot
+    rows; “ready for guests” is the `available` count; Floor status is a
+    count per valid table status (criterion 1). Counts are physical table
+    rows (merged members share status per FP-8 and each still counts). FP-4
+    reservation overlay does not rewrite these Dashboard counts — persisted
+    `status` is the source. Each Dashboard load re-reads the snapshot (the
+    page is request-dynamic).
+
 **15. OH-SAVE — Persist opening hours via deployed RPC** — Staff **Save Changes**
 on `/admin/scheduling` persists the weekly opening-hour schedule by calling
 public RPC `replace_operating_windows(p_windows jsonb)`. The function MUST
@@ -205,6 +218,7 @@ Linked-remote apply is manual-UAT.
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Guest note (§13)       | `operating_windows.guest_note` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260818162000_operating_hour_segments.sql`; `components/staff/scheduling-manager.tsx`; `app/actions/availability.ts` (`WINDOW_COLUMNS`, `replace_operating_windows`)                                                                                                                                                                                                                                                                                                                      | `tests/unit/scheduling/schema.test.ts`, `tests/unit/availability/actions.test.ts`                                                                                                                                                                       |
 | FP-10                  | `restaurant_settings.slot_interval_minutes` plus occupancy/buffer columns (`occupancy_duration_minutes` default 90, `safety_buffer_minutes` default 15) — baseline + `20260823130000_restaurant_info_and_chefs_picks.sql` + `20260827180000_occupancy_duration_buffer.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `getOccupancyDurationMinutes`, `getSafetyBufferMinutes` + updaters); floor chrome `occupancy-duration-control` / `safety-buffer-control` (not per-table Expected time)                                                                                             | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts`, `tests/unit/floor/occupancy-settings.test.ts`                                                                                                                           |
+| FP-11                  | `app/admin/page.tsx` (`AdminDashboardPage`) — `getFloorSnapshot` + `countFloorOccupancy(snapshot.tables)`; helper `lib/floor/table-use.ts`; page is `dynamic = "force-dynamic"`                                                                                                                                                                                                                                                                                                                                                                                                                     | `tests/unit/floor/dashboard-occupancy.test.ts`                                                                                                                                                                                                          |
 | OH-SAVE (§15)          | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; linked-remote apply stays runbook + manual-UAT.                                                                                                                                                                          | `tests/unit/scheduling/hours-mutation-target.test.ts`; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only)                                                                                                              |
 | OH-PRIV (§16)          | `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` for `anon, authenticated`; `GRANT ALL ON TABLE operating_windows TO service_role`; and `DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"` (no `CREATE`) — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql` (`NOTIFY pgrst, 'reload schema'`). Staff Save remains `service_role` `replace_operating_windows` (§15). Linked-remote apply stays runbook + manual-UAT.                                                                              | `tests/unit/scheduling/schema.test.ts` → "operating_windows grants ALL to service_role in baseline and privilege forward files"; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (authenticated Data API DML denial, local only) |
 | EARLY-PRIV (§17)       | `GRANT ALL ON TABLE blocked_dates TO service_role`, same for `reservations` and `menu_items` — `supabase/migrations/00000000000000_baseline.sql` (after each table's service_role RLS block, `-- REAZED-297`); `supabase/migrations/20260825140000_operating_windows_privilege.sql` (before `NOTIFY pgrst`; header names the siblings). Authenticated `FOR ALL` on those tables is kept. Anon/authenticated privileges: PUBLIC-READ-PRIV (§18) for `blocked_dates`; booking-rules AC-5 for `reservations`; menu-availability AC-2 for `menu_items`. Linked-remote apply stays runbook + manual-UAT. | `tests/unit/scheduling/schema.test.ts` → "early-baseline tables grant ALL to service_role in baseline and privilege forward files"                                                                                                                      |
@@ -218,7 +232,9 @@ Linked-remote apply is manual-UAT.
 - [../runbooks/deploy.md](../runbooks/deploy.md) (linked remote apply of `20260818162000_operating_hour_segments`, `20260825140000_operating_windows_privilege`, `20260827160000_public_catalog_privileges`, and `20260827180000_occupancy_duration_buffer`)
 - [../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md)
 - `lib/floor/layout.ts`
+- `lib/floor/table-use.ts`
 - `lib/reservations/auto-assign.ts`
 - `hooks/use-floor-plan.ts`
 - `components/staff/floor-plan.tsx`
+- `app/admin/page.tsx`
 - `app/admin/floor/page.tsx`

@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -34,5 +34,8 @@ merges (FP-8). New tables take the next free cell.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. Inventory is persisted in Postgres (`tables`), not
-mock-only. Operating hours: `operating_windows` in
+mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
+live, Floor status) read the same live `tables` snapshot as `/admin/floor`
+(`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
+static `TABLES` seed in `lib/data.ts`. Operating hours: `operating_windows` in
 `supabase/migrations/00000000000000_baseline.sql`.
