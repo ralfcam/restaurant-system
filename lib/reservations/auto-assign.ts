@@ -2,15 +2,19 @@
  * Pure table auto-assignment for the live floor plan.
  *
  * A confirmed reservation is assigned the smallest available table that fits
- * the party once restaurant-local now reaches 15 minutes before the booked
- * time. This module is dependency-free so it can be unit-tested without
- * mocking Supabase or the clock.
+ * the party once restaurant-local now is at or after booked time minus the
+ * restaurant default expected turn (90 minutes). Helpers stay free of I/O so
+ * they can be unit-tested without mocking Supabase or the clock.
  */
 
 import type { ReservationStatus, TableStatus } from "@/lib/data"
-import { labelsInSameMerge } from "@/lib/floor/table-use"
+import {
+  DEFAULT_EXPECTED_MINUTES,
+  labelsInSameMerge,
+} from "@/lib/floor/table-use"
 
-export const TABLE_ASSIGNMENT_LEAD_MINUTES = 15
+/** Booked time minus expected turn; aliases {@link DEFAULT_EXPECTED_MINUTES} (90). */
+export const TABLE_ASSIGNMENT_LEAD_MINUTES = DEFAULT_EXPECTED_MINUTES
 
 const ACTIVE_RESERVATION_STATUSES: ReservationStatus[] = ["confirmed", "seated"]
 const TERMINAL_RESERVATION_STATUSES: ReservationStatus[] = [
@@ -80,8 +84,8 @@ export function timeToMinutes(time: string): number | null {
 }
 
 /**
- * True when restaurant-local now is at or after the assignment threshold
- * (booked time minus {@link TABLE_ASSIGNMENT_LEAD_MINUTES}).
+ * True when restaurant-local now is at or after booked time minus expected
+ * turn (default 90; {@link TABLE_ASSIGNMENT_LEAD_MINUTES}).
  */
 export function isReservationDueForAssignment(
   reservation: Pick<

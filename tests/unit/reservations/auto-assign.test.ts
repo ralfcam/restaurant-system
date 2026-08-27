@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import type { ReservationStatus, TableStatus } from "@/lib/data"
+import { DEFAULT_EXPECTED_MINUTES } from "@/lib/floor/table-use"
 import {
   isReservationDueForAssignment,
   overlayReservationsOnTables,
@@ -56,17 +57,19 @@ describe("isReservationDueForAssignment", () => {
   it("is due once the lead window opens", () => {
     expect(
       isReservationDueForAssignment(
-        reservation({ id: "r1", time: "18:15" }),
+        reservation({ id: "r1", time: "19:30" }),
         NOW,
       ),
     ).toBe(true)
-    expect(TABLE_ASSIGNMENT_LEAD_MINUTES).toBe(15)
+    expect(DEFAULT_EXPECTED_MINUTES).toBe(90)
+    expect(TABLE_ASSIGNMENT_LEAD_MINUTES).toBe(DEFAULT_EXPECTED_MINUTES)
+    expect(TABLE_ASSIGNMENT_LEAD_MINUTES).toBe(90)
   })
 
   it("is not due before the lead window", () => {
     expect(
       isReservationDueForAssignment(
-        reservation({ id: "r1", time: "18:16" }),
+        reservation({ id: "r1", time: "19:31" }),
         NOW,
       ),
     ).toBe(false)
@@ -139,8 +142,8 @@ describe("planAutoAssignments", () => {
   it("assigns due reservations and leaves future ones unassigned", () => {
     const planned = planAutoAssignments(
       [
-        reservation({ id: "due", time: "18:00", party_size: 2 }),
-        reservation({ id: "later", time: "19:30", party_size: 2 }),
+        reservation({ id: "due", time: "19:30", party_size: 2 }),
+        reservation({ id: "later", time: "20:00", party_size: 2 }),
       ],
       tables,
       NOW,

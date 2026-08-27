@@ -30,10 +30,13 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 
 5. **FP-2 — Auto-assign at the proper time** — A `confirmed` reservation with no
    `table_label` is auto-assigned when its **date is today** (restaurant TZ) and
-   restaurant-local now is at or after **15 minutes before** the booked time
-   (`TABLE_ASSIGNMENT_LEAD_MINUTES`). Past-due confirmed reservations today are
-   still assigned. Future dates and terminal statuses
-   (`completed`, `cancelled`, `no_show`) are never auto-assigned.
+   restaurant-local now is at or after **booked time minus expected turn**,
+   default **90** (`DEFAULT_EXPECTED_MINUTES`). The due-check runs **before** a
+   table is chosen, so the unassigned lead is the restaurant default **90** —
+   not per-table expected time and not max-of-inventory. Creating or confirming
+   a reservation does **not** assign a table. Past-due confirmed reservations
+   today are still assigned. Future dates and terminal statuses (`completed`,
+   `cancelled`, `no_show`) are never auto-assigned.
 
 6. **FP-3 — Best-fit available table** — Auto-assign picks the **smallest**
    `available` table with `seats >= party_size`. Same-time reservations are
@@ -46,7 +49,9 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
    (SWR hook, 5s refresh). Overlay: a table with a `confirmed` reservation
    displays as reserved; `seated` displays as seated; the chip shows guest,
    party size, and time. The hook runs auto-assign on each refresh so a table
-   appears at the proper time without a manual dropdown.
+   appears at the proper time without a manual dropdown. Tonight’s book helper
+   copy describes auto-assign as booked time minus expected turn (default 90),
+   not a 15-minute lead.
 
 8. **FP-5 — Status stays in sync** — Seating a reservation sets its assigned
    table to `seated`. Completing, cancelling, or marking no-show clears
@@ -184,6 +189,8 @@ file per [docs/runbooks/deploy.md](../runbooks/deploy.md).
 | OH-SAVE (§15)    | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; linked-remote apply stays runbook + manual-UAT.                                                                                             | `tests/unit/scheduling/hours-mutation-target.test.ts`; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only)                                                                                                              |
 | OH-PRIV (§16)    | `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` for `anon, authenticated`; `GRANT ALL ON TABLE operating_windows TO service_role`; and `DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"` (no `CREATE`) — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql` (`NOTIFY pgrst, 'reload schema'`). Staff Save remains `service_role` `replace_operating_windows` (§15). Linked-remote apply stays runbook + manual-UAT. | `tests/unit/scheduling/schema.test.ts` → "operating_windows grants ALL to service_role in baseline and privilege forward files"; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (authenticated Data API DML denial, local only) |
 | EARLY-PRIV (§17) | `GRANT ALL ON TABLE blocked_dates TO service_role`, same for `reservations` and `menu_items` — `supabase/migrations/00000000000000_baseline.sql` (after each table's service_role RLS block, `-- REAZED-297`); `supabase/migrations/20260825140000_operating_windows_privilege.sql` (before `NOTIFY pgrst`; header names the siblings). Authenticated `FOR ALL` on those tables is kept. No `GRANT SELECT` / `REVOKE` for anon/authenticated on those tables. Linked-remote apply stays runbook + manual-UAT.          | `tests/unit/scheduling/schema.test.ts` → "early-baseline tables grant ALL to service_role in baseline and privilege forward files"                                                                                                                      |
+| FP-2             | `lib/reservations/auto-assign.ts` — `TABLE_ASSIGNMENT_LEAD_MINUTES` aliases `DEFAULT_EXPECTED_MINUTES` (90); due-check is booked time minus expected turn **before** a table is chosen; confirm/create does not assign                                                                                                                                                                                                                                                                                                 | `tests/unit/reservations/auto-assign.test.ts` → "is due once the lead window opens"; "is not due before the lead window"; `planAutoAssignments` "assigns due reservations and leaves future ones unassigned"                                            |
+| FP-4 helper copy | `components/staff/floor-plan.tsx` — Tonight’s book helper: booked time minus expected turn (default 90), not a 15-minute lead                                                                                                                                                                                                                                                                                                                                                                                          | `tests/unit/floor/schema.test.ts` → "Tonight’s book copy uses expected-turn lead default 90"                                                                                                                                                            |
 
 ## References
 
