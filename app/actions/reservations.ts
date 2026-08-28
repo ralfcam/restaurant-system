@@ -18,6 +18,7 @@ import {
   bookableTimesForDay,
   clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
+  DEFAULT_SAFETY_BUFFER_MINUTES,
   formatSegmentsSummary,
   isTimeWithinSegments,
   nextBookableTime,
@@ -29,6 +30,8 @@ import {
 } from "@/lib/floor/table-use"
 import {
   ACTIVE_RESERVATION_STATUSES,
+  occupyingWindowMinutes,
+  occupyingWindowsOverlap,
   planAutoAssignments,
   type PlannedAssignment,
 } from "@/lib/reservations/auto-assign"
@@ -175,14 +178,18 @@ export async function createReservation(payload: {
  * Admin-privileged fetch of all reservations for a given date (YYYY-MM-DD).
  * Uses the service-role client to bypass RLS — safe only in server actions,
  * and only after confirming the caller has an authenticated staff session.
+ * Fail-closed (STAFF-LIST): auth or query failure returns
+ * `{ reservations: [], error }` with a stable message (`Unauthorized.` /
+ * `Could not load reservations.`), never a successful empty array. Success
+ * with no rows is `{ reservations: [] }` and no `error` field.
  * The `date` column is a native DATE type so simple equality is correct; no
  * timezone boundary arithmetic is needed for this schema.
  */
 export async function getReservationsByDate(
   date: string,
-): Promise<ReservationRow[]> {
+): Promise<{ reservations: ReservationRow[]; error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return []
+  if (!staffUser) return { reservations: [], error: "Unauthorized." }
 
   const supabase = createServiceClient()
 
@@ -194,10 +201,10 @@ export async function getReservationsByDate(
 
   if (error) {
     console.error("[reservations] getReservationsByDate error:", error.message)
-    return []
+    return { reservations: [], error: "Could not load reservations." }
   }
 
-  return (data ?? []) as ReservationRow[]
+  return { reservations: (data ?? []) as ReservationRow[] }
 }
 
 export type ReservationTableOption = {
@@ -352,26 +359,72 @@ export async function assignReservationTable(
   const db = createServiceClient()
   const label = tableLabel?.trim() || null
 
-  if (label) {
-    const { data: table, error: tableError } = await db
-      .from("tables")
-      .select("label")
-      .eq("label", label)
-      .maybeSingle()
-
-    if (tableError || !table)
-      return { error: "That table is no longer available." }
-  }
+  const { data: table, error: tableError } = label
+    ? await db
+        .from("tables")
+        .select("label, seats")
+        .eq("label", label)
+        .maybeSingle()
+    : { data: null, error: null }
+  if (label && (tableError || !table))
+    return { error: "That table is no longer available." }
 
   const { data: reservation, error: reservationError } = await db
     .from("reservations")
-    .select("status, table_label")
+    .select("id, date, time, status, table_label, party_size")
     .eq("id", reservationId)
     .single()
   if (reservationError || !reservation)
     return { error: "Reservation not found." }
   if (["completed", "cancelled", "no_show"].includes(reservation.status))
     return { error: "Closed reservations cannot be assigned." }
+  if (table && table.seats < reservation.party_size)
+    return { error: "That table does not have enough seats for this party." }
+  if (label && label !== reservation.table_label) {
+    const { data: settings } = await db
+      .from("restaurant_settings")
+      .select("occupancy_duration_minutes, safety_buffer_minutes")
+      .eq("id", 1)
+      .maybeSingle()
+    const occupancyDurationMinutes = occupancyDurationFromSettings(
+      settings?.occupancy_duration_minutes,
+    )
+    const safetyBufferMinutes = clampSafetyBufferMinutes(
+      settings?.safety_buffer_minutes ?? DEFAULT_SAFETY_BUFFER_MINUTES,
+    )
+    const window = occupyingWindowMinutes(
+      reservation.time,
+      occupancyDurationMinutes,
+      safetyBufferMinutes,
+    )
+    if (window) {
+      // minimality: keep select/eq/in/order so auto-assign-action mocks still
+      // work; filter table_label in memory.
+      const { data: occupying, error: occupyingError } = await db
+        .from("reservations")
+        .select("id, time, table_label")
+        .eq("date", reservation.date)
+        .in("status", ACTIVE_RESERVATION_STATUSES)
+        .order("time", { ascending: true })
+      if (occupyingError) {
+        return { error: "Could not update the table assignment." }
+      }
+      const conflict = (occupying ?? []).some((row) => {
+        if (row.id === reservationId || row.table_label !== label) return false
+        const other = occupyingWindowMinutes(
+          row.time,
+          occupancyDurationMinutes,
+          safetyBufferMinutes,
+        )
+        return other !== null && occupyingWindowsOverlap(window, other)
+      })
+      if (conflict) {
+        return {
+          error: "That table is already reserved for an overlapping time.",
+        }
+      }
+    }
+  }
   if (label && reservation.table_label && reservation.table_label !== label) {
     await syncTableGroupStatus(reservation.table_label, "available")
   }
@@ -483,7 +536,7 @@ export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
 
   await expireDueMerges()
   const { assigned } = await autoAssignDueReservations()
-  const [tables, reservations, merges] = await Promise.all([
+  const [tables, { reservations }, merges] = await Promise.all([
     getTables(),
     getReservationsByDate(date),
     getActiveMerges(),

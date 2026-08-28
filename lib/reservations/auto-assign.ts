@@ -3,8 +3,10 @@
  *
  * A confirmed reservation is assigned the smallest available table that fits
  * the party once restaurant-local now is at or after booked time minus the
- * restaurant default expected turn (90 minutes). Helpers stay free of I/O so
- * they can be unit-tested without mocking Supabase or the clock.
+ * restaurant default expected turn (90 minutes). A label is taken only when
+ * another occupying window on the same date overlaps (BW-9; defaults 90+15).
+ * Helpers stay free of I/O so they can be unit-tested without mocking
+ * Supabase or the clock.
  */
 
 import type { ReservationStatus, TableStatus } from "@/lib/data"
@@ -12,6 +14,10 @@ import {
   DEFAULT_EXPECTED_MINUTES,
   labelsInSameMerge,
 } from "@/lib/floor/table-use"
+import {
+  DEFAULT_SAFETY_BUFFER_MINUTES,
+  nextBookableTime,
+} from "@/lib/reservations/operating-hours"
 
 /** Booked time minus expected turn; aliases {@link DEFAULT_EXPECTED_MINUTES} (90). */
 export const TABLE_ASSIGNMENT_LEAD_MINUTES = DEFAULT_EXPECTED_MINUTES
@@ -20,11 +26,6 @@ export const TABLE_ASSIGNMENT_LEAD_MINUTES = DEFAULT_EXPECTED_MINUTES
 export const ACTIVE_RESERVATION_STATUSES: readonly ReservationStatus[] = [
   "confirmed",
   "seated",
-]
-const TERMINAL_RESERVATION_STATUSES: ReservationStatus[] = [
-  "completed",
-  "cancelled",
-  "no_show",
 ]
 
 export type AssignableReservation = {
@@ -87,6 +88,35 @@ export function timeToMinutes(time: string): number | null {
   return hours * 60 + minutes
 }
 
+type OccupyingWindow = { startMin: number; endMin: number }
+type OccupyingClaim = OccupyingWindow & { label: string }
+
+/**
+ * BW-9 occupying window on one reservation date: half-open
+ * `[start, nextBookableTime(start))`. `nextBookableTime` wraps past midnight;
+ * occupancy does not span the next calendar date, so a wrapped end is 24:00.
+ */
+export function occupyingWindowMinutes(
+  start: string,
+  occupancyDurationMinutes: number,
+  safetyBufferMinutes: number,
+): OccupyingWindow | null {
+  const startMin = timeToMinutes(start)
+  if (startMin === null) return null
+  const endMin = timeToMinutes(
+    nextBookableTime(start, occupancyDurationMinutes, safetyBufferMinutes),
+  )
+  if (endMin === null) return null
+  return { startMin, endMin: endMin > startMin ? endMin : 24 * 60 }
+}
+
+export function occupyingWindowsOverlap(
+  a: OccupyingWindow,
+  b: OccupyingWindow,
+): boolean {
+  return a.startMin < b.endMin && b.startMin < a.endMin
+}
+
 /**
  * True when restaurant-local now is at or after booked time minus expected
  * turn (default 90; {@link TABLE_ASSIGNMENT_LEAD_MINUTES}).
@@ -142,24 +172,33 @@ function compareDueReservations(
 
 /**
  * Plan assignments for every due, unassigned reservation against the current
- * floor. Does not mutate inputs.
+ * floor. A label is taken only when an occupying claim on the same date
+ * overlaps this reservation's BW-9 window (defaults 90+15). Does not mutate
+ * inputs.
  */
 export function planAutoAssignments(
   reservations: AssignableReservation[],
   tables: AssignableTable[],
   now: { date: string; time: string },
   leadMinutes: number = TABLE_ASSIGNMENT_LEAD_MINUTES,
+  occupancyDurationMinutes: number = DEFAULT_EXPECTED_MINUTES,
+  safetyBufferMinutes: number = DEFAULT_SAFETY_BUFFER_MINUTES,
 ): PlannedAssignment[] {
-  const taken = new Set(
-    reservations
-      .filter(
-        (reservation) =>
-          reservation.table_label &&
-          ACTIVE_RESERVATION_STATUSES.includes(reservation.status) &&
-          !TERMINAL_RESERVATION_STATUSES.includes(reservation.status),
-      )
-      .map((reservation) => reservation.table_label as string),
-  )
+  const windowOf = (time: string) =>
+    occupyingWindowMinutes(time, occupancyDurationMinutes, safetyBufferMinutes)
+
+  const claims: OccupyingClaim[] = []
+  for (const reservation of reservations) {
+    if (
+      !reservation.table_label ||
+      reservation.date !== now.date ||
+      !ACTIVE_RESERVATION_STATUSES.includes(reservation.status)
+    ) {
+      continue
+    }
+    const window = windowOf(reservation.time)
+    if (window) claims.push({ label: reservation.table_label, ...window })
+  }
 
   const due = reservations
     .filter((reservation) =>
@@ -169,9 +208,16 @@ export function planAutoAssignments(
 
   const planned: PlannedAssignment[] = []
   for (const reservation of due) {
+    const window = windowOf(reservation.time)
+    if (!window) continue
+    const taken = new Set(
+      claims
+        .filter((claim) => occupyingWindowsOverlap(claim, window))
+        .map((claim) => claim.label),
+    )
     const table = selectBestTable(tables, reservation.party_size, taken)
     if (!table) continue
-    taken.add(table.label)
+    claims.push({ label: table.label, ...window })
     planned.push({ reservationId: reservation.id, tableLabel: table.label })
   }
   return planned

@@ -1,11 +1,12 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 ## Scope
 
-Staff scheduling (`app/admin/scheduling`), floor plan (`app/admin/floor`).
+Staff scheduling (`app/admin/scheduling`), floor plan (`app/admin/floor`),
+and `/admin` Dashboard floor-occupancy widgets (FP-11).
 Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 `supabase/migrations/00000000000000_baseline.sql`; default hours seeded in
 `supabase/seed.sql`. Dining-room tables persist in `tables` (see FP-1).
@@ -42,7 +43,19 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
    `available` table with `seats >= party_size`. Same-time reservations are
    assigned in **larger party first** order, then earlier `created_at`. A table
    already reserved, seated, cleaning, out of service, or claimed in the same
-   batch is not reused. If no table fits, the reservation stays unassigned.
+   batch is not reused. Staff auto-assign treats an assignable `table_label` as
+   taken only when another occupying reservation (`confirmed` or `seated`) on
+   the **same reservation `date`** already holds that label **and** the two
+   occupying windows overlap. Occupying window is booking-rules BW-9: half-open
+   `[start, start + occupancy_duration_minutes + safety_buffer_minutes)`
+   (defaults 90 + 15), restaurant-wide `/admin/floor` settings, **not**
+   `tables.expected_minutes`. Overlap does not span the next calendar date.
+   Non-overlapping occupying windows MAY reuse the same table (lunch then
+   dinner). `completed`, `cancelled`, and `no_show` do not occupy (BW-10).
+   `planAutoAssignments` in-batch claims are the same windowed rule (not a
+   day-wide label set). Table **status** still follows the existing FP-3
+   sentence (reserved/seated/cleaning/out of service are not auto-assigned).
+   If no table fits, the reservation stays unassigned.
 
 7. **FP-4 — Live Floor Plan via hooks** — `/admin/floor` is a live view. The
    dining-room UI reads tables and today’s reservations through `useFloorPlan`
@@ -57,6 +70,14 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
    table to `seated`. Completing, cancelling, or marking no-show clears
    `table_label` and returns a `reserved` or `seated` table to `available`.
    Staff can still assign or clear a table manually from `/admin/reservations`.
+   Manual assign (`assignReservationTable` and the `/admin/reservations`
+   dropdown) MUST require `seats >= party_size` (same fit as FP-3; exact fit
+   allowed; **no** staff override) and MUST refuse a label whose occupying
+   window overlaps another occupying reservation on that assignable label. The
+   write path enforces both rules even if the UI is bypassed. Undersized tables
+   MUST NOT appear in the dropdown except the reservation's currently assigned
+   label. Clearing `table_label` is always allowed and skips fit/overlap.
+   Closed reservations (`completed`, `cancelled`, `no_show`) stay unassignable.
 
 9. **FP-6 — Seat capacity drives table shape** — On `/admin/floor`, **odd**
    seat capacity is depicted as a **round** table; **even** seat capacity is
@@ -122,6 +143,18 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     plus a **staff-manageable** safety buffer (booking-rules BW-9–BW-11, floor
     chrome, buffer default 15) drive guest next-bookable availability and
     MUST NOT be confused with per-table Expected time.
+
+15. **FP-11 — Dashboard occupancy is live floor inventory** — `/admin` Floor
+    occupancy, Service is live copy, and Floor status MUST count persisted
+    `tables` rows from the same live snapshot as `/admin/floor`
+    (`getFloorSnapshot`). They MUST NOT use the static `TABLES` seed in
+    `lib/data.ts`. Occupancy is seated-count / table-count of those snapshot
+    rows; “ready for guests” is the `available` count; Floor status is a
+    count per valid table status (criterion 1). Counts are physical table
+    rows (merged members share status per FP-8 and each still counts). FP-4
+    reservation overlay does not rewrite these Dashboard counts — persisted
+    `status` is the source. Each Dashboard load re-reads the snapshot (the
+    page is request-dynamic).
 
 **15. OH-SAVE — Persist opening hours via deployed RPC** — Staff **Save Changes**
 on `/admin/scheduling` persists the weekly opening-hour schedule by calling
@@ -205,12 +238,15 @@ Linked-remote apply is manual-UAT.
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Guest note (§13)       | `operating_windows.guest_note` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260818162000_operating_hour_segments.sql`; `components/staff/scheduling-manager.tsx`; `app/actions/availability.ts` (`WINDOW_COLUMNS`, `replace_operating_windows`)                                                                                                                                                                                                                                                                                                                      | `tests/unit/scheduling/schema.test.ts`, `tests/unit/availability/actions.test.ts`                                                                                                                                                                       |
 | FP-10                  | `restaurant_settings.slot_interval_minutes` plus occupancy/buffer columns (`occupancy_duration_minutes` default 90, `safety_buffer_minutes` default 15) — baseline + `20260823130000_restaurant_info_and_chefs_picks.sql` + `20260827180000_occupancy_duration_buffer.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `getOccupancyDurationMinutes`, `getSafetyBufferMinutes` + updaters); floor chrome `occupancy-duration-control` / `safety-buffer-control` (not per-table Expected time)                                                                                             | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts`, `tests/unit/floor/occupancy-settings.test.ts`                                                                                                                           |
+| FP-11                  | `app/admin/page.tsx` (`AdminDashboardPage`) — `getFloorSnapshot` + `countFloorOccupancy(snapshot.tables)`; helper `lib/floor/table-use.ts`; page is `dynamic = "force-dynamic"`                                                                                                                                                                                                                                                                                                                                                                                                                     | `tests/unit/floor/dashboard-occupancy.test.ts`                                                                                                                                                                                                          |
 | OH-SAVE (§15)          | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; linked-remote apply stays runbook + manual-UAT.                                                                                                                                                                          | `tests/unit/scheduling/hours-mutation-target.test.ts`; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only)                                                                                                              |
 | OH-PRIV (§16)          | `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` for `anon, authenticated`; `GRANT ALL ON TABLE operating_windows TO service_role`; and `DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"` (no `CREATE`) — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql` (`NOTIFY pgrst, 'reload schema'`). Staff Save remains `service_role` `replace_operating_windows` (§15). Linked-remote apply stays runbook + manual-UAT.                                                                              | `tests/unit/scheduling/schema.test.ts` → "operating_windows grants ALL to service_role in baseline and privilege forward files"; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (authenticated Data API DML denial, local only) |
 | EARLY-PRIV (§17)       | `GRANT ALL ON TABLE blocked_dates TO service_role`, same for `reservations` and `menu_items` — `supabase/migrations/00000000000000_baseline.sql` (after each table's service_role RLS block, `-- REAZED-297`); `supabase/migrations/20260825140000_operating_windows_privilege.sql` (before `NOTIFY pgrst`; header names the siblings). Authenticated `FOR ALL` on those tables is kept. Anon/authenticated privileges: PUBLIC-READ-PRIV (§18) for `blocked_dates`; booking-rules AC-5 for `reservations`; menu-availability AC-2 for `menu_items`. Linked-remote apply stays runbook + manual-UAT. | `tests/unit/scheduling/schema.test.ts` → "early-baseline tables grant ALL to service_role in baseline and privilege forward files"                                                                                                                      |
 | PUBLIC-READ-PRIV (§18) | `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` for `anon, authenticated` on `blocked_dates` (same strings for `menu_items`, menu-availability AC-2) — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql`, `supabase/migrations/20260827160000_public_catalog_privileges.sql` (`NOTIFY pgrst, 'reload schema'`). Must not `GRANT SELECT ON TABLE reservations` (booking-rules AC-5). Linked-remote apply stays runbook + manual-UAT.                                                                                          | `tests/integration/reservations/public-privileges.integ.test.ts` → "anon can SELECT blocked_dates and cannot INSERT"; "anon can SELECT menu_items and cannot INSERT"                                                                                    |
 | FP-2                   | `lib/reservations/auto-assign.ts` — `TABLE_ASSIGNMENT_LEAD_MINUTES` aliases `DEFAULT_EXPECTED_MINUTES` (90); due-check is booked time minus expected turn **before** a table is chosen; confirm/create does not assign                                                                                                                                                                                                                                                                                                                                                                              | `tests/unit/reservations/auto-assign.test.ts` → "is due once the lead window opens"; "is not due before the lead window"; `planAutoAssignments` "assigns due reservations and leaves future ones unassigned"                                            |
 | FP-4 helper copy       | `components/staff/floor-plan.tsx` — Tonight’s book helper: booked time minus expected turn (default 90), not a 15-minute lead                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `tests/unit/floor/schema.test.ts` → "Tonight’s book copy uses expected-turn lead default 90"                                                                                                                                                            |
+| FP-3 occupancy-window  | `lib/reservations/auto-assign.ts` — `occupyingWindowMinutes` (BW-9 via `nextBookableTime`; wrap `endMin <= startMin` → 24:00), `occupyingWindowsOverlap`; `planAutoAssignments` seeds same-date `confirmed`/`seated` claims and takes a label only when windows overlap (defaults 90+15)                                                                                                                                                                                                                                                                                                            | `tests/unit/reservations/auto-assign.test.ts` → "reuses a table when occupying windows do not overlap and refuses when they do"                                                                                                                         |
+| FP-5                   | `app/actions/reservations.ts` `assignReservationTable` — `select("label, seats")`; `if (table && table.seats < party_size)` before overlap; unassign is a null table; live `restaurant_settings` → occupying window. Dropdown: `selectableTablesForAssignment` (`lib/reservations/selectable-tables.ts`) in `TableAssignment`                                                                                                                                                                                                                                                                       | `tests/unit/reservations/assign-table.test.ts` overlap + undersize; `tests/unit/reservations/selectable-tables.test.ts` → "omits undersize tables except the reservation current label"                                                                 |
 
 ## References
 
@@ -218,7 +254,12 @@ Linked-remote apply is manual-UAT.
 - [../runbooks/deploy.md](../runbooks/deploy.md) (linked remote apply of `20260818162000_operating_hour_segments`, `20260825140000_operating_windows_privilege`, `20260827160000_public_catalog_privileges`, and `20260827180000_occupancy_duration_buffer`)
 - [../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md)
 - `lib/floor/layout.ts`
+- `lib/floor/table-use.ts`
 - `lib/reservations/auto-assign.ts`
+- `lib/reservations/selectable-tables.ts`
+- `app/actions/reservations.ts`
 - `hooks/use-floor-plan.ts`
 - `components/staff/floor-plan.tsx`
+- `components/staff/reservations-manager.tsx`
+- `app/admin/page.tsx`
 - `app/admin/floor/page.tsx`

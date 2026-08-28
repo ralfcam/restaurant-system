@@ -6,10 +6,11 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react"
-import { TABLES, TABLE_STATUS_META } from "@/lib/data"
-import { getReservationsByDate } from "@/app/actions/reservations"
+import { TABLE_STATUS_META } from "@/lib/data"
+import { getFloorSnapshot } from "@/app/actions/reservations"
 import { getAuthUser } from "@/app/actions/auth"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
+import { countFloorOccupancy } from "@/lib/floor/table-use"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { StatCard } from "@/components/staff/stat-card"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
@@ -18,15 +19,18 @@ import { Button } from "@/components/ui/button"
 export const dynamic = "force-dynamic"
 
 export default async function AdminDashboardPage() {
-  const [authUser, allReservations] = await Promise.all([
+  const today = getTodayInRestaurantTZ()
+  const [authUser, snapshot] = await Promise.all([
     getAuthUser(),
-    getReservationsByDate(getTodayInRestaurantTZ()),
+    getFloorSnapshot(today),
   ])
-  const todays = allReservations.filter((r) => r.status !== "cancelled")
+  const reservations = snapshot.reservations
+  const todays = reservations.filter((r) => r.status !== "cancelled")
   const covers = todays.reduce((sum, r) => sum + r.party_size, 0)
-  const seated = TABLES.filter((t) => t.status === "seated").length
-  const available = TABLES.filter((t) => t.status === "available").length
-  const upcoming = allReservations
+  const { seated, total, available, byStatus } = countFloorOccupancy(
+    snapshot.tables,
+  )
+  const upcoming = reservations
     .filter((r) => r.status === "confirmed")
     .slice(0, 5)
 
@@ -61,7 +65,7 @@ export default async function AdminDashboardPage() {
         <StatCard
           icon={Armchair}
           label="Floor occupancy"
-          value={`${seated}/${TABLES.length}`}
+          value={`${seated}/${total}`}
           hint={`${available} tables available`}
           tone="accent"
         />
@@ -147,7 +151,7 @@ export default async function AdminDashboardPage() {
                 keyof typeof TABLE_STATUS_META
               >
             ).map((status) => {
-              const count = TABLES.filter((t) => t.status === status).length
+              const count = byStatus[status]
               const meta = TABLE_STATUS_META[status]
               return (
                 <div key={status} className="flex items-center justify-between">

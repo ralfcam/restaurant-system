@@ -196,6 +196,28 @@ describe("planAutoAssignments", () => {
     )
     expect(planned).toEqual([])
   })
+
+  it("reuses a table when occupying windows do not overlap and refuses when they do", () => {
+    const reused = planAutoAssignments(
+      [
+        reservation({ id: "lunch", table_label: "1", time: "12:00" }),
+        reservation({ id: "due", time: "19:00", party_size: 2 }),
+      ],
+      tables,
+      NOW,
+    )
+    expect(reused).toEqual([{ reservationId: "due", tableLabel: "1" }])
+
+    const overlapping = planAutoAssignments(
+      [
+        reservation({ id: "held", table_label: "1", time: "18:00" }),
+        reservation({ id: "due", time: "18:30", party_size: 2 }),
+      ],
+      tables,
+      NOW,
+    )
+    expect(overlapping).toEqual([{ reservationId: "due", tableLabel: "3" }])
+  })
 })
 
 describe("overlayReservationsOnTables", () => {

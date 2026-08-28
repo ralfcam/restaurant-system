@@ -14,6 +14,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { type ReservationStatus } from "@/lib/data"
+import { staffListEmptyCopy } from "@/lib/reservations/list-empty-copy"
+import { selectableTablesForAssignment } from "@/lib/reservations/selectable-tables"
 import {
   type ReservationRow,
   type ReservationTableOption,
@@ -96,6 +98,7 @@ export function ReservationsManager({
   const [loadingDate, setLoadingDate] = useState(false)
   const [tables, setTables] = useState<ReservationTableOption[]>([])
   const [assigningId, setAssigningId] = useState<string | null>(null)
+  const [listError, setListError] = useState<string | undefined>()
 
   useEffect(() => {
     getReservationTables().then(setTables)
@@ -108,9 +111,11 @@ export function ReservationsManager({
     queueMicrotask(() => {
       if (!cancelled) setLoadingDate(true)
     })
-    getReservationsByDate(currentDate).then((rows) => {
+    getReservationsByDate(currentDate).then((result) => {
       if (!cancelled) {
-        setReservations(rows.map(rowToReservation))
+        setReservations(result.reservations.map(rowToReservation))
+        setListError(result.error)
+        if (result.error) toast.error(result.error)
         setLoadingDate(false)
       }
     })
@@ -324,7 +329,13 @@ export function ReservationsManager({
         <ul className="divide-y divide-border">
           {filtered.length === 0 ? (
             <li className="px-5 py-10 text-center text-sm text-muted-foreground">
-              No reservations match your filters.
+              {staffListEmptyCopy({
+                error: listError,
+                loadedCount: reservations.length,
+                filteredCount: filtered.length,
+                statusFilterActive: tab !== "all",
+                nameOrPhoneFilterActive: query.trim() !== "",
+              })}
             </li>
           ) : (
             filtered.map((r) => (
@@ -385,9 +396,10 @@ function TableAssignment({
   assigning: boolean
   onAssign: (id: string, tableLabel: string) => void
 }) {
-  const selectableTables = tables.filter(
-    (table) =>
-      table.status === "available" || table.label === reservation.tableLabel,
+  const selectableTables = selectableTablesForAssignment(
+    tables,
+    reservation.partySize,
+    reservation.tableLabel,
   )
 
   return (
