@@ -17,7 +17,7 @@ export default async function ReservationsPage({
   const today = getTodayInRestaurantTZ()
   const selectedDate = dateParam ?? today
 
-  const [reservations, authUser] = await Promise.all([
+  const [{ reservations }, authUser] = await Promise.all([
     getReservationsByDate(selectedDate),
     getAuthUser(),
   ])
