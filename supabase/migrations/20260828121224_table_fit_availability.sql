@@ -1,22 +1,15 @@
--- Forward migration for already-applied baseline (linked/remote).
--- Same objects are also defined idempotently in 00000000000000_baseline.sql
--- so `supabase db reset --local` stays equivalent.
+-- Forward migration for remotes that already recorded 20260827180000.
+-- Same table-fit block is also defined in 00000000000000_baseline.sql,
+-- 20260818162000_operating_hour_segments.sql, and
+-- 20260827180000_occupancy_duration_buffer.sql so
+-- `supabase db reset --local` stays equivalent.
 --
--- Opening-hour segments: multiple operating_windows rows per weekday.
+-- REAZED-305: BW-12 compatible-table bookability in
+-- validate_reservation_availability. New dated file because remotes have
+-- already recorded occupancy; folding into 20260827180000 would not apply.
 
-ALTER TABLE operating_windows
-  DROP CONSTRAINT IF EXISTS operating_windows_day_of_week_key;
-
-ALTER TABLE operating_windows
-  ADD COLUMN IF NOT EXISTS label TEXT;
-
-ALTER TABLE operating_windows
-  ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL DEFAULT 0;
-
--- Optional guest-facing helper for this segment; blank/whitespace stored as NULL.
-ALTER TABLE operating_windows
-  ADD COLUMN IF NOT EXISTS guest_note TEXT;
-
+-- Last-writer on remotes that already recorded earlier function definitions.
+-- Same body as baseline / 20260818162000 / 20260827180000 so `db reset --local` stays equivalent.
 CREATE OR REPLACE FUNCTION validate_reservation_availability()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -223,34 +216,3 @@ BEGIN
   RETURN NEW;
 END;
 $$;
-
--- Atomic replace of the full weekly opening-hour schedule (staff / service role).
--- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
-CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
-RETURNS void
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  -- WHERE TRUE satisfies hosted safe-delete (error 21000 without a predicate).
-  DELETE FROM operating_windows WHERE TRUE;
-
-  INSERT INTO operating_windows (
-    day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
-  )
-  SELECT
-    (w->>'day_of_week')::INT,
-    (w->>'opens_at')::TIME,
-    (w->>'closes_at')::TIME,
-    COALESCE((w->>'is_closed')::BOOLEAN, false),
-    NULLIF(BTRIM(w->>'label'), ''),
-    COALESCE((w->>'sort_order')::INT, 0),
-    NULLIF(BTRIM(w->>'guest_note'), '')
-  FROM jsonb_array_elements(p_windows) AS w;
-END;
-$$;
-
-REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
-REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM anon, authenticated;
-GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
-
-NOTIFY pgrst, 'reload schema';

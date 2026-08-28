@@ -79,6 +79,7 @@ Never expose the service role key to the client bundle. Never commit it.
 | Forward: operating_windows privilege | `supabase/migrations/20260825140000_operating_windows_privilege.sql` | Yes on local reset; apply on already-baselined remotes              |
 | Forward: public catalog privileges   | `supabase/migrations/20260827160000_public_catalog_privileges.sql`   | Yes on local reset; apply when `20260825140000` is already recorded |
 | Forward: occupancy duration + buffer | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`   | Yes on local reset; apply on already-baselined remotes              |
+| Forward: table-fit availability      | `supabase/migrations/20260828121224_table_fit_availability.sql`      | Yes on local reset; apply when occupancy is already recorded        |
 | Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
@@ -96,8 +97,9 @@ instead of adding dated migration files. Policy detail:
 
 `20260818162000_operating_hour_segments.sql`,
 `20260825140000_operating_windows_privilege.sql`,
-`20260827160000_public_catalog_privileges.sql`, and
-`20260827180000_occupancy_duration_buffer.sql` are the forward-only exceptions
+`20260827160000_public_catalog_privileges.sql`,
+`20260827180000_occupancy_duration_buffer.sql`, and
+`20260828121224_table_fit_availability.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -289,6 +291,42 @@ try to replay history the remote has diverged from.
 
    Confirm `occupancy_duration_minutes` and `safety_buffer_minutes` on
    `restaurant_settings` (defaults 90 and 15).
+
+### Apply `20260828121224_table_fit_availability.sql` on an already-baselined remote
+
+For remotes that already recorded occupancy (`schema_migrations` has
+`20260827180000`), apply this last-writer `CREATE OR REPLACE` of
+`validate_reservation_availability` (table-fit after cover-count + date-scoped
+`pg_advisory_xact_lock`; do not `db push`). Local `db reset` already applies
+this file.
+
+Do not use `db push` or `db reset --linked` for this — a full push/reset would
+try to replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260828121224_table_fit_availability.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260828121224', 'table_fit_availability');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260828121224 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260828121224';
+   ```
+
+   Confirm `validate_reservation_availability` table-fits after cover-count and
+   takes `pg_advisory_xact_lock(305, days-since-epoch)`.
 
 ### Reset database
 

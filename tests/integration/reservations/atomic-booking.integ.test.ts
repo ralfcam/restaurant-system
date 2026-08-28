@@ -2,6 +2,30 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { authEnvReady } from "../helpers/env"
 import { createServiceClient } from "@/lib/supabase/service"
 import { createReservation } from "@/app/actions/reservations"
+import type { OperatingDay } from "@/lib/reservations/operating-hours"
+
+const availability = vi.hoisted(() => ({
+  isDateBlocked: vi.fn(),
+  getOperatingWindowForDate: vi.fn(),
+  actual: null as null | typeof import("@/app/actions/availability"),
+}))
+
+vi.mock("@/app/actions/availability", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/app/actions/availability")>()
+  availability.actual = actual
+  availability.isDateBlocked.mockImplementation((date: string) =>
+    actual.isDateBlocked(date),
+  )
+  availability.getOperatingWindowForDate.mockImplementation((date: string) =>
+    actual.getOperatingWindowForDate(date),
+  )
+  return {
+    ...actual,
+    isDateBlocked: availability.isDateBlocked,
+    getOperatingWindowForDate: availability.getOperatingWindowForDate,
+  }
+})
 
 // createReservation calls revalidatePath on success, which requires a
 // Next.js request-scoped store that only exists inside an actual Next.js
@@ -45,6 +69,15 @@ describe.skipIf(!authEnvReady)(
     })
 
     afterEach(async () => {
+      const actual = availability.actual
+      if (actual) {
+        availability.isDateBlocked.mockImplementation((date: string) =>
+          actual.isDateBlocked(date),
+        )
+        availability.getOperatingWindowForDate.mockImplementation(
+          (date: string) => actual.getOperatingWindowForDate(date),
+        )
+      }
       await cleanupTestSlot()
     })
 
@@ -95,35 +128,52 @@ describe.skipIf(!authEnvReady)(
       }
     })
 
-    it("serializes concurrent bookings so the last remaining seat is only sold once", async () => {
-      // Fill the slot to exactly one seat remaining via a direct insert (bypasses
-      // app-level validation but still runs through the DB trigger).
+    it("serializes concurrent bookings so the last compatible unit is only sold once", async () => {
       const supabase = createServiceClient()
-      const { error: seedError } = await supabase.from("reservations").insert({
-        guest_name: "Seed Guest",
-        party_size: totalCapacity - 1,
-        date: TEST_DATE,
-        time: TEST_TIME,
-        phone: "555-0000",
-        conf_code: `TVL-${Math.floor(1000 + Math.random() * 9000)}`,
-        status: "confirmed",
-      })
-      expect(seedError).toBeNull()
+      const { data: tables } = await supabase.from("tables").select("seats")
+      expect(
+        (tables ?? []).filter((row) => (row.seats as number) >= 8),
+      ).toHaveLength(1)
 
-      // Two guests race for the single remaining seat. Without the advisory
-      // lock in the trigger, both could read "1 seat free" before either
-      // commits and both would be accepted — overbooking by one seat.
+      // Real blocked-date / hours round-trips serialize the two INSERTs in one
+      // Node process. Instant blocked check + a 2-arrival hours gate so both
+      // createReservation calls hit the trigger together; without a lock both
+      // read the empty occupying set and both accept the only 8-top.
+      const openWednesday: OperatingDay = {
+        day_of_week: 3,
+        is_closed: false,
+        segments: [
+          {
+            opens_at: "09:00",
+            closes_at: "22:00",
+            label: null,
+            sort_order: 0,
+          },
+        ],
+      }
+      availability.isDateBlocked.mockResolvedValue(false)
+      const windowWaiters: Array<(day: OperatingDay) => void> = []
+      availability.getOperatingWindowForDate.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            windowWaiters.push(resolve)
+            if (windowWaiters.length === 2) {
+              for (const release of windowWaiters) release(openWednesday)
+            }
+          }),
+      )
+
       const [first, second] = await Promise.all([
         createReservation({
           guestName: "Racer One",
-          partySize: 1,
+          partySize: 8,
           date: TEST_DATE,
           time: TEST_TIME,
           phone: "555-0101",
         }),
         createReservation({
           guestName: "Racer Two",
-          partySize: 1,
+          partySize: 8,
           date: TEST_DATE,
           time: TEST_TIME,
           phone: "555-0102",
@@ -138,18 +188,14 @@ describe.skipIf(!authEnvReady)(
       expect(failed).toHaveLength(1)
       expect(failed[0].error).toMatch(/fully booked/i)
 
-      // Confirm the database agrees: total booked party size never exceeded capacity.
       const { data: rows } = await supabase
         .from("reservations")
         .select("party_size")
         .eq("date", TEST_DATE)
         .eq("time", TEST_TIME)
         .in("status", ["confirmed", "seated"])
-      const totalBooked = (rows ?? []).reduce(
-        (sum, row) => sum + (row.party_size as number),
-        0,
-      )
-      expect(totalBooked).toBeLessThanOrEqual(totalCapacity)
+        .eq("party_size", 8)
+      expect((rows ?? []).length).toBeLessThanOrEqual(1)
     })
   },
 )

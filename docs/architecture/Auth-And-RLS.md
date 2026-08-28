@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 ## Auth flow
 
@@ -63,11 +63,12 @@ and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
 
 `validate_reservation_availability` (`enforce_booking_rules`) is
-`SECURITY DEFINER` so that insert-only path can still cover-count
-`reservations` / `tables` for the occupancy window (booking-rules BW-9).
-Occupancy last-writer body is identical in baseline,
-`20260818162000_operating_hour_segments.sql`, and
-`20260827180000_occupancy_duration_buffer.sql`.
+`SECURITY DEFINER` so that insert-only path can still cover-count and
+table-fit `reservations` / `tables` for the occupancy window (booking-rules
+BW-9) and compatible-table bookability (BW-12). Last-writer body is identical
+in baseline, `20260818162000_operating_hour_segments.sql`,
+`20260827180000_occupancy_duration_buffer.sql`, and
+`20260828121224_table_fit_availability.sql`.
 
 ## Env vars
 

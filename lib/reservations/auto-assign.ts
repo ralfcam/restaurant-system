@@ -10,6 +10,7 @@
  */
 
 import type { ReservationStatus, TableStatus } from "@/lib/data"
+import { toAssignableTables, type TableMergeRef } from "@/lib/floor/floor-units"
 import {
   DEFAULT_EXPECTED_MINUTES,
   labelsInSameMerge,
@@ -140,23 +141,102 @@ export function isReservationDueForAssignment(
   return current >= booked - leadMinutes
 }
 
+/**
+ * Smallest seats-then-label fit. Ignores live `status` — occupancy is claims
+ * and BW-9 windows, not floor status (BW-12).
+ */
+function pickBestFitTable(
+  tables: AssignableTable[],
+  partySize: number,
+  takenLabels: ReadonlySet<string>,
+): AssignableTable | undefined {
+  return tables
+    .filter(
+      (table) => table.seats >= partySize && !takenLabels.has(table.label),
+    )
+    .sort((a, b) => {
+      if (a.seats !== b.seats) return a.seats - b.seats
+      return a.label.localeCompare(b.label, undefined, { numeric: true })
+    })[0]
+}
+
 export function selectBestTable(
   tables: AssignableTable[],
   partySize: number,
   takenLabels: ReadonlySet<string>,
 ): AssignableTable | null {
-  const eligible = tables.filter(
-    (table) =>
-      table.status === "available" &&
-      table.seats >= partySize &&
-      !takenLabels.has(table.label),
+  return (
+    pickBestFitTable(
+      tables.filter((table) => table.status === "available"),
+      partySize,
+      takenLabels,
+    ) ?? null
   )
-  if (eligible.length === 0) return null
+}
 
-  return [...eligible].sort((a, b) => {
-    if (a.seats !== b.seats) return a.seats - b.seats
-    return a.label.localeCompare(b.label, undefined, { numeric: true })
-  })[0]
+/**
+ * True when `partySize` plus occupying `confirmed`/`seated` whose BW-9 window
+ * overlaps `candidateTime` can be assigned to distinct units (BW-12 / FP-3).
+ * Assigned `table_label` is a hard claim; unassigned occupying still consume
+ * via greedy assign. Does not invent merges. After
+ * {@link toAssignableTables}, drops only `out_of_service`; live `seated` /
+ * `reserved` / `cleaning` stay eligible (occupancy is claims + BW-9, not
+ * floor chrome). Optional `merges` (default `[]`) collapse existing staff
+ * merges; an empty list leaves physical tables unmerged.
+ * Omit `candidateTime` to keep the unit-fit check only.
+ * Occupancy window defaults match {@link planAutoAssignments} (BW-9 90+15).
+ */
+export function canSeatPartyOnTables(
+  tables: AssignableTable[],
+  partySize: number,
+  occupying: AssignableReservation[],
+  candidateTime?: string,
+  merges: TableMergeRef[] = [],
+  occupancyDurationMinutes: number = DEFAULT_EXPECTED_MINUTES,
+  safetyBufferMinutes: number = DEFAULT_SAFETY_BUFFER_MINUTES,
+): boolean {
+  const units = toAssignableTables(tables, merges).filter(
+    (table) => table.status !== "out_of_service",
+  )
+  if (candidateTime === undefined) {
+    return units.some((table) => table.seats >= partySize)
+  }
+
+  const windowOf = (time: string) =>
+    occupyingWindowMinutes(time, occupancyDurationMinutes, safetyBufferMinutes)
+
+  const candidateWindow = windowOf(candidateTime)
+  if (!candidateWindow) return false
+
+  const overlapping = occupying.filter((reservation) => {
+    if (!ACTIVE_RESERVATION_STATUSES.includes(reservation.status)) return false
+    const window = windowOf(reservation.time)
+    return window !== null && occupyingWindowsOverlap(window, candidateWindow)
+  })
+
+  const taken = new Set(
+    overlapping.flatMap((reservation) =>
+      reservation.table_label ? [reservation.table_label] : [],
+    ),
+  )
+
+  const toPlace: Pick<AssignableReservation, "party_size" | "created_at">[] = [
+    ...overlapping.filter((reservation) => !reservation.table_label),
+    { party_size: partySize },
+  ]
+  toPlace.sort((a, b) => {
+    if (a.party_size !== b.party_size) return b.party_size - a.party_size
+    if (!a.created_at && b.created_at) return 1
+    if (a.created_at && !b.created_at) return -1
+    return (a.created_at ?? "").localeCompare(b.created_at ?? "")
+  })
+
+  for (const party of toPlace) {
+    const table = pickBestFitTable(units, party.party_size, taken)
+    if (!table) return false
+    taken.add(table.label)
+  }
+  return true
 }
 
 function compareDueReservations(

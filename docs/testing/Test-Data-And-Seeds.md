@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 ## Current state
 
@@ -21,7 +21,10 @@
   strings when `20260825140000` is already recorded), plus
   `20260827180000_occupancy_duration_buffer.sql` (occupancy duration + safety
   buffer columns and last-writer `validate_reservation_availability`; apply on
-  already-baselined remotes — not a full `db push`).
+  already-baselined remotes — not a full `db push`), plus
+  `20260828121224_table_fit_availability.sql` (last-writer table-fit +
+  date-scoped `pg_advisory_xact_lock`; apply on already-baselined remotes that
+  already recorded occupancy — not a full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)

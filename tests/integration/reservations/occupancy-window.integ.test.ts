@@ -55,21 +55,31 @@ describe.skipIf(!authEnvReady)(
 
     it("rejects 20:30 against a full-floor 19:00 confirmed hold, accepts 20:45, and accepts 20:30 after the hold is completed", async () => {
       const supabase = createServiceClient()
+      const { data: floorTables, error: tablesError } = await supabase
+        .from("tables")
+        .select("label, seats")
+      expect(tablesError).toBeNull()
+      expect(floorTables?.length).toBeGreaterThan(0)
+
+      const occupying = (floorTables ?? []).map((row, i) => ({
+        guest_name: `Seed Occupancy Hold ${row.label}`,
+        party_size: row.seats as number,
+        date: TEST_DATE,
+        time: HOLD_TIME,
+        phone: "555-0000",
+        conf_code: `TVL-${String(6100 + i).padStart(4, "0")}`,
+        status: "confirmed" as const,
+      }))
+      expect(occupying.reduce((sum, row) => sum + row.party_size, 0)).toBe(
+        totalCapacity,
+      )
+
       const { data: seeded, error: seedError } = await supabase
         .from("reservations")
-        .insert({
-          guest_name: "Seed Occupancy Hold",
-          party_size: totalCapacity,
-          date: TEST_DATE,
-          time: HOLD_TIME,
-          phone: "555-0000",
-          conf_code: `TVL-${Math.floor(1000 + Math.random() * 9000)}`,
-          status: "confirmed",
-        })
+        .insert(occupying)
         .select("id")
-        .single()
       expect(seedError).toBeNull()
-      expect(seeded?.id).toBeTruthy()
+      expect(seeded?.length).toBe(occupying.length)
 
       const blocked = await createReservation(guestPayload("20:30"))
       expect(blocked.confCode).toBe("")
@@ -82,7 +92,10 @@ describe.skipIf(!authEnvReady)(
       const { error: completeError } = await supabase
         .from("reservations")
         .update({ status: "completed" })
-        .eq("id", seeded!.id)
+        .in(
+          "id",
+          seeded!.map((row) => row.id),
+        )
       expect(completeError).toBeNull()
 
       const released = await createReservation(guestPayload("20:30"))

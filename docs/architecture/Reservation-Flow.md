@@ -1,10 +1,11 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
-(BW-1…BW-11 for the segmented homepage widget and occupancy window).
+(BW-1…BW-12 for the segmented homepage widget, occupancy window, and
+compatible-table bookability).
 
 ```mermaid
 flowchart LR
@@ -32,12 +33,18 @@ to guest details only after a slot is selected (no `createReservation` on pick).
 **Occupancy window.** `confirmed` and `seated` occupy covers on
 `[start, nextBookableTime(start))` (occupancy + staff-manageable buffer,
 defaults 90 + 15). `getAvailableSlots` `normalizeTime`s reservation `time`
-before comparing to generated `HH:MM` slots. The confirm path uses the same
-half-open window in `validate_reservation_availability` (`SECURITY DEFINER`;
-same-date elapsed `TIME`; P0001 `Booking denied: This time is fully booked.`).
-`completed` / `cancelled` / `no_show` do not occupy (BW-10). Criteria:
-[../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-11.
+before comparing to generated `HH:MM` slots, then ANDs cover-count with
+`canSeatPartyOnTables` (BW-12). The confirm path uses the same half-open
+window in `validate_reservation_availability` (`SECURITY DEFINER`; same-date
+elapsed `TIME`; table-fit after cover-count; date-scoped
+`pg_advisory_xact_lock(305, days-since-epoch)`; P0001
+`Booking denied: This time is fully booked.`). Last-writer body is
+byte-identical in baseline, `20260818162000_operating_hour_segments.sql`,
+`20260827180000_occupancy_duration_buffer.sql`, and
+`20260828121224_table_fit_availability.sql`. Guest INSERT does not write
+`table_label`. `completed` / `cancelled` / `no_show` do not occupy (BW-10).
+Criteria: [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-12.
 
 Key modules: `components/site/reservation-widget.tsx`,
-`lib/reservations/operating-hours.ts`, `app/actions/reservations.ts`,
-`app/actions/availability.ts`.
+`lib/reservations/operating-hours.ts`, `lib/reservations/auto-assign.ts`,
+`app/actions/reservations.ts`, `app/actions/availability.ts`.

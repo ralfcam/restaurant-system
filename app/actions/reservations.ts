@@ -28,11 +28,15 @@ import {
   clampExpectedMinutes,
   DEFAULT_EXPECTED_MINUTES,
 } from "@/lib/floor/table-use"
+import type { TableStatus } from "@/lib/data"
 import {
   ACTIVE_RESERVATION_STATUSES,
+  canSeatPartyOnTables,
   occupyingWindowMinutes,
   occupyingWindowsOverlap,
   planAutoAssignments,
+  type AssignableReservation,
+  type AssignableTable,
   type PlannedAssignment,
 } from "@/lib/reservations/auto-assign"
 import {
@@ -43,7 +47,7 @@ import {
   type PersistedMerge,
   type PersistedTable,
 } from "@/app/actions/operations"
-import { toAssignableTables } from "@/lib/floor/floor-units"
+import { toAssignableTables, type TableMergeRef } from "@/lib/floor/floor-units"
 
 export type ReservationRow = {
   id: string
@@ -618,6 +622,8 @@ export async function getGuestOccupancyDurationMinutes(): Promise<number> {
  *  - It's in the past (today only)
  *  - Occupying covers on the half-open window
  *    `[start, nextBookableTime(start))` plus `partySize` exceed total seats
+ *  - Table-fit fails (BW-12): occupying overlapping parties plus `partySize`
+ *    cannot be assigned to distinct units, even when covers still fit
  */
 export async function getAvailableSlots(
   date: string,
@@ -659,19 +665,69 @@ export async function getAvailableSlots(
     return []
   }
 
-  const { data: tableRows, error: tableError } = await db
-    .from("tables")
-    .select("seats")
+  // Inventory + merges are independent of each other; staff-gated
+  // `getActiveMerges` returns [] without a session, so load with service-role.
+  const [tableResult, mergeResult, memberResult] = await Promise.all([
+    db.from("tables").select("id, label, seats, status"),
+    db.from("table_merges").select("id, expected_minutes, expires_at, status"),
+    db.from("table_merge_members").select("merge_id, table_id"),
+  ])
+  const { data: tableRows, error: tableError } = tableResult
+  const { data: mergeRows, error: mergeError } = mergeResult
+  const { data: memberRows, error: memberError } = memberResult
   if (tableError) {
     console.error(
       "[reservations] getAvailableSlots table capacity error:",
       tableError.message,
     )
   }
+  if (mergeError) {
+    console.error(
+      "[reservations] getAvailableSlots merges error:",
+      mergeError.message,
+    )
+  }
+  if (memberError) {
+    console.error(
+      "[reservations] getAvailableSlots merge members error:",
+      memberError.message,
+    )
+  }
   const totalCapacity = (tableRows ?? []).reduce(
     (sum, row) => sum + (row.seats ?? 0),
     0,
   )
+  // Keep unlabeled capacity stubs (e.g. `{ seats: 40 }`) as one unit; do not
+  // drop them. Missing label/status/id stay valid when `seats >= partySize`.
+  const assignableTables: AssignableTable[] = (tableRows ?? []).map((row) => {
+    const table: AssignableTable = {
+      label: row.label != null ? String(row.label) : "",
+      seats: Number(row.seats ?? 0),
+      status: row.status ? (row.status as TableStatus) : "available",
+    }
+    if (row.id != null && String(row.id) !== "") table.id = String(row.id)
+    return table
+  })
+
+  const merges: TableMergeRef[] = (
+    mergeError || memberError ? [] : (mergeRows ?? [])
+  ).flatMap((merge) => {
+    const tableIds = (memberRows ?? [])
+      .filter((row) => row.merge_id === merge.id)
+      .map((row) => String(row.table_id))
+    if (tableIds.length < 2) return []
+    return [
+      {
+        id: String(merge.id),
+        expectedMinutes: clampExpectedMinutes(
+          Number(merge.expected_minutes ?? DEFAULT_EXPECTED_MINUTES),
+        ),
+        expiresAt: String(merge.expires_at ?? ""),
+        status: merge.status ? (merge.status as TableStatus) : "available",
+        tableIds,
+      },
+    ]
+  })
 
   // Reservations carry PII (guest name, phone, notes) and are not publicly
   // readable — RLS only grants anon INSERT, not SELECT. This preview only
@@ -682,7 +738,7 @@ export async function getAvailableSlots(
   // database trigger on insert, keeping both checks in sync.
   const { data, error } = await db
     .from("reservations")
-    .select("time, party_size, status")
+    .select("id, time, party_size, status, table_label, created_at")
     .eq("date", date)
     .in("status", ACTIVE_RESERVATION_STATUSES)
 
@@ -698,6 +754,7 @@ export async function getAvailableSlots(
   // Compare exclusive-end to generatedSlots only (BW-5) — do not emit a
   // slot at the free instant unless bookableTimesForDay already did.
   const bookedBySlot: Record<string, number> = {}
+  const occupying: AssignableReservation[] = []
   for (const row of data ?? []) {
     if (!ACTIVE_RESERVATION_STATUSES.includes(row.status)) continue
     const start = normalizeTime(row.time)
@@ -712,6 +769,16 @@ export async function getAvailableSlots(
           (bookedBySlot[generated] ?? 0) + row.party_size
       }
     }
+    if (row.id == null) continue
+    occupying.push({
+      id: String(row.id),
+      party_size: Number(row.party_size),
+      date,
+      time: start,
+      status: row.status,
+      table_label: row.table_label ? String(row.table_label) : null,
+      created_at: typeof row.created_at === "string" ? row.created_at : "",
+    })
   }
 
   // "Now" in local restaurant timezone — block past slots on today's date.
@@ -729,10 +796,18 @@ export async function getAvailableSlots(
       return { time, available: false }
     }
 
-    // Block if adding this party exceeds capacity.
     const booked = bookedBySlot[time] ?? 0
-    const available = booked + partySize <= totalCapacity
+    const coversFit = booked + partySize <= totalCapacity
+    const tableFit = canSeatPartyOnTables(
+      assignableTables,
+      partySize,
+      occupying,
+      time,
+      merges,
+      occupancyDurationMinutes,
+      safetyBufferMinutes,
+    )
 
-    return { time, available }
+    return { time, available: coversFit && tableFit }
   })
 }
