@@ -10,6 +10,13 @@ export const FLOOR_MAX_COLS = 12
 export const FLOOR_MAX_ROWS = 8
 export const FLOOR_DRAG_THRESHOLD_PX = 8
 
+/** Tailwind `lg` min-width. Bottom Sheet inspector only below this (FP-12). */
+export const FLOOR_LG_MIN_PX = 1024
+
+export function shouldOpenMobileInspector(viewportWidthPx: number): boolean {
+  return viewportWidthPx < FLOOR_LG_MIN_PX
+}
+
 export type FloorCell = { x: number; y: number }
 
 export function clampFloorCoord(value: number, max: number): number {

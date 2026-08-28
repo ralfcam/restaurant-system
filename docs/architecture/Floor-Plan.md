@@ -33,7 +33,9 @@ lets staff drag it to a new cell; coordinates persist through
 merges (FP-8). New tables take the next free cell.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
-`hooks/use-floor-plan.ts`. Inventory is persisted in Postgres (`tables`), not
+`hooks/use-floor-plan.ts`. From `lg` (1024px) up, table selection updates the
+side inspector (`lg:block`); the mobile bottom Sheet MUST NOT be open on
+desktop selection (FP-12). Inventory is persisted in Postgres (`tables`), not
 mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
 live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the

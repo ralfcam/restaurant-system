@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useRef, useState, type PointerEvent } from "react"
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react"
 import {
   Plus,
   Trash2,
@@ -72,6 +72,7 @@ import {
   floorCanvasCells,
   floorCellStyle,
   mergeCellBounds,
+  shouldOpenMobileInspector,
   spreadOverlappingTables,
   tableAtCell,
   type FloorCell,
@@ -306,6 +307,17 @@ export function FloorPlan({
     () => tables.map((table) => toMergeDropTable(table)),
     [tables],
   )
+
+  useEffect(() => {
+    function closeSheetOnLg() {
+      if (!shouldOpenMobileInspector(window.innerWidth)) {
+        setMobileInspectorOpen(false)
+      }
+    }
+    closeSheetOnLg()
+    window.addEventListener("resize", closeSheetOnLg)
+    return () => window.removeEventListener("resize", closeSheetOnLg)
+  }, [])
 
   const mergePartners = tables.filter(
     (table) =>
@@ -661,7 +673,9 @@ export function FloorPlan({
   function selectTable(id: string) {
     setSelectedId(id)
     setMergePick([])
-    setMobileInspectorOpen(true)
+    if (shouldOpenMobileInspector(window.innerWidth)) {
+      setMobileInspectorOpen(true)
+    }
   }
 
   return (
