@@ -29,4 +29,15 @@ describe("typecheck toolchain", () => {
     )
     expect(existsSync(swrPackageJsonPath)).toBe(true)
   })
+
+  it("next config does not ignore TypeScript build errors", () => {
+    const nextConfig = readFileSync(
+      path.join(repoRoot, "next.config.mjs"),
+      "utf8",
+    )
+
+    expect(nextConfig).not.toMatch(
+      /ignoreBuildErrors\s*:\s*(?!false\b|0\b)[^\s,}\n]+/,
+    )
+  })
 })

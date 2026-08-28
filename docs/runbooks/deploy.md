@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-28
 
 ## Vercel
 
@@ -321,6 +321,8 @@ Use `--local` instead of `--linked` when testing against the local stack.
 [../specs/dev-toolchain.md](../specs/dev-toolchain.md)). `package.json`
 `scripts.lint` pins `--max-warnings 0`. Gitignored Supabase CLI trees
 (`supabase/.temp/**`, `supabase/.branches/**`) are in `globalIgnores`.
+`next.config.mjs` omits `typescript.ignoreBuildErrors` (G-T1; Next default
+fail-closed) so `pnpm build` / `next build` does not skip TypeScript errors.
 `pnpm format` / `pnpm format:check` are the Prettier scripts (G-F1).
 `pnpm exec prettier` resolves. Snapshot trees `docs/verifier-reports` and
 `docs/findings/runs` are prettierignored. `/commit` formats the dirty set

@@ -1,7 +1,7 @@
 # Dev toolchain
 
 **Status:** Draft  
-**Last updated:** 2026-08-25
+**Last updated:** 2026-08-28
 
 ## Scope
 
@@ -24,6 +24,12 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
    - Live floor table view types used with `spreadOverlappingTables` include
      persisted grid fields `id` (string), `x`, and `y` (numbers), matching
      FP-9 in [`scheduling.md`](scheduling.md).
+   - Next.js production build MUST NOT ignore TypeScript errors.
+     `next.config.mjs` MUST NOT set `typescript.ignoreBuildErrors` to a
+     truthy value (the key may be omitted — Next.js defaults to failing
+     the build — or set to `false`). A tree whose `pnpm typecheck` exits
+     0 MUST NOT satisfy G-T1 if `next build` is configured to skip
+     TypeScript errors.
 
 2. **G-L1 — Lint gate operational** — `eslint` and `eslint-config-next` are in
    `devDependencies`; a flat ESLint config exists at the repo root
@@ -53,6 +59,7 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 | G-T1 C1   | `package.json` / `pnpm-lock.yaml` declare `swr@2.5.1`; `node_modules/swr` on disk (no app source)                                                                            | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "swr is installed so TypeScript can resolve the module"   |
 | G-T1 C2   | `hooks/use-chefs-picks.ts` (`items: MenuItemRow[]`); `app/[locale]/page.tsx` (`featured.map((item: MenuItemRow)`)                                                            | `tests/unit/site/chefs-picks-types.test.ts` → "homepage chefs picks map callback is MenuItemRow"                   |
 | G-T1 C3   | `lib/reservations/auto-assign.ts` — `FloorTableView` includes `id: string`, `x: number`, `y: number`; `AssignableTable` stays x/y-free                                       | `tests/unit/floor/layout.test.ts` → "floor table view type includes id x y for spreadOverlappingTables"            |
+| G-T1 C4   | `next.config.mjs` (`typescript` key omitted; Next default fail-closed)                                                                                                       | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "next config does not ignore TypeScript build errors"     |
 | G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                                                           | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"      |
 | G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                  | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                |
 | G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`) | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts" |
@@ -60,6 +67,7 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 ## References
 
 - [`package.json`](../../package.json)
+- [`next.config.mjs`](../../next.config.mjs)
 - [`components/ui/dialog.tsx`](../../components/ui/dialog.tsx) — Base UI `render` pattern
 - [`components/site/reservation-widget.tsx`](../../components/site/reservation-widget.tsx)
 - [`docs/runbooks/deploy.md`](../runbooks/deploy.md)
