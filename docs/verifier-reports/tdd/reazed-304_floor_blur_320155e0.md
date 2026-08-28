@@ -80,4 +80,4 @@ Criteria: 2 shipped · 0 manual-uat · 2 total
 Phases delegated: 6 tdd-red/green/refactor Task calls
 Back-loops: none
 BLOCKED events: none
-Issues: n/a
+Issues: 0 filed · 0 attached-to-existing · 4 left on ledger (below floor) — cap 3/run
