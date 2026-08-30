@@ -1,14 +1,18 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-30
 
 ## Current state
 
 - **Schema:** `supabase/migrations/00000000000000_baseline.sql` — idempotent DDL for
-  `operating_windows`, `blocked_dates`, `reservations`, `menu_items`,
+  `operating_windows`, `blocked_dates`, `reservations` (nullable `email` via
+  CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; RES-PRIV
+  insert-only, no `GRANT SELECT`), `menu_items`,
   `restaurant_settings`, public `branding` storage bucket, and booking
-  trigger `enforce_booking_rules`. Linked/remote also has
+  trigger `enforce_booking_rules`. `restaurant_settings.review_email_*`,
+  `review_email_sends`, and `reservations.completed_at` are **not** in schema
+  yet. Linked/remote also has
   `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only)
   and `20260818162000_operating_hour_segments.sql` (`replace_operating_windows`;
   version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
@@ -21,7 +25,10 @@
   strings when `20260825140000` is already recorded), plus
   `20260827180000_occupancy_duration_buffer.sql` (occupancy duration + safety
   buffer columns and last-writer `validate_reservation_availability`; apply on
-  already-baselined remotes — not a full `db push`).
+  already-baselined remotes — not a full `db push`), plus
+  `20260828121224_table_fit_availability.sql` (last-writer table-fit +
+  date-scoped `pg_advisory_xact_lock`; apply on already-baselined remotes that
+  already recorded occupancy — not a full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)
@@ -35,14 +42,16 @@
   [../specs/branding-cms.md](../specs/branding-cms.md).
 - **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
   retry), MIME alias validation, and a `next.config.mjs` `bodySizeLimit` schema guard.
+  `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
+  cron job auth, marketing page.
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI
   samples, and POS/KDS tickets not yet persisted in Postgres.
 
 ## Personas (stable IDs)
 
-| Persona     | Email              | Password      | User ID                                | Notes                                                                                                                                                                               |
-| ----------- | ------------------ | ------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Staff admin | `admin@test.local` | `password123` | `11111111-1111-1111-1111-111111111111` | **Local dev only.** Signs in at `/auth/login`; grants `/admin`, `/pos`, `/kds` (staff routes authorize any authenticated user). Email pre-confirmed. Never seed against production. |
+| Persona     | Email              | Password      | User ID                                | Notes                                                                                                                                                                                                                                                                                     |
+| ----------- | ------------------ | ------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Staff admin | `admin@test.local` | `password123` | `11111111-1111-1111-1111-111111111111` | **Local dev only.** Signs in at `/auth/login`. JWT `raw_app_meta_data.role` is `"staff"` (not `raw_user_meta_data`, not `auth.users.role`). Staff routes `/admin`, `/pos`, `/kds` require that claim — not any authenticated session. Email pre-confirmed. Never seed against production. |
 
 When integration tests need more stable IDs, document additional personas here as
 suites grow.

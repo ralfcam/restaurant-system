@@ -3,8 +3,9 @@
 
 -- ── Staff test account (LOCAL DEV ONLY) ──────────────────────────────────────
 -- Seeds an admin login so /auth/login works after `supabase db reset --local`.
--- Staff routes (/admin, /pos, /kds) authorize any authenticated user, so this
--- single confirmed account is sufficient. Credentials: admin@test.local / password123
+-- Staff routes (/admin, /pos, /kds) require JWT app_metadata.role = "staff".
+-- This account sets that claim on raw_app_meta_data (not auth.users.role, and
+-- not raw_user_meta_data). Credentials: admin@test.local / password123
 -- NEVER seed this against a production database (db reset is local/non-prod only).
 INSERT INTO auth.users (
   instance_id,
@@ -34,7 +35,7 @@ VALUES (
   now(),
   now(),
   now(),
-  '{"provider":"email","providers":["email"]}',
+  '{"provider":"email","providers":["email"],"role":"staff"}',
   '{}',
   false,
   '',

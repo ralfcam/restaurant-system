@@ -1,5 +1,8 @@
+import { isStaffUser } from "@/lib/supabase/is-staff-user"
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+
+const STAFF_PATHS = ["/admin", "/pos", "/kds"] as const
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
@@ -29,14 +32,13 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const staffPaths = ["/admin", "/pos", "/kds"]
-  const isStaffPath = staffPaths.some((p) =>
+  const isStaffPath = STAFF_PATHS.some((p) =>
     request.nextUrl.pathname.startsWith(p),
   )
 
-  if (isStaffPath && !user) {
+  if (isStaffPath && !isStaffUser(user)) {
     const url = request.nextUrl.clone()
-    url.pathname = "/auth/login"
+    url.pathname = user ? "/" : "/auth/login"
     return NextResponse.redirect(url)
   }
 

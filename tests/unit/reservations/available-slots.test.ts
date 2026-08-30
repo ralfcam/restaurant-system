@@ -264,4 +264,63 @@ describe("getAvailableSlots", () => {
       })
     })
   })
+
+  describe("table-fit when covers still fit", () => {
+    // Covers fit (16 >= 8+8); only one unit has seats >= 8.
+    const tables = [
+      { id: "t-8", label: "8", seats: 8, status: "available" },
+      { id: "t-1", label: "1", seats: 2, status: "available" },
+      { id: "t-2", label: "2", seats: 2, status: "available" },
+      { id: "t-3", label: "3", seats: 2, status: "available" },
+      { id: "t-4", label: "4", seats: 2, status: "available" },
+    ]
+
+    beforeEach(() => {
+      mocks.getOperatingWindowForDate.mockResolvedValue(dinnerWindow)
+      mocks.from.mockImplementation((name: string) => {
+        if (name === "restaurant_settings") {
+          return thenable({
+            data: {
+              slot_interval_minutes: 15,
+              occupancy_duration_minutes: 90,
+              safety_buffer_minutes: 15,
+            },
+            error: null,
+          })
+        }
+        if (name === "tables") {
+          return thenable({ data: tables, error: null })
+        }
+        if (name === "reservations") {
+          return thenable({
+            data: [
+              {
+                id: "occ-8",
+                time: "19:00",
+                party_size: 8,
+                status: "confirmed",
+                table_label: null,
+                created_at: "2026-08-01T10:00:00.000Z",
+              },
+            ],
+            error: null,
+          })
+        }
+        return thenable({ data: [], error: null })
+      })
+    })
+
+    it("does not offer a slot when covers fit but no compatible table remains", async () => {
+      const { getAvailableSlots } = await import("@/app/actions/reservations")
+      const slots = await getAvailableSlots("2026-08-25", 8)
+      expect(slots.find((slot) => slot.time === "19:00")).toEqual({
+        time: "19:00",
+        available: false,
+      })
+      expect(slots.find((slot) => slot.time === "21:00")).toEqual({
+        time: "21:00",
+        available: true,
+      })
+    })
+  })
 })

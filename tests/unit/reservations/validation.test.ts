@@ -6,9 +6,11 @@ import {
 
 const TODAY = "2026-08-10"
 
+type ReservationPayloadArg = Parameters<typeof validateReservationPayload>[0]
+
 function basePayload(
-  overrides: Partial<Parameters<typeof validateReservationPayload>[0]> = {},
-) {
+  overrides: Partial<ReservationPayloadArg> & { email?: string } = {},
+): ReservationPayloadArg {
   return {
     guestName: "Amelia Brooks",
     partySize: 2,
@@ -16,8 +18,9 @@ function basePayload(
     time: "18:30",
     phone: "+1 (503) 555-0111",
     notes: "Window seat please",
+    email: "guest@test.local",
     ...overrides,
-  }
+  } as ReservationPayloadArg
 }
 
 describe("validateReservationPayload", () => {
@@ -170,10 +173,10 @@ describe("validateReservationPayload", () => {
   })
 
   describe("phone", () => {
-    it("rejects an empty phone number", () => {
+    it("accepts an empty phone number", () => {
       expect(
         validateReservationPayload(basePayload({ phone: "" }), TODAY),
-      ).toMatch(/phone/i)
+      ).toBeNull()
     })
 
     it("rejects a phone number that is too short", () => {
@@ -197,6 +200,38 @@ describe("validateReservationPayload", () => {
           basePayload({ phone: "(503) 555-0111" }),
           TODAY,
         ),
+      ).toBeNull()
+    })
+
+    it("still rejects a non-blank invalid phone", () => {
+      expect(
+        validateReservationPayload(
+          basePayload({ phone: "not-a-phone" }),
+          TODAY,
+        ),
+      ).toMatch(/phone/i)
+    })
+  })
+
+  describe("email", () => {
+    it("rejects a missing email", () => {
+      expect(
+        validateReservationPayload(basePayload({ email: undefined }), TODAY),
+      ).toEqual(expect.stringMatching(/email/i))
+    })
+
+    it("rejects an invalid email", () => {
+      expect(
+        validateReservationPayload(
+          basePayload({ email: "not-an-email" }),
+          TODAY,
+        ),
+      ).toEqual(expect.stringMatching(/email/i))
+    })
+
+    it("accepts a valid email with a blank phone", () => {
+      expect(
+        validateReservationPayload(basePayload({ phone: "   " }), TODAY),
       ).toBeNull()
     })
   })

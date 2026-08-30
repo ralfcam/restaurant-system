@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-30
 
 ## Stack
 
@@ -23,14 +23,15 @@ upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
 
 ## Route map
 
-| Path                                           | Audience | Purpose                                                                           |
-| ---------------------------------------------- | -------- | --------------------------------------------------------------------------------- |
-| `/`, `/menu`                                   | Guest    | Marketing home and menu (default locale **fr**, unprefixed)                       |
-| `/en`, `/en/menu`                              | Guest    | English public site (`localePrefix: as-needed`)                                   |
-| `/auth/login`, `/auth/callback`, `/auth/error` | Staff    | Supabase auth (flat routes; no locale segment)                                    |
-| `/admin/*`                                     | Staff    | Menu, reservations, scheduling, floor, branding (English-only; no locale segment) |
-| `/pos`                                         | Staff    | Point of sale                                                                     |
-| `/kds`                                         | Staff    | Kitchen display                                                                   |
+| Path                                           | Audience | Purpose                                                                                      |
+| ---------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `/`, `/menu`                                   | Guest    | Marketing home and menu (default locale **fr**, unprefixed)                                  |
+| `/en`, `/en/menu`                              | Guest    | English public site (`localePrefix: as-needed`)                                              |
+| `/auth/login`, `/auth/callback`, `/auth/error` | Staff    | Supabase auth (flat routes; no locale segment)                                               |
+| `/admin/*`                                     | Staff    | Menu, reservations, scheduling, floor, branding, marketing (English-only; no locale segment) |
+| `/api/cron/review-email`                       | Cron     | Bearer `CRON_SECRET` GET; throwing mailer stub; no `vercel.json` schedule                    |
+| `/pos`                                         | Staff    | Point of sale                                                                                |
+| `/kds`                                         | Staff    | Kitchen display                                                                              |
 
 ## Localization
 
@@ -44,7 +45,9 @@ Spec: [../specs/site-localization.md](../specs/site-localization.md).
 `middleware.ts` always runs Supabase `updateSession`, then applies next-intl locale
 routing for public paths. `/admin/**`, `/auth/**`, and `/api/**` skip locale middleware
 (`i18n/middleware-scope.ts`). Staff paths
-(`/admin`, `/pos`, `/kds`) redirect unauthenticated users to `/auth/login`.
+(`/admin`, `/pos`, `/kds`) require JWT `app_metadata.role === "staff"`:
+unauthenticated → `/auth/login`, authenticated non-staff → `/`. Spec:
+[../specs/staff-authorization.md](../specs/staff-authorization.md).
 
 ## Server actions
 
@@ -55,6 +58,7 @@ routing for public paths. `/admin/**`, `/auth/**`, and `/api/**` skip locale mid
 | Reservations | `app/actions/reservations.ts` |
 | Availability | `app/actions/availability.ts` |
 | Branding     | `app/actions/branding.ts`     |
+| Marketing    | `app/actions/marketing.ts`    |
 
 Custom logo uploads use base64 on a Server Action (not multipart). `next.config.mjs` sets
 `experimental.serverActions.bodySizeLimit` to `4mb` (`LOGO_UPLOAD_BODY_SIZE_LIMIT` in

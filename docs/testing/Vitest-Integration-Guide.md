@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-30
 
 ## Prerequisites
 
@@ -62,10 +62,21 @@ pnpm test:integration tests/integration/scheduling/replace-operating-windows.int
 - Helpers: `tests/integration/helpers/`
 - Tests: `tests/integration/**/*.integ.test.ts`
 - Occupancy window trigger:
-  `tests/integration/reservations/occupancy-window.integ.test.ts` (inserts a
-  far-future hold, then `createReservation`; mocks `next/cache`). Linked-remote
-  apply of `20260827180000_occupancy_duration_buffer.sql` is manual-UAT —
+  `tests/integration/reservations/occupancy-window.integ.test.ts` (assignment-feasible
+  holds — one occupying reservation per table, `party_size = seats` — then
+  `createReservation`; mocks `next/cache`). Linked-remote apply of
+  `20260827180000_occupancy_duration_buffer.sql` is manual-UAT —
   [../runbooks/deploy.md](../runbooks/deploy.md).
+- Table-fit trigger:
+  `tests/integration/reservations/table-fit.integ.test.ts` (second overlapping
+  party of 8 vs held 8-top). Local `db reset` applies
+  `20260828121224_table_fit_availability.sql`; already-baselined remotes that
+  recorded occupancy apply that forward the same way as occupancy —
+  [../runbooks/deploy.md](../runbooks/deploy.md).
+- Guest email PII (PV-9):
+  `tests/integration/reservations/review-email-pii.integ.test.ts` (service-role
+  insert of nullable `reservations.email`; anon `select("email")` is empty +
+  42501/PGRST301). RES-PRIV unchanged — no `GRANT SELECT`.
 
 ## Skip vs strict
 

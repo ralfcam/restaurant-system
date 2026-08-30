@@ -84,4 +84,49 @@ describe("floor tables schema and live surfaces", () => {
     expect(migration).toMatch(/CREATE TABLE IF NOT EXISTS table_merges/)
     expect(migration).toMatch(/table_merge_members/)
   })
+
+  it("selecting a table at lg does not open the mobile inspector Sheet", async () => {
+    const floor = read("components/staff/floor-plan.tsx")
+    const selectTable = floor.match(
+      /function selectTable\([^)]*\) \{[\s\S]*?\n  \}/,
+    )?.[0]
+
+    expect(selectTable).toBeTruthy()
+    expect(selectTable).not.toMatch(
+      /setSelectedId\([^)]*\)\s*setMergePick\(\[\]\)\s*setMobileInspectorOpen\(\s*true\s*\)/,
+    )
+    expect(selectTable).toMatch(/\bshouldOpenMobileInspector\b/)
+    expect(floor).toMatch(/\bmatchMedia\b|addEventListener\(\s*["']resize["']/)
+    expect(floor).toMatch(
+      /setMobileInspectorOpen\(\s*false\s*\)|matchMedia[\s\S]{0,800}setMobileInspectorOpen\(|addEventListener\(\s*["']resize["'][\s\S]{0,800}setMobileInspectorOpen\(/,
+    )
+    // Inversion: lg:hidden on SheetContent already ships; it does not satisfy FP-12.
+    expect(floor).toMatch(/SheetContent[\s\S]*\blg:hidden\b/)
+
+    const layout = await import("@/lib/floor/layout")
+    expect(layout.shouldOpenMobileInspector).toEqual(expect.any(Function))
+    expect(layout.shouldOpenMobileInspector(1024)).toBe(false)
+    expect(layout.shouldOpenMobileInspector(1280)).toBe(false)
+  })
+
+  it("selecting a table below lg opens the bottom Sheet inspector", async () => {
+    const floor = read("components/staff/floor-plan.tsx")
+    const selectTable = floor.match(
+      /function selectTable\([^)]*\) \{[\s\S]*?\n  \}/,
+    )?.[0]
+
+    expect(selectTable).toBeTruthy()
+    expect(selectTable).toMatch(/\bshouldOpenMobileInspector\b/)
+    // Lock-in: below-lg still opens the Sheet. Passing the helper boolean
+    // through is not enough if the `true` open-path was deleted.
+    expect(selectTable).toMatch(
+      /shouldOpenMobileInspector[\s\S]*setMobileInspectorOpen\(\s*true\s*\)|setMobileInspectorOpen\(\s*true\s*\)[\s\S]*shouldOpenMobileInspector/,
+    )
+    expect(floor).toMatch(
+      /<Sheet\s+open=\{mobileInspectorOpen\}[\s\S]*<SheetContent[\s\S]*side=["']bottom["']/,
+    )
+
+    const layout = await import("@/lib/floor/layout")
+    expect(layout.shouldOpenMobileInspector(1023)).toBe(true)
+  })
 })

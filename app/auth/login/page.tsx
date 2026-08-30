@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Loader2, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
+import { isStaffUser } from "@/lib/supabase/is-staff-user"
 import { RESTAURANT } from "@/lib/data"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { BrandMark } from "@/components/site/brand-mark"
@@ -22,13 +23,17 @@ export default function LoginPage() {
     setErrorMsg(null)
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
     setLoading(false)
     if (error) {
       setErrorMsg("Invalid email or password. Please try again.")
+      return
+    }
+    if (!isStaffUser(data.user)) {
+      setErrorMsg("This account is not authorized for staff access.")
       return
     }
     // Full page navigation so the middleware session cookie is read correctly.
@@ -52,7 +57,10 @@ export default function LoginPage() {
         <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {errorMsg && (
-              <div className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-sm text-destructive">
+              <div
+                role="alert"
+                className="flex items-start gap-2.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3.5 py-3 text-sm text-destructive"
+              >
                 <AlertCircle className="mt-0.5 size-4 shrink-0" />
                 <span>{errorMsg}</span>
               </div>

@@ -1,7 +1,7 @@
 # restaurant-system PRD
 
 **Status:** Draft  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-30
 
 MVP for **Restaurant Link** — a bootstrapping restaurant-operations template
 (see `lib/data.ts`). Replace the name, copy, and menu catalog for a new venue.
@@ -9,7 +9,8 @@ MVP for **Restaurant Link** — a bootstrapping restaurant-operations template
 ## Goals
 
 1. Guest-facing menu and online reservations.
-2. Staff admin: menu, reservations, scheduling, floor plan, branding (logo).
+2. Staff admin: menu, reservations, scheduling, floor plan, branding (logo),
+   marketing (post-visit review email).
 3. In-service tools: POS and KDS.
 
 ## Out of scope (MVP)

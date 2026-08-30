@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-30
 
 ## Vercel
 
@@ -62,13 +62,26 @@ hosted backend). Never use local Docker keys (`127.0.0.1:54321`).
 - `NEXT_PUBLIC_SUPABASE_URL` — `https://tilcqrudqxznnpepxjqq.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `CRON_SECRET` — Bearer token for `GET /api/cron/review-email`. Fail-closed: unset or empty secret is 401 (never matches `Bearer undefined`). No `vercel.json` cron yet; the handler still uses a throwing mailer stub (`Mail provider is not configured.`).
 
-Never expose the service role key to the client bundle. Never commit it.
+Never expose the service role key to the client bundle. Never commit it. Never expose `CRON_SECRET` to the client bundle.
 
 ## Supabase
 
 **Linked project:** `supabase-green-tree` (ref `tilcqrudqxznnpepxjqq`). Verify with
 `npx supabase projects list` (exactly one `LINKED` marker).
+
+### Hosted Auth signup (SA-6)
+
+Hosted Auth on `tilcqrudqxznnpepxjqq` must have email signup disabled
+(manual-UAT). Local `supabase/config.toml` `[auth]` and
+`[auth.email] enable_signup = false` does not control hosted Auth.
+
+Do not blindly copy local `[auth.email] enable_signup = false` to hosted —
+that can map to disabling the whole email provider and block seed staff
+password login. Use the dashboard signup toggle, not a config push of those
+keys. Spec: [../specs/staff-authorization.md](../specs/staff-authorization.md)
+SA-6.
 
 ### Schema vs seed
 
@@ -79,6 +92,7 @@ Never expose the service role key to the client bundle. Never commit it.
 | Forward: operating_windows privilege | `supabase/migrations/20260825140000_operating_windows_privilege.sql` | Yes on local reset; apply on already-baselined remotes              |
 | Forward: public catalog privileges   | `supabase/migrations/20260827160000_public_catalog_privileges.sql`   | Yes on local reset; apply when `20260825140000` is already recorded |
 | Forward: occupancy duration + buffer | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`   | Yes on local reset; apply on already-baselined remotes              |
+| Forward: table-fit availability      | `supabase/migrations/20260828121224_table_fit_availability.sql`      | Yes on local reset; apply when occupancy is already recorded        |
 | Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
@@ -96,8 +110,9 @@ instead of adding dated migration files. Policy detail:
 
 `20260818162000_operating_hour_segments.sql`,
 `20260825140000_operating_windows_privilege.sql`,
-`20260827160000_public_catalog_privileges.sql`, and
-`20260827180000_occupancy_duration_buffer.sql` are the forward-only exceptions
+`20260827160000_public_catalog_privileges.sql`,
+`20260827180000_occupancy_duration_buffer.sql`, and
+`20260828121224_table_fit_availability.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -290,6 +305,42 @@ try to replay history the remote has diverged from.
    Confirm `occupancy_duration_minutes` and `safety_buffer_minutes` on
    `restaurant_settings` (defaults 90 and 15).
 
+### Apply `20260828121224_table_fit_availability.sql` on an already-baselined remote
+
+For remotes that already recorded occupancy (`schema_migrations` has
+`20260827180000`), apply this last-writer `CREATE OR REPLACE` of
+`validate_reservation_availability` (table-fit after cover-count + date-scoped
+`pg_advisory_xact_lock`; do not `db push`). Local `db reset` already applies
+this file.
+
+Do not use `db push` or `db reset --linked` for this — a full push/reset would
+try to replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260828121224_table_fit_availability.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260828121224', 'table_fit_availability');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260828121224 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260828121224';
+   ```
+
+   Confirm `validate_reservation_availability` table-fits after cover-count and
+   takes `pg_advisory_xact_lock(305, days-since-epoch)`.
+
 ### Reset database
 
 **Local** (Docker stack):
@@ -321,6 +372,8 @@ Use `--local` instead of `--linked` when testing against the local stack.
 [../specs/dev-toolchain.md](../specs/dev-toolchain.md)). `package.json`
 `scripts.lint` pins `--max-warnings 0`. Gitignored Supabase CLI trees
 (`supabase/.temp/**`, `supabase/.branches/**`) are in `globalIgnores`.
+`next.config.mjs` omits `typescript.ignoreBuildErrors` (G-T1; Next default
+fail-closed) so `pnpm build` / `next build` does not skip TypeScript errors.
 `pnpm format` / `pnpm format:check` are the Prettier scripts (G-F1).
 `pnpm exec prettier` resolves. Snapshot trees `docs/verifier-reports` and
 `docs/findings/runs` are prettierignored. `/commit` formats the dirty set

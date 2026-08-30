@@ -459,6 +459,7 @@ export function ReservationWidget({
       date,
       time: slot!,
       phone,
+      email,
     })
     setSubmitting(false)
     if (error) {
@@ -959,7 +960,6 @@ export function ReservationWidget({
                   </Label>
                   <Input
                     id="res-phone"
-                    required
                     type="tel"
                     value={phone}
                     className={inp}
@@ -973,17 +973,11 @@ export function ReservationWidget({
                   htmlFor="res-email"
                   className={cn("text-xs", dark ? "text-white/70" : "")}
                 >
-                  Email{" "}
-                  <span
-                    className={
-                      dark ? "text-white/30" : "text-muted-foreground/60"
-                    }
-                  >
-                    (optional)
-                  </span>
+                  Email
                 </Label>
                 <Input
                   id="res-email"
+                  required
                   type="email"
                   value={email}
                   className={inp}

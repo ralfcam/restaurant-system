@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-08-27
+**Last updated:** 2026-08-30
 
 ## Auth flow
 
@@ -10,7 +10,26 @@
    like `/auth/login` are not rewritten into a missing `[locale]` path.
 2. `middleware.ts` refreshes session via `lib/supabase/proxy.ts`, then applies
    next-intl routing only when `i18n/middleware-scope.ts` returns `localize`.
-3. Protected routes: `/admin`, `/pos`, `/kds` require `user` from `getUser()`.
+3. Protected routes: `/admin`, `/pos`, `/kds` (`lib/supabase/proxy.ts`)
+   require JWT `app_metadata.role === "staff"` (`isStaffUser` in
+   `lib/supabase/is-staff-user.ts`) — not a session alone and not
+   `user_metadata`. Unauthenticated requests redirect to `/auth/login`.
+   Authenticated non-staff redirect to `/`. Staff-claim sessions continue.
+
+## Staff claim
+
+Staff is `user.app_metadata.role === "staff"`. `requireStaffUser`
+(`lib/supabase/require-staff.ts`) returns the user only for that claim; it
+returns `null` when there is no session or the session is authenticated but not
+staff. Privileged server actions already call it. `/auth/login` is sign-in
+only (no `signUp`); after `signInWithPassword` it calls `isStaffUser(data.user)`
+before `window.location.href = "/admin"`.
+
+Local `supabase/config.toml` has `[auth] enable_signup = false` and
+`[auth.email] enable_signup = false`. Those keys do not control hosted Auth —
+see [../runbooks/deploy.md](../runbooks/deploy.md). Spec:
+[../specs/staff-authorization.md](../specs/staff-authorization.md)
+(SA-1–SA-6; SA-6 is manual-UAT).
 
 ## Service role
 
@@ -54,6 +73,9 @@ and `authenticated` (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`).
 `reservations` is insert-only (`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE`);
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
+Nullable `reservations.email` is in baseline (CREATE TABLE column plus
+`ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV is unchanged. Spec:
+[../specs/post-visit-review-email.md](../specs/post-visit-review-email.md) PV-9.
 Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
 `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
 and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
@@ -63,11 +85,12 @@ and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
 
 `validate_reservation_availability` (`enforce_booking_rules`) is
-`SECURITY DEFINER` so that insert-only path can still cover-count
-`reservations` / `tables` for the occupancy window (booking-rules BW-9).
-Occupancy last-writer body is identical in baseline,
-`20260818162000_operating_hour_segments.sql`, and
-`20260827180000_occupancy_duration_buffer.sql`.
+`SECURITY DEFINER` so that insert-only path can still cover-count and
+table-fit `reservations` / `tables` for the occupancy window (booking-rules
+BW-9) and compatible-table bookability (BW-12). Last-writer body is identical
+in baseline, `20260818162000_operating_hour_segments.sql`,
+`20260827180000_occupancy_duration_buffer.sql`, and
+`20260828121224_table_fit_availability.sql`.
 
 ## Env vars
 
@@ -76,3 +99,4 @@ Occupancy last-writer body is identical in baseline,
 | `NEXT_PUBLIC_SUPABASE_URL`      | Public      |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public      |
 | `SUPABASE_SERVICE_ROLE_KEY`     | Server only |
+| `CRON_SECRET`                   | Server only |

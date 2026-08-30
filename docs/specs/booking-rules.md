@@ -1,7 +1,7 @@
 # Booking rules
 
 **Status:** Draft  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-30
 
 ## Scope
 
@@ -19,7 +19,10 @@ _(Expand during first `/sdd-to-tdd` run.)_
 3. **Operating window** — Times outside the restaurant operating window for the
    selected date are rejected.
 4. **Confirmation code** — Successful booking returns a unique `conf_code` (format
-   `TVL-####`).
+   `TVL-####`). Successful booking still returns `TVL-####` for on-screen
+   display. After the INSERT succeeds, the server MUST send a post-booking
+   confirmation to the guest email. Mailer failure MUST NOT fail the booking
+   or withhold `conf_code`.
 5. **RLS / RES-PRIV** — Guest booking is insert-only on `reservations`. Table
    privileges MUST `GRANT INSERT ON TABLE reservations TO anon, authenticated`
    and
@@ -86,8 +89,9 @@ the route locale. An in-widget language toggle is out of scope.
 12. **BW-7 — Accordion and Réserver gate** — Guests, date, and time are exclusive
     accordions (Time expanded by default). Picking a card does **not** skip to
     guest details and does **not** call `createReservation`. Réserver stays
-    disabled until a slot is selected; it only advances to existing step 2
-    (name/phone still required).
+    disabled until a slot is selected; it only advances to step 2. Step 2
+    requires guest name and a valid email; **phone is optional** (SMS
+    confirmation is out of scope).
 
 13. **BW-8 — Widget chrome i18n** — Chrome strings (`reserve`, `until`,
     `guests`, `date`, `time`, collapsed summaries) live under
@@ -106,9 +110,9 @@ the route locale. An in-widget language toggle is out of scope.
     (`P0001`; `createReservation` already returns that message). The next
     **generated** slot is the first `bookableTimesForDay` time at or after the
     free instant (on a 30-min grid: 20:45 → 21:00 if 20:45 is not a step).
-    Cover counting only — not table-fit or merges (REAZED-305). Clock wrap is
-    for until/next-bookable **strings**; overlap does not span the next
-    calendar date in this run.
+    Cover counting is not sufficient; BW-12 also requires a compatible table.
+    Clock wrap is for until/next-bookable **strings**; overlap does not span
+    the next calendar date in this run.
 
 15. **BW-10 — Early-release** — Only `confirmed` and `seated` occupy.
     `completed`, `cancelled`, and `no_show` do not. Example: a 19:00
@@ -125,7 +129,52 @@ the route locale. An in-widget language toggle is out of scope.
     `safety_buffer_minutes`; same for occupancy duration. Guest until-badge
     and occupancy windows read that singleton.
 
-17. **STAFF-LIST — Staff date list is fail-closed.** `getReservationsByDate` is
+17. **BW-12 — Compatible-table bookability.** A generated slot `T` is bookable
+    for party `P` only when `P` plus every occupying reservation (`confirmed` /
+    `seated`, BW-10) whose BW-9 window overlaps `T` can be assigned to
+    **distinct units** under FP-3 best-fit (smallest `seats >= party_size`;
+    larger party first, then earlier `created_at`):
+
+    - A unit is a physical table or an **existing** staff merge collapsed as
+      one table (FP-8 / `toAssignableTables`). Guests MUST NOT invent a merge
+      at booking.
+    - `out_of_service` units are excluded. Live `seated` / `reserved` /
+      `cleaning` MUST NOT hide a future slot; occupying reservations + BW-9
+      windows do.
+    - Guest INSERT MUST NOT write `table_label` (FP-2).
+    - `getAvailableSlots` MUST set `available: false` when this fails, even if
+      occupying covers + `P` is still `<= sum(tables.seats)`.
+    - `validate_reservation_availability` MUST refuse occupying INSERT/UPDATE
+      with `P0001` `Booking denied: This time is fully booked.` when this
+      fails (same user-facing string as BW-9 cover overflow). Last-writer SQL
+      (table-fit block) MUST be byte-identical in
+      `00000000000000_baseline.sql`,
+      `20260818162000_operating_hour_segments.sql`,
+      `20260827180000_occupancy_duration_buffer.sql`, and a new dated forward
+      for remotes that already recorded occupancy.
+    - Concurrent inserts competing for the last compatible unit at the same
+      slot: exactly one succeeds.
+
+18. **BW-13 — Guest email intake** — `createReservation` accepts `email`.
+    Validation: trimmed non-empty; MUST look like `local@domain` with a `.` in
+    the domain. Missing/invalid email is a reservation error (no INSERT).
+    Persist on `reservations.email`. Blank/whitespace phone is accepted and
+    stored as `""` (`phone` stays `NOT NULL` — no migration). A non-blank
+    phone still MUST match the existing phone pattern. Widget Email is
+    `required`; Phone is not. `confirm()` MUST pass `email` into
+    `createReservation`. Anon MUST NOT `SELECT` the column (AC-5).
+
+19. **BW-14 — Confirmation send** — After a successful reservations INSERT
+    (not on validation errors, not on P0001, not on in-progress 23505 retries),
+    send **one** confirmation to that email from the in-memory payload (MUST
+    NOT `SELECT` the inserted row). Payload `{ to, html }` (no From/subject).
+    HTML MUST include escaped guest name, date, time, party size, and
+    `conf_code`. Implementation is a **server-only** helper, not
+    `processDueReviewEmails` (PV-4 remains `completed`-only). A throwing
+    mailer MUST be caught; the action still returns `{ confCode }`. Live
+    provider stays manual-UAT (same stub class as review-email cron).
+
+20. **STAFF-LIST — Staff date list is fail-closed.** `getReservationsByDate` is
     a staff read (`requireStaffUser` + `service_role`). Auth failure or query
     failure MUST return a Result `{ reservations: [], error }` with a stable
     message, never a successful empty array (no `error` field).
@@ -137,25 +186,27 @@ the route locale. An in-widget language toggle is out of scope.
 
 ## Implementation trace (non-normative)
 
-| Criterion     | Shipped in                                                                                                                                                                                                                                                                                                                                                                                   | Tests                                                                                                                                                                                                                                  |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| BW-1          | `lib/reservations/operating-hours.ts` — `assignSegmentForTime`                                                                                                                                                                                                                                                                                                                               | `tests/unit/reservations/operating-hours.test.ts`                                                                                                                                                                                      |
-| BW-2          | `lib/reservations/operating-hours.ts` — `slotUntilTime(start, occupancyDurationMinutes)`, `wrapMinutesOfDay`; widget via `getGuestOccupancyDurationMinutes`                                                                                                                                                                                                                                  | same — until-badge uses occupancy duration, not the safety buffer                                                                                                                                                                      |
-| BW-3          | same — `clampSlotIntervalMinutes`                                                                                                                                                                                                                                                                                                                                                            | same — `clampSlotIntervalMinutes`                                                                                                                                                                                                      |
-| BW-4          | same — `groupBookableSlots`                                                                                                                                                                                                                                                                                                                                                                  | same — `groupBookableSlots`                                                                                                                                                                                                            |
-| BW-5          | `app/actions/reservations.ts` — `getAvailableSlots` (slot interval + occupancy cover)                                                                                                                                                                                                                                                                                                        | `tests/unit/reservations/available-slots.test.ts`                                                                                                                                                                                      |
-| BW-6          | `components/site/reservation-widget.tsx` — `slotUntilTime(time, occupancyDurationMinutes)`                                                                                                                                                                                                                                                                                                   | `tests/unit/reservation-widget/segment-groups.test.ts`                                                                                                                                                                                 |
-| BW-7          | same                                                                                                                                                                                                                                                                                                                                                                                         | same (Réserver gate)                                                                                                                                                                                                                   |
-| BW-8          | same; `messages/en.json`, `messages/fr.json`                                                                                                                                                                                                                                                                                                                                                 | `tests/unit/reservation-widget/chrome-i18n.test.ts`, `tests/unit/i18n/messages-parity.test.ts`                                                                                                                                         |
-| AC-5 RES-PRIV | `GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE` on `reservations`; `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); no `GRANT SELECT` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql`, `supabase/migrations/20260827160000_public_catalog_privileges.sql`                                  | `tests/integration/reservations/public-privileges.integ.test.ts` → "anon can INSERT reservations and cannot SELECT guest PII"                                                                                                          |
-| BW-9          | `nextBookableTime`; `getAvailableSlots` half-open `[start, nextBookableTime(start))` with `normalizeTime`; `validate_reservation_availability` same-date elapsed `TIME` in baseline, `20260818162000_operating_hour_segments.sql`, `20260827180000_occupancy_duration_buffer.sql`                                                                                                            | `tests/unit/reservations/available-slots.test.ts` occupancy-window / 30-min grid; `tests/integration/reservations/occupancy-window.integ.test.ts`                                                                                      |
-| BW-10         | `ACTIVE_RESERVATION_STATUSES` (`confirmed`/`seated`); trigger occupying set matches                                                                                                                                                                                                                                                                                                          | `available-slots.test.ts` early-release; occupancy-window integ completed early-release                                                                                                                                                |
-| BW-11         | `occupancy_duration_minutes` / `safety_buffer_minutes` (defaults 90/15); `clampExpectedMinutes` + `clampSafetyBufferMinutes`; floor chrome `occupancy-duration-control` / `safety-buffer-control`; `app/actions/branding.ts` getters/updaters                                                                                                                                                | `tests/unit/branding/schema.test.ts`; `tests/unit/floor/occupancy-settings.test.ts`; `operating-hours.test.ts` clamps                                                                                                                  |
-| STAFF-LIST    | `app/actions/reservations.ts` `getReservationsByDate` — `{ reservations, error? }`; auth `Unauthorized.`; query `Could not load reservations.`; success omits `error`. `lib/reservations/list-empty-copy.ts` `staffListEmptyCopy` (error then filter flags). `ReservationsManager` unwraps `.reservations` / `.error`. `app/admin/reservations/page.tsx` SSR unwraps `{ reservations }` only | `tests/unit/reservations/get-by-date.test.ts` → "does not present auth or query failure as a successful empty list"; `tests/unit/reservations/list-empty-copy.test.ts` → "distinguishes load error, empty date, and filter-empty copy" |
+| Criterion     | Shipped in                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Tests                                                                                                                                                                                                                                                           |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| BW-1          | `lib/reservations/operating-hours.ts` — `assignSegmentForTime`                                                                                                                                                                                                                                                                                                                                                                                                                     | `tests/unit/reservations/operating-hours.test.ts`                                                                                                                                                                                                               |
+| BW-2          | `lib/reservations/operating-hours.ts` — `slotUntilTime(start, occupancyDurationMinutes)`, `wrapMinutesOfDay`; widget via `getGuestOccupancyDurationMinutes`                                                                                                                                                                                                                                                                                                                        | same — until-badge uses occupancy duration, not the safety buffer                                                                                                                                                                                               |
+| BW-3          | same — `clampSlotIntervalMinutes`                                                                                                                                                                                                                                                                                                                                                                                                                                                  | same — `clampSlotIntervalMinutes`                                                                                                                                                                                                                               |
+| BW-4          | same — `groupBookableSlots`                                                                                                                                                                                                                                                                                                                                                                                                                                                        | same — `groupBookableSlots`                                                                                                                                                                                                                                     |
+| BW-5          | `app/actions/reservations.ts` — `getAvailableSlots` (slot interval + occupancy cover)                                                                                                                                                                                                                                                                                                                                                                                              | `tests/unit/reservations/available-slots.test.ts`                                                                                                                                                                                                               |
+| BW-6          | `components/site/reservation-widget.tsx` — `slotUntilTime(time, occupancyDurationMinutes)`                                                                                                                                                                                                                                                                                                                                                                                         | `tests/unit/reservation-widget/segment-groups.test.ts`                                                                                                                                                                                                          |
+| BW-7          | same                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | same (Réserver gate)                                                                                                                                                                                                                                            |
+| BW-8          | same; `messages/en.json`, `messages/fr.json`                                                                                                                                                                                                                                                                                                                                                                                                                                       | `tests/unit/reservation-widget/chrome-i18n.test.ts`, `tests/unit/i18n/messages-parity.test.ts`                                                                                                                                                                  |
+| AC-5 RES-PRIV | `GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE` on `reservations`; `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); no `GRANT SELECT` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql`, `supabase/migrations/20260827160000_public_catalog_privileges.sql`. Nullable `reservations.email` is extra PII on that insert-only table (post-visit-review-email PV-9).                  | `tests/integration/reservations/public-privileges.integ.test.ts` → "anon can INSERT reservations and cannot SELECT guest PII"; `tests/integration/reservations/review-email-pii.integ.test.ts` → "anon cannot SELECT guest email on reservations"               |
+| BW-9          | `nextBookableTime`; `getAvailableSlots` half-open `[start, nextBookableTime(start))` with `normalizeTime`; `validate_reservation_availability` same-date elapsed `TIME` in baseline, `20260818162000_operating_hour_segments.sql`, `20260827180000_occupancy_duration_buffer.sql`, `20260828121224_table_fit_availability.sql`                                                                                                                                                     | `tests/unit/reservations/available-slots.test.ts` occupancy-window / 30-min grid; `tests/integration/reservations/occupancy-window.integ.test.ts`                                                                                                               |
+| BW-10         | `ACTIVE_RESERVATION_STATUSES` (`confirmed`/`seated`); trigger occupying set matches                                                                                                                                                                                                                                                                                                                                                                                                | `available-slots.test.ts` early-release; occupancy-window integ completed early-release                                                                                                                                                                         |
+| BW-11         | `occupancy_duration_minutes` / `safety_buffer_minutes` (defaults 90/15); `clampExpectedMinutes` + `clampSafetyBufferMinutes`; floor chrome `occupancy-duration-control` / `safety-buffer-control`; `app/actions/branding.ts` getters/updaters                                                                                                                                                                                                                                      | `tests/unit/branding/schema.test.ts`; `tests/unit/floor/occupancy-settings.test.ts`; `operating-hours.test.ts` clamps                                                                                                                                           |
+| BW-12         | `lib/reservations/auto-assign.ts` `canSeatPartyOnTables` / `pickBestFitTable` (collapse via `toAssignableTables`; drop only `out_of_service`); `getAvailableSlots` covers AND table-fit; `validate_reservation_availability` table-fit after cover-count + `pg_advisory_xact_lock(305, epoch-days)` — last-writer identical in baseline, `20260818162000_operating_hour_segments.sql`, `20260827180000_occupancy_duration_buffer.sql`, `20260828121224_table_fit_availability.sql` | `tests/unit/reservations/table-fit.test.ts`; `available-slots.test.ts` → "does not offer a slot when covers fit but no compatible table remains"; `tests/integration/reservations/table-fit.integ.test.ts`; `atomic-booking.integ.test.ts` last compatible unit |
+| STAFF-LIST    | `app/actions/reservations.ts` `getReservationsByDate` — `{ reservations, error? }`; auth `Unauthorized.`; query `Could not load reservations.`; success omits `error`. `lib/reservations/list-empty-copy.ts` `staffListEmptyCopy` (error then filter flags). `ReservationsManager` unwraps `.reservations` / `.error`. `app/admin/reservations/page.tsx` SSR unwraps `{ reservations }` only                                                                                       | `tests/unit/reservations/get-by-date.test.ts` → "does not present auth or query failure as a successful empty list"; `tests/unit/reservations/list-empty-copy.test.ts` → "distinguishes load error, empty date, and filter-empty copy"                          |
 
 ## References
 
 - [../architecture/Reservation-Flow.md](../architecture/Reservation-Flow.md)
+- [post-visit-review-email.md](./post-visit-review-email.md) (PV-9 guest email PII)
 - `supabase/migrations/00000000000000_baseline.sql` — `validate_reservation_availability()`
   trigger `enforce_booking_rules` on `reservations`
 - `app/actions/reservations.ts` — `getReservationsByDate`
