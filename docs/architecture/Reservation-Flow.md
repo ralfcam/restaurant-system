@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-30
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-12 for the segmented homepage widget, occupancy window, and
@@ -44,6 +44,12 @@ byte-identical in baseline, `20260818162000_operating_hour_segments.sql`,
 `20260828121224_table_fit_availability.sql`. Guest INSERT does not write
 `table_label`. `completed` / `cancelled` / `no_show` do not occupy (BW-10).
 Criteria: [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-12.
+
+**Post-visit review email.** `transitionReservationStatus` to `completed`
+stamps `completed_at` and inserts `review_email_sends` (those objects are
+not in baseline yet except nullable `reservations.email`). Staff configure
+send on `/admin/marketing`. Spec:
+[../specs/post-visit-review-email.md](../specs/post-visit-review-email.md).
 
 Key modules: `components/site/reservation-widget.tsx`,
 `lib/reservations/operating-hours.ts`, `lib/reservations/auto-assign.ts`,

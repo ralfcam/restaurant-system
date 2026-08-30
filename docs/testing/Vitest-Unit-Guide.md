@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-08-30
 
 ## Layout
 
@@ -10,6 +10,8 @@
 - Tests: `tests/unit/**/*.test.ts`
 - Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`
   bodySizeLimit schema guard)
+- Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
+  queue-on-complete, cron job auth, marketing page)
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
   `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard)
 

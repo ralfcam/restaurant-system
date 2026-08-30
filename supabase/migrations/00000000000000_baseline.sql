@@ -95,8 +95,14 @@ CREATE TABLE IF NOT EXISTS reservations (
   notes TEXT,
   table_label TEXT,
   conf_code TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  -- PV-9: nullable guest email for post-visit review send (RES-PRIV: no GRANT SELECT).
+  email TEXT
 );
+
+-- PV-9: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations without
+-- email; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
 
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 

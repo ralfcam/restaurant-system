@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-30
 
 ## Auth flow
 
@@ -54,6 +54,9 @@ and `authenticated` (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`).
 `reservations` is insert-only (`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE`);
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
+Nullable `reservations.email` is in baseline (CREATE TABLE column plus
+`ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV is unchanged. Spec:
+[../specs/post-visit-review-email.md](../specs/post-visit-review-email.md) PV-9.
 Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
 `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
 and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
@@ -77,3 +80,4 @@ in baseline, `20260818162000_operating_hour_segments.sql`,
 | `NEXT_PUBLIC_SUPABASE_URL`      | Public      |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public      |
 | `SUPABASE_SERVICE_ROLE_KEY`     | Server only |
+| `CRON_SECRET`                   | Server only |

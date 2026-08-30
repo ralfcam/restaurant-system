@@ -11,6 +11,7 @@ import {
   ChefHat,
   UtensilsCrossed,
   ImageIcon,
+  Megaphone,
   ExternalLink,
   Menu,
   LogOut,
@@ -56,6 +57,12 @@ const NAV = [
     icon: ImageIcon,
     role: "Admin",
   },
+  {
+    href: "/admin/marketing",
+    label: "Marketing",
+    icon: Megaphone,
+    role: "Admin",
+  },
   { href: "/pos", label: "Point of Sale", icon: Receipt, role: "Cashier" },
   { href: "/kds", label: "Kitchen Display", icon: ChefHat, role: "Kitchen" },
 ]
@@ -76,7 +83,9 @@ const NAV_GROUPS = [
   {
     label: "Setup",
     items: NAV.filter((item) =>
-      ["/admin/menu", "/admin/settings"].includes(item.href),
+      ["/admin/menu", "/admin/settings", "/admin/marketing"].includes(
+        item.href,
+      ),
     ),
   },
 ]

@@ -1,14 +1,18 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-30
 
 ## Current state
 
 - **Schema:** `supabase/migrations/00000000000000_baseline.sql` — idempotent DDL for
-  `operating_windows`, `blocked_dates`, `reservations`, `menu_items`,
+  `operating_windows`, `blocked_dates`, `reservations` (nullable `email` via
+  CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; RES-PRIV
+  insert-only, no `GRANT SELECT`), `menu_items`,
   `restaurant_settings`, public `branding` storage bucket, and booking
-  trigger `enforce_booking_rules`. Linked/remote also has
+  trigger `enforce_booking_rules`. `restaurant_settings.review_email_*`,
+  `review_email_sends`, and `reservations.completed_at` are **not** in schema
+  yet. Linked/remote also has
   `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only)
   and `20260818162000_operating_hour_segments.sql` (`replace_operating_windows`;
   version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
@@ -38,6 +42,8 @@
   [../specs/branding-cms.md](../specs/branding-cms.md).
 - **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
   retry), MIME alias validation, and a `next.config.mjs` `bodySizeLimit` schema guard.
+  `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
+  cron job auth, marketing page.
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI
   samples, and POS/KDS tickets not yet persisted in Postgres.
 

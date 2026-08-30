@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-30
 
 ## Vercel
 
@@ -62,8 +62,9 @@ hosted backend). Never use local Docker keys (`127.0.0.1:54321`).
 - `NEXT_PUBLIC_SUPABASE_URL` — `https://tilcqrudqxznnpepxjqq.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `CRON_SECRET` — Bearer token for `GET /api/cron/review-email`. Fail-closed: unset or empty secret is 401 (never matches `Bearer undefined`). No `vercel.json` cron yet; the handler still uses a throwing mailer stub (`Mail provider is not configured.`).
 
-Never expose the service role key to the client bundle. Never commit it.
+Never expose the service role key to the client bundle. Never commit it. Never expose `CRON_SECRET` to the client bundle.
 
 ## Supabase
 

@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-08-30
 
 ## Prerequisites
 
@@ -73,6 +73,10 @@ pnpm test:integration tests/integration/scheduling/replace-operating-windows.int
   `20260828121224_table_fit_availability.sql`; already-baselined remotes that
   recorded occupancy apply that forward the same way as occupancy —
   [../runbooks/deploy.md](../runbooks/deploy.md).
+- Guest email PII (PV-9):
+  `tests/integration/reservations/review-email-pii.integ.test.ts` (service-role
+  insert of nullable `reservations.email`; anon `select("email")` is empty +
+  42501/PGRST301). RES-PRIV unchanged — no `GRANT SELECT`.
 
 ## Skip vs strict
 

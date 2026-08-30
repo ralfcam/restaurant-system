@@ -280,6 +280,7 @@ export async function transitionReservationStatus(
     nextStatus === "no_show"
   )
     patch.table_label = null
+  if (nextStatus === "completed") patch.completed_at = new Date().toISOString()
   const { error } = await db
     .from("reservations")
     .update(patch)
@@ -291,6 +292,17 @@ export async function transitionReservationStatus(
     from_status: current.status,
     to_status: nextStatus,
   })
+  if (nextStatus === "completed") {
+    const { error: enqueueError } = await db
+      .from("review_email_sends")
+      .insert({ reservation_id: reservationId })
+    if (enqueueError) {
+      console.error(
+        "[reservations] review_email_sends enqueue:",
+        enqueueError.message,
+      )
+    }
+  }
   if (nextStatus === "seated" && current.table_label) {
     await syncTableGroupStatus(current.table_label, "seated")
   }
