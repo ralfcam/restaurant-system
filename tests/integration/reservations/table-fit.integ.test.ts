@@ -60,7 +60,8 @@ describe.skipIf(!authEnvReady)(
         date: TEST_DATE,
         time: HOLD_TIME,
         phone: "555-0800",
-      })
+        email: "guest@test.local",
+      } as Parameters<typeof createReservation>[0])
       expect(denied.confCode).toBe("")
       expect(denied.error).toMatch(/fully booked/i)
 
@@ -70,7 +71,8 @@ describe.skipIf(!authEnvReady)(
         date: TEST_DATE,
         time: HOLD_TIME,
         phone: "555-0200",
-      })
+        email: "guest@test.local",
+      } as Parameters<typeof createReservation>[0])
       expect(small.error).toBeUndefined()
       expect(small.confCode).toMatch(/^TVL-\d{4}$/)
 

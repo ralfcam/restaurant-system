@@ -32,7 +32,8 @@ function guestPayload(time: string) {
     date: TEST_DATE,
     time,
     phone: "555-0200",
-  }
+    email: "guest@test.local",
+  } as Parameters<typeof createReservation>[0]
 }
 
 describe.skipIf(!authEnvReady)(

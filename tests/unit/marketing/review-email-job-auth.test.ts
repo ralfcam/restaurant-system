@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { NextRequest } from "next/server"
 
@@ -35,5 +37,15 @@ describe("review email send job", () => {
       await GET(request)
       expect(mocks.processDueReviewEmails).not.toHaveBeenCalled()
     }
+  })
+
+  it("processor module imports server-only and is not a use-server file", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "lib", "marketing", "review-email.ts"),
+      "utf8",
+    )
+
+    expect(source).toMatch(/^import ["']server-only["']/)
+    expect(source).not.toMatch(/^["']use server["']/m)
   })
 })

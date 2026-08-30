@@ -13,7 +13,11 @@ import {
   getTodayInRestaurantTZ,
   getNowTimeInRestaurantTZ,
 } from "@/lib/timezone"
-import { validateReservationPayload } from "@/lib/reservations/validation"
+import {
+  validateReservationPayload,
+  type ReservationPayload,
+} from "@/lib/reservations/validation"
+import { sendBookingConfirmation } from "@/lib/marketing/booking-confirmation"
 import {
   bookableTimesForDay,
   clampSafetyBufferMinutes,
@@ -68,14 +72,9 @@ function generateConfCode(): string {
   return `TVL-${n}`
 }
 
-export async function createReservation(payload: {
-  guestName: string
-  partySize: number
-  date: string
-  time: string
-  phone: string
-  notes?: string
-}): Promise<{ confCode: string; error?: string }> {
+export async function createReservation(
+  payload: ReservationPayload,
+): Promise<{ confCode: string; error?: string }> {
   const validationError = validateReservationPayload(
     payload,
     getTodayInRestaurantTZ(),
@@ -114,6 +113,11 @@ export async function createReservation(payload: {
   // Use a plain anon client (no session required) for public guest bookings.
   const supabase = createAnonClient()
 
+  const guestName = payload.guestName.trim()
+  const email = (payload.email ?? "").trim()
+  const phone = payload.phone.trim()
+  const notes = payload.notes?.trim() || null
+
   // conf_code is a random 4-digit suffix guarded by a DB unique constraint —
   // collisions are rare but possible, so retry with a fresh code on a
   // uniqueness violation (Postgres code 23505) instead of failing the whole
@@ -130,18 +134,31 @@ export async function createReservation(payload: {
     // reject with 42501. The confirmation code is generated client-side
     // before the insert, so there's nothing to read back.
     const { error } = await supabase.from("reservations").insert({
-      guest_name: payload.guestName.trim(),
+      guest_name: guestName,
       party_size: payload.partySize,
       date: payload.date,
       time: payload.time,
-      phone: payload.phone.trim(),
-      notes: payload.notes?.trim() || null,
+      phone,
+      email,
+      notes,
       conf_code: confCode,
     })
 
     if (!error) {
       revalidatePath("/admin/reservations")
       revalidatePath("/admin")
+      try {
+        await sendBookingConfirmation({
+          email,
+          confCode,
+          guestName,
+          date: payload.date,
+          time: payload.time,
+          partySize: payload.partySize,
+        })
+      } catch {
+        // BW-14: mailer failure must not withhold conf_code
+      }
       return { confCode }
     }
 

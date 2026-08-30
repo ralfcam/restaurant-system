@@ -9,8 +9,9 @@
  * The database trigger (`validate_reservation_availability`) enforces
  * business rules atomically (capacity, hours, blocked dates), but it cannot
  * catch malformed input — a non-date string, a negative or fractional party
- * size, a time with no colon, or oversized text fields. Those must be
- * rejected here so bad input never reaches the trigger or gets persisted.
+ * size, a time with no colon, an invalid email, or oversized text fields.
+ * Those must be rejected here so bad input never reaches the trigger or
+ * gets persisted.
  */
 
 export const RESERVATION_ONLINE_MAX_PARTY = 8
@@ -18,6 +19,8 @@ export const RESERVATION_ONLINE_MAX_PARTY = 8
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const PHONE_RE = /^[0-9+()\-.\s]{6,20}$/
+// BW-13: trimmed local@domain with a `.` in the domain — not RFC 5322.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MAX_NAME_LEN = 100
 const MAX_NOTES_LEN = 500
 
@@ -27,6 +30,7 @@ export type ReservationPayload = {
   date: string
   time: string
   phone: string
+  email: string
   notes?: string
 }
 
@@ -79,8 +83,14 @@ export function validateReservationPayload(
   }
 
   const phone = payload.phone?.trim() ?? ""
-  if (!phone || !PHONE_RE.test(phone))
+  if (phone && !PHONE_RE.test(phone)) {
     return "Please provide a valid phone number."
+  }
+
+  const email = payload.email?.trim() ?? ""
+  if (!email || !EMAIL_RE.test(email)) {
+    return "Please provide a valid email."
+  }
 
   if (payload.notes && payload.notes.length > MAX_NOTES_LEN)
     return "Notes are too long."

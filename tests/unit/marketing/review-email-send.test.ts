@@ -279,6 +279,93 @@ describe("processDueReviewEmails", () => {
     expect(afterSettingsMailer.send).toHaveBeenCalledTimes(0)
   })
 
+  it("overlapping processDue invocations send at most once for the same reservation", async () => {
+    const { processDueReviewEmails } =
+      await import("@/lib/marketing/review-email")
+
+    const sendRow: Row = {
+      reservation_id: validReservation.id,
+      sent_at: null,
+      reservations: { ...validReservation },
+    }
+    const now = new Date(validReservation.completed_at)
+
+    function overlappingSendsBuilder() {
+      let casWon: boolean | null = null
+      const builder: Record<string, unknown> = {}
+      const self = new Proxy(builder, {
+        get(_target, prop) {
+          if (prop === "then") {
+            return (
+              resolve: (value: unknown) => unknown,
+              reject?: (reason: unknown) => unknown,
+            ) => Promise.resolve(resolveOverlapping()).then(resolve, reject)
+          }
+          if (prop === "single" || prop === "maybeSingle") {
+            return async () => {
+              const payload = resolveOverlapping()
+              const row = Array.isArray(payload.data)
+                ? (payload.data[0] ?? null)
+                : payload.data
+              return { data: row, error: row ? null : payload.error }
+            }
+          }
+          if (prop === "update") {
+            return (patch: Row) => {
+              casWon = sendRow.sent_at == null
+              if (casWon) Object.assign(sendRow, patch)
+              return self
+            }
+          }
+          return () => self
+        },
+      })
+      function resolveOverlapping(): {
+        data: Row[]
+        error: null
+        count: number
+      } {
+        if (casWon === null) {
+          return {
+            data: [
+              {
+                reservation_id: sendRow.reservation_id,
+                sent_at: null,
+                reservations: sendRow.reservations,
+              },
+            ],
+            error: null,
+            count: 1,
+          }
+        }
+        return {
+          data: casWon ? [{ ...sendRow }] : [],
+          error: null,
+          count: casWon ? 1 : 0,
+        }
+      }
+      return self
+    }
+
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "restaurant_settings") {
+        return thenable({ data: [validSettings], error: null })
+      }
+      if (table === "review_email_sends") {
+        return overlappingSendsBuilder()
+      }
+      if (table === "reservations") {
+        return thenable({ data: [{ ...validReservation }], error: null })
+      }
+      return thenable({ data: [], error: null })
+    })
+
+    const mailer = { send: vi.fn() }
+    await processDueReviewEmails({ mailer, now })
+    await processDueReviewEmails({ mailer, now })
+    expect(mailer.send).toHaveBeenCalledTimes(1)
+  })
+
   it("mailer called with reservation guest email, saved copy, and Maps URL as a link", async () => {
     const { processDueReviewEmails } =
       await import("@/lib/marketing/review-email")

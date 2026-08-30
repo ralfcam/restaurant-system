@@ -19,7 +19,10 @@ _(Expand during first `/sdd-to-tdd` run.)_
 3. **Operating window** — Times outside the restaurant operating window for the
    selected date are rejected.
 4. **Confirmation code** — Successful booking returns a unique `conf_code` (format
-   `TVL-####`).
+   `TVL-####`). Successful booking still returns `TVL-####` for on-screen
+   display. After the INSERT succeeds, the server MUST send a post-booking
+   confirmation to the guest email. Mailer failure MUST NOT fail the booking
+   or withhold `conf_code`.
 5. **RLS / RES-PRIV** — Guest booking is insert-only on `reservations`. Table
    privileges MUST `GRANT INSERT ON TABLE reservations TO anon, authenticated`
    and
@@ -86,8 +89,9 @@ the route locale. An in-widget language toggle is out of scope.
 12. **BW-7 — Accordion and Réserver gate** — Guests, date, and time are exclusive
     accordions (Time expanded by default). Picking a card does **not** skip to
     guest details and does **not** call `createReservation`. Réserver stays
-    disabled until a slot is selected; it only advances to existing step 2
-    (name/phone still required).
+    disabled until a slot is selected; it only advances to step 2. Step 2
+    requires guest name and a valid email; **phone is optional** (SMS
+    confirmation is out of scope).
 
 13. **BW-8 — Widget chrome i18n** — Chrome strings (`reserve`, `until`,
     `guests`, `date`, `time`, collapsed summaries) live under
@@ -151,7 +155,26 @@ the route locale. An in-widget language toggle is out of scope.
     - Concurrent inserts competing for the last compatible unit at the same
       slot: exactly one succeeds.
 
-18. **STAFF-LIST — Staff date list is fail-closed.** `getReservationsByDate` is
+18. **BW-13 — Guest email intake** — `createReservation` accepts `email`.
+    Validation: trimmed non-empty; MUST look like `local@domain` with a `.` in
+    the domain. Missing/invalid email is a reservation error (no INSERT).
+    Persist on `reservations.email`. Blank/whitespace phone is accepted and
+    stored as `""` (`phone` stays `NOT NULL` — no migration). A non-blank
+    phone still MUST match the existing phone pattern. Widget Email is
+    `required`; Phone is not. `confirm()` MUST pass `email` into
+    `createReservation`. Anon MUST NOT `SELECT` the column (AC-5).
+
+19. **BW-14 — Confirmation send** — After a successful reservations INSERT
+    (not on validation errors, not on P0001, not on in-progress 23505 retries),
+    send **one** confirmation to that email from the in-memory payload (MUST
+    NOT `SELECT` the inserted row). Payload `{ to, html }` (no From/subject).
+    HTML MUST include escaped guest name, date, time, party size, and
+    `conf_code`. Implementation is a **server-only** helper, not
+    `processDueReviewEmails` (PV-4 remains `completed`-only). A throwing
+    mailer MUST be caught; the action still returns `{ confCode }`. Live
+    provider stays manual-UAT (same stub class as review-email cron).
+
+20. **STAFF-LIST — Staff date list is fail-closed.** `getReservationsByDate` is
     a staff read (`requireStaffUser` + `service_role`). Auth failure or query
     failure MUST return a Result `{ reservations: [], error }` with a stable
     message, never a successful empty array (no `error` field).

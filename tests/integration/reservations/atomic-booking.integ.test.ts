@@ -88,7 +88,8 @@ describe.skipIf(!authEnvReady)(
         date: TEST_DATE,
         time: TEST_TIME,
         phone: "555-0100",
-      })
+        email: "guest@test.local",
+      } as Parameters<typeof createReservation>[0])
       expect(result.error).toBeUndefined()
       expect(result.confCode).toMatch(/^TVL-\d{4}$/)
     })
@@ -100,7 +101,8 @@ describe.skipIf(!authEnvReady)(
         date: TEST_DATE,
         time: TEST_TIME,
         phone: "555-0100",
-      })
+        email: "guest@test.local",
+      } as Parameters<typeof createReservation>[0])
       // Party size above the online cap is rejected before it ever reaches the
       // capacity trigger — assert on whichever guard actually fires.
       expect(result.confCode).toBe("")
@@ -120,7 +122,8 @@ describe.skipIf(!authEnvReady)(
           date: TEST_DATE,
           time: TEST_TIME,
           phone: "555-0100",
-        })
+          email: "guest@test.local",
+        } as Parameters<typeof createReservation>[0])
         expect(result.confCode).toBe("")
         expect(result.error).toMatch(/not available/i)
       } finally {
@@ -170,14 +173,16 @@ describe.skipIf(!authEnvReady)(
           date: TEST_DATE,
           time: TEST_TIME,
           phone: "555-0101",
-        }),
+          email: "guest@test.local",
+        } as Parameters<typeof createReservation>[0]),
         createReservation({
           guestName: "Racer Two",
           partySize: 8,
           date: TEST_DATE,
           time: TEST_TIME,
           phone: "555-0102",
-        }),
+          email: "guest@test.local",
+        } as Parameters<typeof createReservation>[0]),
       ])
 
       const results = [first, second]

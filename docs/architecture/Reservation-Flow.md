@@ -4,8 +4,9 @@
 **Last updated:** 2026-08-30
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
-(BW-1…BW-12 for the segmented homepage widget, occupancy window, and
-compatible-table bookability).
+(BW-1…BW-14 for the segmented homepage widget, occupancy window,
+compatible-table bookability, guest email intake, and post-booking
+confirmation).
 
 ```mermaid
 flowchart LR
@@ -16,6 +17,7 @@ flowchart LR
   Details --> Create[createReservation]
   Create --> DB[(Supabase reservations)]
   Create --> Code[conf_code TVL-####]
+  Create --> Confirm[sendBookingConfirmation]
   Admin[admin/reservations] --> DB
 ```
 
@@ -29,6 +31,11 @@ flowchart LR
 `getGuestOccupancyDurationMinutes`, default 90; wraps past midnight; no
 safety buffer). Guests/date/time are exclusive accordions; Réserver advances
 to guest details only after a slot is selected (no `createReservation` on pick).
+Step 2 requires guest name and a valid email; phone is optional (BW-7 / BW-13).
+After INSERT succeeds, `createReservation` calls `sendBookingConfirmation` from
+the in-memory payload (no `.select()` of the inserted row). A throwing mailer
+is caught; `conf_code` is still returned (AC-4 / BW-14). Live provider stays
+manual-UAT.
 
 **Occupancy window.** `confirmed` and `seated` occupy covers on
 `[start, nextBookableTime(start))` (occupancy + staff-manageable buffer,
@@ -53,4 +60,5 @@ send on `/admin/marketing`. Spec:
 
 Key modules: `components/site/reservation-widget.tsx`,
 `lib/reservations/operating-hours.ts`, `lib/reservations/auto-assign.ts`,
+`lib/reservations/validation.ts`, `lib/marketing/booking-confirmation.ts`,
 `app/actions/reservations.ts`, `app/actions/availability.ts`.

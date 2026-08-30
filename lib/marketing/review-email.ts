@@ -1,3 +1,4 @@
+import "server-only"
 import { isHttpsUrl } from "@/lib/marketing/https-url"
 import { createServiceClient } from "@/lib/supabase/service"
 
@@ -126,20 +127,35 @@ export async function processDueReviewEmails({
     ) {
       continue
     }
-    await mailer.send({
-      to: email,
-      html: reviewEmailHtml(copy, mapsUrl),
-    })
-    const { error: stampError } = await db
+    const sentAt = clock.toISOString()
+    // PV-6: exclusive CAS on sent_at before mailer; empty select = lost claim.
+    const { data: claimed, error: claimError } = await db
       .from("review_email_sends")
-      .update({ sent_at: clock.toISOString() })
+      .update({ sent_at: sentAt })
       .eq("reservation_id", row.reservation_id)
       .is("sent_at", null)
-    if (stampError) {
+      .select("reservation_id")
+
+    if (claimError) {
       console.error(
-        "[marketing] processDueReviewEmails stamp:",
-        stampError.message,
+        "[marketing] processDueReviewEmails claim:",
+        claimError.message,
       )
+      continue
+    }
+    if (!claimed?.length) continue
+
+    try {
+      await mailer.send({
+        to: email,
+        html: reviewEmailHtml(copy, mapsUrl),
+      })
+    } catch (error) {
+      await db
+        .from("review_email_sends")
+        .update({ sent_at: null })
+        .eq("reservation_id", row.reservation_id)
+      throw error
     }
   }
 }

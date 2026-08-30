@@ -48,6 +48,12 @@ not change reservation status.
 6. **PV-6 — At most one success** — At most one successful review email per
    reservation. Settings edits MUST NOT resend. After a send failure, retries
    of the same reservation are allowed until one success, then never again.
+   Overlapping `processDue` invocations MUST NOT both send for the same
+   reservation: the job MUST take an exclusive claim on that reservation's
+   `review_email_sends` row (compare-and-set `sent_at` from null, or an
+   equivalent exclusive claim) BEFORE invoking the mailer. A lost claim MUST
+   NOT call the mailer. A mailer failure MUST release the claim so retries
+   remain allowed.
 
 7. **PV-7 — Recipient and body** — A successful send goes to that
    reservation’s guest email. Body includes the latest saved thank-you copy
@@ -61,7 +67,12 @@ not change reservation status.
 9. **PV-9 — PII** — Guest email used for sending MUST NOT be readable via
    the anon key (booking-rules AC-5). The send path is a service-role /
    staff-authenticated server job, not a guest client. Unauthenticated
-   invocations of the send job MUST NOT send.
+   invocations of the send job MUST NOT send. The processor module that
+   constructs the service-role client (`lib/marketing/review-email.ts`) MUST
+   `import "server-only"` so a client-bundle import fails at build time. That
+   module MUST NOT be a `"use server"` file: exporting `processDueReviewEmails`
+   as a Server Action would expose an unauthenticated send entrypoint (auth is
+   the cron Bearer check on `GET /api/cron/review-email`).
 
 10. **PV-10 — Enable requires complete config** — Turning the toggle on
     requires non-blank copy and a valid `https:` Maps URL; reject with the
