@@ -49,9 +49,9 @@
 
 ## Personas (stable IDs)
 
-| Persona     | Email              | Password      | User ID                                | Notes                                                                                                                                                                               |
-| ----------- | ------------------ | ------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Staff admin | `admin@test.local` | `password123` | `11111111-1111-1111-1111-111111111111` | **Local dev only.** Signs in at `/auth/login`; grants `/admin`, `/pos`, `/kds` (staff routes authorize any authenticated user). Email pre-confirmed. Never seed against production. |
+| Persona     | Email              | Password      | User ID                                | Notes                                                                                                                                                                                                                                                                                     |
+| ----------- | ------------------ | ------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Staff admin | `admin@test.local` | `password123` | `11111111-1111-1111-1111-111111111111` | **Local dev only.** Signs in at `/auth/login`. JWT `raw_app_meta_data.role` is `"staff"` (not `raw_user_meta_data`, not `auth.users.role`). Staff routes `/admin`, `/pos`, `/kds` require that claim — not any authenticated session. Email pre-confirmed. Never seed against production. |
 
 When integration tests need more stable IDs, document additional personas here as
 suites grow.

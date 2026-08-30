@@ -45,7 +45,9 @@ Spec: [../specs/site-localization.md](../specs/site-localization.md).
 `middleware.ts` always runs Supabase `updateSession`, then applies next-intl locale
 routing for public paths. `/admin/**`, `/auth/**`, and `/api/**` skip locale middleware
 (`i18n/middleware-scope.ts`). Staff paths
-(`/admin`, `/pos`, `/kds`) redirect unauthenticated users to `/auth/login`.
+(`/admin`, `/pos`, `/kds`) require JWT `app_metadata.role === "staff"`:
+unauthenticated → `/auth/login`, authenticated non-staff → `/`. Spec:
+[../specs/staff-authorization.md](../specs/staff-authorization.md).
 
 ## Server actions
 

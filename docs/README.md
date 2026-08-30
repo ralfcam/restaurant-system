@@ -8,26 +8,27 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 
 ## Documentation map
 
-| Area                              | Primary doc                                                                                                                 |
-| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Platform overview                 | [architecture/Platform-Overview.md](./architecture/Platform-Overview.md)                                                    |
-| Auth & RLS                        | [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md)                                                              |
-| Reservations / booking            | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md) |
-| Menu / 86 / POS / KDS             | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)     |
-| Guest site chrome (header / logo) | [specs/site-chrome.md](./specs/site-chrome.md)                                                                              |
-| Branding CMS (admin-managed logo) | [specs/branding-cms.md](./specs/branding-cms.md)                                                                            |
-| Post-visit review email           | [specs/post-visit-review-email.md](./specs/post-visit-review-email.md)                                                      |
-| Scheduling / floor                | [specs/scheduling.md](./specs/scheduling.md) · [architecture/Floor-Plan.md](./architecture/Floor-Plan.md)                   |
-| Testing pyramid                   | [testing/Pyramid-Overview.md](./testing/Pyramid-Overview.md)                                                                |
-| Unit tests                        | [testing/Vitest-Unit-Guide.md](./testing/Vitest-Unit-Guide.md)                                                              |
-| Integration / RLS                 | [testing/Vitest-Integration-Guide.md](./testing/Vitest-Integration-Guide.md)                                                |
-| E2E                               | [testing/E2E-Playwright-Guide.md](./testing/E2E-Playwright-Guide.md)                                                        |
-| Patterns & recipes                | [testing/Design-And-Patterns.md](./testing/Design-And-Patterns.md)                                                          |
-| Seeds & fixtures                  | [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md)                                                          |
-| Deploy                            | [runbooks/deploy.md](./runbooks/deploy.md)                                                                                  |
-| Product scope                     | [PRD/restaurant-system-PRD.md](./PRD/restaurant-system-PRD.md)                                                              |
-| Open findings (TDD ledger)        | [findings/README.md](./findings/README.md)                                                                                  |
-| Audit verifier reports            | [verifier-reports/README.md](./verifier-reports/README.md)                                                                  |
+| Area                              | Primary doc                                                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Platform overview                 | [architecture/Platform-Overview.md](./architecture/Platform-Overview.md)                                                        |
+| Auth & RLS                        | [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md)                                                                  |
+| Staff authorization               | [specs/staff-authorization.md](./specs/staff-authorization.md) · [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md) |
+| Reservations / booking            | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
+| Menu / 86 / POS / KDS             | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
+| Guest site chrome (header / logo) | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
+| Branding CMS (admin-managed logo) | [specs/branding-cms.md](./specs/branding-cms.md)                                                                                |
+| Post-visit review email           | [specs/post-visit-review-email.md](./specs/post-visit-review-email.md)                                                          |
+| Scheduling / floor                | [specs/scheduling.md](./specs/scheduling.md) · [architecture/Floor-Plan.md](./architecture/Floor-Plan.md)                       |
+| Testing pyramid                   | [testing/Pyramid-Overview.md](./testing/Pyramid-Overview.md)                                                                    |
+| Unit tests                        | [testing/Vitest-Unit-Guide.md](./testing/Vitest-Unit-Guide.md)                                                                  |
+| Integration / RLS                 | [testing/Vitest-Integration-Guide.md](./testing/Vitest-Integration-Guide.md)                                                    |
+| E2E                               | [testing/E2E-Playwright-Guide.md](./testing/E2E-Playwright-Guide.md)                                                            |
+| Patterns & recipes                | [testing/Design-And-Patterns.md](./testing/Design-And-Patterns.md)                                                              |
+| Seeds & fixtures                  | [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md)                                                              |
+| Deploy                            | [runbooks/deploy.md](./runbooks/deploy.md)                                                                                      |
+| Product scope                     | [PRD/restaurant-system-PRD.md](./PRD/restaurant-system-PRD.md)                                                                  |
+| Open findings (TDD ledger)        | [findings/README.md](./findings/README.md)                                                                                      |
+| Audit verifier reports            | [verifier-reports/README.md](./verifier-reports/README.md)                                                                      |
 
 ## Ownership (anti-duplication)
 
@@ -40,6 +41,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Guest header / brand logo         | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                |
 | Admin-managed logo / branding CMS | `specs/branding-cms.md`            | `specs/site-chrome.md` (empty-by-default mark)           |
 | Post-visit review email           | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)    |
+| Staff authorization (JWT claim)   | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                           |
 | Test how-to                       | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes            |
 
 ## Plan → doc traceability
@@ -68,6 +70,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Vercel git-link + hosted env (`vercel_env_via_cli_8a5a7c45`)                  | 2026-08-27 | `runbooks/deploy.md`, `architecture/Platform-Overview.md`, repo-root `README.md`                                                                                                                                                                                                                                                                                |
 | OH-SAVE hermetic unit pin (`oh-save_pin_hermetic_2088c96a`)                   | 2026-08-28 | `specs/scheduling.md` (§15 AC by orchestrator; Implementation trace), `testing/Design-And-Patterns.md`                                                                                                                                                                                                                                                          |
 | Post-visit review email (`post-visit_review_tdd_ac1962e1`)                    | 2026-08-30 | `specs/post-visit-review-email.md`, `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `testing/Test-Data-And-Seeds.md`, `runbooks/deploy.md`, `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `architecture/Reservation-Flow.md`, `PRD/restaurant-system-PRD.md` |
+| REAZED-310 staff authorization (`reazed-310_staff_auth_a6b9be91.plan`)        | 2026-08-30 | `specs/staff-authorization.md` (SA-1–SA-6, by orchestrator), `specs/README.md`, `architecture/Auth-And-RLS.md`, `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Test-Data-And-Seeds.md`, `runbooks/deploy.md`                                                                                   |
 
 ## Seed path
 

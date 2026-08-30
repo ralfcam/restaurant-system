@@ -10,7 +10,26 @@
    like `/auth/login` are not rewritten into a missing `[locale]` path.
 2. `middleware.ts` refreshes session via `lib/supabase/proxy.ts`, then applies
    next-intl routing only when `i18n/middleware-scope.ts` returns `localize`.
-3. Protected routes: `/admin`, `/pos`, `/kds` require `user` from `getUser()`.
+3. Protected routes: `/admin`, `/pos`, `/kds` (`lib/supabase/proxy.ts`)
+   require JWT `app_metadata.role === "staff"` (`isStaffUser` in
+   `lib/supabase/is-staff-user.ts`) — not a session alone and not
+   `user_metadata`. Unauthenticated requests redirect to `/auth/login`.
+   Authenticated non-staff redirect to `/`. Staff-claim sessions continue.
+
+## Staff claim
+
+Staff is `user.app_metadata.role === "staff"`. `requireStaffUser`
+(`lib/supabase/require-staff.ts`) returns the user only for that claim; it
+returns `null` when there is no session or the session is authenticated but not
+staff. Privileged server actions already call it. `/auth/login` is sign-in
+only (no `signUp`); after `signInWithPassword` it calls `isStaffUser(data.user)`
+before `window.location.href = "/admin"`.
+
+Local `supabase/config.toml` has `[auth] enable_signup = false` and
+`[auth.email] enable_signup = false`. Those keys do not control hosted Auth —
+see [../runbooks/deploy.md](../runbooks/deploy.md). Spec:
+[../specs/staff-authorization.md](../specs/staff-authorization.md)
+(SA-1–SA-6; SA-6 is manual-UAT).
 
 ## Service role
 

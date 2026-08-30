@@ -71,6 +71,18 @@ Never expose the service role key to the client bundle. Never commit it. Never e
 **Linked project:** `supabase-green-tree` (ref `tilcqrudqxznnpepxjqq`). Verify with
 `npx supabase projects list` (exactly one `LINKED` marker).
 
+### Hosted Auth signup (SA-6)
+
+Hosted Auth on `tilcqrudqxznnpepxjqq` must have email signup disabled
+(manual-UAT). Local `supabase/config.toml` `[auth]` and
+`[auth.email] enable_signup = false` does not control hosted Auth.
+
+Do not blindly copy local `[auth.email] enable_signup = false` to hosted —
+that can map to disabling the whole email provider and block seed staff
+password login. Use the dashboard signup toggle, not a config push of those
+keys. Spec: [../specs/staff-authorization.md](../specs/staff-authorization.md)
+SA-6.
+
 ### Schema vs seed
 
 | Artifact                             | Path                                                                 | Loaded on `db reset`                                                |
