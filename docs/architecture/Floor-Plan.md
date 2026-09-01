@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-09-01
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -39,5 +39,7 @@ desktop selection (FP-12). Inventory is persisted in Postgres (`tables`), not
 mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
 live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
-static `TABLES` seed in `lib/data.ts`. Operating hours: `operating_windows` in
+static `TABLES` seed in `lib/data.ts`. `/pos`'s Table picker lists live
+`getTables()` rows via `app/pos/page.tsx` (`dynamic = "force-dynamic"`) into
+`PosTerminal` `tables`, also not `TABLES`. Operating hours: `operating_windows` in
 `supabase/migrations/00000000000000_baseline.sql`.

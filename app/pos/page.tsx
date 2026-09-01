@@ -1,10 +1,15 @@
 import Link from "next/link"
 import { ChefHat } from "lucide-react"
+import { getTables } from "@/app/actions/operations"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { PosTerminal } from "@/components/staff/pos-terminal"
 import { Button } from "@/components/ui/button"
 
-export default function PosPage() {
+export const dynamic = "force-dynamic"
+
+export default async function PosPage() {
+  const tables = await getTables()
+
   return (
     <StaffShell
       title="Point of Sale"
@@ -15,7 +20,7 @@ export default function PosPage() {
         </Button>
       }
     >
-      <PosTerminal />
+      <PosTerminal tables={tables} />
     </StaffShell>
   )
 }
