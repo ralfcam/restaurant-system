@@ -49,4 +49,24 @@ describe("eslint toolchain", () => {
 
     expect(pkg.scripts?.lint).toContain("--max-warnings 0")
   })
+
+  it("errors (not warns) on an unused eslint-disable directive", async () => {
+    const eslint = new ESLint({ cwd: repoRoot })
+    const [result] = await eslint.lintText(
+      [
+        "const value = 1",
+        "// eslint-disable-next-line no-unused-vars",
+        "console.log(value)",
+      ].join("\n"),
+      { filePath: path.join(repoRoot, "unused-disable-probe.ts") },
+    )
+
+    const message = result.messages.find(
+      (entry) =>
+        entry.ruleId === null &&
+        /Unused eslint-disable directive/.test(entry.message),
+    )
+
+    expect(message?.severity).toBe(2)
+  })
 })

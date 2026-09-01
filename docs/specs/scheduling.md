@@ -1,12 +1,13 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-09-01
 
 ## Scope
 
 Staff scheduling (`app/admin/scheduling`), floor plan (`app/admin/floor`),
-and `/admin` Dashboard floor-occupancy widgets (FP-11).
+and `/admin` Dashboard floor-occupancy widgets (FP-11), and the `/pos` table
+picker (FP-13).
 Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 `supabase/migrations/00000000000000_baseline.sql`; default hours seeded in
 `supabase/seed.sql`. Dining-room tables persist in `tables` (see FP-1).
@@ -176,6 +177,22 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
       Hiding only the Sheet panel (`lg:hidden` on `SheetContent`) while the
       Sheet stays open does **not** satisfy this criterion.
 
+17. **FP-13 — POS table picker is live floor inventory** — `/pos`'s Table
+    `Select` (`PosTerminal`) MUST list persisted `tables` rows fetched live
+    from the same inventory source `/admin/floor` uses (`getTables()`), not
+    the static `TABLES` seed in `lib/data.ts`. `app/pos/page.tsx` is a
+    request-dynamic Server Component (`dynamic = "force-dynamic"`) that
+    fetches the live tables and passes them into `PosTerminal` as a prop;
+    the Table `Select`'s options and its default-selected table
+    (`tables[0]?.label`, or empty when there are no live tables) MUST come
+    from that prop, never from `TABLES`. Options are physical table rows,
+    one per persisted `tables.id` — this criterion does not require
+    merge-aware collapsing (FP-8/FP-3's assignable-unit model); it only
+    replaces the seed source with the live one, matching FP-11's
+    physical-row model. Renaming, adding, or removing a table on
+    `/admin/floor` MUST be reflected in the `/pos` table picker on the next
+    page load.
+
 **15. OH-SAVE — Persist opening hours via deployed RPC** — Staff **Save Changes**
 on `/admin/scheduling` persists the weekly opening-hour schedule by calling
 public RPC `replace_operating_windows(p_windows jsonb)`. The function MUST
@@ -270,6 +287,7 @@ Linked-remote apply is manual-UAT.
 | FP-10                  | `restaurant_settings.slot_interval_minutes` plus occupancy/buffer columns (`occupancy_duration_minutes` default 90, `safety_buffer_minutes` default 15) — baseline + `20260823130000_restaurant_info_and_chefs_picks.sql` + `20260827180000_occupancy_duration_buffer.sql`; `app/actions/branding.ts` (`getSlotIntervalMinutes`, `getOccupancyDurationMinutes`, `getSafetyBufferMinutes` + updaters); floor chrome `occupancy-duration-control` / `safety-buffer-control` (not per-table Expected time). Guest slot availability is assignment-feasible table-fit (`canSeatPartyOnTables` / BW-12), not per-table Expected time. | `tests/unit/branding/schema.test.ts`, `tests/unit/floor/slot-interval.test.ts`, `tests/unit/floor/occupancy-settings.test.ts`; `tests/unit/reservations/available-slots.test.ts` table-fit                                                              |
 | FP-11                  | `app/admin/page.tsx` (`AdminDashboardPage`) — `getFloorSnapshot` + `countFloorOccupancy(snapshot.tables)`; helper `lib/floor/table-use.ts`; page is `dynamic = "force-dynamic"`                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `tests/unit/floor/dashboard-occupancy.test.ts`                                                                                                                                                                                                          |
 | FP-12                  | `lib/floor/layout.ts` — `FLOOR_LG_MIN_PX` (1024), `shouldOpenMobileInspector`; `components/staff/floor-plan.tsx` `selectTable` calls the helper and `setMobileInspectorOpen(true)` only below `lg`; resize listener closes the Sheet at `lg+`; desktop side inspector remains `lg:block`; mobile `<Sheet open={mobileInspectorOpen}>` / `SheetContent side="bottom"` `lg:hidden`. Shared `components/ui/sheet.tsx` unchanged.                                                                                                                                                                                                    | `tests/unit/floor/schema.test.ts` → "selecting a table at lg does not open the mobile inspector Sheet"; "selecting a table below lg opens the bottom Sheet inspector"                                                                                   |
+| FP-13                  | `app/pos/page.tsx` (`PosPage`) — `getTables()` + `<PosTerminal tables={tables} />`; page is `dynamic = "force-dynamic"`; `PosTerminal` Table `Select` maps `tables` and defaults `tables[0]?.label ?? ""`                                                                                                                                                                                                                                                                                                                                                                                                                        | `tests/unit/floor/pos-table-picker.test.ts` → "POS table picker lists live getTables() tables, not the TABLES seed"                                                                                                                                     |
 | OH-SAVE (§15)          | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; unit pin stubs `NEXT_PUBLIC_SUPABASE_URL` (omitted follows env; explicit URL wins; helper `url ?? process.env.NEXT_PUBLIC_SUPABASE_URL` unchanged); linked-remote apply stays runbook + manual-UAT.                                                   | `tests/unit/scheduling/hours-mutation-target.test.ts` → "omitted url follows env; explicit url wins even when env is local"; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only)                                        |
 | OH-PRIV (§16)          | `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` for `anon, authenticated`; `GRANT ALL ON TABLE operating_windows TO service_role`; and `DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"` (no `CREATE`) — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql` (`NOTIFY pgrst, 'reload schema'`). Staff Save remains `service_role` `replace_operating_windows` (§15). Linked-remote apply stays runbook + manual-UAT.                                                                                                           | `tests/unit/scheduling/schema.test.ts` → "operating_windows grants ALL to service_role in baseline and privilege forward files"; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (authenticated Data API DML denial, local only) |
 | EARLY-PRIV (§17)       | `GRANT ALL ON TABLE blocked_dates TO service_role`, same for `reservations` and `menu_items` — `supabase/migrations/00000000000000_baseline.sql` (after each table's service_role RLS block, `-- REAZED-297`); `supabase/migrations/20260825140000_operating_windows_privilege.sql` (before `NOTIFY pgrst`; header names the siblings). Authenticated `FOR ALL` on those tables is kept. Anon/authenticated privileges: PUBLIC-READ-PRIV (§18) for `blocked_dates`; booking-rules AC-5 for `reservations`; menu-availability AC-2 for `menu_items`. Linked-remote apply stays runbook + manual-UAT.                              | `tests/unit/scheduling/schema.test.ts` → "early-baseline tables grant ALL to service_role in baseline and privilege forward files"                                                                                                                      |
@@ -294,3 +312,5 @@ Linked-remote apply is manual-UAT.
 - `components/staff/reservations-manager.tsx`
 - `app/admin/page.tsx`
 - `app/admin/floor/page.tsx`
+- `app/pos/page.tsx`
+- `components/staff/pos-terminal.tsx`

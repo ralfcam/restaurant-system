@@ -6,13 +6,15 @@ import { toast } from "sonner"
 import {
   MENU_ITEMS,
   MENUS,
-  TABLES,
   SERVERS,
   type MenuItem,
   type MenuId,
   type OrderLine,
 } from "@/lib/data"
-import { createKitchenOrder } from "@/app/actions/operations"
+import {
+  createKitchenOrder,
+  type PersistedTable,
+} from "@/app/actions/operations"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,10 +27,14 @@ import {
 
 const TAX_RATE = 0.077
 
-export function PosTerminal() {
+type PosTerminalProps = {
+  tables: PersistedTable[]
+}
+
+export function PosTerminal({ tables }: PosTerminalProps) {
   const [menuId, setMenuId] = useState<MenuId>(MENUS[0]?.id ?? "soir")
   const [cart, setCart] = useState<OrderLine[]>([])
-  const [table, setTable] = useState(TABLES[0]?.label ?? "1")
+  const [table, setTable] = useState(tables[0]?.label ?? "")
   const [server, setServer] = useState(SERVERS[0])
   const [sending, setSending] = useState(false)
 
@@ -140,9 +146,9 @@ export function PosTerminal() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TABLES.map((t) => (
-                    <SelectItem key={t.id} value={t.label}>
-                      Table {t.label}
+                  {tables.map((row) => (
+                    <SelectItem key={row.id} value={row.label}>
+                      Table {row.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

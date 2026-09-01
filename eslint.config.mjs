@@ -5,6 +5,9 @@ import nextTs from "eslint-config-next/typescript"
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    linterOptions: { reportUnusedDisableDirectives: "error" },
+  },
   globalIgnores([
     ".next/**",
     "out/**",
