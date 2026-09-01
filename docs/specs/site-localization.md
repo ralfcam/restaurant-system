@@ -1,12 +1,14 @@
 # Site localization
 
 **Status:** Draft  
-**Last updated:** 2026-06-27
+**Last updated:** 2026-09-01
 
 ## Scope
 
-Public marketing site: home (`/`), menu (`/menu`). Staff/admin (`/admin/**`) and
-staff auth (`/auth/**`) stay English-only and are excluded from locale routing.
+Public marketing site: home (`/`), menu (`/menu`). Staff chrome (`/admin/**`,
+`/pos/**`, `/kds/**` — unified staff-route class per
+[staff-authorization.md](staff-authorization.md) SA-2) and staff auth
+(`/auth/**`) stay English-only and are excluded from locale routing.
 Replaces the per-page EN/FR
 toggle in `components/site/menu-browser.tsx` with a navbar language switcher that
 controls all public content.
@@ -19,9 +21,12 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
 - **Default locale:** `fr`
 - **Prefix strategy:** `as-needed` — French routes are unprefixed (`/`, `/menu`);
   English routes are prefixed (`/en`, `/en/menu`)
-- **Excluded paths:** `/admin/**`, `/auth/**`, `/api/**` — no locale segment, no
-  locale middleware redirect; Supabase session middleware still runs. `/auth/**`
-  is flat (non-`[locale]`) staff login/callback/error routes like `/admin/**`.
+- **Excluded paths:** `/admin/**`, `/pos/**`, `/kds/**`, `/auth/**`, `/api/**` —
+  no locale segment, no locale middleware redirect; Supabase session middleware
+  still runs. `/auth/**` is flat (non-`[locale]`) staff login/callback/error
+  routes like `/admin/**`. `/pos/**` and `/kds/**` skip locale routing as staff
+  chrome (same class as `/admin/**` per
+  [staff-authorization.md](staff-authorization.md) SA-2).
 
 ## Acceptance criteria
 
@@ -30,10 +35,12 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
 2. **Message key parity** — `messages/fr.json` and `messages/en.json` have
    identical key sets; no empty string values.
 3. **Middleware scope** — Locale middleware applies to public paths only;
-   `/admin/**`, `/auth/**`, and `/api/**` skip locale routing; Supabase
-   `updateSession` runs for all paths. `/auth/**` must skip locale routing so
-   flat staff auth pages (e.g. `/auth/login`) are not rewritten into a
-   `[locale]` path that has no matching route.
+   `/admin/**`, `/pos/**`, `/kds/**`, `/auth/**`, and `/api/**` skip locale
+   routing; Supabase `updateSession` runs for all paths. `/auth/**` must skip
+   locale routing so flat staff auth pages (e.g. `/auth/login`) are not
+   rewritten into a `[locale]` path that has no matching route. `/pos/**` and
+   `/kds/**` skip locale routing as staff chrome (unified with `/admin/**` per
+   [staff-authorization.md](staff-authorization.md) SA-2).
 4. **Switch-path helper** — `localizedPathname(path, targetLocale)` maps paths
    under as-needed rules: `/menu`→`/en/menu`, `/en/menu`→`/menu`, `/`→`/en`,
    `/en`→`/`.
@@ -53,6 +60,12 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
     region and the mobile nav sheet. Structural regression: `site-header.tsx`
     imports and renders `<LanguageSwitcher>`.
 
+## Implementation trace (non-normative)
+
+| Criterion | Shipped in                                                                                        | Tests                                                                                     |
+| --------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| AC-3      | `i18n/middleware-scope.ts` `LOCALE_EXCLUDED_PREFIXES` (`/admin`, `/api`, `/auth`, `/pos`, `/kds`) | `tests/unit/i18n/middleware-scope.test.ts` → "pos and kds are excluded from localization" |
+
 ## Message catalog keys (public site)
 
 Navbar, hero, booking card, info strip, chef's picks, features, footer, menu page
@@ -62,5 +75,7 @@ continue to come from DB `_en` columns keyed by route locale.
 ## References
 
 - [../architecture/Platform-Overview.md](../architecture/Platform-Overview.md)
+- [staff-authorization.md](staff-authorization.md) SA-2 (staff chrome `/admin`,
+  `/pos`, `/kds`)
 - `components/site/site-header.tsx`, `components/site/menu-browser.tsx`
 - `middleware.ts`, `i18n/middleware-scope.ts`, `app/layout.tsx`
