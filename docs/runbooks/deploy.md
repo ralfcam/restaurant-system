@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-01
 
 ## Vercel
 
@@ -370,8 +370,10 @@ Use `--local` instead of `--linked` when testing against the local stack.
 
 `pnpm lint` uses the flat ESLint config at `eslint.config.mjs` (G-L1 in
 [../specs/dev-toolchain.md](../specs/dev-toolchain.md)). `package.json`
-`scripts.lint` pins `--max-warnings 0`. Gitignored Supabase CLI trees
-(`supabase/.temp/**`, `supabase/.branches/**`) are in `globalIgnores`.
+`scripts.lint` pins `--max-warnings 0`. Unused `eslint-disable` directives
+fail as errors (`linterOptions.reportUnusedDisableDirectives: "error"`).
+Gitignored Supabase CLI trees (`supabase/.temp/**`, `supabase/.branches/**`)
+are in `globalIgnores`.
 `next.config.mjs` omits `typescript.ignoreBuildErrors` (G-T1; Next default
 fail-closed) so `pnpm build` / `next build` does not skip TypeScript errors.
 `pnpm format` / `pnpm format:check` are the Prettier scripts (G-F1).

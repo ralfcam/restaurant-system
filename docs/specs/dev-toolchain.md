@@ -1,7 +1,7 @@
 # Dev toolchain
 
 **Status:** Draft  
-**Last updated:** 2026-08-28
+**Last updated:** 2026-09-01
 
 ## Scope
 
@@ -43,6 +43,17 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
      `eslint.config.mjs` `globalIgnores`. `pnpm lint` (`eslint .`) MUST NOT lint
      those trees. A local `npx supabase start` that writes `supabase/.temp/**`
      MUST NOT fail the lint gate.
+   - **G-L1 C3 — Lint gate behaviorally rejects unused disable directives** —
+     `eslint.config.mjs` MUST set `linterOptions.reportUnusedDisableDirectives`
+     to an error-level value (`"error"`) rather than relying on the ESLint
+     default. An `eslint-disable` comment that suppresses no actual violation
+     MUST be reported at error severity (2), not merely a warning-level
+     default that could silently change across ESLint major versions (it
+     already changed once, v8 `false` → v9 `"warn"`). The regression guard in
+     `tests/unit/dev-toolchain/lint-toolchain.test.ts` MUST assert the actual
+     ESLint-reported severity for a known unused-disable-directive input via
+     the ESLint Node API — a test that only checks config/dependency
+     existence MUST NOT satisfy this criterion.
 
 3. **G-F1 — Prettier is a repo tool** — `prettier` is in `devDependencies`.
    `pnpm exec prettier` resolves. `package.json` `scripts.format` MUST include
@@ -62,6 +73,7 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 | G-T1 C4   | `next.config.mjs` (`typescript` key omitted; Next default fail-closed)                                                                                                       | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "next config does not ignore TypeScript build errors"     |
 | G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                                                           | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"      |
 | G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                  | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                |
+| G-L1 C3   | `eslint.config.mjs` `linterOptions.reportUnusedDisableDirectives: "error"`                                                                                                   | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "errors (not warns) on an unused eslint-disable directive"     |
 | G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`) | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts" |
 
 ## References
