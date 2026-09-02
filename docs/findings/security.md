@@ -1,4 +1,1 @@
 # Security findings (open)
-
-- [ ] EMAIL_RE allows `<>"'` in local/domain · `lib/reservations/validation.ts:23` · BW-14’s HTML escape list is name/date/time/party/`conf_code` only; if C7 interpolates `to` into html, markup in the address is XSS · low · (seen: /triage 2026-09-01) (found: mailing_automations_triple_2347e1d5.plan/C3/refactor)
-- [ ] Leaked-password (HaveIBeenPwned) protection disabled for Supabase Auth · hosted project Auth settings (not supabase/config.toml — CLI schema doesn't expose this key) · Weaker password hygiene for staff/guest accounts; fix requires the hosted Dashboard (Authentication -> Providers -> Email -> Password Security) on a Pro-plan-or-above project, not a code/config change · low · (seen: /triage 2026-09-01) (found: feedback/2026-09-01/leaked-password-protection)
