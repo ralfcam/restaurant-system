@@ -9,7 +9,8 @@
   `operating_windows`, `blocked_dates`, `reservations` (nullable `email` via
   CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; RES-PRIV
   insert-only, no `GRANT SELECT`), `menu_items`,
-  `restaurant_settings`, public `branding` storage bucket, and booking
+  `restaurant_settings`, public `branding` storage bucket, `servers` (FP-14,
+  `-- REAZED-329`, after the `tables` GRANT block), and booking
   trigger `enforce_booking_rules`. `restaurant_settings.review_email_*`,
   `review_email_sends`, and `reservations.completed_at` are **not** in schema
   yet. Linked/remote also has
@@ -35,6 +36,7 @@
   - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo)
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
   - `menu_items` — 120 rows (sample `lib/menu-catalog.json` catalog)
+  - `servers` — 4 rows (Maya, Jon, Priya, Dev) via `INSERT … WHERE NOT EXISTS`
 - **Branding bucket runtime:** Migrations define the public `branding` bucket and
   storage policies. If storage still reports bucket-not-found on first logo upload,
   `uploadRestaurantLogo` creates the bucket (public, 2MB, allowed image MIME types)
@@ -46,7 +48,8 @@
   cron job auth, marketing page. `tests/unit/auth/` — staff and super-admin claim gates
   plus seed `raw_app_meta_data` pins.
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI
-  samples, and POS/KDS tickets not yet persisted in Postgres.
+  samples, and POS/KDS tickets not yet persisted in Postgres. POS server names
+  are no longer a `SERVERS` constant there — they come from `getServers()`.
 
 ## Personas (stable IDs)
 

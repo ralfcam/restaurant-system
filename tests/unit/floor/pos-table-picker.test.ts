@@ -27,4 +27,14 @@ describe("POS table picker from live floor inventory", () => {
     expect(tableSelect).toMatch(/tables\.map\(/)
     expect(terminal).toMatch(/useState\(\s*tables\[0\]\?\.label/)
   })
+
+  it("table select disables with a placeholder when no tables are available", () => {
+    const terminal = read("components/staff/pos-terminal.tsx")
+    const tableSelect = terminal.slice(
+      terminal.indexOf(">Table</label>"),
+      terminal.indexOf(">Server</label>"),
+    )
+    expect(tableSelect).toMatch(/disabled=\{tables\.length === 0\}/)
+    expect(tableSelect).toMatch(/<SelectValue[^>]*placeholder=["'][^"']+["']/)
+  })
 })

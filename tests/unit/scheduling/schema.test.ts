@@ -119,3 +119,35 @@ describe("opening-hour segments schema and surfaces", () => {
     }
   })
 })
+
+describe("servers table schema and seed (FP-14)", () => {
+  it("servers table exists in baseline with staff/service_role access and is seeded", () => {
+    const baseline = read("supabase/migrations/00000000000000_baseline.sql")
+    expect(baseline).toMatch(/-- REAZED-329/)
+    expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS servers/)
+
+    const columns = baseline.match(
+      /CREATE TABLE IF NOT EXISTS servers\s*\(([\s\S]*?)\);/,
+    )?.[1]
+    expect(columns).toBeTruthy()
+    expect(columns).toMatch(/id UUID PRIMARY KEY/)
+    expect(columns).toMatch(/name TEXT NOT NULL UNIQUE/)
+    expect(columns).toMatch(/created_at TIMESTAMPTZ NOT NULL DEFAULT NOW\(\)/)
+    expect(columns).toMatch(/updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW\(\)/)
+
+    expect(baseline).toMatch(/ALTER TABLE servers ENABLE ROW LEVEL SECURITY/)
+    expect(baseline).toMatch(
+      /CREATE POLICY "Allow authenticated full access to servers"[\s\S]*?ON servers FOR ALL[\s\S]*?TO authenticated/,
+    )
+    expect(baseline).toMatch(
+      /CREATE POLICY "Allow service_role full access to servers"[\s\S]*?ON servers FOR ALL[\s\S]*?TO service_role/,
+    )
+
+    const seed = read("supabase/seed.sql")
+    const serversInsert = seed.match(/INSERT INTO servers[\s\S]{0,2000}/)?.[0]
+    expect(serversInsert).toBeTruthy()
+    for (const name of ["Maya", "Jon", "Priya", "Dev"] as const) {
+      expect(serversInsert).toContain(`'${name}'`)
+    }
+  })
+})

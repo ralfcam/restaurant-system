@@ -86,14 +86,30 @@ implies staff.
    (`users_email_partial_key`) does not reject a later insert on `db reset`
    (`--local` or `--linked`).
 
+10. **SA-10 — Super-admin chrome is disabled for staff-only sessions** —
+    Staff chrome MUST disable (not hide) every SA-8 `super_admin`-only
+    control when the signed-in session is `staff`-only. The flag is
+    `isSuperAdminUser(authUser)` computed in each page Server Component from
+    its existing `getAuthUser()` call and passed down as an `isSuperAdmin`
+    prop. A `super_admin` session sees the same controls fully enabled. This
+    is a chrome affordance; SA-7/SA-8 remain the server-action gate.
+
+    Surfaces: branding editors (`RestaurantLogoEditor`,
+    `RestaurantHeroImageEditor`), restaurant contact-info fields in
+    `SchedulingManager`, occupancy-duration and safety-buffer controls in
+    `FloorPlan` (not the slot-interval control), and
+    `ReviewEmailSettingsForm`.
+
 ## Implementation trace (non-normative)
 
 FIX `seed_users_email_f5f7f0e6.plan.md` (REAZED-326, 2026-09-02). C1–C2 shipped.
+FIX `ux_staffchrome_pos_batch_9c4a1b` (REAZED-332, 2026-09-02). SA-10 shipped.
 
-| Criterion | Shipped in                                                                                                  | Tests                                                                                                                                  |
-| --------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| SA-5      | `supabase/seed.sql` staff `auth.users.email` `'admin@test.local'`                                           | `tests/unit/auth/seed-staff-claim.test.ts` → "seed staff auth.users.email is admin@test.local"                                         |
-| SA-9      | `supabase/seed.sql` super-admin `auth.users.email` `'superadmin@test.local'` (pairwise distinct from staff) | `tests/unit/auth/seed-super-admin-claim.test.ts` → "seed super-admin auth.users.email is superadmin@test.local and differs from staff" |
+| Criterion | Shipped in                                                                                                                                                                                                                                                | Tests                                                                                                                                                                                                  |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SA-5      | `supabase/seed.sql` staff `auth.users.email` `'admin@test.local'`                                                                                                                                                                                         | `tests/unit/auth/seed-staff-claim.test.ts` → "seed staff auth.users.email is admin@test.local"                                                                                                         |
+| SA-9      | `supabase/seed.sql` super-admin `auth.users.email` `'superadmin@test.local'` (pairwise distinct from staff)                                                                                                                                               | `tests/unit/auth/seed-super-admin-claim.test.ts` → "seed super-admin auth.users.email is superadmin@test.local and differs from staff"                                                                 |
+| SA-10     | Page RSCs pass `isSuperAdmin={isSuperAdminUser(authUser)}`; branding editors, `SchedulingManager` contact fields, `FloorPlan` occupancy/safety (not slot-interval), `ReviewEmailSettingsForm`; `StaffShell` threads the flag; `/pos`/`/kds` `getAuthUser` | `tests/unit/branding/super-admin-chrome.test.ts`; `tests/unit/scheduling/super-admin-chrome.test.ts`; `tests/unit/floor/super-admin-chrome.test.ts`; `tests/unit/marketing/super-admin-chrome.test.ts` |
 
 ## Out of scope
 
@@ -114,4 +130,8 @@ FIX `seed_users_email_f5f7f0e6.plan.md` (REAZED-326, 2026-09-02). C1–C2 shippe
 - [branding-cms.md](./branding-cms.md) (BC-2)
 - [post-visit-review-email.md](./post-visit-review-email.md) (PV-2)
 - [scheduling.md](./scheduling.md) (FP-10)
+- `tests/unit/branding/super-admin-chrome.test.ts` (SA-10 branding editors)
+- `tests/unit/scheduling/super-admin-chrome.test.ts` (SA-10 contact-info)
+- `tests/unit/floor/super-admin-chrome.test.ts` (SA-10 floor booking-config)
+- `tests/unit/marketing/super-admin-chrome.test.ts` (SA-10 review-email form)
 - [../architecture/Auth-And-RLS.md](../architecture/Auth-And-RLS.md)

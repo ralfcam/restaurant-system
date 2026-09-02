@@ -2,6 +2,7 @@ import { StaffShell } from "@/components/staff/staff-shell"
 import { ReservationsManager } from "@/components/staff/reservations-manager"
 import { getReservationsByDate } from "@/app/actions/reservations"
 import { getAuthUser } from "@/app/actions/auth"
+import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 
 export const dynamic = "force-dynamic"
@@ -32,6 +33,7 @@ export default async function ReservationsPage({
       title="Reservations"
       description={formattedDate}
       user={{ email: authUser?.email }}
+      isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <ReservationsManager
         initialReservations={reservations}

@@ -5,6 +5,7 @@ import {
   getBlockedDatesInRange,
 } from "@/app/actions/availability"
 import { getAuthUser } from "@/app/actions/auth"
+import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { getRestaurantInfoBar } from "@/app/actions/restaurant-info"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 
@@ -35,12 +36,14 @@ export default async function SchedulingPage() {
       title="Scheduling"
       description="Configure opening-hour segments and block specific dates"
       user={{ email: authUser?.email }}
+      isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <SchedulingManager
         initialOperatingWindows={operatingWindows}
         initialBlockedDates={blockedDates}
         initialAddress={restaurantInfo.address}
         initialPhone={restaurantInfo.phone}
+        isSuperAdmin={isSuperAdminUser(authUser)}
       />
     </StaffShell>
   )

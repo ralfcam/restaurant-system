@@ -111,11 +111,13 @@ export function SchedulingManager({
   initialBlockedDates = [],
   initialAddress,
   initialPhone,
+  isSuperAdmin,
 }: {
   initialOperatingWindows: OperatingDay[]
   initialBlockedDates?: string[]
   initialAddress: string
   initialPhone: string
+  isSuperAdmin: boolean
 }) {
   const [days, setDays] = useState<DayDraft[]>(() =>
     toDraftDays(initialOperatingWindows),
@@ -222,6 +224,7 @@ export function SchedulingManager({
   }
 
   const handleSaveContact = async () => {
+    if (!isSuperAdmin) return
     setSavingContact(true)
     try {
       const result = await updateRestaurantContactInfo({ address, phone })
@@ -351,6 +354,7 @@ export function SchedulingManager({
                 onChange={(event) => setAddress(event.target.value)}
                 maxLength={240}
                 placeholder="Restaurant address"
+                disabled={!isSuperAdmin}
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -361,6 +365,7 @@ export function SchedulingManager({
                 onChange={(event) => setPhone(event.target.value)}
                 maxLength={40}
                 placeholder="+1 555 123 4567"
+                disabled={!isSuperAdmin}
               />
             </div>
           </div>
@@ -369,7 +374,9 @@ export function SchedulingManager({
             type="button"
             size="sm"
             onClick={handleSaveContact}
-            disabled={savingContact || !address.trim() || !phone.trim()}
+            disabled={
+              savingContact || !address.trim() || !phone.trim() || !isSuperAdmin
+            }
             className="w-full sm:w-fit"
           >
             <Save className="size-3.5" />

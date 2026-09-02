@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 
 ## Vercel
 
@@ -96,8 +96,8 @@ SA-6.
 | Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
-`operating_windows` (7 rows), and `menu_items` (120 rows from the sample
-`lib/menu-catalog.json` catalog). The public `branding` storage bucket is created
+`operating_windows` (7 rows), `menu_items` (120 rows from the sample
+`lib/menu-catalog.json` catalog), and `servers` (Maya, Jon, Priya, Dev). The public `branding` storage bucket is created
 by migrations, not seed. The template does not ship static logo assets under
 `public/images/`; guest and staff surfaces show the restaurant name only until a
 logo is uploaded via the branding CMS. Schema DDL must not live in seed files.

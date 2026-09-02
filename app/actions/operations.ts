@@ -45,6 +45,11 @@ export type PersistedTable = {
   mergeId: string | null
 }
 
+export type PersistedServer = {
+  id: string
+  name: string
+}
+
 export type PersistedMerge = {
   id: string
   expectedMinutes: number
@@ -274,6 +279,25 @@ export async function getTables(): Promise<PersistedTable[]> {
       console.error("[operations] spread layout:", layoutError.message)
   }
   return spread
+}
+
+export async function getServers(): Promise<PersistedServer[]> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
+  const db = createServiceClient()
+  const { data, error } = await db
+    .from("servers")
+    .select("id, name")
+    .order("name")
+  if (error) {
+    console.error("[operations] getServers:", error.message)
+    return []
+  }
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name),
+  }))
 }
 
 export async function getActiveMerges(): Promise<PersistedMerge[]> {

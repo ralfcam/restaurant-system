@@ -1,7 +1,7 @@
 # Site chrome (guest header & brand)
 
 **Status:** Draft  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-09-02
 
 ## Scope
 
@@ -35,7 +35,18 @@ default logo**.
    48×48 px circular mark is visually readable on dark hero backgrounds at
    `/` and `/menu`. When none is set, the restaurant name alone is readable.
 
-5. **SC-5 — Single homepage source (no duplicate route)** — The `/` route is
+5. **SC-4a — Unscrolled nav contrast depends on the page beneath** — When
+   `SiteHeader` is unscrolled, logo text, nav links, language switcher,
+   staff-login, and the mobile trigger MUST use light (white) text only when
+   the page beneath is a dark background (custom hero image). When the page
+   beneath is light (no-hero homepage fallback `bg-background`), those same
+   surfaces MUST use dark text. Once scrolled, nav text is dark regardless of
+   the background beneath. Contrast is computed from
+   `(isScrolled, overDarkBackground)`, not from scroll state alone.
+   `overDarkBackground` defaults `true` so `/menu` (always a dark image hero)
+   is unchanged. The homepage passes `overDarkBackground={hasHero}`.
+
+6. **SC-5 — Single homepage source (no duplicate route)** — The `/` route is
    served exclusively by the localized `app/[locale]/page.tsx`. No flat,
    non-localized `app/page.tsx` may exist duplicating the homepage body: a static
    flat route shadows the localized route and reintroduces two-places drift for
@@ -46,8 +57,9 @@ default logo**.
 
 - `app/[locale]/page.tsx` (canonical homepage; SC-5)
 - `components/site/site-header.tsx`
-- `lib/site-chrome.ts`
+- `lib/site-chrome.ts` (`SITE_LOGO`, `shouldUseLightNavText`)
 - `components/site/brand-mark.tsx`
-- `tests/unit/site-header.test.ts` (SC-5 structural guard)
-- `tests/unit/site-chrome.test.ts` (SC-1 empty-by-default `SITE_LOGO`)
+- `tests/unit/site-header.test.ts` (SC-5 structural guard; SC-4a `overDarkBackground`)
+- `tests/unit/site-chrome.test.ts` (SC-1 empty-by-default `SITE_LOGO`; SC-4a
+  nav-text helper)
 - [../PRD/restaurant-system-PRD.md](../PRD/restaurant-system-PRD.md)

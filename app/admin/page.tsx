@@ -9,6 +9,7 @@ import {
 import { TABLE_STATUS_META } from "@/lib/data"
 import { getFloorSnapshot } from "@/app/actions/reservations"
 import { getAuthUser } from "@/app/actions/auth"
+import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 import { countFloorOccupancy } from "@/lib/floor/table-use"
 import { StaffShell } from "@/components/staff/staff-shell"
@@ -39,6 +40,7 @@ export default async function AdminDashboardPage() {
       title="Dashboard"
       description="Tonight's service at a glance"
       user={{ email: authUser?.email }}
+      isSuperAdmin={isSuperAdminUser(authUser)}
       actions={
         <Button render={<Link href="/admin/reservations" />}>
           <CalendarClock className="size-4" /> Manage reservations

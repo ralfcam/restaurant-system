@@ -188,6 +188,19 @@ FROM (
 ) AS v(label, seats, x, y, shape)
 WHERE NOT EXISTS (SELECT 1 FROM tables);
 
+-- ── servers (POS picker inventory) ───────────────────────────────────────────
+-- REAZED-329 / FP-14: Maya, Jon, Priya, Dev.
+INSERT INTO servers (name)
+SELECT v.name
+FROM (
+  VALUES
+    ('Maya'),
+    ('Jon'),
+    ('Priya'),
+    ('Dev')
+) AS v(name)
+WHERE NOT EXISTS (SELECT 1 FROM servers);
+
 INSERT INTO menu_items (id, slug, name, name_en, description, description_en, price, price_value, menu_id, section, section_en, popular, available, sort_order)
 VALUES
   ('midi-les-entrees-au-choix-veloute-froid-de-petits-pois-menthe-et-mousse-de','midi-les-entrees-au-choix-veloute-froid-de-petits-pois-menthe-et-mousse-de','Velouté froid de petits pois, menthe et mousse de brebis','Chilled green pea soup, mint and ewe''s milk cheese mousse','Velouté rafraîchissant de petits pois frais, menthe du potager et émulsion crémeuse de brebis','Refreshing cold green pea soup, garden mint, and creamy sheep''s milk cheese emulsion','11.-',11,'midi','Les Entrées (au choix)','Starters (choose one)',false,true,0),

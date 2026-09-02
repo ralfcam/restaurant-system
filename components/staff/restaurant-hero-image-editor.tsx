@@ -33,7 +33,11 @@ function fileToBase64(file: File): Promise<string> {
  * `/admin/settings`. With no image set, the homepage hero renders a blank
  * background instead of a bundled stock photo.
  */
-export function RestaurantHeroImageEditor() {
+export function RestaurantHeroImageEditor({
+  isSuperAdmin,
+}: {
+  isSuperAdmin: boolean
+}) {
   const { heroImageUrl, mutate } = useRestaurantHeroImage()
   const [preview, setPreview] = React.useState<string | null>(null)
   const [file, setFile] = React.useState<File | null>(null)
@@ -143,12 +147,14 @@ export function RestaurantHeroImageEditor() {
           onChange={handleFileChange}
           className="sr-only"
           id="hero-image-upload-input"
+          disabled={!isSuperAdmin}
         />
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="justify-start"
+          disabled={!isSuperAdmin}
           onClick={() => fileInputRef.current?.click()}
         >
           <ImagePlus className="size-4" />
@@ -171,7 +177,7 @@ export function RestaurantHeroImageEditor() {
             variant="ghost"
             className="text-destructive hover:text-destructive"
             onClick={handleRemove}
-            disabled={isRemoving}
+            disabled={isRemoving || !isSuperAdmin}
           >
             {isRemoving ? (
               <Loader2 className="size-4 animate-spin" />
@@ -181,7 +187,11 @@ export function RestaurantHeroImageEditor() {
             Remove hero image
           </Button>
         ) : null}
-        <Button type="button" onClick={handleSave} disabled={!file || isSaving}>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!file || isSaving || !isSuperAdmin}
+        >
           {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
           Save hero image
         </Button>

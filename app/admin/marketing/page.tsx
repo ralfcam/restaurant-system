@@ -1,5 +1,6 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { getAuthUser } from "@/app/actions/auth"
+import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { ReviewEmailSettingsForm } from "@/app/admin/marketing/review-email-settings-form"
 import {
   Card,
@@ -19,6 +20,7 @@ export default async function AdminMarketingPage() {
       title="Marketing"
       description="Post-visit thank-you and Google Maps review email"
       user={{ email: authUser?.email }}
+      isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <Card className="max-w-xl">
         <CardHeader className="border-b">
@@ -30,7 +32,7 @@ export default async function AdminMarketingPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ReviewEmailSettingsForm />
+          <ReviewEmailSettingsForm isSuperAdmin={isSuperAdminUser(authUser)} />
         </CardContent>
       </Card>
     </StaffShell>

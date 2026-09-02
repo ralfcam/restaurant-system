@@ -2,6 +2,7 @@ import { StaffShell } from "@/components/staff/staff-shell"
 import { RestaurantLogoEditor } from "@/components/staff/restaurant-logo-editor"
 import { RestaurantHeroImageEditor } from "@/components/staff/restaurant-hero-image-editor"
 import { getAuthUser } from "@/app/actions/auth"
+import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { RESTAURANT } from "@/lib/data"
 import {
   Card,
@@ -21,6 +22,7 @@ export default async function AdminSettingsPage() {
       title="Branding"
       description="Minimal CMS — guest-facing brand content"
       user={{ email: authUser?.email }}
+      isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <div className="flex flex-col gap-6">
         <Card className="max-w-xl">
@@ -34,7 +36,7 @@ export default async function AdminSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RestaurantLogoEditor />
+            <RestaurantLogoEditor isSuperAdmin={isSuperAdminUser(authUser)} />
           </CardContent>
         </Card>
 
@@ -48,7 +50,9 @@ export default async function AdminSettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <RestaurantHeroImageEditor />
+            <RestaurantHeroImageEditor
+              isSuperAdmin={isSuperAdminUser(authUser)}
+            />
           </CardContent>
         </Card>
       </div>
