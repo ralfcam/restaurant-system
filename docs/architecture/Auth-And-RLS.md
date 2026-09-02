@@ -8,8 +8,9 @@
 1. Staff signs in at `/auth/login` (Supabase Auth). Auth pages live under flat
    `app/auth/**` (not `app/[locale]/`); locale middleware skips `/auth/**` so routes
    like `/auth/login` are not rewritten into a missing `[locale]` path.
-2. `middleware.ts` refreshes session via `lib/supabase/proxy.ts`, then applies
-   next-intl routing only when `i18n/middleware-scope.ts` returns `localize`.
+2. Root `proxy.ts` (`export async function proxy`) refreshes session via
+   `lib/supabase/proxy.ts`, then applies next-intl routing only when
+   `i18n/middleware-scope.ts` returns `localize`.
 3. Protected routes: `/admin`, `/pos`, `/kds` (`lib/supabase/proxy.ts`)
    require JWT `app_metadata.role` `"staff"` or `"super_admin"` (`isStaffUser`
    in `lib/supabase/is-staff-user.ts`) — not a session alone and not

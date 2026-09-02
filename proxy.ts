@@ -3,7 +3,7 @@ import { resolveLocaleRoutingDecision } from "@/i18n/middleware-scope"
 import { updateSession } from "@/lib/supabase/proxy"
 import { type NextRequest } from "next/server"
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const sessionResponse = await updateSession(request)
   const decision = resolveLocaleRoutingDecision(request.nextUrl.pathname)
 

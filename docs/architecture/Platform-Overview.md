@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 
 ## Stack
 
@@ -40,9 +40,10 @@ Public guest routes live under `app/[locale]/` with **next-intl** (`i18n/routing
 `/en` prefix. A navbar `LanguageSwitcher` replaces the old in-menu EN/FR toggle.
 Spec: [../specs/site-localization.md](../specs/site-localization.md).
 
-## Middleware
+## Request boundary
 
-`middleware.ts` always runs Supabase `updateSession`, then applies next-intl locale
+Root `proxy.ts` (`export async function proxy`) always runs Supabase
+`updateSession` (via `lib/supabase/proxy.ts`), then applies next-intl locale
 routing for public paths. `/admin/**`, `/pos/**`, `/kds/**`, `/auth/**`, and `/api/**` skip locale middleware
 (`i18n/middleware-scope.ts`). Staff paths
 (`/admin`, `/pos`, `/kds`) require JWT `app_metadata.role === "staff"`:

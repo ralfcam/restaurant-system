@@ -1,7 +1,18 @@
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 import createNextIntlPlugin from "next-intl/plugin"
+
+const projectRoot = path.dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Pin both roots here: Turbopack infers workspace root from an ancestor
+  // lockfile; a stray home-directory package-lock.json caused 360 orphaned
+  // .next workers (~22 GB) and a host crash.
+  turbopack: {
+    root: projectRoot,
+  },
+  outputFileTracingRoot: projectRoot,
   images: {
     unoptimized: true,
   },

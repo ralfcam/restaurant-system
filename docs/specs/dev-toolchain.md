@@ -1,7 +1,7 @@
 # Dev toolchain
 
 **Status:** Draft  
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 
 ## Scope
 
@@ -63,6 +63,43 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
    `docs/verifier-reports` and `docs/findings/runs` (and `docs/eval` when
    present).
 
+4. **G-W1 — Workspace root pinned (Turbopack + output file tracing)** —
+   `next.config.mjs` MUST explicitly pin the project root for both Turbopack
+   and output file tracing rather than relying on Next's ancestor-lockfile
+   inference.
+   - `next.config.mjs` MUST set `turbopack.root` to an absolute path derived
+     from the config file's own location (e.g.
+     `path.dirname(fileURLToPath(import.meta.url))`), not `process.cwd()`
+     and not left unset.
+   - `next.config.mjs` MUST set `outputFileTracingRoot` to that same
+     absolute path, so `next build`'s file-tracing step is pinned
+     independently of Turbopack.
+   - Regression guard: an ancestor directory containing an unrelated
+     lockfile (e.g. a parent-of-repo `package-lock.json`) MUST NOT change
+     Next's selected project root — the explicit `turbopack.root` /
+     `outputFileTracingRoot` values in `next.config.mjs` MUST be present
+     and MUST reference the same computed root constant. The regression
+     test in `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`
+     asserts this by reading `next.config.mjs` source, mirroring the G-T1
+     C4 pattern in `typecheck-toolchain.test.ts`.
+
+5. **G-P1 — Request boundary uses the `proxy.ts` convention (Next.js 16)** —
+   The repo's request-boundary file (Supabase session refresh + locale
+   routing) MUST live at root `proxy.ts` exporting a `proxy` function, not
+   the deprecated `middleware.ts` filename / `middleware` export.
+   - Repo root MUST NOT contain `middleware.ts`; it MUST contain `proxy.ts`.
+   - `proxy.ts` exports a `proxy` function (not `middleware`) that preserves
+     existing behavior unchanged: Supabase session refresh + staff-path
+     gating (`updateSession` from `lib/supabase/proxy.ts` — a distinct,
+     pre-existing file; not renamed by this criterion), and locale-routing
+     scope (`resolveLocaleRoutingDecision` / `runIntlMiddleware`).
+   - The `config.matcher` export is preserved unchanged.
+   - Regression guard: `tests/unit/i18n/middleware-scope.test.ts` imports
+     `proxy` from `@/proxy` (not `middleware` from `@/middleware`) and
+     continues to assert staff-path/session and locale-scope behavior;
+     `tests/unit/dev-toolchain/proxy-convention.test.ts` asserts `proxy.ts`
+     exists at repo root and `middleware.ts` does not.
+
 ## Implementation trace (non-normative)
 
 | Criterion | Shipped in                                                                                                                                                                   | Tests                                                                                                              |
@@ -75,11 +112,14 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 | G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                  | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                |
 | G-L1 C3   | `eslint.config.mjs` `linterOptions.reportUnusedDisableDirectives: "error"`                                                                                                   | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "errors (not warns) on an unused eslint-disable directive"     |
 | G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`) | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts" |
+| G-W1      | `next.config.mjs` (`projectRoot` from `fileURLToPath(import.meta.url)`; `turbopack.root` + `outputFileTracingRoot`)                                                          | `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`                                                        |
+| G-P1      | root `proxy.ts` (`export async function proxy`); `app/admin/layout.tsx` comment; `lib/supabase/proxy.ts` unchanged                                                           | `tests/unit/dev-toolchain/proxy-convention.test.ts`; `tests/unit/i18n/middleware-scope.test.ts`                    |
 
 ## References
 
 - [`package.json`](../../package.json)
 - [`next.config.mjs`](../../next.config.mjs)
+- [`proxy.ts`](../../proxy.ts) — Next 16 request boundary (`export async function proxy`); distinct from [`lib/supabase/proxy.ts`](../../lib/supabase/proxy.ts)
 - [`components/ui/dialog.tsx`](../../components/ui/dialog.tsx) — Base UI `render` pattern
 - [`components/site/reservation-widget.tsx`](../../components/site/reservation-widget.tsx)
 - [`docs/runbooks/deploy.md`](../runbooks/deploy.md)
