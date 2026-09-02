@@ -16,6 +16,101 @@ describe("branding CMS schema and surfaces", () => {
     expect(baseline).toMatch(/'branding'/)
   })
 
+  it("restaurant_settings grants are select-only for anon and authenticated", () => {
+    const baseline = readFileSync(
+      path.join(root, "supabase/migrations/00000000000000_baseline.sql"),
+      "utf8",
+    )
+    const grant =
+      "GRANT SELECT ON TABLE restaurant_settings TO anon, authenticated"
+    const revoke =
+      "REVOKE INSERT, UPDATE, DELETE ON TABLE restaurant_settings FROM anon, authenticated"
+    const dropAuth =
+      'DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"'
+    const createAuth =
+      'CREATE POLICY "Allow authenticated full access to restaurant_settings"'
+
+    expect(baseline).toContain(grant)
+    expect(baseline).toContain(revoke)
+    expect(baseline).toContain(dropAuth)
+
+    const dropIdx = baseline.indexOf(dropAuth)
+    expect(baseline.indexOf(createAuth, dropIdx)).toBe(-1)
+
+    expect(baseline).toContain(
+      "GRANT ALL ON TABLE restaurant_settings TO service_role",
+    )
+    expect(baseline).toContain(
+      'CREATE POLICY "Allow public read restaurant_settings"',
+    )
+    expect(baseline).toContain(
+      'CREATE POLICY "Allow service_role full access to restaurant_settings"',
+    )
+  })
+
+  it("restaurant_settings privilege forward drops authenticated FOR ALL and revokes DML", () => {
+    const grant =
+      "GRANT SELECT ON TABLE restaurant_settings TO anon, authenticated"
+    const revoke =
+      "REVOKE INSERT, UPDATE, DELETE ON TABLE restaurant_settings FROM anon, authenticated"
+    const dropAuth =
+      'DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"'
+    const createAuth =
+      'CREATE POLICY "Allow authenticated full access to restaurant_settings"'
+
+    const forwards = [
+      "supabase/migrations/20260818155638_restaurant_branding_cms.sql",
+      "supabase/migrations/20260825140000_operating_windows_privilege.sql",
+    ]
+
+    for (const rel of forwards) {
+      const fullPath = path.join(root, rel)
+      expect(existsSync(fullPath)).toBe(true)
+      const sql = readFileSync(fullPath, "utf8")
+
+      expect(sql).toContain(grant)
+      expect(sql).toContain(revoke)
+      expect(sql).toContain(dropAuth)
+
+      const dropIdx = sql.indexOf(dropAuth)
+      expect(sql.indexOf(createAuth, dropIdx)).toBe(-1)
+    }
+  })
+
+  it("restaurant_settings privilege has a post-25140000 dated forward", () => {
+    const migrationsDir = path.join(root, "supabase/migrations")
+    const grant =
+      "GRANT SELECT ON TABLE restaurant_settings TO anon, authenticated"
+    const revoke =
+      "REVOKE INSERT, UPDATE, DELETE ON TABLE restaurant_settings FROM anon, authenticated"
+    const dropAuth =
+      'DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"'
+    const grantService =
+      "GRANT ALL ON TABLE restaurant_settings TO service_role"
+    const notify = "NOTIFY pgrst, 'reload schema'"
+    const createAuth =
+      'CREATE POLICY "Allow authenticated full access to restaurant_settings"'
+
+    const later = readdirSync(migrationsDir).filter((name) => {
+      const stamp = name.match(/^(\d{14})_.*\.sql$/)
+      return stamp !== null && stamp[1] > "20260825140000"
+    })
+
+    const matching = later.filter((name) => {
+      const sql = readFileSync(path.join(migrationsDir, name), "utf8")
+      return (
+        sql.includes(dropAuth) &&
+        sql.includes(grant) &&
+        sql.includes(revoke) &&
+        sql.includes(grantService) &&
+        sql.includes(notify) &&
+        !sql.includes(createAuth)
+      )
+    })
+
+    expect(matching.length).toBeGreaterThan(0)
+  })
+
   it("raises the Server Action body limit so a 4MB hero photo fits as base64", () => {
     const config = readFileSync(path.join(root, "next.config.mjs"), "utf8")
     expect(config).toMatch(/bodySizeLimit:\s*["']8mb["']/)

@@ -85,15 +85,16 @@ SA-6.
 
 ### Schema vs seed
 
-| Artifact                             | Path                                                                 | Loaded on `db reset`                                                |
-| ------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Schema (tables, RLS, triggers)       | `supabase/migrations/00000000000000_baseline.sql`                    | Yes — migrations step                                               |
-| Forward: opening-hour segments       | `supabase/migrations/20260818162000_operating_hour_segments.sql`     | Yes on local reset; apply on already-baselined remotes              |
-| Forward: operating_windows privilege | `supabase/migrations/20260825140000_operating_windows_privilege.sql` | Yes on local reset; apply on already-baselined remotes              |
-| Forward: public catalog privileges   | `supabase/migrations/20260827160000_public_catalog_privileges.sql`   | Yes on local reset; apply when `20260825140000` is already recorded |
-| Forward: occupancy duration + buffer | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`   | Yes on local reset; apply on already-baselined remotes              |
-| Forward: table-fit availability      | `supabase/migrations/20260828121224_table_fit_availability.sql`      | Yes on local reset; apply when occupancy is already recorded        |
-| Reference data                       | `supabase/seed.sql`                                                  | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
+| Artifact                               | Path                                                                   | Loaded on `db reset`                                                |
+| -------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Schema (tables, RLS, triggers)         | `supabase/migrations/00000000000000_baseline.sql`                      | Yes — migrations step                                               |
+| Forward: opening-hour segments         | `supabase/migrations/20260818162000_operating_hour_segments.sql`       | Yes on local reset; apply on already-baselined remotes              |
+| Forward: operating_windows privilege   | `supabase/migrations/20260825140000_operating_windows_privilege.sql`   | Yes on local reset; apply on already-baselined remotes              |
+| Forward: public catalog privileges     | `supabase/migrations/20260827160000_public_catalog_privileges.sql`     | Yes on local reset; apply when `20260825140000` is already recorded |
+| Forward: occupancy duration + buffer   | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`     | Yes on local reset; apply on already-baselined remotes              |
+| Forward: table-fit availability        | `supabase/migrations/20260828121224_table_fit_availability.sql`        | Yes on local reset; apply when occupancy is already recorded        |
+| Forward: restaurant_settings privilege | `supabase/migrations/20260902214500_restaurant_settings_privilege.sql` | Yes on local reset; apply when `20260825140000` is already recorded |
+| Reference data                         | `supabase/seed.sql`                                                    | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
 `operating_windows` (7 rows), `menu_items` (120 rows from the sample
@@ -111,8 +112,9 @@ instead of adding dated migration files. Policy detail:
 `20260818162000_operating_hour_segments.sql`,
 `20260825140000_operating_windows_privilege.sql`,
 `20260827160000_public_catalog_privileges.sql`,
-`20260827180000_occupancy_duration_buffer.sql`, and
-`20260828121224_table_fit_availability.sql` are the forward-only exceptions
+`20260827180000_occupancy_duration_buffer.sql`,
+`20260828121224_table_fit_availability.sql`, and
+`20260902214500_restaurant_settings_privilege.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -150,8 +152,15 @@ PUBLIC-READ-PRIV (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` on
 `blocked_dates` and `menu_items`). If `20260825140000` is already recorded,
 those catalog strings must be applied via
 `20260827160000_public_catalog_privileges.sql` (editing an applied file does
-not re-run). Spec: [../specs/scheduling.md](../specs/scheduling.md)
-OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18). Apply per the recipes
+not re-run). The same `20260825140000` file also carries BC-1 SELECT-only on
+`restaurant_settings` (`DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"`;
+no `CREATE`; `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`;
+`GRANT ALL ON TABLE restaurant_settings TO service_role`). If
+`20260825140000` is already recorded, apply
+`20260902214500_restaurant_settings_privilege.sql`. Spec:
+[../specs/scheduling.md](../specs/scheduling.md)
+OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18);
+[../specs/branding-cms.md](../specs/branding-cms.md) BC-1. Apply per the recipes
 below; do not `db push`. Until `20260825140000` is applied on a forked remote
 that still has the old hours policy or DML grants, a logged-in Data API client
 can mutate hours.
@@ -225,7 +234,9 @@ replay history the remote has diverged from.
    INSERT/UPDATE/DELETE) is true for `blocked_dates`, `reservations`, and
    `menu_items`. If this version is already recorded, apply
    `20260827160000_public_catalog_privileges.sql` for RES-PRIV / PUBLIC-READ-PRIV
-   (below) instead of re-running this file.
+   (below) instead of re-running this file. If this version is already recorded,
+   apply `20260902214500_restaurant_settings_privilege.sql` for BC-1
+   `restaurant_settings` SELECT-only (below) instead of re-running this file.
 
 ### Apply `20260827160000_public_catalog_privileges.sql` on an already-baselined remote
 
@@ -340,6 +351,45 @@ try to replay history the remote has diverged from.
 
    Confirm `validate_reservation_availability` table-fits after cover-count and
    takes `pg_advisory_xact_lock(305, days-since-epoch)`.
+
+### Apply `20260902214500_restaurant_settings_privilege.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-09-02 — apply this file on `tilcqrudqxznnpepxjqq` when
+`20260825140000` is already recorded (C298-4 remote apply; do not `db push`).
+Then confirm `has_table_privilege` SELECT is true and INSERT/UPDATE/DELETE are
+false for `anon` and `authenticated` on `restaurant_settings`, and policy
+`"Allow authenticated full access to restaurant_settings"` is gone.
+
+Do not use `db push` or `db reset --linked` for this — the file already ends
+with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
+replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260902214500_restaurant_settings_privilege.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260902214500', 'restaurant_settings_privilege');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260902214500 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260902214500';
+   ```
+
+   Confirm `has_table_privilege('anon', 'restaurant_settings', 'SELECT')` and
+   `has_table_privilege('authenticated', 'restaurant_settings', 'SELECT')` are
+   true, and INSERT, UPDATE, DELETE are false for both. Confirm policy
+   `"Allow authenticated full access to restaurant_settings"` is gone.
 
 ### Reset database
 

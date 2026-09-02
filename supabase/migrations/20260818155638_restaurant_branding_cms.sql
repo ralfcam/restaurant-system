@@ -17,12 +17,9 @@ CREATE POLICY "Allow public read restaurant_settings"
   TO public
   USING (true);
 
+-- REAZED-298: BC-1 — drop authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE);
+-- GRANT SELECT / REVOKE INSERT, UPDATE, DELETE for anon, authenticated.
 DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings" ON restaurant_settings;
-CREATE POLICY "Allow authenticated full access to restaurant_settings"
-  ON restaurant_settings FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to restaurant_settings" ON restaurant_settings;
 CREATE POLICY "Allow service_role full access to restaurant_settings"
@@ -32,6 +29,7 @@ CREATE POLICY "Allow service_role full access to restaurant_settings"
   WITH CHECK (true);
 
 GRANT SELECT ON TABLE restaurant_settings TO anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON TABLE restaurant_settings FROM anon, authenticated;
 GRANT ALL ON TABLE restaurant_settings TO service_role;
 
 INSERT INTO restaurant_settings (id, logo_url)
