@@ -1,7 +1,7 @@
 # Post-visit review email
 
 **Status:** Draft  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-02
 
 ## Scope
 
@@ -26,9 +26,11 @@ not change reservation status.
    (default off), thank-you copy, Google Maps URL, and delay after completed
    (integer hours).
 
-2. **PV-2 — Staff-only persist** — Authenticated staff writes persist toggle,
-   copy, Maps URL, and delay. Unauthenticated writes return `Unauthorized`.
-   Guests cannot write these settings.
+2. **PV-2 — Super-admin-only persist** — Authenticated super_admin writes
+   persist toggle, copy, Maps URL, and delay (see
+   [staff-authorization.md](./staff-authorization.md) SA-7/SA-8).
+   Unauthenticated writes and authenticated staff-only writes return
+   `Unauthorized`. Guests cannot write these settings.
 
 3. **PV-3 — Fail-closed send gates** — The send job MUST NOT send when any
    of: toggle off; thank-you copy blank/whitespace; Maps URL missing or not
@@ -93,7 +95,7 @@ IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
 | Criterion | Shipped in                                                                                                                                                                              | Tests                                                                                                                 |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | PV-1      | `/admin/marketing` (`StaffShell`, Setup nav). Form: enable (default off), copy, Maps URL, delay (default 24). Write-only — no settings loader (`review_email_*` columns missing).       | `tests/unit/marketing/marketing-page.test.ts`                                                                         |
-| PV-2      | `saveReviewEmailSettings` — `requireStaffUser` then `{ error: "Unauthorized." }`; service-role upsert `{ id: 1, …patch, updated_at }`                                                   | `tests/unit/marketing/review-email-settings.test.ts`                                                                  |
+| PV-2      | `saveReviewEmailSettings` — `requireSuperAdminUser` then `{ error: "Unauthorized." }`; service-role upsert `{ id: 1, …patch, updated_at }`                                              | `tests/unit/marketing/review-email-settings.test.ts`                                                                  |
 | PV-3      | `processDueReviewEmails` silent skip: toggle off, blank copy, non-`https:` Maps URL, missing email, status not `completed`                                                              | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
 | PV-4      | `transitionReservationStatus` inserts `review_email_sends` only when `nextStatus === "completed"` (table not in schema yet)                                                             | `tests/unit/marketing/review-email-queue.test.ts`                                                                     |
 | PV-5      | Status write stamps `completed_at` (column not in schema yet). Due = `now >= completed_at + delayHours`; invalid delay (incl. NaN / out of 0–72) → 24, not bound-clamp. Injected `now`. | `tests/unit/marketing/review-email-send.test.ts`                                                                      |

@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-02
 
 ## Current state
 
@@ -31,7 +31,7 @@
   already recorded occupancy — not a full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
-  - `auth.users` + `auth.identities` — 1 staff test account (see Personas below)
+  - `auth.users` + `auth.identities` — 2 test accounts (see Personas below)
   - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo)
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
   - `menu_items` — 120 rows (sample `lib/menu-catalog.json` catalog)
@@ -43,15 +43,17 @@
 - **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
   retry), MIME alias validation, and a `next.config.mjs` `bodySizeLimit` schema guard.
   `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
-  cron job auth, marketing page.
+  cron job auth, marketing page. `tests/unit/auth/` — staff and super-admin claim gates
+  plus seed `raw_app_meta_data` pins.
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI
   samples, and POS/KDS tickets not yet persisted in Postgres.
 
 ## Personas (stable IDs)
 
-| Persona     | Email              | Password      | User ID                                | Notes                                                                                                                                                                                                                                                                                     |
-| ----------- | ------------------ | ------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Staff admin | `admin@test.local` | `password123` | `11111111-1111-1111-1111-111111111111` | **Local dev only.** Signs in at `/auth/login`. JWT `raw_app_meta_data.role` is `"staff"` (not `raw_user_meta_data`, not `auth.users.role`). Staff routes `/admin`, `/pos`, `/kds` require that claim — not any authenticated session. Email pre-confirmed. Never seed against production. |
+| Persona     | Email                   | Password      | User ID                                | Notes                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------- | ----------------------- | ------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Staff admin | `admin@test.local`      | `password123` | `11111111-1111-1111-1111-111111111111` | Local and linked non-prod (`db reset --local` and `--linked`). Signs in at `/auth/login`. JWT `raw_app_meta_data.role` is `"staff"` (not `raw_user_meta_data`, not `auth.users.role`). Staff routes `/admin`, `/pos`, `/kds` require `"staff"` or `"super_admin"`. Email lives on `auth.identities`, not `auth.users.email`. Email pre-confirmed. Never seed production. |
+| Super-admin | `superadmin@test.local` | `password123` | `22222222-2222-2222-2222-222222222222` | Same reset scope as staff. Distinct id. JWT `raw_app_meta_data.role` is `"super_admin"` (not GoTrue `is_super_admin`). Login email on `auth.identities`. `ON CONFLICT DO NOTHING`. Never seed production.                                                                                                                                                                |
 
 When integration tests need more stable IDs, document additional personas here as
 suites grow.

@@ -10,6 +10,7 @@ import {
 
 const mocks = vi.hoisted(() => ({
   requireStaffUser: vi.fn(),
+  requireSuperAdminUser: vi.fn(),
   revalidatePath: vi.fn(),
   upload: vi.fn(),
   getPublicUrl: vi.fn(),
@@ -20,7 +21,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
-  requireStaffUser: mocks.requireStaffUser,
+  requireSuperAdminUser: mocks.requireSuperAdminUser,
 }))
 
 vi.mock("next/cache", () => ({
@@ -46,7 +47,7 @@ vi.mock("@/lib/supabase/service", () => ({
   }),
 }))
 
-const staff = { id: "staff-1" }
+const superAdmin = { id: "super-admin-1" }
 const pngUpload = {
   base64: "aaaa",
   contentType: "image/png",
@@ -55,14 +56,14 @@ const pngUpload = {
 
 describe("uploadRestaurantLogo", () => {
   beforeEach(() => {
-    mocks.requireStaffUser.mockReset()
+    mocks.requireSuperAdminUser.mockReset()
     mocks.revalidatePath.mockReset()
     mocks.upload.mockReset()
     mocks.getPublicUrl.mockReset()
     mocks.remove.mockReset()
     mocks.upsert.mockReset()
     mocks.createBucket.mockReset()
-    mocks.requireStaffUser.mockResolvedValue(staff)
+    mocks.requireSuperAdminUser.mockResolvedValue(superAdmin)
     mocks.upload.mockResolvedValue({ error: null })
     mocks.remove.mockResolvedValue({ error: null })
     mocks.upsert.mockResolvedValue({ error: null })
@@ -77,7 +78,15 @@ describe("uploadRestaurantLogo", () => {
   })
 
   it("rejects unauthenticated callers", async () => {
-    mocks.requireStaffUser.mockResolvedValue(null)
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    await expect(uploadRestaurantLogo(pngUpload)).rejects.toThrow(
+      "Unauthorized",
+    )
+    expect(mocks.upload).not.toHaveBeenCalled()
+  })
+
+  it("rejects staff-only callers", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(uploadRestaurantLogo(pngUpload)).rejects.toThrow(
       "Unauthorized",
     )
@@ -163,17 +172,23 @@ describe("uploadRestaurantLogo", () => {
 
 describe("removeRestaurantLogo", () => {
   beforeEach(() => {
-    mocks.requireStaffUser.mockReset()
+    mocks.requireSuperAdminUser.mockReset()
     mocks.revalidatePath.mockReset()
     mocks.remove.mockReset()
     mocks.upsert.mockReset()
-    mocks.requireStaffUser.mockResolvedValue(staff)
+    mocks.requireSuperAdminUser.mockResolvedValue(superAdmin)
     mocks.remove.mockResolvedValue({ error: null })
     mocks.upsert.mockResolvedValue({ error: null })
   })
 
   it("rejects unauthenticated callers", async () => {
-    mocks.requireStaffUser.mockResolvedValue(null)
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    await expect(removeRestaurantLogo()).rejects.toThrow("Unauthorized")
+    expect(mocks.remove).not.toHaveBeenCalled()
+  })
+
+  it("rejects staff-only callers", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(removeRestaurantLogo()).rejects.toThrow("Unauthorized")
     expect(mocks.remove).not.toHaveBeenCalled()
   })
@@ -225,14 +240,14 @@ describe("getRestaurantLogoUrl", () => {
 
 describe("uploadRestaurantHeroImage", () => {
   beforeEach(() => {
-    mocks.requireStaffUser.mockReset()
+    mocks.requireSuperAdminUser.mockReset()
     mocks.revalidatePath.mockReset()
     mocks.upload.mockReset()
     mocks.getPublicUrl.mockReset()
     mocks.remove.mockReset()
     mocks.upsert.mockReset()
     mocks.createBucket.mockReset()
-    mocks.requireStaffUser.mockResolvedValue(staff)
+    mocks.requireSuperAdminUser.mockResolvedValue(superAdmin)
     mocks.upload.mockResolvedValue({ error: null })
     mocks.remove.mockResolvedValue({ error: null })
     mocks.upsert.mockResolvedValue({ error: null })
@@ -247,7 +262,15 @@ describe("uploadRestaurantHeroImage", () => {
   })
 
   it("rejects unauthenticated callers", async () => {
-    mocks.requireStaffUser.mockResolvedValue(null)
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    await expect(uploadRestaurantHeroImage(pngUpload)).rejects.toThrow(
+      "Unauthorized",
+    )
+    expect(mocks.upload).not.toHaveBeenCalled()
+  })
+
+  it("rejects staff-only callers", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(uploadRestaurantHeroImage(pngUpload)).rejects.toThrow(
       "Unauthorized",
     )
@@ -325,17 +348,23 @@ describe("uploadRestaurantHeroImage", () => {
 
 describe("removeRestaurantHeroImage", () => {
   beforeEach(() => {
-    mocks.requireStaffUser.mockReset()
+    mocks.requireSuperAdminUser.mockReset()
     mocks.revalidatePath.mockReset()
     mocks.remove.mockReset()
     mocks.upsert.mockReset()
-    mocks.requireStaffUser.mockResolvedValue(staff)
+    mocks.requireSuperAdminUser.mockResolvedValue(superAdmin)
     mocks.remove.mockResolvedValue({ error: null })
     mocks.upsert.mockResolvedValue({ error: null })
   })
 
   it("rejects unauthenticated callers", async () => {
-    mocks.requireStaffUser.mockResolvedValue(null)
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    await expect(removeRestaurantHeroImage()).rejects.toThrow("Unauthorized")
+    expect(mocks.remove).not.toHaveBeenCalled()
+  })
+
+  it("rejects staff-only callers", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(removeRestaurantHeroImage()).rejects.toThrow("Unauthorized")
     expect(mocks.remove).not.toHaveBeenCalled()
   })

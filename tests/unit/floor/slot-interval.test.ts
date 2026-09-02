@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   requireStaffUser: vi.fn(),
+  requireSuperAdminUser: vi.fn(),
   revalidatePath: vi.fn(),
   upsert: vi.fn(),
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
   requireStaffUser: mocks.requireStaffUser,
+  requireSuperAdminUser: mocks.requireSuperAdminUser,
 }))
 
 vi.mock("next/cache", () => ({
@@ -36,9 +38,11 @@ function read(rel: string) {
 describe("restaurant-wide slot interval on the floor plan", () => {
   beforeEach(() => {
     mocks.requireStaffUser.mockReset()
+    mocks.requireSuperAdminUser.mockReset()
     mocks.revalidatePath.mockReset()
     mocks.upsert.mockReset()
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.requireSuperAdminUser.mockResolvedValue({ id: "super-admin-1" })
     mocks.upsert.mockResolvedValue({ error: null })
   })
 
@@ -60,5 +64,12 @@ describe("restaurant-wide slot interval on the floor plan", () => {
     expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, slot_interval_minutes: 15 }),
     )
+  })
+
+  it("rejects staff-only callers", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    const { updateSlotIntervalMinutes } = await import("@/app/actions/branding")
+    await expect(updateSlotIntervalMinutes(15)).rejects.toThrow("Unauthorized")
+    expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })

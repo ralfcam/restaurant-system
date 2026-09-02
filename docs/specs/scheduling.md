@@ -1,7 +1,7 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 
 ## Scope
 
@@ -143,7 +143,9 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     this value (`clampSlotIntervalMinutes`). Per-table Expected time
     (`tables.expected_minutes`) stays for live-floor clocks only and does
     **not** change the guest until-badge. Restaurant-wide occupancy duration
-    plus a **staff-manageable** safety buffer (booking-rules BW-9–BW-11, floor
+    plus a **super-admin-manageable** safety buffer (see
+    [staff-authorization.md](./staff-authorization.md) SA-8; booking-rules
+    BW-9–BW-11, floor
     chrome, buffer default 15) drive guest next-bookable availability and
     MUST NOT be confused with per-table Expected time. Guest availability is
     assignment-feasible table-fit (booking-rules BW-12), not per-table

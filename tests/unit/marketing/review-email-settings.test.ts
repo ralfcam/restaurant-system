@@ -2,12 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   requireStaffUser: vi.fn(),
+  requireSuperAdminUser: vi.fn(),
   from: vi.fn(),
   upsert: vi.fn(),
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
   requireStaffUser: mocks.requireStaffUser,
+  requireSuperAdminUser: mocks.requireSuperAdminUser,
 }))
 
 vi.mock("@/lib/supabase/service", () => ({
@@ -27,21 +29,25 @@ const settings = {
   delayHours: 24,
 }
 
+const superAdmin = { id: "super-admin-1" }
+
 describe("saveReviewEmailSettings", () => {
   beforeEach(() => {
     mocks.requireStaffUser.mockReset()
+    mocks.requireSuperAdminUser.mockReset()
     mocks.from.mockReset()
     mocks.upsert.mockReset()
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.requireSuperAdminUser.mockResolvedValue(superAdmin)
     mocks.upsert.mockResolvedValue({ error: null })
     mocks.from.mockReturnValue({ upsert: mocks.upsert })
   })
 
-  it("staff persist toggle copy maps URL and delay; unauthenticated writes return Unauthorized", async () => {
+  it("super_admin persist toggle copy maps URL and delay; unauthenticated writes return Unauthorized", async () => {
     const { saveReviewEmailSettings } = await import("@/app/actions/marketing")
 
-    const staffResult = await saveReviewEmailSettings(settings)
-    expect(staffResult.error).toBeUndefined()
+    const persistResult = await saveReviewEmailSettings(settings)
+    expect(persistResult.error).toBeUndefined()
     expect(mocks.from).toHaveBeenCalledWith("restaurant_settings")
     expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -55,10 +61,19 @@ describe("saveReviewEmailSettings", () => {
 
     mocks.from.mockClear()
     mocks.upsert.mockClear()
-    mocks.requireStaffUser.mockResolvedValue(null)
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
 
     const unauthResult = await saveReviewEmailSettings(settings)
     expect(unauthResult).toEqual({ error: "Unauthorized." })
+    expect(mocks.upsert).not.toHaveBeenCalled()
+  })
+
+  it("staff-only caller returns Unauthorized", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    const { saveReviewEmailSettings } = await import("@/app/actions/marketing")
+
+    const result = await saveReviewEmailSettings(settings)
+    expect(result).toEqual({ error: "Unauthorized." })
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
 

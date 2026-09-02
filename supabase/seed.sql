@@ -1,12 +1,12 @@
 -- Reference data seed (restaurant-system)
 -- Loaded after migrations on db reset
 
--- ── Staff test account (LOCAL DEV ONLY) ──────────────────────────────────────
--- Seeds an admin login so /auth/login works after `supabase db reset --local`.
--- Staff routes (/admin, /pos, /kds) require JWT app_metadata.role = "staff".
--- This account sets that claim on raw_app_meta_data (not auth.users.role, and
--- not raw_user_meta_data). Credentials: admin@test.local / password123
--- NEVER seed this against a production database (db reset is local/non-prod only).
+-- ── Staff test account (local and linked non-prod) ───────────────────────────
+-- Seeds a staff login so /auth/login works after every `db reset` (`--local`
+-- and `--linked`). Staff routes (/admin, /pos, /kds) require JWT
+-- app_metadata.role of "staff" or "super_admin". This account sets role "staff"
+-- on raw_app_meta_data (not auth.users.role, and not raw_user_meta_data).
+-- Credentials: admin@test.local / password123
 INSERT INTO auth.users (
   instance_id,
   id,
@@ -60,6 +60,74 @@ VALUES (
   jsonb_build_object(
     'sub', '11111111-1111-1111-1111-111111111111',
     'email', 'admin@test.local',
+    'email_verified', true,
+    'phone_verified', false
+  ),
+  'email',
+  now(),
+  now(),
+  now()
+)
+ON CONFLICT (provider_id, provider) DO NOTHING;
+
+-- ── Super-admin test account (local and linked non-prod) ─────────────────────
+-- Idempotent on every `db reset` (`--local` and `--linked`). Sets role
+-- "super_admin" on raw_app_meta_data (not auth.users.role, not
+-- raw_user_meta_data, and not GoTrue is_super_admin). Distinct id from the
+-- staff seed. Credentials: superadmin@test.local / password123
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change
+)
+VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  '22222222-2222-2222-2222-222222222222',
+  'authenticated',
+  'authenticated',
+  '',
+  extensions.crypt('password123', extensions.gen_salt('bf')),
+  now(),
+  now(),
+  now(),
+  '{"provider":"email","providers":["email"],"role":"super_admin"}',
+  '{}',
+  false,
+  '',
+  '',
+  '',
+  ''
+)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO auth.identities (
+  provider_id,
+  user_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+VALUES (
+  '22222222-2222-2222-2222-222222222222',
+  '22222222-2222-2222-2222-222222222222',
+  jsonb_build_object(
+    'sub', '22222222-2222-2222-2222-222222222222',
+    'email', 'superadmin@test.local',
     'email_verified', true,
     'phone_verified', false
   ),

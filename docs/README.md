@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -75,6 +75,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | REAZED-310 staff authorization (`reazed-310_staff_auth_a6b9be91.plan`)        | 2026-08-30 | `specs/staff-authorization.md` (SA-1–SA-6, by orchestrator), `specs/README.md`, `architecture/Auth-And-RLS.md`, `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Test-Data-And-Seeds.md`, `runbooks/deploy.md`                                                                                   |
 | Mailing automations triple (`mailing_automations_triple_2347e1d5.plan`)       | 2026-08-30 | `testing/Design-And-Patterns.md` (PV-6 claim-before-send, PV-9 `server-only`, BW-13/BW-14), `architecture/Reservation-Flow.md`, `dev-journal.md`                                                                                                                                                                                                                |
 | REAZED-280 POS/KDS locale scope (`reazed-280_pos_kds_locale_scope_4d8f1c92`)  | 2026-09-01 | `specs/site-localization.md` (AC-3 trace), `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`                                                                                                                                                                                                                                                |
+| REAZED-326 super-admin permission (`reazed-326_super_admin_permission_model`) | 2026-09-02 | `specs/staff-authorization.md` (SA-1/SA-7–SA-9), `specs/branding-cms.md` (BC-2), `specs/post-visit-review-email.md` (PV-2), `specs/scheduling.md` (FP-10), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Test-Data-And-Seeds.md`                                                                   |
 
 ## Seed path
 
