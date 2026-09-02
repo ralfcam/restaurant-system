@@ -1,7 +1,7 @@
 "use server"
 
 import { isHttpsUrl } from "@/lib/marketing/https-url"
-import { requireStaffUser } from "@/lib/supabase/require-staff"
+import { requireSuperAdminUser } from "@/lib/supabase/require-staff"
 import { createServiceClient } from "@/lib/supabase/service"
 
 export async function saveReviewEmailSettings(input: {
@@ -10,8 +10,8 @@ export async function saveReviewEmailSettings(input: {
   mapsUrl: string
   delayHours: number
 }): Promise<{ error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  const superAdminUser = await requireSuperAdminUser()
+  if (!superAdminUser) return { error: "Unauthorized." }
 
   if (input.enabled && (!input.copy.trim() || !isHttpsUrl(input.mapsUrl))) {
     return {

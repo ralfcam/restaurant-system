@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   requireStaffUser: vi.fn(),
+  requireSuperAdminUser: vi.fn(),
   revalidatePath: vi.fn(),
   upsert: vi.fn(),
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
   requireStaffUser: mocks.requireStaffUser,
+  requireSuperAdminUser: mocks.requireSuperAdminUser,
 }))
 
 vi.mock("next/cache", () => ({
@@ -43,9 +45,11 @@ function controlChrome(source: string, testId: string) {
 describe("restaurant-wide occupancy duration and safety buffer on the floor plan", () => {
   beforeEach(() => {
     mocks.requireStaffUser.mockReset()
+    mocks.requireSuperAdminUser.mockReset()
     mocks.revalidatePath.mockReset()
     mocks.upsert.mockReset()
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.requireSuperAdminUser.mockResolvedValue({ id: "super-admin-1" })
     mocks.upsert.mockResolvedValue({ error: null })
   })
 
@@ -99,5 +103,22 @@ describe("restaurant-wide occupancy duration and safety buffer on the floor plan
     expect(mocks.upsert).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, occupancy_duration_minutes: 30 }),
     )
+  })
+
+  it("rejects staff-only callers for occupancy duration", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    const { updateOccupancyDurationMinutes } =
+      await import("@/app/actions/branding")
+    await expect(updateOccupancyDurationMinutes(30)).rejects.toThrow(
+      "Unauthorized",
+    )
+    expect(mocks.upsert).not.toHaveBeenCalled()
+  })
+
+  it("rejects staff-only callers for safety buffer", async () => {
+    mocks.requireSuperAdminUser.mockResolvedValue(null)
+    const { updateSafetyBufferMinutes } = await import("@/app/actions/branding")
+    await expect(updateSafetyBufferMinutes(30)).rejects.toThrow("Unauthorized")
+    expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })

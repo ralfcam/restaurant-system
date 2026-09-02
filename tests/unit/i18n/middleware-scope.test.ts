@@ -35,4 +35,11 @@ describe("middleware scope", () => {
     expect(resolveLocaleRoutingDecision("/auth/login")).toBe("skip-locale")
     expect(resolveLocaleRoutingDecision("/auth/callback")).toBe("skip-locale")
   })
+
+  it("pos and kds are excluded from localization", () => {
+    expect(resolveLocaleRoutingDecision("/pos")).toBe("skip-locale")
+    expect(resolveLocaleRoutingDecision("/pos/table-1")).toBe("skip-locale")
+    expect(resolveLocaleRoutingDecision("/kds")).toBe("skip-locale")
+    expect(resolveLocaleRoutingDecision("/kds/orders")).toBe("skip-locale")
+  })
 })

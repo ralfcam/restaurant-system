@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-02
 
 ## Auth flow
 
@@ -11,25 +11,36 @@
 2. `middleware.ts` refreshes session via `lib/supabase/proxy.ts`, then applies
    next-intl routing only when `i18n/middleware-scope.ts` returns `localize`.
 3. Protected routes: `/admin`, `/pos`, `/kds` (`lib/supabase/proxy.ts`)
-   require JWT `app_metadata.role === "staff"` (`isStaffUser` in
-   `lib/supabase/is-staff-user.ts`) — not a session alone and not
+   require JWT `app_metadata.role` `"staff"` or `"super_admin"` (`isStaffUser`
+   in `lib/supabase/is-staff-user.ts`) — not a session alone and not
    `user_metadata`. Unauthenticated requests redirect to `/auth/login`.
-   Authenticated non-staff redirect to `/`. Staff-claim sessions continue.
+   Authenticated non-staff redirect to `/`. Staff-claim sessions continue
+   (super-admin implies staff).
 
-## Staff claim
+## Staff and super-admin claims
 
-Staff is `user.app_metadata.role === "staff"`. `requireStaffUser`
-(`lib/supabase/require-staff.ts`) returns the user only for that claim; it
-returns `null` when there is no session or the session is authenticated but not
-staff. Privileged server actions already call it. `/auth/login` is sign-in
+Staff is `user.app_metadata.role === "staff"` **or** super-admin.
+`isSuperAdminUser` is true only when that role is the string `"super_admin"`.
+`requireStaffUser` (`lib/supabase/require-staff.ts`) returns the user for
+either staff claim; `requireSuperAdminUser` returns the user only for
+super-admin (staff-only sessions get `null`). Both gates read
+`app_metadata.role` only. Privileged mutations use one of those two guards;
+booking-config **reads** stay on `requireStaffUser`. `/auth/login` is sign-in
 only (no `signUp`); after `signInWithPassword` it calls `isStaffUser(data.user)`
 before `window.location.href = "/admin"`.
+
+Seed identities in `supabase/seed.sql` (every `db reset`, `--local` and
+`--linked` non-prod): `admin@test.local` (`11111111-1111-1111-1111-111111111111`,
+`"staff"`) and `superadmin@test.local`
+(`22222222-2222-2222-2222-222222222222`, `"super_admin"`). Those login
+addresses are also `auth.users.email` (not identities-only). Never seed
+production.
 
 Local `supabase/config.toml` has `[auth] enable_signup = false` and
 `[auth.email] enable_signup = false`. Those keys do not control hosted Auth —
 see [../runbooks/deploy.md](../runbooks/deploy.md). Spec:
 [../specs/staff-authorization.md](../specs/staff-authorization.md)
-(SA-1–SA-6; SA-6 is manual-UAT).
+(SA-1–SA-9; SA-6 is manual-UAT).
 
 ## Service role
 
@@ -45,7 +56,7 @@ idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
 `menu_items`, `restaurant_settings`. Public storage bucket `branding` holds the
 optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
-ship in `public/`; fresh resets show the restaurant name only until staff upload. Baseline migrations
+ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
 create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can call
 `storage.createBucket` when upload returns bucket-not-found, then retry. Reference
 data (`operating_windows`, `menu_items`,

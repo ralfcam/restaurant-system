@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-02
 
 ## Layout
 
@@ -12,8 +12,9 @@
   bodySizeLimit schema guard)
 - Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
   queue-on-complete, cron job auth, marketing page)
-- Staff authorization: `tests/unit/auth/` (`requireStaffUser` claim, staff-route
-  proxy, login landing gate, local signup TOML, seed `raw_app_meta_data`)
+- Staff authorization: `tests/unit/auth/` (`requireStaffUser` /
+  `requireSuperAdminUser` claims, staff-route proxy, login landing gate,
+  local signup TOML, seed `raw_app_meta_data` for staff and super-admin)
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
   `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard)
 

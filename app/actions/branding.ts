@@ -3,7 +3,10 @@
 import { cache } from "react"
 import { revalidatePath } from "next/cache"
 import { createServiceClient } from "@/lib/supabase/service"
-import { requireStaffUser } from "@/lib/supabase/require-staff"
+import {
+  requireStaffUser,
+  requireSuperAdminUser,
+} from "@/lib/supabase/require-staff"
 import {
   BRANDING_BUCKET,
   BRANDING_REVALIDATE_PATHS,
@@ -104,8 +107,8 @@ async function removeStoredLogos(db: ServiceDb): Promise<{ error?: string }> {
 export async function uploadRestaurantLogo(
   input: LogoUploadInput,
 ): Promise<{ logoUrl: string; error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  const superAdminUser = await requireSuperAdminUser()
+  if (!superAdminUser) throw new Error("Unauthorized")
 
   const validationError = validateLogoUpload(input)
   if (validationError) {
@@ -174,8 +177,8 @@ export async function uploadRestaurantLogo(
 }
 
 export async function removeRestaurantLogo(): Promise<{ error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  const superAdminUser = await requireSuperAdminUser()
+  if (!superAdminUser) throw new Error("Unauthorized")
 
   const db = createServiceClient()
   const stored = await removeStoredLogos(db)
@@ -215,8 +218,8 @@ async function removeStoredHeroImages(
 export async function uploadRestaurantHeroImage(
   input: LogoUploadInput,
 ): Promise<{ heroImageUrl: string; error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  const superAdminUser = await requireSuperAdminUser()
+  if (!superAdminUser) throw new Error("Unauthorized")
 
   const validationError = validateHeroUpload(input)
   if (validationError) {
@@ -290,8 +293,8 @@ export async function uploadRestaurantHeroImage(
 }
 
 export async function removeRestaurantHeroImage(): Promise<{ error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  const superAdminUser = await requireSuperAdminUser()
+  if (!superAdminUser) throw new Error("Unauthorized")
 
   const db = createServiceClient()
   const stored = await removeStoredHeroImages(db)
@@ -356,8 +359,8 @@ async function upsertRestaurantSetting(
   logName: string,
   errorMessage: string,
 ): Promise<{ error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  const superAdminUser = await requireSuperAdminUser()
+  if (!superAdminUser) throw new Error("Unauthorized")
 
   const { error } = await createServiceClient()
     .from("restaurant_settings")

@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { requireStaffUser } from "@/lib/supabase/require-staff"
+import { requireSuperAdminUser } from "@/lib/supabase/require-staff"
 import { getAllOperatingWindows } from "@/app/actions/availability"
 import { RESTAURANT } from "@/lib/data"
 import { summarizeOperatingDays } from "@/lib/reservations/operating-hours"
@@ -41,8 +41,8 @@ export async function updateRestaurantContactInfo(input: {
   address: string
   phone: string
 }): Promise<{ error?: string }> {
-  const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  const superAdminUser = await requireSuperAdminUser()
+  if (!superAdminUser) throw new Error("Unauthorized")
 
   const address = input.address.trim()
   const phone = input.phone.trim()

@@ -34,4 +34,13 @@ describe("requireStaffUser", () => {
     mocks.getUser.mockResolvedValue({ data: { user: staff } })
     expect(await requireStaffUser()).toBe(staff)
   })
+
+  it("returns the user when app_metadata.role is super_admin (hierarchy)", async () => {
+    const superAdmin = {
+      id: "super-admin-1",
+      app_metadata: { role: "super_admin" },
+    }
+    mocks.getUser.mockResolvedValue({ data: { user: superAdmin } })
+    expect(await requireStaffUser()).toBe(superAdmin)
+  })
 })

@@ -4,6 +4,19 @@ import { describe, expect, it } from "vitest"
 
 const seedPath = path.join(process.cwd(), "supabase", "seed.sql")
 const STAFF_USER_ID = "11111111-1111-1111-1111-111111111111"
+const STAFF_EMAIL = "admin@test.local"
+
+function authUsersInsertForId(sql: string, userId: string): string {
+  const matches = sql.matchAll(
+    /INSERT INTO auth\.users\s*\([\s\S]*?\)\s*VALUES\s*\([\s\S]*?\)\s*ON CONFLICT \(id\) DO NOTHING/gi,
+  )
+  for (const match of matches) {
+    if (match[0].includes(userId)) return match[0]
+  }
+  throw new Error(
+    `auth.users insert for ${userId} with ON CONFLICT (id) DO NOTHING not found in seed.sql`,
+  )
+}
 
 function staffAuthUsersInsert(sql: string): string {
   const match = sql.match(
@@ -105,5 +118,23 @@ describe("seed staff claim", () => {
       role?: unknown
     }
     expect(appMeta).toMatchObject({ role: "staff" })
+  })
+
+  it("seed staff auth.users.email is admin@test.local", () => {
+    const sql = readFileSync(seedPath, "utf8")
+    const insert = authUsersInsertForId(sql, STAFF_USER_ID)
+    const columns = columnNames(insert)
+    const valuesMatch = insert.match(/VALUES\s*\(([\s\S]*)\)\s*ON CONFLICT/i)
+    if (!valuesMatch) {
+      throw new Error("auth.users VALUES list not found")
+    }
+    const values = splitSqlValues(valuesMatch[1])
+
+    const idIdx = columns.indexOf("id")
+    const emailIdx = columns.indexOf("email")
+    expect(idIdx).toBeGreaterThanOrEqual(0)
+    expect(emailIdx).toBeGreaterThanOrEqual(0)
+    expect(unquoteSqlString(values[idIdx])).toBe(STAFF_USER_ID)
+    expect(unquoteSqlString(values[emailIdx])).toBe(STAFF_EMAIL)
   })
 })

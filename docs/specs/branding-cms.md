@@ -1,7 +1,7 @@
 # Branding CMS (admin-managed logo)
 
 **Status:** Draft  
-**Last updated:** 2026-08-18
+**Last updated:** 2026-09-02
 
 ## Scope
 
@@ -18,11 +18,12 @@ restaurant name only.
    go through staff-authenticated server actions (service role). A public
    `branding` storage bucket holds `logo.{png,jpg,svg,webp}` (max 2MB).
 
-2. **BC-2 — Staff-only writes** — `uploadRestaurantLogo` and
-   `removeRestaurantLogo` reject callers who are not staff (`Unauthorized`),
-   including unauthenticated callers and authenticated callers without the
-   staff claim (see [staff-authorization.md](./staff-authorization.md)
-   SA-1). `getRestaurantLogoUrl` is public (guest chrome + login need it).
+2. **BC-2 — Super-admin-only writes** — `uploadRestaurantLogo` and
+   `removeRestaurantLogo` reject callers who are not super_admin
+   (`Unauthorized`), including unauthenticated callers and authenticated
+   staff-only callers without the super_admin claim (see
+   [staff-authorization.md](./staff-authorization.md) SA-7/SA-8).
+   `getRestaurantLogoUrl` is public (guest chrome + login need it).
 
 3. **BC-3 — Upload validation** — Rejects missing files, types other than
    PNG / JPEG / SVG / WEBP, and files larger than 2MB. Messages:

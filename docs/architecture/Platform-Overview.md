@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-01
 
 ## Stack
 
@@ -43,7 +43,7 @@ Spec: [../specs/site-localization.md](../specs/site-localization.md).
 ## Middleware
 
 `middleware.ts` always runs Supabase `updateSession`, then applies next-intl locale
-routing for public paths. `/admin/**`, `/auth/**`, and `/api/**` skip locale middleware
+routing for public paths. `/admin/**`, `/pos/**`, `/kds/**`, `/auth/**`, and `/api/**` skip locale middleware
 (`i18n/middleware-scope.ts`). Staff paths
 (`/admin`, `/pos`, `/kds`) require JWT `app_metadata.role === "staff"`:
 unauthenticated → `/auth/login`, authenticated non-staff → `/`. Spec:
