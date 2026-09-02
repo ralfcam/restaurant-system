@@ -32,7 +32,8 @@ before `window.location.href = "/admin"`.
 Seed identities in `supabase/seed.sql` (every `db reset`, `--local` and
 `--linked` non-prod): `admin@test.local` (`11111111-1111-1111-1111-111111111111`,
 `"staff"`) and `superadmin@test.local`
-(`22222222-2222-2222-2222-222222222222`, `"super_admin"`). Never seed
+(`22222222-2222-2222-2222-222222222222`, `"super_admin"`). Those login
+addresses are also `auth.users.email` (not identities-only). Never seed
 production.
 
 Local `supabase/config.toml` has `[auth] enable_signup = false` and

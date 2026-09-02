@@ -40,6 +40,9 @@ implies staff.
    (`11111111-1111-1111-1111-111111111111`) has `raw_app_meta_data` including
    `"role": "staff"` in addition to existing provider fields. This identity
    remains the plain-staff persona (it MUST NOT be given `super_admin`).
+   `auth.users.email` MUST be the string `admin@test.local` (the same address
+   as the matching `auth.identities` email). Empty, NULL, or any other value
+   does not satisfy this criterion.
 
 6. **SA-6 — Hosted signup is off** _(manual-UAT)_ — Linked/hosted Supabase
    Auth (project `tilcqrudqxznnpepxjqq`) has email signup disabled. Local
@@ -76,6 +79,21 @@ implies staff.
    insert is `ON CONFLICT (id) DO NOTHING` (idempotent on every `db reset`,
    `--local` and `--linked`). That id MUST differ from the SA-5 staff seed
    id. The block MUST NOT hardcode a host or environment-specific value.
+   `auth.users.email` MUST be the string `superadmin@test.local` (the same
+   address as the matching `auth.identities` email). Empty, NULL, or the
+   SA-5 email does not satisfy this criterion. Seed `auth.users.email`
+   values MUST be pairwise distinct so GoTrue’s unique email index
+   (`users_email_partial_key`) does not reject a later insert on `db reset`
+   (`--local` or `--linked`).
+
+## Implementation trace (non-normative)
+
+FIX `seed_users_email_f5f7f0e6.plan.md` (REAZED-326, 2026-09-02). C1–C2 shipped.
+
+| Criterion | Shipped in                                                                                                  | Tests                                                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| SA-5      | `supabase/seed.sql` staff `auth.users.email` `'admin@test.local'`                                           | `tests/unit/auth/seed-staff-claim.test.ts` → "seed staff auth.users.email is admin@test.local"                                         |
+| SA-9      | `supabase/seed.sql` super-admin `auth.users.email` `'superadmin@test.local'` (pairwise distinct from staff) | `tests/unit/auth/seed-super-admin-claim.test.ts` → "seed super-admin auth.users.email is superadmin@test.local and differs from staff" |
 
 ## Out of scope
 

@@ -136,4 +136,44 @@ describe("seed super-admin claim", () => {
     }
     expect(appMeta).toMatchObject({ role: "super_admin" })
   })
+
+  it("seed super-admin auth.users.email is superadmin@test.local and differs from staff", () => {
+    const sql = readFileSync(seedPath, "utf8")
+
+    const superInsert = authUsersInsertForId(sql, SUPER_ADMIN_USER_ID)
+    const superColumns = columnNames(superInsert)
+    const superValuesMatch = superInsert.match(
+      /VALUES\s*\(([\s\S]*)\)\s*ON CONFLICT/i,
+    )
+    if (!superValuesMatch) {
+      throw new Error("auth.users VALUES list not found")
+    }
+    const superValues = splitSqlValues(superValuesMatch[1])
+    const superIdIdx = superColumns.indexOf("id")
+    const superEmailIdx = superColumns.indexOf("email")
+    expect(superIdIdx).toBeGreaterThanOrEqual(0)
+    expect(superEmailIdx).toBeGreaterThanOrEqual(0)
+    expect(unquoteSqlString(superValues[superIdIdx])).toBe(SUPER_ADMIN_USER_ID)
+    const superEmail = unquoteSqlString(superValues[superEmailIdx])
+    expect(superEmail).not.toBe("")
+    expect(superEmail).toBe(SUPER_ADMIN_EMAIL)
+
+    const staffInsert = authUsersInsertForId(sql, STAFF_USER_ID)
+    const staffColumns = columnNames(staffInsert)
+    const staffValuesMatch = staffInsert.match(
+      /VALUES\s*\(([\s\S]*)\)\s*ON CONFLICT/i,
+    )
+    if (!staffValuesMatch) {
+      throw new Error("auth.users VALUES list not found")
+    }
+    const staffValues = splitSqlValues(staffValuesMatch[1])
+    const staffIdIdx = staffColumns.indexOf("id")
+    const staffEmailIdx = staffColumns.indexOf("email")
+    expect(staffIdIdx).toBeGreaterThanOrEqual(0)
+    expect(staffEmailIdx).toBeGreaterThanOrEqual(0)
+    expect(unquoteSqlString(staffValues[staffIdIdx])).toBe(STAFF_USER_ID)
+    const staffEmail = unquoteSqlString(staffValues[staffEmailIdx])
+    expect(staffEmail).not.toBe("")
+    expect(staffEmail).not.toBe(superEmail)
+  })
 })
