@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase/proxy", () => ({
 
 import { updateSession } from "@/lib/supabase/proxy"
 import { resolveLocaleRoutingDecision } from "@/i18n/middleware-scope"
-import { middleware } from "@/middleware"
+import { proxy } from "@/proxy"
 
 describe("middleware scope", () => {
   beforeEach(() => {
@@ -20,13 +20,13 @@ describe("middleware scope", () => {
     expect(resolveLocaleRoutingDecision("/menu")).toBe("localize")
 
     const adminRequest = new NextRequest(new URL("http://localhost/admin/x"))
-    await middleware(adminRequest)
+    await proxy(adminRequest)
     expect(updateSession).toHaveBeenCalledWith(adminRequest)
 
     vi.mocked(updateSession).mockClear()
 
     const menuRequest = new NextRequest(new URL("http://localhost/menu"))
-    await middleware(menuRequest)
+    await proxy(menuRequest)
     expect(updateSession).toHaveBeenCalledWith(menuRequest)
   })
 

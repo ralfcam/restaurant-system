@@ -1,7 +1,7 @@
 # Site localization
 
 **Status:** Draft  
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 
 ## Scope
 
@@ -78,4 +78,4 @@ continue to come from DB `_en` columns keyed by route locale.
 - [staff-authorization.md](staff-authorization.md) SA-2 (staff chrome `/admin`,
   `/pos`, `/kds`)
 - `components/site/site-header.tsx`, `components/site/menu-browser.tsx`
-- `middleware.ts`, `i18n/middleware-scope.ts`, `app/layout.tsx`
+- `proxy.ts`, `i18n/middleware-scope.ts`, `app/layout.tsx`
