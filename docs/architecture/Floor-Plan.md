@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-01
+**Last updated:** 2026-09-02
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -41,5 +41,11 @@ live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
 static `TABLES` seed in `lib/data.ts`. `/pos`'s Table picker lists live
 `getTables()` rows via `app/pos/page.tsx` (`dynamic = "force-dynamic"`) into
-`PosTerminal` `tables`, also not `TABLES`. Operating hours: `operating_windows` in
+`PosTerminal` `tables`, also not `TABLES`. The Server picker lists live
+`getServers()` rows (`servers` in baseline + seed; not a `lib/data.ts`
+`SERVERS` constant) in the same `Promise.all`. When `tables` or `servers` is
+empty, that `Select` is `disabled` with `value={… || undefined}` and a
+placeholder (`No tables available` / `No servers available`). Occupancy-duration
+and safety-buffer chrome on `/admin/floor` take an `isSuperAdmin` prop (SA-10);
+slot-interval stays ungated in chrome. Operating hours: `operating_windows` in
 `supabase/migrations/00000000000000_baseline.sql`.

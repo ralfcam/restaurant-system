@@ -17,3 +17,15 @@ export const SITE_LOGO = {
 export function shouldRenderSiteHeader(pathname: string): boolean {
   return !pathname.startsWith("/admin")
 }
+
+/**
+ * Whether guest nav surfaces should use light (white) text (SC-4a).
+ * True only when unscrolled over a dark page background; once scrolled,
+ * always false — nav text is dark regardless of the page beneath.
+ */
+export function shouldUseLightNavText(
+  isScrolled: boolean,
+  overDarkBackground: boolean,
+): boolean {
+  return !isScrolled && overDarkBackground
+}

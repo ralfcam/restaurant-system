@@ -17,8 +17,11 @@ fixtures live in `lib/data.ts`. Sample menu catalog: `lib/menu-catalog.json`
 (`lib/menu-catalog.ts`). There is **no bundled logo** in `public/` — guest
 header, login, and staff chrome show the restaurant name only until staff
 upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
-`SITE_LOGO` dimensions/alt only (no `src`). Spec:
+`SITE_LOGO` dimensions/alt only (no `src`) and `shouldUseLightNavText`
+(SC-4a). Homepage hero copy and `#reserve` sit in `grid … md:grid-cols-2`
+(HP-1); `SiteHeader` gets `overDarkBackground={hasHero}`. Spec:
 [../specs/site-chrome.md](../specs/site-chrome.md),
+[../specs/homepage.md](../specs/homepage.md),
 [../specs/branding-cms.md](../specs/branding-cms.md).
 
 ## Route map
@@ -30,7 +33,7 @@ upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
 | `/auth/login`, `/auth/callback`, `/auth/error` | Staff    | Supabase auth (flat routes; no locale segment)                                               |
 | `/admin/*`                                     | Staff    | Menu, reservations, scheduling, floor, branding, marketing (English-only; no locale segment) |
 | `/api/cron/review-email`                       | Cron     | Bearer `CRON_SECRET` GET; throwing mailer stub; no `vercel.json` schedule                    |
-| `/pos`                                         | Staff    | Point of sale                                                                                |
+| `/pos`                                         | Staff    | Point of sale (live `getTables()` / `getServers()` pickers)                                  |
 | `/kds`                                         | Staff    | Kitchen display                                                                              |
 
 ## Localization
@@ -60,6 +63,7 @@ unauthenticated → `/auth/login`, authenticated non-staff → `/`. Spec:
 | Availability | `app/actions/availability.ts` |
 | Branding     | `app/actions/branding.ts`     |
 | Marketing    | `app/actions/marketing.ts`    |
+| Operations   | `app/actions/operations.ts`   |
 
 Custom logo uploads use base64 on a Server Action (not multipart). `next.config.mjs` sets
 `experimental.serverActions.bodySizeLimit` to `4mb` (`LOGO_UPLOAD_BODY_SIZE_LIMIT` in

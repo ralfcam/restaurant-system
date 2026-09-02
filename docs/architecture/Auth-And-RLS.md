@@ -41,7 +41,9 @@ Local `supabase/config.toml` has `[auth] enable_signup = false` and
 `[auth.email] enable_signup = false`. Those keys do not control hosted Auth —
 see [../runbooks/deploy.md](../runbooks/deploy.md). Spec:
 [../specs/staff-authorization.md](../specs/staff-authorization.md)
-(SA-1–SA-9; SA-6 is manual-UAT).
+(SA-1–SA-10; SA-6 is manual-UAT). Staff-only sessions still open `/admin` /
+`/pos` / `/kds`; SA-10 disables (does not hide) super-admin-only chrome via
+an `isSuperAdmin` prop from `isSuperAdminUser(authUser)`.
 
 ## Service role
 
@@ -55,13 +57,15 @@ Every guest-facing table must have RLS **enabled** and **forced** where specs re
 Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (single
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
-`menu_items`, `restaurant_settings`. Public storage bucket `branding` holds the
+`menu_items`, `restaurant_settings`, `tables`, `servers`. `servers` mirrors
+`tables` (`GRANT SELECT, INSERT, UPDATE, DELETE` to `authenticated`,
+`GRANT ALL` to `service_role`; `-- REAZED-329`). Public storage bucket `branding` holds the
 optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
 ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
 create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can call
 `storage.createBucket` when upload returns bucket-not-found, then retry. Reference
 data (`operating_windows`, `menu_items`,
-`restaurant_settings` singleton) loads from `supabase/seed.sql` on `db reset`.
+`restaurant_settings` singleton, `servers`) loads from `supabase/seed.sql` on `db reset`.
 
 `operating_windows` is SELECT-only for `anon` and `authenticated`
 (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges

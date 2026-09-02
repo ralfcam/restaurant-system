@@ -1,6 +1,7 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { FloorPlan } from "@/components/staff/floor-plan"
 import { getAuthUser } from "@/app/actions/auth"
+import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import {
   getOccupancyDurationMinutes,
   getSafetyBufferMinutes,
@@ -27,6 +28,7 @@ export default async function FloorPage() {
       title="Floor Plan"
       description="Live dining room — room layout, expected turn time, temporary merges, and auto-assign"
       user={{ email: authUser?.email }}
+      isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <FloorPlan
         date={today}
@@ -34,6 +36,7 @@ export default async function FloorPage() {
         initialSlotInterval={slotInterval}
         initialOccupancyDuration={occupancyDuration}
         initialSafetyBuffer={safetyBuffer}
+        isSuperAdmin={isSuperAdminUser(authUser)}
       />
     </StaffShell>
   )

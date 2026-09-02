@@ -378,5 +378,3 @@ export const INITIAL_TICKETS: OrderTicket[] = [
     ],
   },
 ]
-
-export const SERVERS = ["Maya", "Jon", "Priya", "Dev"]

@@ -158,6 +158,7 @@ function MinutesStepperButtons({
   increaseAriaLabel,
   valueClassName,
   onStep,
+  disabled = false,
 }: {
   value: number
   min: number
@@ -167,6 +168,7 @@ function MinutesStepperButtons({
   increaseAriaLabel: string
   valueClassName: string
   onStep: (next: number) => void
+  disabled?: boolean
 }) {
   return (
     <>
@@ -174,7 +176,7 @@ function MinutesStepperButtons({
         size="sm"
         variant="outline"
         aria-label={decreaseAriaLabel}
-        disabled={value <= min}
+        disabled={disabled || value <= min}
         onClick={() => onStep(value - step)}
       >
         <Minus className="size-4" />
@@ -191,7 +193,7 @@ function MinutesStepperButtons({
         size="sm"
         variant="outline"
         aria-label={increaseAriaLabel}
-        disabled={value >= max}
+        disabled={disabled || value >= max}
         onClick={() => onStep(value + step)}
       >
         <Plus className="size-4" />
@@ -206,12 +208,14 @@ export function FloorPlan({
   initialSlotInterval = DEFAULT_SLOT_INTERVAL_MINUTES,
   initialOccupancyDuration = DEFAULT_EXPECTED_MINUTES,
   initialSafetyBuffer = DEFAULT_SAFETY_BUFFER_MINUTES,
+  isSuperAdmin,
 }: {
   date: string
   fallbackData?: FloorSnapshot
   initialSlotInterval?: SlotIntervalMinutes
   initialOccupancyDuration?: number
   initialSafetyBuffer?: number
+  isSuperAdmin: boolean
 }) {
   const {
     tables: loadedTables,
@@ -786,6 +790,7 @@ export function FloorPlan({
                     increaseAriaLabel="Increase occupancy duration"
                     valueClassName="min-w-10"
                     onStep={(next) => void persistOccupancyDuration(next)}
+                    disabled={!isSuperAdmin}
                   />
                 </div>
                 <div
@@ -809,6 +814,7 @@ export function FloorPlan({
                     increaseAriaLabel="Increase safety buffer"
                     valueClassName="min-w-8"
                     onStep={(next) => void persistSafetyBuffer(next)}
+                    disabled={!isSuperAdmin}
                   />
                 </div>
                 {unlockedIds.size > 0 ? (

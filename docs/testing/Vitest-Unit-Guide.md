@@ -16,7 +16,16 @@
   `requireSuperAdminUser` claims, staff-route proxy, login landing gate,
   local signup TOML, seed `raw_app_meta_data` for staff and super-admin)
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
-  `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard)
+  `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard, SC-4a
+  `shouldUseLightNavText`); `tests/unit/site-header.test.ts`; homepage HP-1
+  `tests/unit/site/homepage-layout.test.ts`
+- Super-admin chrome (SA-10): `tests/unit/branding/super-admin-chrome.test.ts`,
+  `tests/unit/scheduling/super-admin-chrome.test.ts`,
+  `tests/unit/floor/super-admin-chrome.test.ts`,
+  `tests/unit/marketing/super-admin-chrome.test.ts`
+- POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
+  `tests/unit/floor/pos-server-picker.test.ts`,
+  `tests/unit/floor/get-servers.test.ts`
 
 ## Conventions
 

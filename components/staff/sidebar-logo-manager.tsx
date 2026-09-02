@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { ImagePlus } from "lucide-react"
 import { RESTAURANT } from "@/lib/data"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
@@ -13,13 +14,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import * as React from "react"
 
 /**
  * Clickable brand slot in the sidebar header — opens a dialog to upload
  * or remove the restaurant's logo.
  */
-export function SidebarLogoManager() {
+export function SidebarLogoManager({
+  isSuperAdmin,
+}: {
+  isSuperAdmin: boolean
+}) {
   const { logoUrl } = useRestaurantLogo()
   const [open, setOpen] = React.useState(false)
 
@@ -53,7 +57,10 @@ export function SidebarLogoManager() {
             site and staff console. PNG, JPG, SVG, or WEBP, up to 2MB.
           </DialogDescription>
         </DialogHeader>
-        <RestaurantLogoEditor onSaved={() => setOpen(false)} />
+        <RestaurantLogoEditor
+          onSaved={() => setOpen(false)}
+          isSuperAdmin={isSuperAdmin}
+        />
       </DialogContent>
     </Dialog>
   )

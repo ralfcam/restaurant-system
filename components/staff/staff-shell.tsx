@@ -169,15 +169,17 @@ function MobileBottomNav() {
 function SidebarContent({
   onNavigate,
   user,
+  isSuperAdmin,
 }: {
   onNavigate?: () => void
   user?: StaffUser
+  isSuperAdmin: boolean
 }) {
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "ST"
 
   return (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
-      <SidebarLogoManager />
+      <SidebarLogoManager isSuperAdmin={isSuperAdmin} />
       <NavLinks onNavigate={onNavigate} />
       <div className="mt-auto border-t border-sidebar-border p-3">
         <Link
@@ -221,18 +223,20 @@ export function StaffShell({
   description,
   actions,
   user,
+  isSuperAdmin,
   children,
 }: {
   title: string
   description?: string
   actions?: React.ReactNode
   user?: StaffUser
+  isSuperAdmin: boolean
   children: React.ReactNode
 }) {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
-        <SidebarContent user={user} />
+        <SidebarContent user={user} isSuperAdmin={isSuperAdmin} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -248,7 +252,7 @@ export function StaffShell({
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0">
               <SheetTitle className="sr-only">Navigation</SheetTitle>
-              <SidebarContent user={user} />
+              <SidebarContent user={user} isSuperAdmin={isSuperAdmin} />
             </SheetContent>
           </Sheet>
 

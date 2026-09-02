@@ -33,7 +33,13 @@ function fileToBase64(file: File): Promise<string> {
  * Upload / replace / restore the restaurant logo. Used on /admin/settings and
  * inside the staff-sidebar dialog.
  */
-export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
+export function RestaurantLogoEditor({
+  onSaved,
+  isSuperAdmin,
+}: {
+  onSaved?: () => void
+  isSuperAdmin: boolean
+}) {
   const { logoUrl, mutate } = useRestaurantLogo()
   const [preview, setPreview] = React.useState<string | null>(null)
   const [file, setFile] = React.useState<File | null>(null)
@@ -139,12 +145,14 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             onChange={handleFileChange}
             className="sr-only"
             id="logo-upload-input"
+            disabled={!isSuperAdmin}
           />
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="justify-start"
+            disabled={!isSuperAdmin}
             onClick={() => fileInputRef.current?.click()}
           >
             <ImagePlus className="size-4" />
@@ -170,7 +178,7 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             variant="ghost"
             className="text-destructive hover:text-destructive"
             onClick={handleRemove}
-            disabled={isRemoving}
+            disabled={isRemoving || !isSuperAdmin}
           >
             {isRemoving ? (
               <Loader2 className="size-4 animate-spin" />
@@ -180,7 +188,11 @@ export function RestaurantLogoEditor({ onSaved }: { onSaved?: () => void }) {
             Remove logo
           </Button>
         ) : null}
-        <Button type="button" onClick={handleSave} disabled={!file || isSaving}>
+        <Button
+          type="button"
+          onClick={handleSave}
+          disabled={!file || isSaving || !isSuperAdmin}
+        >
           {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
           Save logo
         </Button>

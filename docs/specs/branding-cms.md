@@ -18,12 +18,16 @@ restaurant name only.
    go through staff-authenticated server actions (service role). A public
    `branding` storage bucket holds `logo.{png,jpg,svg,webp}` (max 2MB).
 
-2. **BC-2 — Super-admin-only writes** — `uploadRestaurantLogo` and
-   `removeRestaurantLogo` reject callers who are not super_admin
+2. **BC-2 — Super-admin-only writes** — `uploadRestaurantLogo`,
+   `removeRestaurantLogo`, `uploadRestaurantHeroImage`, and
+   `removeRestaurantHeroImage` reject callers who are not super_admin
    (`Unauthorized`), including unauthenticated callers and authenticated
    staff-only callers without the super_admin claim (see
    [staff-authorization.md](./staff-authorization.md) SA-7/SA-8).
-   `getRestaurantLogoUrl` is public (guest chrome + login need it).
+   Coverage: `tests/unit/branding/actions.test.ts` (`uploadRestaurantHeroImage`
+   / `removeRestaurantHeroImage` — "rejects unauthenticated callers" /
+   "rejects staff-only callers"). `getRestaurantLogoUrl` is public (guest
+   chrome + login need it).
 
 3. **BC-3 — Upload validation** — Rejects missing files, types other than
    PNG / JPEG / SVG / WEBP, and files larger than 2MB. Messages:

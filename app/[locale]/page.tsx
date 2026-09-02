@@ -34,7 +34,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <SiteHeader />
+      <SiteHeader overDarkBackground={hasHero} />
       <section className="relative flex min-h-screen flex-col overflow-hidden">
         <div className="absolute inset-0">
           {hasHero ? (
@@ -55,60 +55,62 @@ export default function HomePage() {
         </div>
 
         <div className="relative z-10 flex flex-1 flex-col justify-center mx-auto max-w-6xl px-5 pb-20 pt-24 md:px-8 md:pt-32 md:pb-28">
-          <div className="max-w-xl">
-            <span
-              className={cn(
-                "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] backdrop-blur-sm",
-                hasHero
-                  ? "border-white/20 bg-white/10 text-white/90"
-                  : "border-border bg-secondary text-foreground/80",
-              )}
-            >
-              <Star
+          <div className="grid gap-10 md:grid-cols-2 md:gap-12">
+            <div>
+              <span
                 className={cn(
-                  "size-2.5",
+                  "inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] backdrop-blur-sm",
                   hasHero
-                    ? "fill-white text-white"
-                    : "fill-primary text-primary",
-                )}
-              />
-              {t("hero.tagline")}
-            </span>
-
-            <div
-              className={cn(
-                "mt-6 rounded-2xl px-5 py-5",
-                hasHero &&
-                  "bg-black/30 backdrop-blur-sm ring-1 ring-inset ring-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
-              )}
-            >
-              <h1
-                className={cn(
-                  "font-heading text-4xl font-semibold leading-[1.08] tracking-tighter text-balance md:text-5xl lg:text-6xl",
-                  hasHero
-                    ? "text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.85),0_4px_16px_rgb(0_0_0/0.55)]"
-                    : "text-foreground",
+                    ? "border-white/20 bg-white/10 text-white/90"
+                    : "border-border bg-secondary text-foreground/80",
                 )}
               >
-                {t("hero.headline")}
-              </h1>
+                <Star
+                  className={cn(
+                    "size-2.5",
+                    hasHero
+                      ? "fill-white text-white"
+                      : "fill-primary text-primary",
+                  )}
+                />
+                {t("hero.tagline")}
+              </span>
 
-              <p
+              <div
                 className={cn(
-                  "mt-5 max-w-sm text-pretty text-base leading-relaxed md:text-[17px]",
-                  hasHero
-                    ? "text-white/80 [text-shadow:0_1px_2px_rgb(0_0_0/0.8),0_2px_8px_rgb(0_0_0/0.45)]"
-                    : "text-muted-foreground",
+                  "mt-6 rounded-2xl px-5 py-5",
+                  hasHero &&
+                    "bg-black/30 backdrop-blur-sm ring-1 ring-inset ring-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
                 )}
               >
-                {t("hero.subtext")}
-              </p>
+                <h1
+                  className={cn(
+                    "font-heading text-4xl font-semibold leading-[1.08] tracking-tighter text-balance md:text-5xl lg:text-6xl",
+                    hasHero
+                      ? "text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.85),0_4px_16px_rgb(0_0_0/0.55)]"
+                      : "text-foreground",
+                  )}
+                >
+                  {t("hero.headline")}
+                </h1>
+
+                <p
+                  className={cn(
+                    "mt-5 max-w-sm text-pretty text-base leading-relaxed md:text-[17px]",
+                    hasHero
+                      ? "text-white/80 [text-shadow:0_1px_2px_rgb(0_0_0/0.8),0_2px_8px_rgb(0_0_0/0.45)]"
+                      : "text-muted-foreground",
+                  )}
+                >
+                  {t("hero.subtext")}
+                </p>
+              </div>
             </div>
 
             <div
               id="reserve"
               className={cn(
-                "relative mt-10 scroll-mt-8 rounded-2xl shadow-2xl backdrop-blur-2xl hover:scale-[1.01] transition-transform duration-500",
+                "relative scroll-mt-8 rounded-2xl shadow-2xl backdrop-blur-2xl hover:scale-[1.01] transition-transform duration-500",
                 hasHero
                   ? "border border-white/12 bg-[oklch(0.18_0.015_40/0.72)] shadow-black/40 focus-within:border-amber-500/50"
                   : "border border-border bg-card shadow-black/5 focus-within:border-primary/40",

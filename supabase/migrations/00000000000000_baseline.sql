@@ -478,6 +478,34 @@ CREATE POLICY "Allow service_role full access to tables"
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE tables TO authenticated;
 GRANT ALL ON TABLE tables TO service_role;
 
+-- ── servers (POS picker inventory) ───────────────────────────────────────────
+-- REAZED-329 / FP-14: persisted server inventory for the /pos picker.
+CREATE TABLE IF NOT EXISTS servers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE servers ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated full access to servers" ON servers;
+CREATE POLICY "Allow authenticated full access to servers"
+  ON servers FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow service_role full access to servers" ON servers;
+CREATE POLICY "Allow service_role full access to servers"
+  ON servers FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE servers TO authenticated;
+GRANT ALL ON TABLE servers TO service_role;
+
 -- FP-8: temporary table arrangements (combined seat capacity + expected time).
 CREATE TABLE IF NOT EXISTS table_merges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

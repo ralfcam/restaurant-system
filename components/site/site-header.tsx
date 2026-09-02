@@ -6,7 +6,10 @@ import { usePathname } from "next/navigation"
 import { LockKeyhole, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
-import { shouldRenderSiteHeader } from "@/lib/site-chrome"
+import {
+  shouldRenderSiteHeader,
+  shouldUseLightNavText,
+} from "@/lib/site-chrome"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { BrandMark } from "@/components/site/brand-mark"
 import { Button } from "@/components/ui/button"
@@ -15,11 +18,18 @@ import { LanguageSwitcher } from "@/components/site/language-switcher"
 
 const LINKS = [{ href: "/menu", label: "Menu" }]
 
-export function SiteHeader() {
+export function SiteHeader({
+  overDarkBackground = true,
+}: { overDarkBackground?: boolean } = {}) {
   const pathname = usePathname()
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { logoUrl } = useRestaurantLogo()
+  const useLightNavText = shouldUseLightNavText(isScrolled, overDarkBackground)
+  const navTextClass = useLightNavText ? "text-white" : "text-foreground"
+  const mutedNavTextClass = useLightNavText
+    ? "text-white/80"
+    : "text-muted-foreground"
 
   useEffect(() => {
     const handleScroll = () => {
@@ -48,7 +58,7 @@ export function SiteHeader() {
             <span
               className={cn(
                 "font-heading text-lg font-semibold tracking-tight transition-colors duration-300",
-                isScrolled ? "text-foreground" : "text-white",
+                navTextClass,
               )}
             >
               {RESTAURANT.name}
@@ -64,7 +74,7 @@ export function SiteHeader() {
               href={link.href}
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-300 hover:underline",
-                isScrolled ? "text-foreground" : "text-white",
+                navTextClass,
                 pathname === link.href && "font-bold",
               )}
             >
@@ -79,7 +89,7 @@ export function SiteHeader() {
             variant={isScrolled ? "outline" : "ghost"}
             className={cn(
               "rounded-full text-xs font-medium tracking-wide transition-colors duration-300",
-              isScrolled ? "text-muted-foreground" : "text-white/80",
+              mutedNavTextClass,
             )}
           />
           <Button
@@ -87,7 +97,7 @@ export function SiteHeader() {
             size="sm"
             className={cn(
               "rounded-full text-xs font-medium tracking-wide transition-colors duration-300",
-              isScrolled ? "text-muted-foreground" : "text-white/80",
+              mutedNavTextClass,
             )}
             render={<Link href="/admin" />}
           >
@@ -108,9 +118,8 @@ export function SiteHeader() {
           <SheetTrigger
             className={cn(
               "flex md:hidden rounded-lg p-2 transition-colors duration-300",
-              isScrolled
-                ? "text-foreground hover:bg-muted"
-                : "text-white hover:bg-white/10",
+              navTextClass,
+              useLightNavText ? "hover:bg-white/10" : "hover:bg-muted",
             )}
           >
             <Menu className="size-5" />

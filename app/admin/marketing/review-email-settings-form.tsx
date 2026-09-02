@@ -11,7 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 
 const ENABLED_LABEL_ID = "review-email-enabled-label"
 
-export function ReviewEmailSettingsForm() {
+export function ReviewEmailSettingsForm({
+  isSuperAdmin,
+}: {
+  isSuperAdmin: boolean
+}) {
   const [enabled, setEnabled] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -51,7 +55,7 @@ export function ReviewEmailSettingsForm() {
         <Switch
           checked={enabled}
           onCheckedChange={setEnabled}
-          disabled={isPending}
+          disabled={isPending || !isSuperAdmin}
           data-testid="review-email-enabled-control"
           aria-labelledby={ENABLED_LABEL_ID}
         />
@@ -64,7 +68,7 @@ export function ReviewEmailSettingsForm() {
           id="review-email-copy"
           name="copy"
           rows={4}
-          disabled={isPending}
+          disabled={isPending || !isSuperAdmin}
           data-testid="review-email-copy-control"
         />
       </div>
@@ -75,7 +79,7 @@ export function ReviewEmailSettingsForm() {
           name="mapsUrl"
           type="text"
           inputMode="url"
-          disabled={isPending}
+          disabled={isPending || !isSuperAdmin}
           data-testid="review-email-maps-url-control"
         />
       </div>
@@ -91,11 +95,11 @@ export function ReviewEmailSettingsForm() {
           max={72}
           step={1}
           defaultValue={24}
-          disabled={isPending}
+          disabled={isPending || !isSuperAdmin}
           data-testid="review-email-delay-control"
         />
       </div>
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending || !isSuperAdmin}>
         {isPending ? "Saving…" : "Save"}
       </Button>
     </form>

@@ -6,13 +6,13 @@ import { toast } from "sonner"
 import {
   MENU_ITEMS,
   MENUS,
-  SERVERS,
   type MenuItem,
   type MenuId,
   type OrderLine,
 } from "@/lib/data"
 import {
   createKitchenOrder,
+  type PersistedServer,
   type PersistedTable,
 } from "@/app/actions/operations"
 import { cn } from "@/lib/utils"
@@ -29,13 +29,14 @@ const TAX_RATE = 0.077
 
 type PosTerminalProps = {
   tables: PersistedTable[]
+  servers: PersistedServer[]
 }
 
-export function PosTerminal({ tables }: PosTerminalProps) {
+export function PosTerminal({ tables, servers }: PosTerminalProps) {
   const [menuId, setMenuId] = useState<MenuId>(MENUS[0]?.id ?? "soir")
   const [cart, setCart] = useState<OrderLine[]>([])
   const [table, setTable] = useState(tables[0]?.label ?? "")
-  const [server, setServer] = useState(SERVERS[0])
+  const [server, setServer] = useState(servers[0]?.name ?? "")
   const [sending, setSending] = useState(false)
 
   const items = MENU_ITEMS.filter(
@@ -141,9 +142,13 @@ export function PosTerminal({ tables }: PosTerminalProps) {
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs text-muted-foreground">Table</label>
-              <Select value={table} onValueChange={(v) => setTable(v ?? "")}>
+              <Select
+                value={table || undefined}
+                onValueChange={(v) => setTable(v ?? "")}
+                disabled={tables.length === 0}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue placeholder="No tables available" />
                 </SelectTrigger>
                 <SelectContent>
                   {tables.map((row) => (
@@ -156,14 +161,18 @@ export function PosTerminal({ tables }: PosTerminalProps) {
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Server</label>
-              <Select value={server} onValueChange={(v) => setServer(v ?? "")}>
+              <Select
+                value={server || undefined}
+                onValueChange={(v) => setServer(v ?? "")}
+                disabled={servers.length === 0}
+              >
                 <SelectTrigger className="w-full">
-                  <SelectValue />
+                  <SelectValue placeholder="No servers available" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SERVERS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {s}
+                  {servers.map((row) => (
+                    <SelectItem key={row.id} value={row.name}>
+                      {row.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
