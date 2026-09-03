@@ -1,7 +1,7 @@
 # Branding CMS (admin-managed logo)
 
 **Status:** Draft  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 
 ## Scope
 
@@ -15,7 +15,9 @@ restaurant name only.
 
 1. **BC-1 — Settings singleton** — Schema defines `restaurant_settings` as a
    single row (`id = 1`) with nullable `logo_url`. Guests may `SELECT`; writes
-   go through staff-authenticated server actions (service role). A public
+   go through staff-authenticated server actions (service role).
+   `setChefsPicksEnabled` is a settings write: after the SA-8 staff gate it
+   uses the service-role client, not the cookie/JWT client. A public
    `branding` storage bucket holds `logo.{png,jpg,svg,webp}` (max 2MB).
 
 2. **BC-2 — Super-admin-only writes** — `uploadRestaurantLogo`,
@@ -64,10 +66,19 @@ restaurant name only.
    at upload time, the action creates it (public, 2MB, allowed image MIME
    types) and then stores the object.
 
+## Implementation trace (non-normative)
+
+FIX `reazed-296_chefs_picks_service` (REAZED-296, 2026-09-03). C296-1 shipped.
+
+| Criterion | Shipped in                                                                | Tests                                                                                                                      |
+| --------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| BC-1      | `setChefsPicksEnabled` in `app/actions/menu.ts` (`createServiceClient()`) | `tests/unit/menu/chefs-picks-enabled.test.ts` → "setChefsPicksEnabled upserts restaurant_settings via createServiceClient" |
+
 ## References
 
 - `app/admin/settings/page.tsx`
 - `app/actions/branding.ts`
+- `app/actions/menu.ts`
 - `lib/branding.ts`
 - `components/staff/restaurant-logo-editor.tsx`
 - `components/staff/sidebar-logo-manager.tsx`

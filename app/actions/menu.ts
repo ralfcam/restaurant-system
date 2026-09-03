@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
+import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { revalidatePath } from "next/cache"
 import { MENU_ITEMS, type MenuId, type MenuItem } from "@/lib/data"
@@ -141,12 +142,13 @@ export async function setChefsPicksEnabled(
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "Unauthorized." }
 
-  const supabase = await createClient()
-  const { error } = await supabase.from("restaurant_settings").upsert({
-    id: 1,
-    chefs_picks_enabled: enabled,
-    updated_at: new Date().toISOString(),
-  })
+  const { error } = await createServiceClient()
+    .from("restaurant_settings")
+    .upsert({
+      id: 1,
+      chefs_picks_enabled: enabled,
+      updated_at: new Date().toISOString(),
+    })
   if (error) {
     console.error("[menu] setChefsPicksEnabled error:", error.message)
     return { error: "Could not update the chef's-picks section." }

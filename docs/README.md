@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -81,6 +81,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | REAZED-326 seed users email (`seed_users_email_f5f7f0e6.plan.md`)                                 | 2026-09-02 | `specs/staff-authorization.md` (SA-5/SA-9 email cells), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`                                                                                                                                                                                                                                         |
 | REAZED-327/328 proxy + workspace root (`reazed-327-328_middleware_proxy_workspace_root_a77d6de1`) | 2026-09-02 | `specs/dev-toolchain.md` (G-W1/G-P1 trace), `architecture/Auth-And-RLS.md`, `architecture/Platform-Overview.md`, `specs/site-localization.md`                                                                                                                                                                                                                                                      |
 | Staff chrome + POS inventory (`ux_staffchrome_pos_batch_9c4a1b`)                                  | 2026-09-02 | `specs/site-chrome.md` (SC-4a), `specs/homepage.md` (HP-1), `specs/staff-authorization.md` (SA-10), `specs/scheduling.md` (FP-13/FP-14), `architecture/Floor-Plan.md`, `architecture/Auth-And-RLS.md`, `architecture/Platform-Overview.md`, `architecture/Order-Flow.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md` |
+| REAZED-296 chef's picks service (`reazed-296_chefs_picks_service`)                                | 2026-09-03 | `specs/branding-cms.md` (BC-1 trace), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`                                                                                                                                                                                                                                                                                             |
 
 ## Seed path
 

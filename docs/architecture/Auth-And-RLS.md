@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 
 ## Auth flow
 
@@ -82,8 +82,10 @@ Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
 (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges
 `GRANT ALL ON TABLE restaurant_settings TO service_role`. There is no authenticated
 `FOR ALL` policy (`DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"`;
-no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Identical
-GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql`,
+no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Staff settings
+writes include `setChefsPicksEnabled` via the service role after the SA-8 staff
+gate. Identical GRANT/REVOKE, GRANT ALL, and DROP live in
+`00000000000000_baseline.sql`,
 `20260818155638_restaurant_branding_cms.sql`,
 `20260825140000_operating_windows_privilege.sql`, and
 `20260902214500_restaurant_settings_privilege.sql` (apply the dated file when
