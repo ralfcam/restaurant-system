@@ -79,9 +79,24 @@ thinking: { type: "adaptive", effort: "medium" }
   `gh pr list --state open --json number,title,state,isDraft,baseRefName,headRefName,reviewRequests,url`.
   Keep rows whose `headRefName` starts with `cursor/`.
   - **Exactly one:** proceed with that PR (re-fetch the full JSON above).
-  - **Zero:** STOP ("no open cloud PR").
-  - **More than one:** STOP and list them; the operator must pin
-    `/intake <n>`.
+  - **Zero:** STOP ("no open cloud PR"). Also probe origin for
+    `cursor/` heads matching the cloud-PR pattern that have **no**
+    OPEN PR (`git ls-remote --heads origin 'cursor/*'`; skip any
+    head already listed by `gh pr list --state open`). Per orphan:
+    `<head> @ <oid-short> — no OPEN PR — REAZED-### | cannot verify`.
+    Scan that head's tip commit subject only
+    (`git log -1 --format=%s <oid>`) for `REAZED-\d+` — never invent
+    from the slug. Do **not** `gh pr create`. If none, omit the extra
+    list.
+  - **More than one:** For each candidate, run the Step 5 `REAZED-\d+`
+    scan (title, body,
+    `gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`)
+    to surface its Linear ID — `cannot verify` per PR if none is found,
+    never invented. STOP and list every candidate as `#<n> <head> →
+    <base> — REAZED-### | cannot verify`. If two or more candidates
+    share the same ID, append one line: "duplicate cloud dispatch on
+    REAZED-### — reconcile (close or delete the redundant branch)
+    before pinning." The operator still must pin `/intake <n>`.
 - Do **not** create a PR. Do **not** `git push`. This command only
   intakes an existing OPEN cloud PR.
 
@@ -323,7 +338,7 @@ Tone: professional and actionable. Length: concise.
 
 Exactly these sections:
 
-1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" | "stopped — multiple open cloud PRs; pin `/intake <n>`" | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
+1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" (include any Step 1 orphan list: `<head> @ <oid-short> — no OPEN PR — REAZED-### | cannot verify`) | "stopped — multiple open cloud PRs; pin `/intake <n>`" (include the per-candidate `#<n> <head> — REAZED-### | cannot verify` breakdown and any duplicate-dispatch line from Step 1) | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
 2. **Cloud-PR gate** — "MATCH — `<head>`" | "stopped — NO-MATCH (not this command)".
 3. **Base firewall** — "already on staging — ancestry held; no edit" | "retargeted — `<old-base>` → staging; descendant + drag-in checks held" | "stopped — head is not a descendant of `origin/staging`; rebase onto staging, then `/intake`" | "stopped — retarget would drag `origin/staging..origin/main` (<N> commits); rebase onto staging, then `/intake`" | "stopped — cannot verify ancestry".
 4. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed, isolated worktree intake-<n>)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run. On stop, remaining sections are `n/a — stopped at whole-suite gate`. Tear-down: `removed` | `failed — <why>`.
@@ -331,5 +346,5 @@ Exactly these sections:
 6. **Review request** — "fired — requested `<reviewer>`" | "already present — skipped" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the close-out comment automation" | "n/a — no PR / stopped earlier".
 7. **Checks** (advisory; omit if no PR) — each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local worktree lint + typecheck + test:unit is Step 4, not this section.
 8. **Linear expectations** — In Progress may already be set (PR open/update is backup); In Review on review request/activity; Done only after operator merge of a closing-linked PR — no state write performed by this command. Report the `.cursor/environment.json` state on the default branch as observed this run.
-9. **Operator next** — "merge `<PR-URL>` in the GitHub UI once required checks are green — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
+9. **Operator next** — "merge `<PR-URL>` in the GitHub UI once required checks are green — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | "no open cloud PR" (zero discovery; if Step 1 listed orphans: open a PR from the Dashboard/operator then `/intake`, or delete a plan-only stub — this command never `gh pr create`) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
    </output_format>
