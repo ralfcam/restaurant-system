@@ -21,7 +21,8 @@
   `operating_windows` plus `GRANT ALL` for `operating_windows`, `blocked_dates`,
   `reservations`, `menu_items`; RES-PRIV insert-only on `reservations`;
   PUBLIC-READ-PRIV `GRANT SELECT` / `REVOKE` DML on `blocked_dates` and
-  `menu_items`; apply on already-baselined remotes — not a full `db push`), and
+  `menu_items`; BC-1 SELECT-only on `restaurant_settings`; apply on
+  already-baselined remotes — not a full `db push`), and
   `20260827160000_public_catalog_privileges.sql` (same RES-PRIV / PUBLIC-READ-PRIV
   strings when `20260825140000` is already recorded), plus
   `20260827180000_occupancy_duration_buffer.sql` (occupancy duration + safety
@@ -29,7 +30,11 @@
   already-baselined remotes — not a full `db push`), plus
   `20260828121224_table_fit_availability.sql` (last-writer table-fit +
   date-scoped `pg_advisory_xact_lock`; apply on already-baselined remotes that
-  already recorded occupancy — not a full `db push`).
+  already recorded occupancy — not a full `db push`), plus
+  `20260902214500_restaurant_settings_privilege.sql` (BC-1 SELECT-only on
+  `restaurant_settings`; same DROP/GRANT/REVOKE/GRANT ALL as baseline and
+  `20260825140000`; apply when `20260825140000` is already recorded — not a
+  full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 2 test accounts (see Personas below)
