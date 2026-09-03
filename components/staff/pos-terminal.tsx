@@ -3,18 +3,13 @@
 import { useState } from "react"
 import { Plus, Minus, Trash2, Send, Receipt, ChefHat } from "lucide-react"
 import { toast } from "sonner"
-import {
-  MENU_ITEMS,
-  MENUS,
-  type MenuItem,
-  type MenuId,
-  type OrderLine,
-} from "@/lib/data"
+import { MENUS, type MenuId, type OrderLine } from "@/lib/data"
 import {
   createKitchenOrder,
   type PersistedServer,
   type PersistedTable,
 } from "@/app/actions/operations"
+import type { MenuItemRow } from "@/app/actions/menu"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,20 +25,19 @@ const TAX_RATE = 0.077
 type PosTerminalProps = {
   tables: PersistedTable[]
   servers: PersistedServer[]
+  items: MenuItemRow[]
 }
 
-export function PosTerminal({ tables, servers }: PosTerminalProps) {
+export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
   const [menuId, setMenuId] = useState<MenuId>(MENUS[0]?.id ?? "soir")
   const [cart, setCart] = useState<OrderLine[]>([])
   const [table, setTable] = useState(tables[0]?.label ?? "")
   const [server, setServer] = useState(servers[0]?.name ?? "")
   const [sending, setSending] = useState(false)
 
-  const items = MENU_ITEMS.filter(
-    (m) => m.menuId === menuId && (m.available ?? true),
-  )
+  const pickerItems = items.filter((item) => item.menu_id === menuId)
 
-  function addItem(item: MenuItem) {
+  function addItem(item: MenuItemRow) {
     setCart((prev) => {
       const existing = prev.find((l) => l.itemId === item.id)
       if (existing) {
@@ -64,7 +58,7 @@ export function PosTerminal({ tables, servers }: PosTerminalProps) {
   }
 
   function priceOf(itemId: string) {
-    return MENU_ITEMS.find((m) => m.id === itemId)?.priceValue ?? 0
+    return items.find((item) => item.id === itemId)?.price_value ?? 0
   }
 
   const subtotal = cart.reduce((s, l) => s + priceOf(l.itemId) * l.qty, 0)
@@ -116,7 +110,7 @@ export function PosTerminal({ tables, servers }: PosTerminalProps) {
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {items.map((item) => (
+          {pickerItems.map((item) => (
             <button
               key={item.id}
               type="button"

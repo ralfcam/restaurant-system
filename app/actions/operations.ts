@@ -1,7 +1,7 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
-import { MENU_ITEMS, type TableStatus } from "@/lib/data"
+import { type TableStatus } from "@/lib/data"
 import { tableShapeForSeats } from "@/lib/table-shape"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
@@ -946,14 +946,22 @@ export async function createKitchenOrder(input: {
   if (!staffUser) throw new Error("Unauthorized")
   if (!input.lines.length || input.lines.length > 50)
     throw new Error("Order must contain items")
+  const db = createServiceClient()
+  const itemIds = [...new Set(input.lines.map((line) => line.itemId))]
+  const { data: menuRows } = await db
+    .from("menu_items")
+    .select("id, name, price_value, available")
+    .in("id", itemIds)
+  const menuById = new Map((menuRows ?? []).map((row) => [String(row.id), row]))
   const normalized = input.lines.map((line) => {
-    const item = MENU_ITEMS.find((candidate) => candidate.id === line.itemId)
+    const item = menuById.get(line.itemId)
     const qty = Math.max(1, Math.min(99, Math.round(line.qty)))
-    if (!item) throw new Error("Menu item is unavailable")
+    if (!item || item.available !== true)
+      throw new Error("Menu item is unavailable")
     return {
-      itemId: item.id,
-      name: item.name,
-      unitPrice: item.priceValue ?? 0,
+      itemId: String(item.id),
+      name: String(item.name),
+      unitPrice: Number(item.price_value ?? 0),
       qty,
       notes: line.notes?.slice(0, 240),
     }
@@ -963,7 +971,6 @@ export async function createKitchenOrder(input: {
     0,
   )
   const tax = Math.round(subtotal * TAX_RATE * 100) / 100
-  const db = createServiceClient()
   const { data: table } = await db
     .from("tables")
     .select("id")

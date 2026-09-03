@@ -57,9 +57,16 @@ Every guest-facing table must have RLS **enabled** and **forced** where specs re
 Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (single
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
-`menu_items`, `restaurant_settings`, `tables`, `servers`. `servers` mirrors
+`menu_items`, `restaurant_settings`, `tables`, `servers`, `orders`,
+`order_items`. `servers` mirrors
 `tables` (`GRANT SELECT, INSERT, UPDATE, DELETE` to `authenticated`,
-`GRANT ALL` to `service_role`; `-- REAZED-329`). Public storage bucket `branding` holds the
+`GRANT ALL` to `service_role`; `-- REAZED-329`). `orders` / `order_items`
+copy that staff-only convention (`CREATE TABLE IF NOT EXISTS`,
+`DROP POLICY IF EXISTS` + authenticated / `service_role` `FOR ALL`, matching
+table grants, no anon). `GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq`
+to `authenticated` (BIGSERIAL `nextval` is not covered by table grants). They
+are not added to `supabase_realtime`; KDS polls. Spec:
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-5. Public storage bucket `branding` holds the
 optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
 ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
 create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can call

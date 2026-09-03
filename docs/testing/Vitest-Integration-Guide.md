@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-03
 
 ## Prerequisites
 
@@ -21,7 +21,8 @@ Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
 `SUPABASE_SERVICE_ROLE_KEY`. `vitest.integration.config.ts` does not load
 dotenv or call Vite's `loadEnv`, and does not set `envPrefix` (which would
 only affect `import.meta.env`, not `process.env`, anyway) — it never reads
-`.env.local` at all. Strict runs need those vars exported in the shell.
+`.env.local` at all. Strict runs need those vars exported in the same shell
+from `npx supabase status` (local `127.0.0.1` URL + anon + service_role).
 
 ## Local-only mutating coverage (OH-SAVE)
 
@@ -77,6 +78,9 @@ pnpm test:integration tests/integration/scheduling/replace-operating-windows.int
   `tests/integration/reservations/review-email-pii.integ.test.ts` (service-role
   insert of nullable `reservations.email`; anon `select("email")` is empty +
   42501/PGRST301). RES-PRIV unchanged — no `GRANT SELECT`.
+- POS/KDS orders (AC-5):
+  `tests/integration/pos/orders-persistence.integ.test.ts` (service-role insert
+  - nested `order_items` select after local reset).
 
 ## Skip vs strict
 
