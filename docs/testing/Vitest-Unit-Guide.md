@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 
 ## Layout
 
@@ -25,7 +25,8 @@
   `tests/unit/marketing/super-admin-chrome.test.ts`
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
-  `tests/unit/floor/get-servers.test.ts`
+  `tests/unit/floor/get-servers.test.ts`,
+  `tests/unit/floor/pos-menu-availability.test.ts`
 
 ## Conventions
 

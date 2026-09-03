@@ -604,6 +604,75 @@ CREATE POLICY "Allow service_role full access to status_events"
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE status_events TO authenticated;
 GRANT ALL ON TABLE status_events TO service_role;
 
+-- ── orders / order_items (POS/KDS send-to-kitchen) ────────────────────────────
+-- REAZED-312: persist kitchen tickets so a local reset provisions the schema
+-- that createKitchenOrder / getActiveKitchenOrders / updateKitchenOrderStatus
+-- already use.
+CREATE TABLE IF NOT EXISTS orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_number BIGSERIAL NOT NULL,
+  table_id UUID REFERENCES tables(id),
+  table_label TEXT NOT NULL,
+  server_name TEXT NOT NULL,
+  subtotal NUMERIC NOT NULL DEFAULT 0,
+  tax NUMERIC NOT NULL DEFAULT 0,
+  total NUMERIC NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'new'
+    CHECK (status IN ('new', 'preparing', 'ready', 'completed', 'cancelled', 'voided')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  menu_item_id TEXT NOT NULL,
+  item_name TEXT NOT NULL,
+  unit_price NUMERIC NOT NULL DEFAULT 0,
+  quantity INT NOT NULL CHECK (quantity BETWEEN 1 AND 99),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow authenticated full access to orders" ON orders;
+CREATE POLICY "Allow authenticated full access to orders"
+  ON orders FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow service_role full access to orders" ON orders;
+CREATE POLICY "Allow service_role full access to orders"
+  ON orders FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow authenticated full access to order_items" ON order_items;
+CREATE POLICY "Allow authenticated full access to order_items"
+  ON order_items FOR ALL
+  TO authenticated
+  USING (true)
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow service_role full access to order_items" ON order_items;
+CREATE POLICY "Allow service_role full access to order_items"
+  ON order_items FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE orders TO authenticated;
+GRANT ALL ON TABLE orders TO service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE order_items TO authenticated;
+GRANT ALL ON TABLE order_items TO service_role;
+-- BIGSERIAL nextval is not covered by table grants; match authenticated/service_role.
+GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq TO authenticated;
+GRANT ALL ON SEQUENCE orders_order_number_seq TO service_role;
+
 DO $$
 BEGIN
   BEGIN

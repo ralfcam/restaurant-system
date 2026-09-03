@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 
 ## Current state
 
@@ -10,7 +10,9 @@
   CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; RES-PRIV
   insert-only, no `GRANT SELECT`), `menu_items`,
   `restaurant_settings`, public `branding` storage bucket, `servers` (FP-14,
-  `-- REAZED-329`, after the `tables` GRANT block), and booking
+  `-- REAZED-329`, after the `tables` GRANT block), `orders` / `order_items`
+  (staff-only RLS/grants like `tables` / `servers`; `GRANT USAGE, SELECT` on
+  `orders_order_number_seq`; not in `supabase_realtime`), and booking
   trigger `enforce_booking_rules`. `restaurant_settings.review_email_*`,
   `review_email_sends`, and `reservations.completed_at` are **not** in schema
   yet. Linked/remote also has
@@ -52,8 +54,8 @@
   `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
   cron job auth, marketing page. `tests/unit/auth/` — staff and super-admin claim gates
   plus seed `raw_app_meta_data` pins.
-- **Mocks:** `lib/data.ts` still holds MVP fixtures for tables, reservations UI
-  samples, and POS/KDS tickets not yet persisted in Postgres. POS server names
+- **Mocks:** `lib/data.ts` still holds MVP fixtures for tables and reservations UI
+  samples. Kitchen tickets persist in `orders` / `order_items`. POS server names
   are no longer a `SERVERS` constant there — they come from `getServers()`.
 
 ## Personas (stable IDs)

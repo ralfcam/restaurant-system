@@ -129,4 +129,20 @@ describe("floor tables schema and live surfaces", () => {
     const layout = await import("@/lib/floor/layout")
     expect(layout.shouldOpenMobileInspector(1023)).toBe(true)
   })
+
+  it("baseline persists orders and order_items for POS/KDS send-to-kitchen", () => {
+    const baseline = read("supabase/migrations/00000000000000_baseline.sql")
+    expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS orders/)
+    expect(baseline).toMatch(/order_number\s+(BIG)?SERIAL/)
+    expect(baseline).toMatch(/table_id UUID REFERENCES tables/)
+    expect(baseline).toMatch(
+      /status IN \('new',\s*'preparing',\s*'ready',\s*'completed',\s*'cancelled',\s*'voided'\)/,
+    )
+    expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS order_items/)
+    expect(baseline).toMatch(/order_id UUID NOT NULL REFERENCES orders/)
+    expect(baseline).toMatch(/Allow authenticated full access to orders/)
+    expect(baseline).toMatch(/Allow authenticated full access to order_items/)
+    expect(baseline).toMatch(/GRANT ALL ON TABLE orders TO service_role/)
+    expect(baseline).toMatch(/GRANT ALL ON TABLE order_items TO service_role/)
+  })
 })

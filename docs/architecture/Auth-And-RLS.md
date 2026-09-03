@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-03
 
 ## Auth flow
 
@@ -57,9 +57,16 @@ Every guest-facing table must have RLS **enabled** and **forced** where specs re
 Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (single
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
-`menu_items`, `restaurant_settings`, `tables`, `servers`. `servers` mirrors
+`menu_items`, `restaurant_settings`, `tables`, `servers`, `orders`,
+`order_items`. `servers` mirrors
 `tables` (`GRANT SELECT, INSERT, UPDATE, DELETE` to `authenticated`,
-`GRANT ALL` to `service_role`; `-- REAZED-329`). Public storage bucket `branding` holds the
+`GRANT ALL` to `service_role`; `-- REAZED-329`). `orders` / `order_items`
+copy that staff-only convention (`CREATE TABLE IF NOT EXISTS`,
+`DROP POLICY IF EXISTS` + authenticated / `service_role` `FOR ALL`, matching
+table grants, no anon). `GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq`
+to `authenticated` (BIGSERIAL `nextval` is not covered by table grants). They
+are not added to `supabase_realtime`; KDS polls. Spec:
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-5. Public storage bucket `branding` holds the
 optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
 ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
 create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can call
@@ -82,8 +89,10 @@ Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
 (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges
 `GRANT ALL ON TABLE restaurant_settings TO service_role`. There is no authenticated
 `FOR ALL` policy (`DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"`;
-no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Identical
-GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql`,
+no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Staff settings
+writes include `setChefsPicksEnabled` via the service role after the SA-8 staff
+gate. Identical GRANT/REVOKE, GRANT ALL, and DROP live in
+`00000000000000_baseline.sql`,
 `20260818155638_restaurant_branding_cms.sql`,
 `20260825140000_operating_windows_privilege.sql`, and
 `20260902214500_restaurant_settings_privilege.sql` (apply the dated file when
