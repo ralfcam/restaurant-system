@@ -7,6 +7,8 @@
 -- REAZED-297: GRANT ALL ON TABLE operating_windows, blocked_dates,
 -- reservations, menu_items TO service_role
 -- (default table privileges are REFERENCES/TRIGGER/TRUNCATE only).
+-- REAZED-298: BC-1 — restaurant_settings SELECT-only for anon/authenticated;
+-- drop the authenticated FOR ALL policy on the forked remote.
 
 DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows" ON operating_windows;
 
@@ -33,5 +35,12 @@ REVOKE INSERT, UPDATE, DELETE ON TABLE blocked_dates FROM anon, authenticated;
 -- for anon, authenticated on menu_items.
 GRANT SELECT ON TABLE menu_items TO anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE menu_items FROM anon, authenticated;
+
+-- REAZED-298: BC-1 — drop authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE);
+-- GRANT SELECT / REVOKE INSERT, UPDATE, DELETE for anon, authenticated.
+DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings" ON restaurant_settings;
+GRANT SELECT ON TABLE restaurant_settings TO anon, authenticated;
+REVOKE INSERT, UPDATE, DELETE ON TABLE restaurant_settings FROM anon, authenticated;
+GRANT ALL ON TABLE restaurant_settings TO service_role;
 
 NOTIFY pgrst, 'reload schema';

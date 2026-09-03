@@ -78,6 +78,18 @@ GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql` and
 remotes per [../runbooks/deploy.md](../runbooks/deploy.md); do not `db push`).
 Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
 
+`restaurant_settings` is SELECT-only for `anon` and `authenticated`
+(`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges
+`GRANT ALL ON TABLE restaurant_settings TO service_role`. There is no authenticated
+`FOR ALL` policy (`DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"`;
+no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Identical
+GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql`,
+`20260818155638_restaurant_branding_cms.sql`,
+`20260825140000_operating_windows_privilege.sql`, and
+`20260902214500_restaurant_settings_privilege.sql` (apply the dated file when
+`20260825140000` is already recorded per [../runbooks/deploy.md](../runbooks/deploy.md);
+do not `db push`). Spec: [../specs/branding-cms.md](../specs/branding-cms.md) BC-1.
+
 Early-baseline siblings `blocked_dates`, `reservations`, and `menu_items` also
 `GRANT ALL ON TABLE <t> TO service_role` in those same two files (after each
 table's service_role RLS block in baseline; before `NOTIFY pgrst` in the
