@@ -12,12 +12,12 @@ import {
   shouldRenderSiteHeader,
   shouldUseLightNavText,
 } from "@/lib/site-chrome"
+import { isActiveNavPath } from "@/lib/i18n/localized-pathname"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { BrandMark } from "@/components/site/brand-mark"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { LanguageSwitcher } from "@/components/site/language-switcher"
-import { isActiveNavPath } from "@/lib/i18n/localized-pathname"
 
 export function SiteHeader({
   overDarkBackground = true,
