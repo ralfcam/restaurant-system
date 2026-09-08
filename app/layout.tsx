@@ -1,7 +1,9 @@
 import { Analytics } from "@vercel/analytics/next"
 import type { Metadata, Viewport } from "next"
+import { headers } from "next/headers"
 import { Inter, Geist_Mono, Playfair_Display } from "next/font/google"
 import { Toaster } from "@/components/ui/sonner"
+import { resolveDocumentLang } from "@/lib/i18n/document-lang"
 import "./globals.css"
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] })
@@ -47,14 +49,42 @@ export const viewport: Viewport = {
   ],
 }
 
-export default function RootLayout({
+function pathnameFromRequestHeaders(headerStore: Headers): string {
+  const raw =
+    headerStore.get("x-url") ??
+    headerStore.get("x-pathname") ??
+    headerStore.get("next-url")
+
+  if (raw) {
+    if (raw.startsWith("/")) {
+      return raw.split("?")[0] || "/"
+    }
+
+    try {
+      return new URL(raw).pathname
+    } catch {
+      // fall through to next-intl / staff defaults
+    }
+  }
+
+  const intlLocale = headerStore.get("x-next-intl-locale")
+  if (intlLocale === "en") return "/en"
+  if (intlLocale === "fr") return "/"
+  // Staff / auth skip locale middleware, so the intl header is absent.
+  return "/admin"
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const headerStore = await headers()
+  const lang = resolveDocumentLang(pathnameFromRequestHeaders(headerStore))
+
   return (
     <html
-      lang="fr"
+      lang={lang}
       className={`${inter.variable} ${geistMono.variable} ${playfair.variable} bg-background`}
     >
       <body className="font-sans antialiased">
