@@ -40,3 +40,17 @@ Suggested review order:
   - `components/site/site-header.tsx:77` `pathname === "/menu"`
 
 Reusable pattern: After chrome moves to `t("key")`, delete the leftover hardcoded-label array and one-item `.map` — inline the single Link so dead English cannot drift from the catalog.
+
+## C3
+
+Suggested review order:
+- Rendered FR/EN nav chrome **[public-api]**
+  - `tests/e2e/localization.spec.ts:58-77` — `@p1` `@guest` button names
+  - `components/site/site-header.tsx:108` `{t("staffLogin")}`
+  - `components/site/site-header.tsx:110` `{t("bookTable")}`
+
+Reusable pattern: Guest header Staff/Book CTAs are shadcn `Button` + `render={<Link>}` (`role=button`). E2e AC-11 locators must use `getByRole('button')`, not `link`.
+
+C3-green: skipped — C2 already rendered catalogs; e2e already-GREEN after locator fix (orchestrator verified).
+
+C3-refactor re-verify: `pnpm exec playwright test tests/e2e/localization.spec.ts --project=chromium -g "navbar chrome"` → 1 passed.
