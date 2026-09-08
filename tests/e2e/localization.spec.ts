@@ -54,4 +54,26 @@ test.describe("site localization", () => {
       page.locator("main [data-testid='language-switcher']"),
     ).toHaveCount(0)
   })
+
+  test(
+    "navbar chrome follows locale catalogs",
+    { tag: ["@p1", "@guest"] },
+    async ({ page }) => {
+      await page.goto("/")
+      await expect(
+        page.getByRole("link", { name: "Connexion personnel" }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole("link", { name: "Réserver une table" }),
+      ).toBeVisible()
+
+      await page.goto("/en")
+      await expect(
+        page.getByRole("link", { name: "Staff login" }),
+      ).toBeVisible()
+      await expect(
+        page.getByRole("link", { name: "Book a table" }),
+      ).toBeVisible()
+    },
+  )
 })

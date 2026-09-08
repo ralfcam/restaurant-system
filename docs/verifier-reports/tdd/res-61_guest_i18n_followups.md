@@ -18,3 +18,25 @@ Suggested review order:
   - `tests/unit/i18n/site-header-locale-nav.test.ts:17-28`
 
 Reusable pattern: Guest chrome uses next-intl `Link` from `@/i18n/navigation`; staff `/admin` uses aliased `NextLink` from `next/link` so locale prefixing cannot produce `/en/admin` (same split as the homepage footer).
+
+## C2
+
+Suggested review order:
+- Catalog-driven chrome **[public-api]**
+  - `components/site/site-header.tsx:6` `useTranslations` from `next-intl`
+  - `components/site/site-header.tsx:25` `useTranslations("nav")`
+  - `components/site/site-header.tsx:80` `{t("menu")}` desktop
+  - `components/site/site-header.tsx:108` `{t("staffLogin")}` desktop
+  - `components/site/site-header.tsx:110` `{t("bookTable")}` desktop
+  - `components/site/site-header.tsx:124` `{t("openMenu")}` sr-only
+  - `components/site/site-header.tsx:133` `{t("menu")}` mobile
+  - `components/site/site-header.tsx:147` `{t("staffLogin")}` mobile
+  - `components/site/site-header.tsx:155` `{t("bookTable")}` mobile
+- Inlined guest Menu href (locale `Link`, no leftover list)
+  - `components/site/site-header.tsx:72-81` desktop `/menu`
+  - `components/site/site-header.tsx:128-134` mobile `/menu`
+- Locale-unaware active compare (leftover, C4) **[public-api]**
+  - `components/site/site-header.tsx:5` `usePathname` from `next/navigation`
+  - `components/site/site-header.tsx:77` `pathname === "/menu"`
+
+Reusable pattern: After chrome moves to `t("key")`, delete the leftover hardcoded-label array and one-item `.map` — inline the single Link so dead English cannot drift from the catalog.
