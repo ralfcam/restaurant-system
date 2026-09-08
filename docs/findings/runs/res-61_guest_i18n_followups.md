@@ -28,6 +28,7 @@ Open leftover items deferred from RES-61 (not later criteria in this plan).
 - [ ] Nested staff and `/en/**` paths are not pinned · `tests/unit/i18n/document-lang.test.ts` · AC-16 requires prefix trees; this case only hits exact roots, so an exact-match helper would still pass · med · (found: tdd/res-61_guest_i18n_followups/C5/red)
 - [ ] C5 is source-only · `tests/unit/i18n/document-lang.test.ts` · no rendered check that `/en` or `/admin` actually emit `lang="en"`; C6–C7 will not add that · med · (found: tdd/res-61_guest_i18n_followups/C5/green)
 - [ ] Source pin accepts a constant pathname · `tests/unit/i18n/document-lang.test.ts:21-23` · regex only requires `resolveDocumentLang(` and `lang={`; `resolveDocumentLang("/")` (always `fr`) would still pass · med · (found: tdd/res-61_guest_i18n_followups/C5/refactor)
+- [ ] AC-14 is source-scanned only · `tests/unit/i18n/site-header-sheet-switcher.test.ts` · no click/e2e check that the sheet actually closes after a locale switch · med · (found: tdd/res-61_guest_i18n_followups/C6/green)
 
 ## product-gaps
 

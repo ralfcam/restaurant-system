@@ -136,6 +136,7 @@ export function SiteHeader({
               <LanguageSwitcher
                 variant="ghost"
                 className="w-full justify-start text-foreground"
+                onClick={() => setMobileMenuOpen(false)}
               />
               <div className="border-t pt-4">
                 <Button
