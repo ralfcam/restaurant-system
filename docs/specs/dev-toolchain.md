@@ -105,12 +105,14 @@ pnpm override / Cloud Agent install pin.
    to a `pnpm@x.y.z` pin (shipped: `pnpm@12.3.4`). The `hono` `4.12.25`
    override MUST live in `pnpm-workspace.yaml` `overrides`. `package.json`
    MUST NOT contain a `pnpm` field (`pnpm.overrides` is ignored by pnpm 12).
+   `pnpm-workspace.yaml` `allowBuilds` MUST be `true` for `@parcel/watcher`,
+   `@swc/core`, `esbuild`, `msw`, `sharp`, and `unrs-resolver`.
    `.cursor/environment.json` `install` MUST include `corepack prepare --activate`
    and `pnpm install --frozen-lockfile`, and MUST NOT use `--no-frozen-lockfile`.
    - Regression guard: `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`
      asserts the `packageManager` pin, absent `package.json` `pnpm` field,
-     `pnpm-workspace.yaml` / lockfile `hono: 4.12.25` override, and the
-     environment `install` substrings.
+     `pnpm-workspace.yaml` / lockfile `hono: 4.12.25` override, those
+     `allowBuilds` keys, and the environment `install` substrings.
 
 ## Implementation trace (non-normative)
 
@@ -126,12 +128,12 @@ pnpm override / Cloud Agent install pin.
 | G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`)                                                             | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts" |
 | G-W1      | `next.config.mjs` (`projectRoot` from `fileURLToPath(import.meta.url)`; `turbopack.root` + `outputFileTracingRoot`)                                                                                                                      | `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`                                                        |
 | G-P1      | root `proxy.ts` (`export async function proxy`); `app/admin/layout.tsx` comment; `lib/supabase/proxy.ts` unchanged                                                                                                                       | `tests/unit/dev-toolchain/proxy-convention.test.ts`; `tests/unit/i18n/middleware-scope.test.ts`                    |
-| G-O1      | `package.json` `packageManager` `pnpm@12.3.4`; `pnpm-workspace.yaml` `overrides.hono` `4.12.25`; `.cursor/environment.json` `install` `corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile` | `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`                                                        |
+| G-O1      | `package.json` `packageManager` `pnpm@12.3.4`; `pnpm-workspace.yaml` `overrides.hono` `4.12.25` + `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`, `unrs-resolver`); `.cursor/environment.json` `install` `corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile` | `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`                                                        |
 
 ## References
 
 - [`package.json`](../../package.json) — `packageManager` `pnpm@12.3.4`
-- [`pnpm-workspace.yaml`](../../pnpm-workspace.yaml) — `overrides.hono` `4.12.25`
+- [`pnpm-workspace.yaml`](../../pnpm-workspace.yaml) — `overrides.hono` `4.12.25`; `allowBuilds` for six native-script packages
 - [`.cursor/environment.json`](../../.cursor/environment.json) — Cloud Agent `install`
 - [`next.config.mjs`](../../next.config.mjs)
 - [`proxy.ts`](../../proxy.ts) — Next 16 request boundary (`export async function proxy`); distinct from [`lib/supabase/proxy.ts`](../../lib/supabase/proxy.ts)
