@@ -68,3 +68,17 @@ Suggested review order:
   - `components/site/site-header.tsx:15` — helper with other `@/lib` imports
 
 Reusable pattern: Keep `stripLocalePrefix` private and export `isActiveNavPath(pathname, href)` next to `localizedPathname` so language-switcher rewrite and header active-state share one strip; compare the stripped path to the unprefixed href (do not use `pathname === "/menu"` when `usePathname` is from `next/navigation`).
+
+## C5
+
+Suggested review order:
+- Document-lang contract — `lib/i18n/document-lang.ts:3` [public-api]
+- Document-lang contract — `lib/i18n/document-lang.ts:4-12`
+- Root html lang wiring — `app/layout.tsx:82` [public-api]
+- Root html lang wiring — `app/layout.tsx:83`
+- Root html lang wiring — `app/layout.tsx:86-87` [public-api]
+- Pathname-from-headers fallback — `app/layout.tsx:52-56`
+- Pathname-from-headers fallback — `app/layout.tsx:70-74` [public-api]
+- Import grouping — `app/layout.tsx:1-7`
+
+Reusable pattern: Root `<html lang>` stays a pure `resolveDocumentLang(pathname)` plus an in-layout `headers()` reader (`X-NEXT-INTL-LOCALE` for public routes, synthetic staff path when locale middleware is skipped); do not extract the header reader until a second caller exists.

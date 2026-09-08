@@ -1,9 +1,9 @@
 import { Analytics } from "@vercel/analytics/next"
 import type { Metadata, Viewport } from "next"
-import { headers } from "next/headers"
 import { Inter, Geist_Mono, Playfair_Display } from "next/font/google"
-import { Toaster } from "@/components/ui/sonner"
+import { headers } from "next/headers"
 import { resolveDocumentLang } from "@/lib/i18n/document-lang"
+import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
 const inter = Inter({ variable: "--font-inter", subsets: ["latin"] })
