@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import NextLink from "next/link"
 import { usePathname } from "next/navigation"
+import { useTranslations } from "next-intl"
 import { Link } from "@/i18n/navigation"
 import { LockKeyhole, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -23,6 +24,7 @@ export function SiteHeader({
   overDarkBackground = true,
 }: { overDarkBackground?: boolean } = {}) {
   const pathname = usePathname()
+  const t = useTranslations("nav")
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { logoUrl } = useRestaurantLogo()
@@ -79,7 +81,7 @@ export function SiteHeader({
                 pathname === link.href && "font-bold",
               )}
             >
-              {link.label}
+              {t("menu")}
             </Link>
           ))}
         </nav>
@@ -103,14 +105,14 @@ export function SiteHeader({
             render={<NextLink href="/admin" />}
           >
             <LockKeyhole className="size-3.5" />
-            Staff login
+            {t("staffLogin")}
           </Button>
           <Button
             size="sm"
             className="rounded-full px-5 text-xs font-medium tracking-wide"
             render={<Link href="/#reserve" />}
           >
-            Book a table
+            {t("bookTable")}
           </Button>
         </div>
 
@@ -124,7 +126,7 @@ export function SiteHeader({
             )}
           >
             <Menu className="size-5" />
-            <span className="sr-only">Open menu</span>
+            <span className="sr-only">{t("openMenu")}</span>
           </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <nav className="flex flex-col gap-4 mt-8">
@@ -135,7 +137,7 @@ export function SiteHeader({
                   className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  {link.label}
+                  {t("menu")}
                 </Link>
               ))}
               <LanguageSwitcher
@@ -150,7 +152,7 @@ export function SiteHeader({
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <LockKeyhole className="size-4 mr-2" />
-                  Staff login
+                  {t("staffLogin")}
                 </Button>
               </div>
               <Button
@@ -158,7 +160,7 @@ export function SiteHeader({
                 render={<Link href="/#reserve" />}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Book a table
+                {t("bookTable")}
               </Button>
             </nav>
           </SheetContent>
