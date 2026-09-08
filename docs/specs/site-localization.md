@@ -1,7 +1,7 @@
 # Site localization
 
 **Status:** Draft  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-08
 
 ## Scope
 
@@ -59,6 +59,34 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
     (shared navbar), not inside page `<main>`. It appears in the desktop actions
     region and the mobile nav sheet. Structural regression: `site-header.tsx`
     imports and renders `<LanguageSwitcher>`.
+11. **Header chrome from catalogs** — `SiteHeader` renders the Menu link, Staff
+    login, Book a table, and the mobile-trigger sr-only label from `nav.menu`,
+    `nav.staffLogin`, `nav.bookTable`, and `nav.openMenu` — not hardcoded
+    English. On `/` the distinguishing strings are the French catalog values
+    (`Connexion personnel`, `Réserver une table`, `Ouvrir le menu`). On `/en`
+    they are the English catalog values (`Staff login`, `Book a table`,
+    `Open menu`). `nav.menu` is `"Menu"` in both catalogs and is not a
+    locale-distinguishing assertion.
+12. **Locale-aware guest header links** — Logo (`/`), Menu (`/menu`), and Book
+    a table (`/#reserve`) use next-intl `Link` from `i18n/navigation.ts` (or
+    equivalent `localizedPathname` hrefs). An EN visitor on `/en` clicking Menu
+    lands on `/en/menu`; logo on `/en`; Book on `/en#reserve` or `/en/#reserve`.
+    Staff login (`/admin`) stays unprefixed and MUST NOT become `/en/admin`
+    (AC-8).
+13. **Localized active nav** — The Menu link is active when the locale-stripped
+    pathname is `/menu` (both `/menu` and `/en/menu`). It is not active on `/`
+    or `/en`.
+14. **Mobile sheet closes on language switch** — Activating `LanguageSwitcher`
+    inside the mobile nav sheet closes the sheet (same as Menu / Staff login /
+    Book a table already do).
+15. **Dual switcher regions** — The AC-10 structural test asserts one
+    `LanguageSwitcher` in the desktop actions region and a second in the mobile
+    nav sheet — not a single `<LanguageSwitcher` regex hit.
+16. **Document language follows route** — A helper `resolveDocumentLang(pathname)`
+    returns `fr` for unprefixed public paths (`/`, `/menu`), `en` for `/en` and
+    `/en/**`, and `en` for staff/auth paths (`/admin/**`, `/pos/**`, `/kds/**`,
+    `/auth/**`). The root `<html lang>` uses that value so `/en` is not
+    announced as French and staff chrome is not announced as French.
 
 ## Implementation trace (non-normative)
 
