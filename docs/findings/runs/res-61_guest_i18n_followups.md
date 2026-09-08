@@ -20,4 +20,4 @@ Open leftover items deferred from RES-61 (not later criteria in this plan).
 ## product-gaps
 
 - [ ] Reservation-widget toasts/errors still English · `components/site/reservation-widget.tsx` (`Time slot unavailable`, `Reservation confirmed`, `Select a date`) · Spec chrome keys do not include submit/error copy; EN guest on `/` still sees English toasts · med · spec: docs/specs/site-localization.md · (found: tdd/res-61_guest_i18n_followups/plan)
-- [ ] Unused `nav.staff` catalog key · `messages/en.json` / `messages/fr.json` · `"Staff"` / `"Personnel"` is not in AC-11 and has no caller · low · spec: docs/specs/site-localization.md · (found: tdd/res-61_guest_i18n_followups/C2/red)
+- [ ] Unused `nav.staff` catalog key · `messages/en.json:4` / `messages/fr.json:4` · `"Staff"` / `"Personnel"` is not in AC-11 and `SiteHeader` never reads it · low · spec: docs/specs/site-localization.md · (found: tdd/res-61_guest_i18n_followups/C2/green)

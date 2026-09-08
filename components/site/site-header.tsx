@@ -18,8 +18,6 @@ import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { LanguageSwitcher } from "@/components/site/language-switcher"
 
-const LINKS = [{ href: "/menu", label: "Menu" }]
-
 export function SiteHeader({
   overDarkBackground = true,
 }: { overDarkBackground?: boolean } = {}) {
@@ -71,19 +69,16 @@ export function SiteHeader({
 
         {/* Desktop Nav — absolutely centered */}
         <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-0.5 md:flex">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-300 hover:underline",
-                navTextClass,
-                pathname === link.href && "font-bold",
-              )}
-            >
-              {t("menu")}
-            </Link>
-          ))}
+          <Link
+            href="/menu"
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-300 hover:underline",
+              navTextClass,
+              pathname === "/menu" && "font-bold",
+            )}
+          >
+            {t("menu")}
+          </Link>
         </nav>
 
         {/* Desktop Actions — right third */}
@@ -130,16 +125,13 @@ export function SiteHeader({
           </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <nav className="flex flex-col gap-4 mt-8">
-              {LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {t("menu")}
-                </Link>
-              ))}
+              <Link
+                href="/menu"
+                className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {t("menu")}
+              </Link>
               <LanguageSwitcher
                 variant="ghost"
                 className="w-full justify-start text-foreground"
