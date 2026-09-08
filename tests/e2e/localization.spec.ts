@@ -61,18 +61,18 @@ test.describe("site localization", () => {
     async ({ page }) => {
       await page.goto("/")
       await expect(
-        page.getByRole("link", { name: "Connexion personnel" }),
+        page.getByRole("button", { name: "Connexion personnel" }),
       ).toBeVisible()
       await expect(
-        page.getByRole("link", { name: "Réserver une table" }),
+        page.getByRole("button", { name: "Réserver une table" }),
       ).toBeVisible()
 
       await page.goto("/en")
       await expect(
-        page.getByRole("link", { name: "Staff login" }),
+        page.getByRole("button", { name: "Staff login" }),
       ).toBeVisible()
       await expect(
-        page.getByRole("link", { name: "Book a table" }),
+        page.getByRole("button", { name: "Book a table" }),
       ).toBeVisible()
     },
   )
