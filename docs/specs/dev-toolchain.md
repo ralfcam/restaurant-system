@@ -1,13 +1,14 @@
 # Dev toolchain
 
 **Status:** Draft  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-08
 
 ## Scope
 
 Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 [`docs/testing/Pyramid-Overview.md`](../testing/Pyramid-Overview.md):
-`pnpm lint`, `pnpm typecheck`, `pnpm exec prettier` / `pnpm format`.
+`pnpm lint`, `pnpm typecheck`, `pnpm exec prettier` / `pnpm format`, plus the
+pnpm override / Cloud Agent install pin.
 
 ## Acceptance criteria
 
@@ -100,24 +101,40 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
      `tests/unit/dev-toolchain/proxy-convention.test.ts` asserts `proxy.ts`
      exists at repo root and `middleware.ts` does not.
 
+6. **G-O1 — pnpm override home** — `package.json` MUST set `packageManager`
+   to a `pnpm@x.y.z` pin (shipped: `pnpm@12.3.4`). The `hono` `4.12.25`
+   override MUST live in `pnpm-workspace.yaml` `overrides`. `package.json`
+   MUST NOT contain a `pnpm` field (`pnpm.overrides` is ignored by pnpm 12).
+   `pnpm-workspace.yaml` `allowBuilds` MUST be `true` for `@parcel/watcher`,
+   `@swc/core`, `esbuild`, `msw`, `sharp`, and `unrs-resolver`.
+   `.cursor/environment.json` `install` MUST include `corepack prepare --activate`
+   and `pnpm install --frozen-lockfile`, and MUST NOT use `--no-frozen-lockfile`.
+   - Regression guard: `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`
+     asserts the `packageManager` pin, absent `package.json` `pnpm` field,
+     `pnpm-workspace.yaml` / lockfile `hono: 4.12.25` override, those
+     `allowBuilds` keys, and the environment `install` substrings.
+
 ## Implementation trace (non-normative)
 
-| Criterion | Shipped in                                                                                                                                                                   | Tests                                                                                                              |
-| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| G-T1 C1   | `package.json` / `pnpm-lock.yaml` declare `swr@2.5.1`; `node_modules/swr` on disk (no app source)                                                                            | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "swr is installed so TypeScript can resolve the module"   |
-| G-T1 C2   | `hooks/use-chefs-picks.ts` (`items: MenuItemRow[]`); `app/[locale]/page.tsx` (`featured.map((item: MenuItemRow)`)                                                            | `tests/unit/site/chefs-picks-types.test.ts` → "homepage chefs picks map callback is MenuItemRow"                   |
-| G-T1 C3   | `lib/reservations/auto-assign.ts` — `FloorTableView` includes `id: string`, `x: number`, `y: number`; `AssignableTable` stays x/y-free                                       | `tests/unit/floor/layout.test.ts` → "floor table view type includes id x y for spreadOverlappingTables"            |
-| G-T1 C4   | `next.config.mjs` (`typescript` key omitted; Next default fail-closed)                                                                                                       | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "next config does not ignore TypeScript build errors"     |
-| G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                                                           | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"      |
-| G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                  | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                |
-| G-L1 C3   | `eslint.config.mjs` `linterOptions.reportUnusedDisableDirectives: "error"`                                                                                                   | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "errors (not warns) on an unused eslint-disable directive"     |
-| G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`) | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts" |
-| G-W1      | `next.config.mjs` (`projectRoot` from `fileURLToPath(import.meta.url)`; `turbopack.root` + `outputFileTracingRoot`)                                                          | `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`                                                        |
-| G-P1      | root `proxy.ts` (`export async function proxy`); `app/admin/layout.tsx` comment; `lib/supabase/proxy.ts` unchanged                                                           | `tests/unit/dev-toolchain/proxy-convention.test.ts`; `tests/unit/i18n/middleware-scope.test.ts`                    |
+| Criterion | Shipped in                                                                                                                                                                                                                               | Tests                                                                                                              |
+| --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| G-T1 C1   | `package.json` / `pnpm-lock.yaml` declare `swr@2.5.1`; `node_modules/swr` on disk (no app source)                                                                                                                                        | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "swr is installed so TypeScript can resolve the module"   |
+| G-T1 C2   | `hooks/use-chefs-picks.ts` (`items: MenuItemRow[]`); `app/[locale]/page.tsx` (`featured.map((item: MenuItemRow)`)                                                                                                                        | `tests/unit/site/chefs-picks-types.test.ts` → "homepage chefs picks map callback is MenuItemRow"                   |
+| G-T1 C3   | `lib/reservations/auto-assign.ts` — `FloorTableView` includes `id: string`, `x: number`, `y: number`; `AssignableTable` stays x/y-free                                                                                                   | `tests/unit/floor/layout.test.ts` → "floor table view type includes id x y for spreadOverlappingTables"            |
+| G-T1 C4   | `next.config.mjs` (`typescript` key omitted; Next default fail-closed)                                                                                                                                                                   | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "next config does not ignore TypeScript build errors"     |
+| G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                                                                                                                       | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"      |
+| G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                                                                              | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                |
+| G-L1 C3   | `eslint.config.mjs` `linterOptions.reportUnusedDisableDirectives: "error"`                                                                                                                                                               | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "errors (not warns) on an unused eslint-disable directive"     |
+| G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`)                                                             | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts" |
+| G-W1      | `next.config.mjs` (`projectRoot` from `fileURLToPath(import.meta.url)`; `turbopack.root` + `outputFileTracingRoot`)                                                                                                                      | `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`                                                        |
+| G-P1      | root `proxy.ts` (`export async function proxy`); `app/admin/layout.tsx` comment; `lib/supabase/proxy.ts` unchanged                                                                                                                       | `tests/unit/dev-toolchain/proxy-convention.test.ts`; `tests/unit/i18n/middleware-scope.test.ts`                    |
+| G-O1      | `package.json` `packageManager` `pnpm@12.3.4`; `pnpm-workspace.yaml` `overrides.hono` `4.12.25` + `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`, `unrs-resolver`); `.cursor/environment.json` `install` `corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile` | `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`                                                        |
 
 ## References
 
-- [`package.json`](../../package.json)
+- [`package.json`](../../package.json) — `packageManager` `pnpm@12.3.4`
+- [`pnpm-workspace.yaml`](../../pnpm-workspace.yaml) — `overrides.hono` `4.12.25`; `allowBuilds` for six native-script packages
+- [`.cursor/environment.json`](../../.cursor/environment.json) — Cloud Agent `install`
 - [`next.config.mjs`](../../next.config.mjs)
 - [`proxy.ts`](../../proxy.ts) — Next 16 request boundary (`export async function proxy`); distinct from [`lib/supabase/proxy.ts`](../../lib/supabase/proxy.ts)
 - [`components/ui/dialog.tsx`](../../components/ui/dialog.tsx) — Base UI `render` pattern

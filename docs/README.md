@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-08
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -25,6 +25,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Integration / RLS                 | [testing/Vitest-Integration-Guide.md](./testing/Vitest-Integration-Guide.md)                                                    |
 | E2E                               | [testing/E2E-Playwright-Guide.md](./testing/E2E-Playwright-Guide.md)                                                            |
 | Patterns & recipes                | [testing/Design-And-Patterns.md](./testing/Design-And-Patterns.md)                                                              |
+| Dev toolchain                     | [specs/dev-toolchain.md](./specs/dev-toolchain.md)                                                                              |
 | Seeds & fixtures                  | [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md)                                                              |
 | Deploy                            | [runbooks/deploy.md](./runbooks/deploy.md)                                                                                      |
 | Product scope                     | [PRD/restaurant-system-PRD.md](./PRD/restaurant-system-PRD.md)                                                                  |
@@ -44,6 +45,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Admin-managed logo / branding CMS | `specs/branding-cms.md`            | `specs/site-chrome.md` (empty-by-default mark)           |
 | Post-visit review email           | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)    |
 | Staff authorization (JWT claim)   | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                           |
+| Dev toolchain                     | `specs/dev-toolchain.md`           | `runbooks/deploy.md` (Cloud Agent install)               |
 | Test how-to                       | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes            |
 
 ## Plan → doc traceability

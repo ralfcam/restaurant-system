@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-08
 
 ## Vercel
 
@@ -417,6 +417,16 @@ npx supabase db lint --linked --fail-on error
 ```
 
 Use `--local` instead of `--linked` when testing against the local stack.
+
+## Cloud Agent install
+
+`.cursor/environment.json` `install` is
+`corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile`.
+`package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
+and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
+`unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`
+`pnpm.overrides` (pnpm 12 ignores that field). Spec: [../specs/dev-toolchain.md](../specs/dev-toolchain.md)
+G-O1.
 
 ## Pre-deploy checks
 

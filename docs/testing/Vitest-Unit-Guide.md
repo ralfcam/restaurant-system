@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-08
 
 ## Layout
 
@@ -23,6 +23,8 @@
   `tests/unit/scheduling/super-admin-chrome.test.ts`,
   `tests/unit/floor/super-admin-chrome.test.ts`,
   `tests/unit/marketing/super-admin-chrome.test.ts`
+- Dev toolchain: `tests/unit/dev-toolchain/` (G-T1/G-L1/G-F1/G-W1/G-P1/G-O1,
+  including `pnpm-overrides-toolchain.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
