@@ -12,7 +12,8 @@ Open leftover items deferred from RES-61 (not later criteria in this plan).
 
 ## test-debt
 
-(none)
+- [ ] Source-level `href="/admin"` does not prove AC-8 at runtime · `tests/unit/i18n/site-header-locale-nav.test.ts` / `components/site/site-header.tsx` · If Green wires staff login through next-intl `Link`, an EN visitor can still land on `/en/admin`; homepage already aliases `NextLink` for the footer staff console · med · (found: tdd/res-61_guest_i18n_followups/C1/red)
+- [ ] Homepage footer staff console has no AC-8 guard · `app/[locale]/page.tsx` footer `/admin` · Same must-stay-unprefixed rule as the header; C2–C7 do not add a test for this surface · low · (found: tdd/res-61_guest_i18n_followups/C1/red)
 
 ## product-gaps
 
