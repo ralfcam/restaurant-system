@@ -9,6 +9,8 @@ Open leftover items deferred from RES-61 (not later criteria in this plan).
 ## tech-debt
 
 - [ ] Header-visibility helper ignores locale-prefixed admin · `lib/site-chrome.ts:18` · `!pathname.startsWith("/admin")` would still show the guest header on `/en/admin` if staff login were ever wired through next-intl `Link` · low · (found: tdd/res-61_guest_i18n_followups/C1/refactor)
+- [ ] Root `headers()` makes the whole tree dynamic · `app/layout.tsx:82` · `await headers()` in the root layout opts every route, including staff chrome, out of static rendering · med · (found: tdd/res-61_guest_i18n_followups/C5/green)
+- [ ] Staff lang depends on a synthetic `/admin` pathname · `app/layout.tsx:73-74` · `proxy.ts` never sets `x-url`; if a public request also lacks `X-NEXT-INTL-LOCALE`, the page is announced as English · med · (found: tdd/res-61_guest_i18n_followups/C5/green)
 - [ ] Guest e2e cannot boot without Supabase keys · `lib/supabase/proxy.ts:10` · `createServerClient` runs on every request, so public i18n pages (and the navbar e2e) hard-depend on env even when no DB work is needed · med · (found: tdd/res-61_guest_i18n_followups/C3/red)
 - [ ] Prefixed default-locale path would not count as active · `lib/i18n/localized-pathname.ts:7-8` · `stripLocalePrefix` skips `fr`, so `isActiveNavPath("/fr/menu", "/menu")` is false; `as-needed` should not serve `/fr/menu` · low · (found: tdd/res-61_guest_i18n_followups/C4/refactor)
 
@@ -21,6 +23,8 @@ Open leftover items deferred from RES-61 (not later criteria in this plan).
 - [ ] C2 does not pin catalog key presence · `tests/unit/i18n/site-header-chrome.test.ts` · source greps `{t("…")}` only; a missing/typo’d `nav.*` key still passes unit; C3 covers distinguishing FR/EN strings, not `nav.menu` / `nav.openMenu` in both JSON files · low · (found: tdd/res-61_guest_i18n_followups/C2/refactor)
 - [ ] Source test does not lock `font-bold` to the helper result · `tests/unit/i18n/localized-pathname.test.ts:32-38` · asserts `isActiveNavPath(` exists and forbids `pathname === "/menu"`; a later edit could call the helper and drop `&& "font-bold"` · low · (found: tdd/res-61_guest_i18n_followups/C4/refactor)
 - [ ] AC-11 also distinguishes `Ouvrir le menu` / `Open menu` · `docs/specs/site-localization.md` AC-11 / `nav.openMenu` · C3 e2e and no later criterion assert those sr-only mobile-trigger strings · low · (found: tdd/res-61_guest_i18n_followups/C3/red)
+- [ ] Nested staff and `/en/**` paths are not pinned · `tests/unit/i18n/document-lang.test.ts` · AC-16 requires prefix trees; this case only hits exact roots, so an exact-match helper would still pass · med · (found: tdd/res-61_guest_i18n_followups/C5/red)
+- [ ] C5 is source-only · `tests/unit/i18n/document-lang.test.ts` · no rendered check that `/en` or `/admin` actually emit `lang="en"`; C6–C7 will not add that · med · (found: tdd/res-61_guest_i18n_followups/C5/green)
 
 ## product-gaps
 
