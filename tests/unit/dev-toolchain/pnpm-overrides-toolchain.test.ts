@@ -5,7 +5,9 @@ import { describe, expect, it } from "vitest"
 const repoRoot = process.cwd()
 
 function readPackageJson() {
-  return JSON.parse(readFileSync(path.join(repoRoot, "package.json"), "utf8")) as {
+  return JSON.parse(
+    readFileSync(path.join(repoRoot, "package.json"), "utf8"),
+  ) as {
     packageManager?: string
     pnpm?: { overrides?: Record<string, string> }
   }
@@ -23,6 +25,19 @@ describe("pnpm override home", () => {
       "utf8",
     )
     expect(workspace).toMatch(/overrides:\s*\n\s*hono:\s*4\.12\.25/)
+    expect(workspace).toMatch(/allowBuilds:/)
+    for (const pkgName of [
+      "@parcel/watcher",
+      "@swc/core",
+      "esbuild",
+      "msw",
+      "sharp",
+      "unrs-resolver",
+    ]) {
+      expect(workspace).toMatch(
+        new RegExp(`["']?${pkgName.replace("/", "\\/")}["']?:\\s*true`),
+      )
+    }
 
     const lockfile = readFileSync(path.join(repoRoot, "pnpm-lock.yaml"), "utf8")
     expect(lockfile).toMatch(/^overrides:\n\s+hono:\s+4\.12\.25/m)
