@@ -1,8 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
+import NextLink from "next/link"
 import { usePathname } from "next/navigation"
+import { Link } from "@/i18n/navigation"
 import { LockKeyhole, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
@@ -99,7 +100,7 @@ export function SiteHeader({
               "rounded-full text-xs font-medium tracking-wide transition-colors duration-300",
               mutedNavTextClass,
             )}
-            render={<Link href="/admin" />}
+            render={<NextLink href="/admin" />}
           >
             <LockKeyhole className="size-3.5" />
             Staff login
@@ -145,7 +146,7 @@ export function SiteHeader({
                 <Button
                   variant="ghost"
                   className="w-full justify-start text-foreground"
-                  render={<Link href="/admin" />}
+                  render={<NextLink href="/admin" />}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <LockKeyhole className="size-4 mr-2" />
