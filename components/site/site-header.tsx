@@ -17,6 +17,7 @@ import { BrandMark } from "@/components/site/brand-mark"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { LanguageSwitcher } from "@/components/site/language-switcher"
+import { isActiveNavPath } from "@/lib/i18n/localized-pathname"
 
 export function SiteHeader({
   overDarkBackground = true,
@@ -74,7 +75,7 @@ export function SiteHeader({
             className={cn(
               "rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-300 hover:underline",
               navTextClass,
-              pathname === "/menu" && "font-bold",
+              isActiveNavPath(pathname, "/menu") && "font-bold",
             )}
           >
             {t("menu")}
