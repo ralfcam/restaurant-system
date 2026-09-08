@@ -54,3 +54,17 @@ Reusable pattern: Guest header Staff/Book CTAs are shadcn `Button` + `render={<L
 C3-green: skipped — C2 already rendered catalogs; e2e already-GREEN after locator fix (orchestrator verified).
 
 C3-refactor re-verify: `pnpm exec playwright test tests/e2e/localization.spec.ts --project=chromium -g "navbar chrome"` → 1 passed.
+
+## C4
+
+Suggested review order:
+- Active-nav contract `[public-api]`
+  - `lib/i18n/localized-pathname.ts:40` — `isActiveNavPath` exact-equals after strip
+  - `lib/i18n/localized-pathname.ts:5` — private `stripLocalePrefix` (skips default locale `fr`)
+- Desktop Menu highlight `[public-api]`
+  - `components/site/site-header.tsx:78` — `isActiveNavPath(pathname, "/menu") && "font-bold"`
+  - `components/site/site-header.tsx:25` — `usePathname()` from `next/navigation` (locale-prefixed)
+- Import grouping
+  - `components/site/site-header.tsx:15` — helper with other `@/lib` imports
+
+Reusable pattern: Keep `stripLocalePrefix` private and export `isActiveNavPath(pathname, href)` next to `localizedPathname` so language-switcher rewrite and header active-state share one strip; compare the stripped path to the unprefixed href (do not use `pathname === "/menu"` when `usePathname` is from `next/navigation`).
