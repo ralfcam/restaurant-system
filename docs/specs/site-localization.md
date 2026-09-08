@@ -90,9 +90,17 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
 
 ## Implementation trace (non-normative)
 
-| Criterion | Shipped in                                                                                        | Tests                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| AC-3      | `i18n/middleware-scope.ts` `LOCALE_EXCLUDED_PREFIXES` (`/admin`, `/api`, `/auth`, `/pos`, `/kds`) | `tests/unit/i18n/middleware-scope.test.ts` → "pos and kds are excluded from localization" |
+FEATURE `res-61_guest_i18n_followups` (RES-61, 2026-09-08). AC-11–AC-16 shipped; AC-9 remains manual-UAT.
+
+| Criterion | Shipped in                                                                                                                                                                     | Tests                                                                                                                                                             |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AC-3      | `i18n/middleware-scope.ts` `LOCALE_EXCLUDED_PREFIXES` (`/admin`, `/api`, `/auth`, `/pos`, `/kds`)                                                                              | `tests/unit/i18n/middleware-scope.test.ts` → "pos and kds are excluded from localization"                                                                         |
+| AC-11     | `SiteHeader` `useTranslations("nav")` — `{t("menu")}`, `{t("staffLogin")}`, `{t("bookTable")}`, `{t("openMenu")}` in `components/site/site-header.tsx`                         | `tests/unit/i18n/site-header-chrome.test.ts` → "site header renders nav catalog keys"; `tests/e2e/localization.spec.ts` → "navbar chrome follows locale catalogs" |
+| AC-12     | Guest logo (`/`), Menu (`/menu`), Book (`/#reserve`) use `Link` from `@/i18n/navigation`; staff `/admin` uses `NextLink` from `next/link` in `components/site/site-header.tsx` | `tests/unit/i18n/site-header-locale-nav.test.ts` → "header guest links use next-intl Link; staff login stays /admin"                                              |
+| AC-13     | `isActiveNavPath` in `lib/i18n/localized-pathname.ts` (private `stripLocalePrefix`); desktop Menu `isActiveNavPath(pathname, "/menu") && "font-bold"`                          | `tests/unit/i18n/localized-pathname.test.ts` → "isActiveNavPath matches locale-stripped /menu"                                                                    |
+| AC-14     | Sheet `LanguageSwitcher` `onClick={() => setMobileMenuOpen(false)}`; `LanguageSwitcher` forwards `onClick` onto `Button`                                                       | `tests/unit/i18n/site-header-sheet-switcher.test.ts` → "mobile LanguageSwitcher closes the sheet"                                                                 |
+| AC-15     | Two `LanguageSwitcher` instances in `components/site/site-header.tsx` — desktop actions region and `SheetContent`                                                              | `tests/unit/i18n/site-header-switcher.test.ts` → "site header renders LanguageSwitcher in desktop actions and mobile sheet"                                       |
+| AC-16     | `resolveDocumentLang` in `lib/i18n/document-lang.ts`; `app/layout.tsx` `pathnameFromRequestHeaders` + `<html lang={resolveDocumentLang(…)}>`                                   | `tests/unit/i18n/document-lang.test.ts` → "resolveDocumentLang follows public locale and staff English"                                                           |
 
 ## Message catalog keys (public site)
 
@@ -105,5 +113,8 @@ continue to come from DB `_en` columns keyed by route locale.
 - [../architecture/Platform-Overview.md](../architecture/Platform-Overview.md)
 - [staff-authorization.md](staff-authorization.md) SA-2 (staff chrome `/admin`,
   `/pos`, `/kds`)
-- `components/site/site-header.tsx`, `components/site/menu-browser.tsx`
+- `components/site/site-header.tsx`, `components/site/language-switcher.tsx`,
+  `components/site/menu-browser.tsx`
+- `lib/i18n/localized-pathname.ts` (`localizedPathname`, `isActiveNavPath`),
+  `lib/i18n/document-lang.ts` (`resolveDocumentLang`)
 - `proxy.ts`, `i18n/middleware-scope.ts`, `app/layout.tsx`
