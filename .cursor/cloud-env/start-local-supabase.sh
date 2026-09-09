@@ -45,7 +45,14 @@ ensure_postgres() {
       echo "start-local-supabase: creating ${PG_CONTAINER} from ${PG_IMAGE}"
       docker_cmd run -d --name "$PG_CONTAINER" \
         -p "${PG_HOST_PORT}:5432" \
+        -e POSTGRES_PASSWORD=postgres \
         "$PG_IMAGE" >/dev/null
+      sleep 1
+      if ! docker_cmd inspect -f '{{.State.Running}}' "$PG_CONTAINER" | grep -qx true; then
+        echo "start-local-supabase: ${PG_CONTAINER} exited during init" >&2
+        docker_cmd logs --tail 40 "$PG_CONTAINER" >&2 || true
+        return 1
+      fi
     fi
   fi
   wait_for_postgres
