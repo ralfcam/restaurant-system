@@ -170,17 +170,17 @@ None. AC-15 is already the missing rule this issue asked for. Managed Cloud one-
 
 ## Acceptance Criteria → Tests
 
-| #   | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
-| --- | --------- | ---- | ----- | --------- | --------------- | --------- | --------- | ------- | ---------- |
-| —   | AC-15 Dual switcher regions (already shipped; **not** in this loop) | P3 | unit | `tests/unit/i18n/site-header-switcher.test.ts` | existing (do not modify) | `site header renders LanguageSwitcher in desktop actions and mobile sheet` | Two `<LanguageSwitcher[\s/>]` opens; one inside the Desktop Actions…Mobile slice; one inside `<SheetContent>…</SheetContent>` | `pnpm test:unit tests/unit/i18n/site-header-switcher.test.ts` | none (verify only) |
+| #   | Criterion                                                           | Risk | Layer | Test file                                      | New or existing          | Test name                                                                  | Assertion                                                                                                                     | Command                                                       | Depends on         |
+| --- | ------------------------------------------------------------------- | ---- | ----- | ---------------------------------------------- | ------------------------ | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------ |
+| —   | AC-15 Dual switcher regions (already shipped; **not** in this loop) | P3   | unit  | `tests/unit/i18n/site-header-switcher.test.ts` | existing (do not modify) | `site header renders LanguageSwitcher in desktop actions and mobile sheet` | Two `<LanguageSwitcher[\s/>]` opens; one inside the Desktop Actions…Mobile slice; one inside `<SheetContent>…</SheetContent>` | `pnpm test:unit tests/unit/i18n/site-header-switcher.test.ts` | none (verify only) |
 
 Unit is enough: AC-15 is a source-structure pin. Do not add e2e. Do not invent a new `it()`.
 
 ## Traceability Matrix
 
-| Criterion | Spec ref | Test file::name | Source file(s) | Risk | Status |
-| --------- | -------- | --------------- | -------------- | ---- | ------ |
-| AC-15 (prior) | site-localization.md AC-15 | site-header-switcher.test.ts::site header renders LanguageSwitcher in desktop actions and mobile sheet | components/site/site-header.tsx | P3 | shipped (RES-61 C7) |
+| Criterion     | Spec ref                   | Test file::name                                                                                        | Source file(s)                  | Risk | Status              |
+| ------------- | -------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------- | ---- | ------------------- |
+| AC-15 (prior) | site-localization.md AC-15 | site-header-switcher.test.ts::site header renders LanguageSwitcher in desktop actions and mobile sheet | components/site/site-header.tsx | P3   | shipped (RES-61 C7) |
 
 ## Execution Preconditions
 
@@ -224,9 +224,9 @@ Problem: RES-55 reported that the header switcher unit test only regex-matched o
 Approach: The missing dual-region rule is already AC-15, shipped with RES-61 C7. This run does not add a second AC or a Red that would pass on today's code. Verify the existing unit file executes green, then close out RES-55 as already remediates.
 Out-of-scope findings: Shared data-testid on both LanguageSwitcher instances (low; already on test-debt bus)
 
-| #   | Criterion | Risk | Layer | Test file |
-| --- | --------- | ---- | ----- | --------- |
-| —   | AC-15 already shipped (RES-61 C7) — verify only | P3 | unit | tests/unit/i18n/site-header-switcher.test.ts |
+| #   | Criterion                                       | Risk | Layer | Test file                                    |
+| --- | ----------------------------------------------- | ---- | ----- | -------------------------------------------- |
+| —   | AC-15 already shipped (RES-61 C7) — verify only | P3   | unit  | tests/unit/i18n/site-header-switcher.test.ts |
 ```
 
 ## Docs Sync
@@ -263,9 +263,9 @@ paths (`git status --porcelain`; never `.`), then point to `/commit`.
 
 ## Out-of-Scope Findings (the Findings Ledger — "none" if empty)
 
-| Finding | Where (file:line/area) | Why it matters | Severity | Relation |
-| ------- | ---------------------- | -------------- | -------- | -------- |
-| Shared `data-testid="language-switcher"` on both instances | `components/site/language-switcher.tsx:31` / `tests/e2e/localization.spec.ts` | e2e `.first()` can click the CSS-hidden desktop control | low | Already open on `docs/findings/test-debt.md` (RES-61 C7/red). Do not re-file. |
+| Finding                                                    | Where (file:line/area)                                                        | Why it matters                                          | Severity | Relation                                                                      |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------- | -------- | ----------------------------------------------------------------------------- |
+| Shared `data-testid="language-switcher"` on both instances | `components/site/language-switcher.tsx:31` / `tests/e2e/localization.spec.ts` | e2e `.first()` can click the CSS-hidden desktop control | low      | Already open on `docs/findings/test-debt.md` (RES-61 C7/red). Do not re-file. |
 
 Do not merge this row again at 4C — it is already on the bus.
 
