@@ -140,8 +140,8 @@ ensure_proxy() {
     fi
     rm -f "$PROXY_PID_FILE"
   fi
-  # Free :54321 if a previous PostgREST host-network container still owns it.
-  if ss -ltn | awk '{print $4}' | grep -Eq ":${API_PROXY_PORT}\$"; then
+  # Informational only. `ss` is not on the default Cloud image.
+  if command -v ss >/dev/null 2>&1 && ss -ltn | awk '{print $4}' | grep -Eq ":${API_PROXY_PORT}\$"; then
     echo "start-local-supabase: :${API_PROXY_PORT} is busy; expecting recreate of PostgREST to have released it"
   fi
   API_PROXY_PORT="$API_PROXY_PORT" PGRST_HOST_PORT="$PGRST_HOST_PORT" \

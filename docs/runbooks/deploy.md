@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 ## Vercel
 
@@ -402,6 +402,9 @@ npx supabase start
 npx supabase db reset --local
 ```
 
+Cloud Agents use the slim stack from `start` instead of `npx supabase start`
+— see Cloud Agent install below.
+
 **Linked remote** (non-production; drops and recreates from migrations + seed):
 
 ```powershell
@@ -421,7 +424,12 @@ Use `--local` instead of `--linked` when testing against the local stack.
 ## Cloud Agent install
 
 `.cursor/environment.json` `install` is
-`corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile`.
+`corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && bash .cursor/cloud-env/install-docker.sh`.
+`start` is `bash .cursor/cloud-env/start-local-supabase.sh` (Postgres `:54322`,
+PostgREST, `/rest/v1` proxy on `:54321`; writes `/tmp/local-supabase.env`).
+Do not use `npx supabase start` on Cloud Agents (Realtime init hangs).
+Workstation local reset is still `npx supabase start` above. How-to:
+[../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md).
 `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
 and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 `unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`

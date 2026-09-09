@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Current state
 
@@ -75,6 +75,10 @@ npx supabase start
 npx supabase db reset --local
 npx supabase db lint --local --fail-on error
 ```
+
+Cloud Agents do not run `npx supabase start`; `.cursor/environment.json` `start`
+brings up the slim stack and applies baseline + `supabase/seed.sql`. See
+[Vitest-Integration-Guide.md](./Vitest-Integration-Guide.md).
 
 ## Linked remote reset
 

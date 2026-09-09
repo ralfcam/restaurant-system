@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Stack
 
@@ -84,7 +84,11 @@ retries. Spec: [../specs/branding-cms.md](../specs/branding-cms.md) (BC-8, BC-9)
 Linked project: `supabase-green-tree` (ref `tilcqrudqxznnpepxjqq`,
 https://tilcqrudqxznnpepxjqq.supabase.co). Local schema is the idempotent
 baseline (`supabase/migrations/00000000000000_baseline.sql`) plus dated
-forwards; reference data in `supabase/seed.sql`. Repo SQL is not the deployed
+forwards; reference data in `supabase/seed.sql`. Workstation local stack is
+`npx supabase start`. Cloud Agents start Postgres `:54322` + `/rest/v1` on
+`:54321` via `.cursor/environment.json` `start`
+([../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md)).
+Repo SQL is not the deployed
 PostgREST cache: remotes that already applied baseline must apply
 `20260818162000_operating_hour_segments.sql` so `replace_operating_windows`
 is visible (OH-SAVE). That file is recorded on this project as
