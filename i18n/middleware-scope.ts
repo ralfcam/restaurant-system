@@ -11,7 +11,11 @@ const LOCALE_EXCLUDED_PREFIXES = [
 export function resolveLocaleRoutingDecision(
   pathname: string,
 ): LocaleRoutingDecision {
-  if (LOCALE_EXCLUDED_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
+  if (
+    LOCALE_EXCLUDED_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+    )
+  ) {
     return "skip-locale"
   }
 
