@@ -45,6 +45,9 @@ than inventing another id.
   backend is Supabase `tilcqrudqxznnpepxjqq`.
 - Do not print `SUPABASE_SERVICE_ROLE_KEY` in chat or commits. `.vercel/` stays
   gitignored.
+- Do not add `vercel.json` `crons` as the default timer. Scheduled jobs
+  consider Supabase Edge Function + `pg_cron` first
+  ([scheduled-jobs.mdc](scheduled-jobs.mdc)).
 
 Env targets: **production and preview** for `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.

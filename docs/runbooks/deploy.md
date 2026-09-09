@@ -54,6 +54,14 @@ npx vercel inspect <new-or-aliased-url> --scope ralfcams-projects
 npx vercel curl / --deployment <production-url>
 ```
 
+## Scheduled jobs
+
+**Precedent:** consider a Supabase Edge Function plus `pg_cron` (`pg_net`)
+**first**. Do not default to `vercel.json` `crons`. Hobby rejects more-than-daily
+Vercel schedules (failed the RES-45 preview); Vercel Cron also ticks Production
+only. Doctrine: [../../.cursor/rules/scheduled-jobs.mdc](../../.cursor/rules/scheduled-jobs.mdc).
+Shipped example: `review-email` (PV-15).
+
 ## Env vars (production + preview)
 
 CLI `vercel env add` (targets `production,preview` — staging PRs use the same

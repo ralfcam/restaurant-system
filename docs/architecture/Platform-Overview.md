@@ -8,6 +8,7 @@
 - **App:** Next.js 16 App Router, React 19, TypeScript, Tailwind v4, shadcn/ui
 - **Data:** Supabase (Postgres, Auth, RLS) via `@supabase/ssr` and `@supabase/supabase-js`
 - **Deploy:** Vercel ([dashboard](https://vercel.com/ralfcams-projects/restaurant-system), [GitHub](https://github.com/ralfcam/restaurant-system))
+- **Scheduled jobs:** Supabase Edge Function + `pg_cron` first (not Vercel Cron). Precedent: [../../.cursor/rules/scheduled-jobs.mdc](../../.cursor/rules/scheduled-jobs.mdc).
 - **Tracking:** Linear — [restaurant-system](https://linear.app/realized/project/restaurant-system-a19062c2799e) (`REAZED-###`)
 
 ## Restaurant identity

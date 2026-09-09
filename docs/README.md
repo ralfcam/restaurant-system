@@ -48,6 +48,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Post-visit review email                      | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)                                    |
 | Staff authorization (JWT claim)              | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                                                           |
 | Dev toolchain                                | `specs/dev-toolchain.md`           | `runbooks/deploy.md` (Cloud Agent install)                                               |
+| Scheduled jobs (timers)                      | `.cursor/rules/scheduled-jobs.mdc` | `runbooks/deploy.md`; `testing/Design-And-Patterns.md`                                   |
 | Test how-to                                  | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes                                            |
 
 ## Plan → doc traceability
