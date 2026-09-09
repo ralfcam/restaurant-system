@@ -1,7 +1,7 @@
 # Post-visit review email
 
 **Status:** Draft  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-09
 
 ## Scope
 
@@ -81,16 +81,55 @@ not change reservation status.
     stable error `Review email cannot be enabled without thank-you copy and a valid https Maps URL.`
     otherwise. Incomplete drafts MAY be saved while the toggle stays off.
 
+11. **PV-11 — Settings persist columns** — Baseline DDL MUST include on
+    `restaurant_settings`: `review_email_enabled` BOOLEAN NOT NULL DEFAULT
+    false; `review_email_copy` TEXT; `review_email_maps_url` TEXT;
+    `review_email_delay_hours` INT NOT NULL DEFAULT 24. Both the
+    `CREATE TABLE` definition and `ALTER TABLE … ADD COLUMN IF NOT EXISTS`
+    MUST expose them (same idempotent pattern as `slot_interval_minutes`).
+    A service-role upsert of those four keys on `id = 1` MUST persist and
+    read back. Public SELECT of `restaurant_settings` MAY include these
+    columns (marketing copy, not guest PII).
+
+12. **PV-12 — Send-queue table** — Baseline MUST create `review_email_sends`
+    with `reservation_id UUID PRIMARY KEY REFERENCES reservations(id) ON
+DELETE CASCADE` and `sent_at TIMESTAMPTZ` nullable default null. RLS
+    enabled. Anon and authenticated MUST NOT SELECT/INSERT/UPDATE/DELETE
+    (no public policies; no GRANT to anon/authenticated). `service_role`
+    MUST INSERT `{ reservation_id }` and UPDATE `sent_at`. This is the
+    PV-6 claim row.
+
+13. **PV-13 — completed_at clock column** — Baseline MUST include nullable
+    `reservations.completed_at TIMESTAMPTZ` on `CREATE TABLE` and
+    `ALTER TABLE … ADD COLUMN IF NOT EXISTS` (same pattern as
+    `reservations.email`). A service-role UPDATE that sets `completed_at`
+    MUST persist. This is the PV-5 clock; `updated_at` MUST NOT be added
+    as a substitute.
+
+14. **PV-14 — Cron mailer factory** — `GET /api/cron/review-email` MUST
+    obtain `{ send }` from a `server-only` `createReviewEmailMailer()`
+    (own module, not inlined in the route). The route MUST NOT contain
+    `throw new Error("Mail provider is not configured.")`. When no
+    provider credentials are configured, the factory’s `send` MAY throw
+    that same fail-closed error (BW-14 class). Live provider delivery
+    remains manual-UAT.
+
+15. **PV-15 — Scheduled invocation** — Production MUST invoke
+    `GET /api/cron/review-email` on a schedule. `vercel.json` MUST contain
+    a `crons` entry whose `path` is `/api/cron/review-email` and whose
+    `schedule` is hourly (`0 * * * *`). Delay `0` sends on the next
+    hourly tick.
+
 ## Implementation trace (non-normative)
 
 FEATURE `post-visit_review_tdd_ac1962e1` (2026-08-30). C1–C11 shipped;
 live-provider-delivery is manual-UAT.
 
-Schema still missing from baseline (app code writes these; `db reset` will
-not create them): `restaurant_settings.review_email_*`, table
-`review_email_sends`, `reservations.completed_at`. Shipped DDL is nullable
-`reservations.email` only (CREATE TABLE column + `ALTER TABLE … ADD COLUMN
-IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
+PV-11–PV-15 require baseline `review_email_*` / `review_email_sends` /
+`reservations.completed_at` and a `vercel.json` hourly cron; this FIX owns
+those. Live provider delivery stays manual-UAT. Shipped DDL already includes
+nullable `reservations.email` (CREATE TABLE column + `ALTER TABLE … ADD
+COLUMN IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
 
 | Criterion | Shipped in                                                                                                                                                                              | Tests                                                                                                                 |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
