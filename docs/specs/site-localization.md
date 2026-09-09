@@ -40,7 +40,13 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
    locale routing so flat staff auth pages (e.g. `/auth/login`) are not
    rewritten into a `[locale]` path that has no matching route. `/pos/**` and
    `/kds/**` skip locale routing as staff chrome (unified with `/admin/**` per
-   [staff-authorization.md](staff-authorization.md) SA-2).
+   [staff-authorization.md](staff-authorization.md) SA-2). Exclusion prefixes
+   are path-segment-bounded: a pathname matches only when it equals the prefix
+   or continues with `/` (`/auth`, `/auth/`, `/auth/**` — not `/authorship`;
+   same rule for `/admin`, `/api`, `/pos`, `/kds`). `/auth/**` includes
+   `/auth/login`, `/auth/callback`, and `/auth/error`. `/auth/**` skip MUST be
+   proven through the composition root (`proxy` + `updateSession`, locale
+   middleware not applied), matching the existing `/admin/**` pin.
 4. **Switch-path helper** — `localizedPathname(path, targetLocale)` maps paths
    under as-needed rules: `/menu`→`/en/menu`, `/en/menu`→`/menu`, `/`→`/en`,
    `/en`→`/`.
@@ -96,6 +102,19 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
     from `next/navigation`, pass that pathname to `resolveDocumentLang`, and
     write `document.documentElement.lang`. First paint may keep using the
     server `lang` on `<html>`.
+18. **Session cookies survive locale merge** — On a localize path, every
+    cookie present on the `updateSession` response MUST appear on the composed
+    `proxy` response. `cookies.set` MUST forward the options object from
+    `getAll()` (`httpOnly`, `secure`, `sameSite`, `path`, and `maxAge` /
+    `expires` when present). Name/value-only copy does not satisfy this
+    criterion. Skip-locale paths already return the session response unchanged.
+19. **Segment-bounded locale exclusion** — `resolveLocaleRoutingDecision`
+    returns `skip-locale` iff the pathname is exactly an excluded prefix or is
+    that prefix plus `/…`. Lookalikes that only share a string prefix
+    (`/authorship`, `/administrator`, `/apiculture`, `/postal`, `/kdssuffix`)
+    return `localize`. `/auth/error` returns `skip-locale`. `proxy("/auth/error")`
+    and `proxy("/auth/login")` MUST call `updateSession` and MUST return that
+    session response (locale middleware not applied).
 
 ## Implementation trace (non-normative)
 
