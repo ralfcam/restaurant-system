@@ -65,5 +65,5 @@ human's intent rather than ask for it.
   `/grill-with-docs` command of its own.
 - **Timer host is not a grill.** Scheduled jobs default to Supabase Edge
   Function + `pg_cron`
-  ([scheduled-jobs.mdc](scheduled-jobs.mdc)). Do not ask Vercel Cron vs
+  ([scheduled-jobs.mdc](.cursor/rules/scheduled-jobs.mdc)). Do not ask Vercel Cron vs
   Supabase unless the operator already rejected that default.

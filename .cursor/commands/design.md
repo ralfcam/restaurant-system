@@ -39,7 +39,7 @@ Permission to Fail: if the idea is too vague to even identify a domain, say so
 and ask rather than inventing scope or a domain assignment.
 
 When the spec needs a **timer**, the recommended default is a Supabase Edge
-Function plus `pg_cron` ([.cursor/rules/scheduled-jobs.mdc](../rules/scheduled-jobs.mdc))
+Function plus `pg_cron` ([.cursor/rules/scheduled-jobs.mdc](.cursor/rules/scheduled-jobs.mdc))
 — not `vercel.json` `crons`. Do not grill that choice unless the operator
 rejects the default.
 </context>

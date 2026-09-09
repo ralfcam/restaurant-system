@@ -3,6 +3,7 @@ import path from "node:path"
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { createClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { assertIsolatedHoursMutationTarget } from "@/lib/scheduling/hours-mutation-target"
 import { authEnvReady } from "../helpers/env"
 
 const root = process.cwd()
@@ -60,10 +61,12 @@ async function cleanupTestSlot() {
 
 describe.skipIf(!authEnvReady)("reservations RES-PRIV insert-only", () => {
   beforeAll(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupTestSlot()
   })
 
   afterEach(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupTestSlot()
   })
 
@@ -128,10 +131,12 @@ async function cleanupBlockedDates() {
 
 describe.skipIf(!authEnvReady)("blocked_dates PUBLIC-READ-PRIV", () => {
   beforeAll(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupBlockedDates()
   })
 
   afterEach(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupBlockedDates()
   })
 
@@ -180,10 +185,12 @@ async function cleanupMenuProbe() {
 
 describe.skipIf(!authEnvReady)("menu_items PUBLIC-READ-PRIV", () => {
   beforeAll(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupMenuProbe()
   })
 
   afterEach(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupMenuProbe()
   })
 

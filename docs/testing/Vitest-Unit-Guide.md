@@ -35,6 +35,9 @@
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
   `tests/unit/floor/pos-menu-availability.test.ts`
+- Reservation isolation (RES-ISO):
+  `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
+  glob-scan of `tests/integration/reservations/*.integ.test.ts`)
 
 ## Conventions
 

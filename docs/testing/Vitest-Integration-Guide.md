@@ -56,12 +56,35 @@ $env:RESTAURANT_INTEGRATION_STRICT = 'true'
 pnpm test:integration tests/integration/scheduling/replace-operating-windows.integ.test.ts
 ```
 
+## Local-only mutating coverage (RES-ISO)
+
+Mutating coverage under `tests/integration/reservations/*.integ.test.ts`
+(cleanup deletes, service-role inserts, `createReservation`, `blocked_dates`
+probes) is **local** Supabase only. Per
+[../specs/booking-rules.md](../specs/booking-rules.md) RES-ISO, each suite
+imports `assertIsolatedHoursMutationTarget` from
+`lib/scheduling/hours-mutation-target.ts` (same helper as scheduling.md §15 /
+OH-SAVE above) and calls it as the **first statement** of `beforeAll` and of
+every write-cleanup hook (`afterEach` / `afterAll`). The guard fails closed
+when `NEXT_PUBLIC_SUPABASE_URL` is the linked project `tilcqrudqxznnpepxjqq`
+or any other non-local host — it does not skip. Do not put the guard in
+`createServiceClient` (staff/admin against the linked project remains valid
+production). A new file matching that glob MUST include the same pin. Unit
+glob-scan:
+`tests/unit/reservations/reservation-integ-isolation.test.ts`. Helper
+fail-closed behavior stays owned by scheduling §15 /
+`tests/unit/scheduling/hours-mutation-target.test.ts`.
+
 ## Layout
 
 - Config: `vitest.integration.config.ts`
 - Setup: `tests/integration/setup.ts` (honours `RESTAURANT_INTEGRATION_STRICT`)
 - Helpers: `tests/integration/helpers/`
 - Tests: `tests/integration/**/*.integ.test.ts`
+- Reservation isolation (RES-ISO): every
+  `tests/integration/reservations/*.integ.test.ts` pins
+  `assertIsolatedHoursMutationTarget()` as the first statement of `beforeAll`
+  and write-cleanup hooks (see Local-only mutating coverage above).
 - Occupancy window trigger:
   `tests/integration/reservations/occupancy-window.integ.test.ts` (assignment-feasible
   holds — one occupying reservation per table, `party_size = seats` — then
