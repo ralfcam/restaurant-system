@@ -1,7 +1,7 @@
 # Booking rules
 
 **Status:** Draft  
-**Last updated:** 2026-08-30
+**Last updated:** 2026-09-09
 
 ## Scope
 
@@ -184,6 +184,29 @@ the route locale. An in-widget language toggle is out of scope.
     reservations for that date. Filter-empty copy ("No reservations match your
     filters.") is only when filters are active and the filtered list is empty.
 
+21. **RES-ISO — Mutating reservation integration is local-only.** Mutating
+    automated coverage under `tests/integration/reservations/*.integ.test.ts`
+    (cleanup deletes, service-role inserts, `createReservation` writes,
+    `blocked_dates` probes) MUST run only against **local** Supabase
+    (`NEXT_PUBLIC_SUPABASE_URL` host `127.0.0.1`, `localhost`, or `[::1]`). It
+    MUST fail closed — not skip — when the URL is the shared linked project
+    `tilcqrudqxznnpepxjqq` (or any other non-local host). Use the existing
+    `authEnvReady` / `RESTAURANT_INTEGRATION_STRICT` setup symbols **plus**
+    `assertIsolatedHoursMutationTarget()` from
+    `lib/scheduling/hours-mutation-target.ts` (same helper as scheduling.md
+    §15). Call it as the **first statement** of `beforeAll` and of every
+    cleanup hook that writes (`afterEach` / `afterAll`). The call MUST be
+    **zero-argument** (`assertIsolatedHoursMutationTarget()`). A call that
+    passes an explicit URL MUST be treated as missing the pin: the helper’s
+    “explicit URL wins” rule (scheduling.md §15) would accept a local string
+    while `createServiceClient()` still uses `NEXT_PUBLIC_SUPABASE_URL`. The
+    unit scan MUST reject `arguments.length !== 0`. Do not put the guard
+    in `createServiceClient` (staff/admin against the linked project remains
+    valid production). A new file matching that glob MUST include the same
+    pin. Helper fail-closed behavior (omitted URL follows env; explicit URL
+    wins; missing/empty/invalid/non-local throws) stays owned by scheduling
+    §15 / `tests/unit/scheduling/hours-mutation-target.test.ts`.
+
 ## Implementation trace (non-normative)
 
 | Criterion     | Shipped in                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Tests                                                                                                                                                                                                                                                           |
@@ -202,6 +225,7 @@ the route locale. An in-widget language toggle is out of scope.
 | BW-11         | `occupancy_duration_minutes` / `safety_buffer_minutes` (defaults 90/15); `clampExpectedMinutes` + `clampSafetyBufferMinutes`; floor chrome `occupancy-duration-control` / `safety-buffer-control`; `app/actions/branding.ts` getters/updaters                                                                                                                                                                                                                                      | `tests/unit/branding/schema.test.ts`; `tests/unit/floor/occupancy-settings.test.ts`; `operating-hours.test.ts` clamps                                                                                                                                           |
 | BW-12         | `lib/reservations/auto-assign.ts` `canSeatPartyOnTables` / `pickBestFitTable` (collapse via `toAssignableTables`; drop only `out_of_service`); `getAvailableSlots` covers AND table-fit; `validate_reservation_availability` table-fit after cover-count + `pg_advisory_xact_lock(305, epoch-days)` — last-writer identical in baseline, `20260818162000_operating_hour_segments.sql`, `20260827180000_occupancy_duration_buffer.sql`, `20260828121224_table_fit_availability.sql` | `tests/unit/reservations/table-fit.test.ts`; `available-slots.test.ts` → "does not offer a slot when covers fit but no compatible table remains"; `tests/integration/reservations/table-fit.integ.test.ts`; `atomic-booking.integ.test.ts` last compatible unit |
 | STAFF-LIST    | `app/actions/reservations.ts` `getReservationsByDate` — `{ reservations, error? }`; auth `Unauthorized.`; query `Could not load reservations.`; success omits `error`. `lib/reservations/list-empty-copy.ts` `staffListEmptyCopy` (error then filter flags). `ReservationsManager` unwraps `.reservations` / `.error`. `app/admin/reservations/page.tsx` SSR unwraps `{ reservations }` only                                                                                       | `tests/unit/reservations/get-by-date.test.ts` → "does not present auth or query failure as a successful empty list"; `tests/unit/reservations/list-empty-copy.test.ts` → "distinguishes load error, empty date, and filter-empty copy"                          |
+| RES-ISO       | `assertIsolatedHoursMutationTarget()` (zero-arg) at start of `beforeAll` and write-cleanup hooks in every `tests/integration/reservations/*.integ.test.ts`. Scan rejects an explicit-URL call. Same helper as scheduling.md §15.                                                                                                                                                                                                                                                   | `tests/unit/reservations/reservation-integ-isolation.test.ts`                                                                                                                                                                                                   |
 
 ## References
 

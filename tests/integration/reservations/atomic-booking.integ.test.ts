@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { authEnvReady } from "../helpers/env"
 import { createServiceClient } from "@/lib/supabase/service"
+import { assertIsolatedHoursMutationTarget } from "@/lib/scheduling/hours-mutation-target"
 import { createReservation } from "@/app/actions/reservations"
 import type { OperatingDay } from "@/lib/reservations/operating-hours"
 
@@ -56,6 +57,7 @@ describe.skipIf(!authEnvReady)(
   "createReservation — atomic capacity enforcement",
   () => {
     beforeAll(async () => {
+      assertIsolatedHoursMutationTarget()
       const supabase = createServiceClient()
       const { data } = await supabase.from("tables").select("seats")
       totalCapacity = (data ?? []).reduce(
@@ -69,6 +71,7 @@ describe.skipIf(!authEnvReady)(
     })
 
     afterEach(async () => {
+      assertIsolatedHoursMutationTarget()
       const actual = availability.actual
       if (actual) {
         availability.isDateBlocked.mockImplementation((date: string) =>
