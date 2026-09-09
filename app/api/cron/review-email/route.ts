@@ -1,4 +1,5 @@
 import { processDueReviewEmails } from "@/lib/marketing/review-email"
+import { createReviewEmailMailer } from "@/lib/marketing/review-email-mailer"
 import { NextRequest, NextResponse } from "next/server"
 
 export async function GET(request: NextRequest) {
@@ -9,11 +10,7 @@ export async function GET(request: NextRequest) {
   }
 
   await processDueReviewEmails({
-    mailer: {
-      send() {
-        throw new Error("Mail provider is not configured.")
-      },
-    },
+    mailer: createReviewEmailMailer(),
   })
   return new NextResponse(null, { status: 200 })
 }
