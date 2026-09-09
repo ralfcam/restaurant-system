@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Prerequisites
 
@@ -78,6 +78,10 @@ pnpm test:integration tests/integration/scheduling/replace-operating-windows.int
   `tests/integration/reservations/review-email-pii.integ.test.ts` (service-role
   insert of nullable `reservations.email`; anon `select("email")` is empty +
   42501/PGRST301). RES-PRIV unchanged — no `GRANT SELECT`.
+- Review-email schema (PV-11–PV-13):
+  `tests/integration/marketing/review-email-schema.integ.test.ts` (service-role
+  upsert of `review_email_*` settings; `review_email_sends` insert + anon
+  denial; `reservations.completed_at` persist).
 - POS/KDS orders (AC-5):
   `tests/integration/pos/orders-persistence.integ.test.ts` (service-role insert
   - nested `order_items` select after local reset).

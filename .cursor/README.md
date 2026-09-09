@@ -115,4 +115,5 @@ Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 - [`rules/staging-accumulator.mdc`](rules/staging-accumulator.mdc)
 - [`rules/grilling.mdc`](rules/grilling.mdc)
 - [`rules/linear-automation.mdc`](rules/linear-automation.mdc)
+- [`rules/scheduled-jobs.mdc`](rules/scheduled-jobs.mdc)
 - [`docs/findings/README.md`](../docs/findings/README.md)

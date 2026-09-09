@@ -1,7 +1,7 @@
 # Post-visit review email
 
 **Status:** Draft  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-09
 
 ## Scope
 
@@ -81,38 +81,86 @@ not change reservation status.
     stable error `Review email cannot be enabled without thank-you copy and a valid https Maps URL.`
     otherwise. Incomplete drafts MAY be saved while the toggle stays off.
 
+11. **PV-11 — Settings persist columns** — Baseline DDL MUST include on
+    `restaurant_settings`: `review_email_enabled` BOOLEAN NOT NULL DEFAULT
+    false; `review_email_copy` TEXT; `review_email_maps_url` TEXT;
+    `review_email_delay_hours` INT NOT NULL DEFAULT 24. Both the
+    `CREATE TABLE` definition and `ALTER TABLE … ADD COLUMN IF NOT EXISTS`
+    MUST expose them (same idempotent pattern as `slot_interval_minutes`).
+    A service-role upsert of those four keys on `id = 1` MUST persist and
+    read back. Public SELECT of `restaurant_settings` MAY include these
+    columns (marketing copy, not guest PII).
+
+12. **PV-12 — Send-queue table** — Baseline MUST create `review_email_sends`
+    with `reservation_id UUID PRIMARY KEY REFERENCES reservations(id) ON
+DELETE CASCADE` and `sent_at TIMESTAMPTZ` nullable default null. RLS
+    enabled. Anon and authenticated MUST NOT SELECT/INSERT/UPDATE/DELETE
+    (no public policies; no GRANT to anon/authenticated). `service_role`
+    MUST INSERT `{ reservation_id }` and UPDATE `sent_at`. This is the
+    PV-6 claim row.
+
+13. **PV-13 — completed_at clock column** — Baseline MUST include nullable
+    `reservations.completed_at TIMESTAMPTZ` on `CREATE TABLE` and
+    `ALTER TABLE … ADD COLUMN IF NOT EXISTS` (same pattern as
+    `reservations.email`). A service-role UPDATE that sets `completed_at`
+    MUST persist. This is the PV-5 clock; `updated_at` MUST NOT be added
+    as a substitute.
+
+14. **PV-14 — Cron mailer factory** — `GET /api/cron/review-email` MUST
+    obtain `{ send }` from a `server-only` `createReviewEmailMailer()`
+    (own module, not inlined in the route). The route MUST NOT contain
+    `throw new Error("Mail provider is not configured.")`. When no
+    provider credentials are configured, the factory’s `send` MAY throw
+    that same fail-closed error (BW-14 class). Live provider delivery
+    remains manual-UAT.
+
+15. **PV-15 — Scheduled invocation** — Production MUST invoke
+    `GET /api/cron/review-email` on a schedule. MUST NOT register a
+    Vercel `crons` entry (Hobby rejects more-than-daily expressions).
+    Schedule is a Supabase Edge Function `review-email` invoked hourly
+    (`0 * * * *`) via `pg_cron` + `pg_net`. The function authenticates
+    with the same Bearer `CRON_SECRET` as PV-9 and forwards to the Next
+    route (PV-14 stays the worker). Delay `0` sends on the next hourly
+    tick.
+
 ## Implementation trace (non-normative)
 
 FEATURE `post-visit_review_tdd_ac1962e1` (2026-08-30). C1–C11 shipped;
 live-provider-delivery is manual-UAT.
 
-Schema still missing from baseline (app code writes these; `db reset` will
-not create them): `restaurant_settings.review_email_*`, table
-`review_email_sends`, `reservations.completed_at`. Shipped DDL is nullable
-`reservations.email` only (CREATE TABLE column + `ALTER TABLE … ADD COLUMN
-IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
+PV-11–PV-15 require baseline `review_email_*` / `review_email_sends` /
+`reservations.completed_at` and a Supabase-scheduled `review-email` Edge
+Function (not Vercel Cron); this FIX owns those. Live provider delivery
+stays manual-UAT. Shipped DDL already includes
+nullable `reservations.email` (CREATE TABLE column + `ALTER TABLE … ADD
+COLUMN IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
 
-| Criterion | Shipped in                                                                                                                                                                              | Tests                                                                                                                 |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| PV-1      | `/admin/marketing` (`StaffShell`, Setup nav). Form: enable (default off), copy, Maps URL, delay (default 24). Write-only — no settings loader (`review_email_*` columns missing).       | `tests/unit/marketing/marketing-page.test.ts`                                                                         |
-| PV-2      | `saveReviewEmailSettings` — `requireSuperAdminUser` then `{ error: "Unauthorized." }`; service-role upsert `{ id: 1, …patch, updated_at }`                                              | `tests/unit/marketing/review-email-settings.test.ts`                                                                  |
-| PV-3      | `processDueReviewEmails` silent skip: toggle off, blank copy, non-`https:` Maps URL, missing email, status not `completed`                                                              | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
-| PV-4      | `transitionReservationStatus` inserts `review_email_sends` only when `nextStatus === "completed"` (table not in schema yet)                                                             | `tests/unit/marketing/review-email-queue.test.ts`                                                                     |
-| PV-5      | Status write stamps `completed_at` (column not in schema yet). Due = `now >= completed_at + delayHours`; invalid delay (incl. NaN / out of 0–72) → 24, not bound-clamp. Injected `now`. | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
-| PV-6      | Scan `.is("sent_at", null)`; stamp `UPDATE … .eq(reservation_id).is("sent_at", null)` after `mailer.send()`                                                                             | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
-| PV-7      | `{ to, html }` — escaped copy + Maps URL as `href`. No From/subject. Throwing mailer stub on the cron route.                                                                            | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
-| PV-8      | Sole mutation is `review_email_sends.sent_at`                                                                                                                                           | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
-| PV-9      | `GET /api/cron/review-email` — empty/unset `CRON_SECRET` or wrong Bearer is 401 (never matches `Bearer undefined`). Anon cannot `SELECT` `reservations.email`.                          | `tests/unit/marketing/review-email-job-auth.test.ts`; `tests/integration/reservations/review-email-pii.integ.test.ts` |
-| PV-10     | Enable requires trimmed copy + `isHttpsUrl` (`lib/marketing/https-url.ts`); stable error string                                                                                         | `tests/unit/marketing/review-email-settings.test.ts`                                                                  |
+| Criterion | Shipped in                                                                                                                                                                                | Tests                                                                                                                 |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| PV-1      | `/admin/marketing` (`StaffShell`, Setup nav). Form: enable (default off), copy, Maps URL, delay (default 24). Write-only — no settings loader (columns now exist; loader still deferred). | `tests/unit/marketing/marketing-page.test.ts`                                                                         |
+| PV-2      | `saveReviewEmailSettings` — `requireSuperAdminUser` then `{ error: "Unauthorized." }`; service-role upsert `{ id: 1, …patch, updated_at }`                                                | `tests/unit/marketing/review-email-settings.test.ts`                                                                  |
+| PV-3      | `processDueReviewEmails` silent skip: toggle off, blank copy, non-`https:` Maps URL, missing email, status not `completed`                                                                | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
+| PV-4      | `transitionReservationStatus` inserts `review_email_sends` only when `nextStatus === "completed"` (table in baseline)                                                                     | `tests/unit/marketing/review-email-queue.test.ts`                                                                     |
+| PV-5      | Status write stamps `completed_at` (column in baseline). Due = `now >= completed_at + delayHours`; invalid delay (incl. NaN / out of 0–72) → 24, not bound-clamp. Injected `now`.         | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
+| PV-6      | Scan `.is("sent_at", null)`; stamp `UPDATE … .eq(reservation_id).is("sent_at", null)` after `mailer.send()`                                                                               | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
+| PV-7      | `{ to, html }` — escaped copy + Maps URL as `href`. No From/subject. Cron uses `createReviewEmailMailer()` (BW-14 unconfigured throw). Live inbox manual-UAT.                             | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
+| PV-8      | Sole mutation is `review_email_sends.sent_at`                                                                                                                                             | `tests/unit/marketing/review-email-send.test.ts`                                                                      |
+| PV-9      | `GET /api/cron/review-email` — empty/unset `CRON_SECRET` or wrong Bearer is 401 (never matches `Bearer undefined`). Anon cannot `SELECT` `reservations.email`.                            | `tests/unit/marketing/review-email-job-auth.test.ts`; `tests/integration/reservations/review-email-pii.integ.test.ts` |
+| PV-10     | Enable requires trimmed copy + `isHttpsUrl` (`lib/marketing/https-url.ts`); stable error string                                                                                           | `tests/unit/marketing/review-email-settings.test.ts`                                                                  |
+| PV-11     | `restaurant_settings.review_email_*` on CREATE TABLE + `ALTER … ADD COLUMN IF NOT EXISTS`                                                                                                 | `tests/integration/marketing/review-email-schema.integ.test.ts`                                                       |
+| PV-12     | `review_email_sends` PK/FK CASCADE, RLS, service-role only                                                                                                                                | `tests/integration/marketing/review-email-schema.integ.test.ts`                                                       |
+| PV-13     | `reservations.completed_at` nullable timestamptz (CREATE + ALTER)                                                                                                                         | `tests/integration/marketing/review-email-schema.integ.test.ts`                                                       |
+| PV-14     | `createReviewEmailMailer()` in `lib/marketing/review-email-mailer.ts`; cron GET passes factory mailer                                                                                     | `tests/unit/marketing/review-email-cron-mailer.test.ts`                                                               |
+| PV-15     | Supabase Edge Function `review-email` + hourly `pg_cron`; no Vercel `crons`                                                                                                               | `tests/unit/marketing/review-email-cron-schedule.test.ts`                                                             |
 
 ## References
 
 - `app/admin/marketing/page.tsx`, `app/admin/marketing/review-email-settings-form.tsx`
 - `app/actions/marketing.ts`, `app/actions/reservations.ts` (`transitionReservationStatus`)
-- `lib/marketing/review-email.ts` (`processDueReviewEmails`), `lib/marketing/https-url.ts`
-- `app/api/cron/review-email/route.ts`
+- `lib/marketing/review-email.ts` (`processDueReviewEmails`), `lib/marketing/https-url.ts`, `lib/marketing/review-email-mailer.ts`
+- `app/api/cron/review-email/route.ts`, `supabase/functions/review-email/index.ts`
 - `components/staff/staff-shell.tsx` (Setup → Marketing)
-- `supabase/migrations/00000000000000_baseline.sql` (`reservations.email`)
+- `supabase/migrations/00000000000000_baseline.sql` (`reservations.email`, `completed_at`, `review_email_*`, `review_email_sends`)
 - [booking-rules.md](./booking-rules.md) (AC-5 RES-PRIV; intake / guest email)
 - [scheduling.md](./scheduling.md) (`completed` terminal status)
 - [../runbooks/deploy.md](../runbooks/deploy.md) (`CRON_SECRET`)

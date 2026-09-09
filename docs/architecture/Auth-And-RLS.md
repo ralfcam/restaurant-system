@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Auth flow
 
@@ -58,7 +58,7 @@ Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (sin
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
 `menu_items`, `restaurant_settings`, `tables`, `servers`, `orders`,
-`order_items`. `servers` mirrors
+`order_items`, `review_email_sends`. `servers` mirrors
 `tables` (`GRANT SELECT, INSERT, UPDATE, DELETE` to `authenticated`,
 `GRANT ALL` to `service_role`; `-- REAZED-329`). `orders` / `order_items`
 copy that staff-only convention (`CREATE TABLE IF NOT EXISTS`,
@@ -110,9 +110,12 @@ and `authenticated` (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`).
 `reservations` is insert-only (`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE`);
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
-Nullable `reservations.email` is in baseline (CREATE TABLE column plus
-`ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV is unchanged. Spec:
-[../specs/post-visit-review-email.md](../specs/post-visit-review-email.md) PV-9.
+Nullable `reservations.email` and `reservations.completed_at` are in baseline
+(CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
+is unchanged. `review_email_sends` is service-role-only (`ENABLE RLS`,
+`service_role` `FOR ALL`, `GRANT ALL`, `REVOKE ALL` from `anon`/`authenticated`).
+Spec: [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
+PV-9, PV-12, PV-13.
 Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
 `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
 and `20260827160000_public_catalog_privileges.sql` (apply the dated file when

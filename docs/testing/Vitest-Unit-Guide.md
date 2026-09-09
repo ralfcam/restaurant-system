@@ -11,7 +11,8 @@
 - Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`
   bodySizeLimit schema guard)
 - Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
-  queue-on-complete, cron job auth, marketing page)
+  queue-on-complete, cron job auth, cron mailer factory, Supabase hourly
+  Edge Function pin, marketing page)
 - Staff authorization: `tests/unit/auth/` (`requireStaffUser` /
   `requireSuperAdminUser` claims, staff-route proxy, login landing gate,
   local signup TOML, seed `raw_app_meta_data` for staff and super-admin)

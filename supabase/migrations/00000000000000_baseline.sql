@@ -97,12 +97,17 @@ CREATE TABLE IF NOT EXISTS reservations (
   conf_code TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   -- PV-9: nullable guest email for post-visit review send (RES-PRIV: no GRANT SELECT).
-  email TEXT
+  email TEXT,
+  -- RES-45 / PV-13: completion clock for post-visit review delay (not updated_at).
+  completed_at TIMESTAMPTZ
 );
 
 -- PV-9: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations without
 -- email; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
+-- RES-45 / PV-13: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without completed_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 
@@ -134,6 +139,27 @@ CREATE POLICY "Allow service_role full access to reservations"
 GRANT ALL ON TABLE reservations TO service_role;
 GRANT INSERT ON TABLE reservations TO anon, authenticated;
 REVOKE SELECT, UPDATE, DELETE ON TABLE reservations FROM anon, authenticated;
+
+-- ── review_email_sends (PV-6 claim row) ──────────────────────────────────────
+-- RES-45 / PV-12: one queue row per reservation; service_role only (no public policies).
+CREATE TABLE IF NOT EXISTS review_email_sends (
+  reservation_id UUID PRIMARY KEY REFERENCES reservations(id) ON DELETE CASCADE,
+  sent_at TIMESTAMPTZ DEFAULT NULL
+);
+
+ALTER TABLE review_email_sends ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow service_role full access to review_email_sends" ON review_email_sends;
+CREATE POLICY "Allow service_role full access to review_email_sends"
+  ON review_email_sends FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+GRANT ALL ON TABLE review_email_sends TO service_role;
+-- PV-12: strip leftover default privs too (not DML-only REVOKE — no anon/authenticated GRANT).
+REVOKE ALL ON TABLE review_email_sends FROM anon, authenticated;
 
 -- ── menu_items ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS menu_items (
@@ -717,12 +743,23 @@ CREATE TABLE IF NOT EXISTS restaurant_settings (
       safety_buffer_minutes BETWEEN 0 AND 60
       AND safety_buffer_minutes % 5 = 0
     ),
+  -- RES-45 / PV-11: post-visit review-email settings (marketing copy, not guest PII).
+  review_email_enabled BOOLEAN NOT NULL DEFAULT false,
+  review_email_copy TEXT,
+  review_email_maps_url TEXT,
+  review_email_delay_hours INT NOT NULL DEFAULT 24,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS slot_interval_minutes INT NOT NULL DEFAULT 30;
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS occupancy_duration_minutes INT NOT NULL DEFAULT 90;
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS safety_buffer_minutes INT NOT NULL DEFAULT 15;
+-- RES-45 / PV-11: CREATE TABLE IF NOT EXISTS is a no-op on an older restaurant_settings
+-- without review_email_*; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_enabled BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_copy TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_maps_url TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_delay_hours INT NOT NULL DEFAULT 24;
 
 DO $$
 BEGIN
@@ -811,6 +848,49 @@ CREATE POLICY "Allow service_role full access to branding objects"
   TO service_role
   USING (bucket_id = 'branding')
   WITH CHECK (bucket_id = 'branding');
+
+-- RES-45 / PV-15: hourly Edge Function invoke (not Vercel Cron — Hobby
+-- rejects `0 * * * *`). No-op when pg_cron/pg_net/vault are absent (slim
+-- Cloud Agent Postgres). Hosted: Vault secrets `project_url` + `cron_secret`.
+DO $review_email_cron$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron')
+     OR NOT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_net')
+  THEN
+    RAISE NOTICE 'pg_cron/pg_net not available; skip review-email schedule';
+    RETURN;
+  END IF;
+
+  CREATE EXTENSION IF NOT EXISTS pg_cron;
+  CREATE EXTENSION IF NOT EXISTS pg_net;
+
+  PERFORM cron.unschedule(j.jobid)
+  FROM cron.job AS j
+  WHERE j.jobname = 'review-email-hourly';
+
+  PERFORM cron.schedule(
+    'review-email-hourly',
+    '0 * * * *',
+    $job$
+    SELECT net.http_post(
+      url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1)
+             || '/functions/v1/review-email',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' ||
+          (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret' LIMIT 1)
+      ),
+      body := '{}'::jsonb
+    )
+    WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'project_url')
+      AND EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'cron_secret');
+    $job$
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'review-email cron schedule skipped: %', SQLERRM;
+END
+$review_email_cron$;
 
 -- Force PostgREST to reload its schema cache
 NOTIFY pgrst, 'reload schema';

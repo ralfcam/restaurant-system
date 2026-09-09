@@ -48,6 +48,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Post-visit review email                      | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)                                    |
 | Staff authorization (JWT claim)              | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                                                           |
 | Dev toolchain                                | `specs/dev-toolchain.md`           | `runbooks/deploy.md` (Cloud Agent install)                                               |
+| Scheduled jobs (timers)                      | `.cursor/rules/scheduled-jobs.mdc` | `runbooks/deploy.md`; `testing/Design-And-Patterns.md`                                   |
 | Test how-to                                  | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes                                            |
 
 ## Plan → doc traceability
@@ -90,6 +91,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-61 guest i18n followups (`res-61_guest_i18n_followups`)                                       | 2026-09-08 | `specs/site-localization.md` (AC-11–AC-16), `specs/site-chrome.md` (AC-10–16 cross-ref), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/E2E-Playwright-Guide.md`                                                                                                                                                                                                       |
 | RES-59 Chef's picks SSR + avatar (`res-59_chefs_picks_ssr_avatar`)                                | 2026-09-09 | `specs/homepage.md` (HP-2/HP-3), `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`                                                                                                                                                                                                                                                                               |
 | HTML lang client sync + pnpm pin (`html_lang_pnpm_pin_70d248bc`)                                  | 2026-09-09 | `specs/site-localization.md` (AC-17), `specs/dev-toolchain.md` (G-O1 exact pin), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`                                                                                                                                                                                                                                                  |
+| RES-45 review-email schema + cron (`res-45_review_email_schema_cron_7f3a91c2`)                    | 2026-09-09 | `architecture/Reservation-Flow.md`, `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `testing/Test-Data-And-Seeds.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `runbooks/deploy.md`, `dev-journal.md` (spec PV-11–PV-15 by orchestrator)                                                                      |
 
 ## Seed path
 
