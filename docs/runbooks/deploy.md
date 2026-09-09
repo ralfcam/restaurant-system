@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 ## Vercel
 
@@ -62,7 +62,7 @@ hosted backend). Never use local Docker keys (`127.0.0.1:54321`).
 - `NEXT_PUBLIC_SUPABASE_URL` — `https://tilcqrudqxznnpepxjqq.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `CRON_SECRET` — Bearer token for `GET /api/cron/review-email`. Fail-closed: unset or empty secret is 401 (never matches `Bearer undefined`). No `vercel.json` cron yet; the handler still uses a throwing mailer stub (`Mail provider is not configured.`).
+- `CRON_SECRET` — Bearer token for `GET /api/cron/review-email`. Fail-closed: unset or empty secret is 401 (never matches `Bearer undefined`). `vercel.json` `crons` pins `{ "path": "/api/cron/review-email", "schedule": "0 * * * *" }`. Authorized GET calls `processDueReviewEmails({ mailer: createReviewEmailMailer() })` (`lib/marketing/review-email-mailer.ts`); the factory still throws `Mail provider is not configured.` until a live provider exists (manual-UAT).
 
 Never expose the service role key to the client bundle. Never commit it. Never expose `CRON_SECRET` to the client bundle.
 
@@ -95,6 +95,11 @@ SA-6.
 | Forward: table-fit availability        | `supabase/migrations/20260828121224_table_fit_availability.sql`        | Yes on local reset; apply when occupancy is already recorded        |
 | Forward: restaurant_settings privilege | `supabase/migrations/20260902214500_restaurant_settings_privilege.sql` | Yes on local reset; apply when `20260825140000` is already recorded |
 | Reference data                         | `supabase/seed.sql`                                                    | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
+
+RES-45 review-email objects (`restaurant_settings.review_email_*`,
+`review_email_sends`, `reservations.completed_at`) live in the table-owning
+baseline only. Local `db reset` applies them. This ship has no dated forward
+for already-baselined remotes.
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
 `operating_windows` (7 rows), `menu_items` (120 rows from the sample

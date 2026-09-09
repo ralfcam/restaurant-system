@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Current state
 
@@ -13,9 +13,15 @@
   `-- REAZED-329`, after the `tables` GRANT block), `orders` / `order_items`
   (staff-only RLS/grants like `tables` / `servers`; `GRANT USAGE, SELECT` on
   `orders_order_number_seq`; not in `supabase_realtime`), and booking
-  trigger `enforce_booking_rules`. `restaurant_settings.review_email_*`,
-  `review_email_sends`, and `reservations.completed_at` are **not** in schema
-  yet. Linked/remote also has
+  trigger `enforce_booking_rules`. Baseline also has
+  `restaurant_settings.review_email_enabled` (default false),
+  `review_email_copy`, `review_email_maps_url`,
+  `review_email_delay_hours` (default 24) on both `CREATE TABLE` and
+  `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; `reservations.completed_at`
+  `TIMESTAMPTZ` (same dual surface); and `review_email_sends`
+  (`reservation_id` PK FK `reservations(id) ON DELETE CASCADE`,
+  `sent_at TIMESTAMPTZ DEFAULT NULL`; RLS + `service_role` `FOR ALL` +
+  `GRANT ALL` + `REVOKE ALL` from `anon`/`authenticated`). Linked/remote also has
   `20260818155638_restaurant_branding_cms.sql` (same objects, forward-only)
   and `20260818162000_operating_hour_segments.sql` (`replace_operating_windows`;
   version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
@@ -52,8 +58,11 @@
 - **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
   retry), MIME alias validation, and a `next.config.mjs` `bodySizeLimit` schema guard.
   `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
-  cron job auth, marketing page. `tests/unit/auth/` — staff and super-admin claim gates
+  cron job auth, cron mailer factory, `vercel.json` hourly pin, marketing page.
+  `tests/unit/auth/` — staff and super-admin claim gates
   plus seed `raw_app_meta_data` pins.
+- **Integration tests:** `tests/integration/marketing/review-email-schema.integ.test.ts`
+  — settings columns, `review_email_sends` RLS, `completed_at`.
 - **Mocks:** `lib/data.ts` still holds MVP fixtures for tables and reservations UI
   samples. Kitchen tickets persist in `orders` / `order_items`. POS server names
   are no longer a `SERVERS` constant there — they come from `getServers()`.
