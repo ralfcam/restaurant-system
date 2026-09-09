@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Prerequisites
 
@@ -13,6 +13,15 @@ npx supabase db reset --local
 npx supabase db lint --local --fail-on error
 ```
 
+**Cloud Agents** do not use `npx supabase start` (Realtime init hangs in this
+nested-Docker VM). `.cursor/environment.json` `install` pre-pulls Docker images
+into the environment snapshot; `start` runs
+`.cursor/cloud-env/start-local-supabase.sh`, which brings up Postgres `:54322`,
+PostgREST, and a `/rest/v1` proxy on `http://127.0.0.1:54321`, then writes
+`/tmp/local-supabase.env`. `tests/integration/helpers/env.ts` loads that file
+when process env is unset so `authEnvReady` is true without a manual export.
+See [`.cursor/cloud-env/README.md`](../../.cursor/cloud-env/README.md).
+
 `db reset --local` applies `supabase/migrations/00000000000000_baseline.sql`
 (already defines `replace_operating_windows`) plus later files, then loads
 `supabase/seed.sql` when `[db.seed] enabled = true` in `supabase/config.toml`.
@@ -21,8 +30,9 @@ Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
 `SUPABASE_SERVICE_ROLE_KEY`. `vitest.integration.config.ts` does not load
 dotenv or call Vite's `loadEnv`, and does not set `envPrefix` (which would
 only affect `import.meta.env`, not `process.env`, anyway) — it never reads
-`.env.local` at all. Strict runs need those vars exported in the same shell
-from `npx supabase status` (local `127.0.0.1` URL + anon + service_role).
+`.env.local` at all. Strict runs on a workstation need those vars exported in
+the same shell from `npx supabase status` (local `127.0.0.1` URL + anon +
+service_role). Cloud Agents pick them up from `/tmp/local-supabase.env`.
 
 ## Local-only mutating coverage (OH-SAVE)
 

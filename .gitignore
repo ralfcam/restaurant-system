@@ -37,6 +37,9 @@ supabase/.temp
 # cursor hook runtime state
 .cursor/hooks/state/
 
+# Cloud Agent start() writes local demo keys here if invoked from a worktree
+.cursor/cloud-env/runtime.env
+
 # CodeGraph local index (SQLite knowledge graph; rebuilt via `codegraph init`)
 .codegraph/
 

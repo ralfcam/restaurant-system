@@ -109,6 +109,7 @@ Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 | [`rules/`](rules/)       | Doctrine                                  |
 | [`hooks/`](hooks/)       | Mechanical guards                         |
 | [`checks/`](checks/)     | Harness lints and policy tests            |
+| [`cloud-env/`](cloud-env/) | Cloud Agent Docker + slim local Supabase |
 
 ## Next reading
 

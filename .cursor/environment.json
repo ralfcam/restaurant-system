@@ -1,4 +1,9 @@
 {
   "name": "restaurant-system",
-  "install": "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile"
+  "install": "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && bash .cursor/cloud-env/install-docker.sh",
+  "start": "bash .cursor/cloud-env/start-local-supabase.sh",
+  "ports": [
+    { "name": "Supabase API", "port": 54321 },
+    { "name": "Supabase Postgres", "port": 54322 }
+  ]
 }
