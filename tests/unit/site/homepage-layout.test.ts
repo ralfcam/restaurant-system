@@ -3,7 +3,12 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 
 const repoRoot = process.cwd()
-const localizedHomepagePath = path.join(repoRoot, "app", "[locale]", "page.tsx")
+const localizedHomepagePath = path.join(
+  repoRoot,
+  "components",
+  "site",
+  "home-page-client.tsx",
+)
 
 function readHomepageSource() {
   return readFileSync(localizedHomepagePath, "utf8")
@@ -68,5 +73,32 @@ describe("homepage hero / reservation layout", () => {
         /id=["']reserve["']/.test(maxWxlMarkup!)
       expect(wrapsHeroAndReserve && !isTwoColumnAtMd(maxWxlMarkup!)).toBe(false)
     }
+  })
+})
+
+describe("homepage Chef's picks avatar", () => {
+  it("featured-dish avatar falls back to a visible character when the localized name is empty", () => {
+    const source = readHomepageSource()
+
+    expect(source).not.toMatch(/\{\s*name\[0\]\s*\}/)
+
+    const avatarOpen = source.search(
+      /flex size-12 shrink-0 items-center justify-center rounded-full/,
+    )
+    expect(avatarOpen).toBeGreaterThan(-1)
+
+    const avatarMarkup = divMarkupFrom(
+      source,
+      source.lastIndexOf("<div", avatarOpen),
+    )
+    expect(avatarMarkup).not.toBeNull()
+
+    const expr = avatarMarkup!.match(/\{([^}]+)\}/)
+    expect(expr).not.toBeNull()
+    const avatarExpr = expr![1]
+
+    expect(avatarExpr).toMatch(/\.trim\s*\(\s*\)/)
+    expect(avatarExpr).toMatch(/\?\?|\|\|/)
+    expect(avatarExpr).toMatch(/["']\?["']/)
   })
 })

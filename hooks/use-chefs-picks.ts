@@ -3,7 +3,9 @@
 import useSWR, { type KeyedMutator } from "swr"
 import { getHomepageChefsPicks, type MenuItemRow } from "@/app/actions/menu"
 
-type ChefsPicksPayload = Awaited<ReturnType<typeof getHomepageChefsPicks>>
+export type ChefsPicksPayload = Awaited<
+  ReturnType<typeof getHomepageChefsPicks>
+>
 
 export function useChefsPicks(initialData?: ChefsPicksPayload): {
   enabled: boolean

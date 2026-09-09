@@ -1,54 +1,54 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
 
 ## Documentation map
 
-| Area                              | Primary doc                                                                                                                     |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Platform overview                 | [architecture/Platform-Overview.md](./architecture/Platform-Overview.md)                                                        |
-| Auth & RLS                        | [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md)                                                                  |
-| Staff authorization               | [specs/staff-authorization.md](./specs/staff-authorization.md) · [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md) |
-| Reservations / booking            | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
-| Menu / 86 / POS / KDS             | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
-| Guest site chrome (header / logo) | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
-| Guest site localization           | [specs/site-localization.md](./specs/site-localization.md)                                                                      |
-| Guest homepage (hero / reserve)   | [specs/homepage.md](./specs/homepage.md)                                                                                        |
-| Branding CMS (admin-managed logo) | [specs/branding-cms.md](./specs/branding-cms.md)                                                                                |
-| Post-visit review email           | [specs/post-visit-review-email.md](./specs/post-visit-review-email.md)                                                          |
-| Scheduling / floor                | [specs/scheduling.md](./specs/scheduling.md) · [architecture/Floor-Plan.md](./architecture/Floor-Plan.md)                       |
-| Testing pyramid                   | [testing/Pyramid-Overview.md](./testing/Pyramid-Overview.md)                                                                    |
-| Unit tests                        | [testing/Vitest-Unit-Guide.md](./testing/Vitest-Unit-Guide.md)                                                                  |
-| Integration / RLS                 | [testing/Vitest-Integration-Guide.md](./testing/Vitest-Integration-Guide.md)                                                    |
-| E2E                               | [testing/E2E-Playwright-Guide.md](./testing/E2E-Playwright-Guide.md)                                                            |
-| Patterns & recipes                | [testing/Design-And-Patterns.md](./testing/Design-And-Patterns.md)                                                              |
-| Dev toolchain                     | [specs/dev-toolchain.md](./specs/dev-toolchain.md)                                                                              |
-| Seeds & fixtures                  | [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md)                                                              |
-| Deploy                            | [runbooks/deploy.md](./runbooks/deploy.md)                                                                                      |
-| Product scope                     | [PRD/restaurant-system-PRD.md](./PRD/restaurant-system-PRD.md)                                                                  |
-| Open findings (TDD ledger)        | [findings/README.md](./findings/README.md)                                                                                      |
-| Audit verifier reports            | [verifier-reports/README.md](./verifier-reports/README.md)                                                                      |
+| Area                                           | Primary doc                                                                                                                     |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Platform overview                              | [architecture/Platform-Overview.md](./architecture/Platform-Overview.md)                                                        |
+| Auth & RLS                                     | [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md)                                                                  |
+| Staff authorization                            | [specs/staff-authorization.md](./specs/staff-authorization.md) · [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md) |
+| Reservations / booking                         | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
+| Menu / 86 / POS / KDS                          | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
+| Guest site chrome (header / logo)              | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
+| Guest site localization                        | [specs/site-localization.md](./specs/site-localization.md)                                                                      |
+| Guest homepage (hero / reserve / Chef's picks) | [specs/homepage.md](./specs/homepage.md)                                                                                        |
+| Branding CMS (admin-managed logo)              | [specs/branding-cms.md](./specs/branding-cms.md)                                                                                |
+| Post-visit review email                        | [specs/post-visit-review-email.md](./specs/post-visit-review-email.md)                                                          |
+| Scheduling / floor                             | [specs/scheduling.md](./specs/scheduling.md) · [architecture/Floor-Plan.md](./architecture/Floor-Plan.md)                       |
+| Testing pyramid                                | [testing/Pyramid-Overview.md](./testing/Pyramid-Overview.md)                                                                    |
+| Unit tests                                     | [testing/Vitest-Unit-Guide.md](./testing/Vitest-Unit-Guide.md)                                                                  |
+| Integration / RLS                              | [testing/Vitest-Integration-Guide.md](./testing/Vitest-Integration-Guide.md)                                                    |
+| E2E                                            | [testing/E2E-Playwright-Guide.md](./testing/E2E-Playwright-Guide.md)                                                            |
+| Patterns & recipes                             | [testing/Design-And-Patterns.md](./testing/Design-And-Patterns.md)                                                              |
+| Dev toolchain                                  | [specs/dev-toolchain.md](./specs/dev-toolchain.md)                                                                              |
+| Seeds & fixtures                               | [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md)                                                              |
+| Deploy                                         | [runbooks/deploy.md](./runbooks/deploy.md)                                                                                      |
+| Product scope                                  | [PRD/restaurant-system-PRD.md](./PRD/restaurant-system-PRD.md)                                                                  |
+| Open findings (TDD ledger)                     | [findings/README.md](./findings/README.md)                                                                                      |
+| Audit verifier reports                         | [verifier-reports/README.md](./verifier-reports/README.md)                                                                      |
 
 ## Ownership (anti-duplication)
 
-| Topic                             | Canonical owner                    | Siblings (summary / links only)                          |
-| --------------------------------- | ---------------------------------- | -------------------------------------------------------- |
-| Acceptance criteria               | `docs/specs/*`                     | Architecture docs summarize; they do not define criteria |
-| Reservation booking rules         | `specs/booking-rules.md`           | `architecture/Reservation-Flow.md`                       |
-| Menu availability / 86            | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                             |
-| Staff scheduling / tables         | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                             |
-| Guest header / brand logo         | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                |
-| Guest site localization (FR/EN)   | `specs/site-localization.md`       | `specs/site-chrome.md` (header chrome)                   |
-| Guest homepage hero / reserve     | `specs/homepage.md`                | `specs/site-chrome.md` (header); `booking-rules.md`      |
-| Admin-managed logo / branding CMS | `specs/branding-cms.md`            | `specs/site-chrome.md` (empty-by-default mark)           |
-| Post-visit review email           | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)    |
-| Staff authorization (JWT claim)   | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                           |
-| Dev toolchain                     | `specs/dev-toolchain.md`           | `runbooks/deploy.md` (Cloud Agent install)               |
-| Test how-to                       | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes            |
+| Topic                                        | Canonical owner                    | Siblings (summary / links only)                                                          |
+| -------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| Acceptance criteria                          | `docs/specs/*`                     | Architecture docs summarize; they do not define criteria                                 |
+| Reservation booking rules                    | `specs/booking-rules.md`           | `architecture/Reservation-Flow.md`                                                       |
+| Menu availability / 86                       | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                                                             |
+| Staff scheduling / tables                    | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                                                             |
+| Guest header / brand logo                    | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                                                |
+| Guest site localization (FR/EN)              | `specs/site-localization.md`       | `specs/site-chrome.md` (header chrome)                                                   |
+| Guest homepage hero / reserve / Chef's picks | `specs/homepage.md`                | `specs/site-chrome.md` (header); `booking-rules.md`; `menu-availability.md` (picks rows) |
+| Admin-managed logo / branding CMS            | `specs/branding-cms.md`            | `specs/site-chrome.md` (empty-by-default mark)                                           |
+| Post-visit review email                      | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)                                    |
+| Staff authorization (JWT claim)              | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                                                           |
+| Dev toolchain                                | `specs/dev-toolchain.md`           | `runbooks/deploy.md` (Cloud Agent install)                                               |
+| Test how-to                                  | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes                                            |
 
 ## Plan → doc traceability
 
@@ -88,6 +88,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | REAZED-296 chef's picks service (`reazed-296_chefs_picks_service`)                                | 2026-09-03 | `specs/branding-cms.md` (BC-1 trace), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`                                                                                                                                                                                                                                                                                             |
 | REAZED-311/312 POS catalog + orders (`reazed-311-312_pos-catalog-persistence_7c3f9a1d`)           | 2026-09-03 | `specs/menu-availability.md` (AC-4/AC-5 trace), `architecture/Order-Flow.md`, `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `runbooks/deploy.md`                                                                                                                      |
 | RES-61 guest i18n followups (`res-61_guest_i18n_followups`)                                       | 2026-09-08 | `specs/site-localization.md` (AC-11–AC-16), `specs/site-chrome.md` (AC-10–16 cross-ref), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/E2E-Playwright-Guide.md`                                                                                                                                                                                                       |
+| RES-59 Chef's picks SSR + avatar (`res-59_chefs_picks_ssr_avatar`)                                | 2026-09-09 | `specs/homepage.md` (HP-2/HP-3), `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`                                                                                                                                                                                                                                                                               |
 
 ## Seed path
 

@@ -4,7 +4,12 @@ import { describe, expect, it } from "vitest"
 
 const repoRoot = process.cwd()
 const chefsPicksHookPath = path.join(repoRoot, "hooks", "use-chefs-picks.ts")
-const localizedHomepagePath = path.join(repoRoot, "app", "[locale]", "page.tsx")
+const localizedHomepagePath = path.join(
+  repoRoot,
+  "components",
+  "site",
+  "home-page-client.tsx",
+)
 
 function readChefsPicksHookSource() {
   return readFileSync(chefsPicksHookPath, "utf8")

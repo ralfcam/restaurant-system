@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-09
 
 ## Layout
 
@@ -17,8 +17,10 @@
   local signup TOML, seed `raw_app_meta_data` for staff and super-admin)
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
   `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard, SC-4a
-  `shouldUseLightNavText`); `tests/unit/site-header.test.ts`; homepage HP-1
-  `tests/unit/site/homepage-layout.test.ts`
+  `shouldUseLightNavText`); `tests/unit/site-header.test.ts` (SiteHeader JSX
+  in `components/site/home-page-client.tsx`); homepage HP-1/HP-3
+  `tests/unit/site/homepage-layout.test.ts`; HP-2
+  `tests/unit/site/home-page-chefs-picks-ssr.test.ts`
 - Guest i18n: `tests/unit/i18n/` (header locale nav, catalog chrome,
   `isActiveNavPath`, `resolveDocumentLang`, sheet switcher)
 - Super-admin chrome (SA-10): `tests/unit/branding/super-admin-chrome.test.ts`,

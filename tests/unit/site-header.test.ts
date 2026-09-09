@@ -5,7 +5,12 @@ import { shouldRenderSiteHeader } from "@/lib/site-chrome"
 
 const repoRoot = process.cwd()
 const flatHomepagePath = path.join(repoRoot, "app", "page.tsx")
-const localizedHomepagePath = path.join(repoRoot, "app", "[locale]", "page.tsx")
+const localizedHomepagePath = path.join(
+  repoRoot,
+  "components",
+  "site",
+  "home-page-client.tsx",
+)
 const siteHeaderPath = path.join(
   repoRoot,
   "components",
