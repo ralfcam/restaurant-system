@@ -120,6 +120,7 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
 
 FEATURE `res-61_guest_i18n_followups` (RES-61, 2026-09-08). AC-11–AC-16 shipped; AC-9 remains manual-UAT.
 FEATURE `html_lang_pnpm_pin_70d248bc` (2026-09-09). AC-17 shipped.
+FIX `res-50_locale_mw_session_cookies_a3f1c8e2` (RES-50, 2026-09-09). AC-18/AC-19 shipped.
 
 | Criterion | Shipped in                                                                                                                                                                                                                               | Tests                                                                                                                                                             |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -131,6 +132,8 @@ FEATURE `html_lang_pnpm_pin_70d248bc` (2026-09-09). AC-17 shipped.
 | AC-15     | Two `LanguageSwitcher` instances in `components/site/site-header.tsx` — desktop actions region and `SheetContent`                                                                                                                        | `tests/unit/i18n/site-header-switcher.test.ts` → "site header renders LanguageSwitcher in desktop actions and mobile sheet"                                       |
 | AC-16     | `resolveDocumentLang` in `lib/i18n/document-lang.ts`; `app/layout.tsx` `pathnameFromRequestHeaders` + `<html lang={resolveDocumentLang(…)}>`                                                                                             | `tests/unit/i18n/document-lang.test.ts` → "resolveDocumentLang follows public locale and staff English"                                                           |
 | AC-17     | `DocumentLangSync` in `lib/i18n/document-lang-sync.tsx` (`"use client"`, `usePathname`, `useLayoutEffect` → `document.documentElement.lang`); `app/layout.tsx` mounts `<DocumentLangSync />` (first paint still AC-16 `<html lang={…}>`) | `tests/unit/i18n/document-lang.test.ts` → "layout mounts a client document-lang sync from usePathname"                                                            |
+| AC-18     | `proxy.ts` copies `sessionResponse.cookies?.getAll()` via `{ name, value, ...options }` into `intlResponse.cookies.set(name, value, options)`                                                                                            | `tests/unit/i18n/middleware-scope.test.ts` → "session cookies and Set-Cookie options survive locale merge"                                                        |
+| AC-19     | `i18n/middleware-scope.ts` `resolveLocaleRoutingDecision` matches `pathname === prefix \|\| pathname.startsWith(prefix + "/")`                                                                                                           | `tests/unit/i18n/middleware-scope.test.ts` → "locale exclusion is segment-bounded including auth/error through proxy"                                             |
 
 ## Message catalog keys (public site)
 

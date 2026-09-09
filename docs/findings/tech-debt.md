@@ -1,5 +1,7 @@
 # Tech-debt findings (open)
 
+- [ ] Silent no-op if session response has no cookies · `proxy.ts:18` · `sessionResponse.cookies?.getAll() ?? []` drops every session cookie on a localize path without error if `updateSession` ever returns a plain `Response` · low · (found: tdd/res-50_locale_mw_session_cookies_a3f1c8e2/C1/green)
+- [ ] Guest header hide is prefix-unaware · `lib/site-chrome.ts:18` (`shouldRenderSiteHeader`) · `pathname.startsWith("/admin")` would hide the guest header on `/administrator`, same lookalike class AC-19 is fixing for locale skip · low · (found: tdd/res-50_locale_mw_session_cookies_a3f1c8e2/C2/red)
 - [ ] Completed-status enqueue errors are swallowed · `app/actions/reservations.ts:316-320` · `review_email_sends` insert failure after a successful status update is only `console.error`; the guest is marked completed with no claim row · med · (found: tdd/res-45_review_email_schema_cron_7f3a91c2/C2/green)
 - [ ] cron full-scans unsent rows · `lib/marketing/review-email.ts:103-108` · `.is("sent_at", null)` has no partial index; every hourly tick seq-scans the queue · low · (found: tdd/res-45_review_email_schema_cron_7f3a91c2/C2/refactor)
 - [ ] `ReservationRow` omits `completed_at` · `app/actions/reservations.ts:56-68` · `select("*")` casts drop the clock at the type boundary; complete write uses `Record<string, unknown>` · low · (found: tdd/res-45_review_email_schema_cron_7f3a91c2/C3/refactor)
