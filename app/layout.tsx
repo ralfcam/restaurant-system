@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next"
 import { Inter, Geist_Mono, Playfair_Display } from "next/font/google"
 import { headers } from "next/headers"
 import { resolveDocumentLang } from "@/lib/i18n/document-lang"
+import { DocumentLangSync } from "@/lib/i18n/document-lang-sync"
 import { Toaster } from "@/components/ui/sonner"
 import "./globals.css"
 
@@ -88,6 +89,7 @@ export default async function RootLayout({
       className={`${inter.variable} ${geistMono.variable} ${playfair.variable} bg-background`}
     >
       <body className="font-sans antialiased">
+        <DocumentLangSync />
         {children}
         <Toaster />
         {process.env.NODE_ENV === "production" && <Analytics />}

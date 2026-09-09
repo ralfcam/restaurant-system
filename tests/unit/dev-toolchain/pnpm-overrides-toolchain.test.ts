@@ -54,4 +54,9 @@ describe("pnpm override home", () => {
     expect(existsSync(path.join(repoRoot, "pnpm-workspace.yaml"))).toBe(true)
     expect(readPackageJson()).not.toHaveProperty("pnpm")
   })
+
+  it("packageManager equals the shipped pnpm@12.3.4 pin", () => {
+    const pkg = readPackageJson()
+    expect(pkg.packageManager).toBe("pnpm@12.3.4")
+  })
 })

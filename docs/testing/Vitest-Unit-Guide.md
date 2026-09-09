@@ -22,7 +22,8 @@
   `tests/unit/site/homepage-layout.test.ts`; HP-2
   `tests/unit/site/home-page-chefs-picks-ssr.test.ts`
 - Guest i18n: `tests/unit/i18n/` (header locale nav, catalog chrome,
-  `isActiveNavPath`, `resolveDocumentLang`, sheet switcher)
+  `isActiveNavPath`, `resolveDocumentLang`, `DocumentLangSync` layout mount,
+  sheet switcher)
 - Super-admin chrome (SA-10): `tests/unit/branding/super-admin-chrome.test.ts`,
   `tests/unit/scheduling/super-admin-chrome.test.ts`,
   `tests/unit/floor/super-admin-chrome.test.ts`,
