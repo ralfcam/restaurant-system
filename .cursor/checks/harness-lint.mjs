@@ -14,11 +14,13 @@
  *   capture          capture.md pins Validation Summary row count = PHASE 5 slug count
  *   ledger           linear-resolver + triage Grep ledger before MCP
  *   findings-format  prettier --check on the five docs/findings/*.md bus files
+ *                    via Corepack-independent local prettier (Linux Cloud Agents
+ *                    and Windows; PATH Corepack shims are not portable)
  *   dispatch         includeRelations + verified-negative vs cannot-verify
  */
-import { spawnSync } from "node:child_process"
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
+import { runPnpm } from "./run-pnpm.mjs"
 
 const FINDINGS_LEDGER = [
   "docs/findings/archive.md",
@@ -27,8 +29,6 @@ const FINDINGS_LEDGER = [
   "docs/findings/tech-debt.md",
   "docs/findings/test-debt.md",
 ]
-const PNPM = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
-
 const ROOT = process.cwd()
 const violations = []
 
@@ -199,11 +199,9 @@ function checkFindingsFormat() {
       "triage.md prune-ledger path must name pnpm exec prettier --check",
     )
   }
-  const r = spawnSync(
-    PNPM,
-    ["exec", "prettier", "--check", ...FINDINGS_LEDGER],
-    { encoding: "utf8", cwd: ROOT, shell: true },
-  )
+  const r = runPnpm(["exec", "prettier", "--check", ...FINDINGS_LEDGER], {
+    cwd: ROOT,
+  })
   if (r.error || r.status == null || r.status !== 0) {
     const detail = [r.stderr, r.stdout, r.error?.message]
       .filter(Boolean)

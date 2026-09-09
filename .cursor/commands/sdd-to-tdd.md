@@ -109,16 +109,73 @@ thinking: { type: "adaptive", effort: "high" }
 
 ## STEP 0 — PLAN MODE GATE (do this before anything else)
 
-This command runs in **Plan Mode only**. First, determine whether you are in Plan
-Mode.
+This command's default is **Plan Mode**. Cloud Agents support Plan Mode; prefer
+it when the launch surface exposes it. The managed-Cloud path below is a
+**narrow one-shot exception for unattended Agent-mode launches**, not a claim
+that Cloud lacks Plan Mode.
 
-- If you are **NOT** in Plan Mode: STOP immediately. Make no edits, read no
-  files, delegate to no subagents. Output exactly:
-  "/sdd-to-tdd runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
-  mode picker) and re-run `/sdd-to-tdd <spec>`." Then end the turn.
+First, determine whether you are in Plan Mode.
+
 - If you ARE in Plan Mode: proceed. Producing this plan must not write any
   application or test files — all writes happen later, during plan execution,
   through the subagents.
+- If you are **NOT** in Plan Mode: do not assume local Agent Mode and do not
+  stop yet. Probe the documented Cloud Agent metadata API first (this probe
+  only — no repo reads, no edits, no subagents):
+
+  ```bash
+  curl -fsS --unix-socket "${CURSOR_AGENT_SOCKET:-/run/cursor/api.sock}" \
+    http://cursor-agent/v1/meta-data/agent/runtime
+  ```
+
+  Classify from the response body, trimmed:
+  - Exactly `managed` (Cursor-managed Cloud Agent VM) → enter
+    **STEP 0B — MANAGED CLOUD ONE-SHOT**. Do not emit the Plan Mode stop.
+  - Socket missing, HTTP error, empty body, self-hosted, `unknown`, or any
+    value other than exactly `managed` → fail closed. Output exactly:
+    "/sdd-to-tdd runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
+    mode picker) and re-run `/sdd-to-tdd <spec>`." Then end the turn.
+
+  If the socket is missing immediately after boot, retry the connection once;
+  then fail closed. Do not infer Cloud from branch name (`cursor/…`), OS, or
+  available tools. `/v1/meta-data/agent/runtime` returning exactly `managed` is
+  the only positive signal.
+
+## STEP 0B — MANAGED CLOUD ONE-SHOT (narrow exception)
+
+Applies only after STEP 0 classified `agent/runtime` as exactly `managed`.
+
+**What this waives (only these):**
+
+1. The Plan Mode requirement and the "switch to Plan Mode" stop.
+2. The final "stop for operator approval before execution" boundary (STEP 5).
+3. A second human "yes" for the exact spec create/edit and existing-test
+   edits enumerated in this run's `## Permissions Requested` — the initiating
+   Cloud task is that authorization.
+
+**Cloud one-shot does not waive** (non-overridable; same methodology as local):
+missing or empty input; unresolved clarification, spec conflict, or vague
+inline details that belong in `/design`; unproven FIX evidence / unconfirmed
+root cause; the ≥3-hypothesis thrash cap; unavailable Task/delegation; a phase
+whose exit condition is unmet; any `BLOCKED` / `BLOCKED (infra)`; skipped
+tests, `0 tests collected`, or infra that cannot be brought up; write-scope
+violations (orchestrator touching `tests/**` / source; Red touching source;
+Green/Refactor touching tests); failed verification (no fresh command
+evidence; skipped suite treated as green); newly discovered Linear
+finding-issue creation (persist to the ledger; stop for operator confirmation —
+do not auto-confirm).
+
+**Durable work-order (required before any spec/test/source mutation):**
+Render the complete plan in the output format below to
+`.cursor/plans/<plan-slug>.plan.md`. This is a **repository work-order, not a
+silently accepted native Cursor Plan**. Do **not** invoke `CreatePlan` or wait
+for native plan acceptance — that blocks one-shot continuation. Hand every
+phase Task this work-order path + the criterion/part id.
+
+Then execute immediately in the same turn: START (if STEP 2B applies) → the
+enumerated spec / existing-test edits → Criterion 1 Red → the rest of the
+loop. Bound by the Execution Protocol and the work-order text. A spec or
+existing-test path **not** listed in `## Permissions Requested` still STOPS.
 
 ## STEP 1 — CLASSIFY INPUT, THEN RESOLVE THE SPEC (source of truth)
 
@@ -162,8 +219,12 @@ Read the trailing argument:
 **Spec writes require explicit permission.** Creating a new spec file or editing
 an existing one (including reconciling spec↔code drift discovered during the
 loop) is a deliberate act: present the exact change and get the operator's
-explicit "yes" before writing. Never silently edit a spec to match code — if
-they disagree, the spec wins unless the operator approves changing it.
+explicit "yes" before writing. **Managed Cloud one-shot:** the initiating task
+pre-authorizes only the exact spec create/edit paths listed in
+`## Permissions Requested`. A spec change discovered later, or any path not
+listed there, still STOPS for a human yes. Never silently edit a spec to match
+code — if they disagree, the spec wins unless the operator (or that enumerated
+Cloud pre-authorization) approves changing it.
 
 Then, before decomposing, surface **clarifying questions** for anything
 ambiguous, underspecified, or conflicting in the spec (especially acceptance
@@ -189,7 +250,9 @@ its acceptance criteria, and fold the results into the clarifications above:
   vacuous pass is impossible (this directly defends the skip/always-green failure
   mode this loop exists to prevent).
   Surface what the method exposes as clarifying questions or proposed criteria; per
-  the permission gate, any resulting spec edit still needs the operator's explicit "yes".
+  the permission gate, any resulting spec edit still needs the operator's explicit
+  "yes" (managed Cloud: only if that exact path is already listed in
+  `## Permissions Requested`; otherwise STOP).
 
 **Scope-deferral → ledger.** Whenever a scope question is resolved by _excluding_
 something (the operator says "stay scoped / file it separately", or you propose
@@ -233,11 +296,14 @@ tests before code.**
 4. **Update the spec FIRST (with explicit permission), then Red regression.**
    Propose the exact addition to the owning spec — a new business rule / edge
    case / acceptance criterion that, had it existed, would have prevented the
-   bug. Get the operator's explicit "yes" (per the Step 1 permission gate),
-   then this spec edit becomes the **first execution action**, ahead of any
-   test or code. The newly added acceptance criterion is what feeds Step 2/3:
-   the Red phase writes a **regression test** for that criterion; it must fail
-   on today's code (reproducing the bug) before any fix.
+   bug. Get the operator's explicit "yes" (per the Step 1 permission gate).
+   **Managed Cloud one-shot:** list that exact spec path in
+   `## Permissions Requested`; the initiating task is the yes — still STOP if
+   the addition is ambiguous or unproven. Then this spec edit becomes the
+   **first execution action**, ahead of any test or code. The newly added
+   acceptance criterion is what feeds Step 2/3: the Red phase writes a
+   **regression test** for that criterion; it must fail on today's code
+   (reproducing the bug) before any fix.
 
 **Cap the thrash.** If ≥3 hypotheses (step 3) have been proposed and tested
 without landing on a confirmed root cause, stop iterating and escalate to the
@@ -246,8 +312,9 @@ usually means the failure spans a design boundary the spec doesn't cleanly
 own, which needs a human decision, not a fourth patch attempt.
 
 Never go straight to Green/code on a bug. If the operator declines the spec
-update, stop — do not patch code around an unwritten rule (that is the context
-debt this workflow exists to prevent).
+update (local), or the required spec path cannot be enumerated in
+`## Permissions Requested` (managed Cloud), stop — do not patch code around an
+unwritten rule (that is the context debt this workflow exists to prevent).
 
 ## STEP 2 — DECOMPOSE INTO A TEST-FIRST EXECUTION PLAN
 
@@ -278,8 +345,10 @@ file that owns the area (`tests/unit/**/*.test.ts`,
 `tests/e2e/deployed/*.deployed.spec.ts`) and existing fixtures/helpers/seeds;
 only propose a new test file when no owner exists. If satisfying a criterion
 would require **modifying, renaming, or deleting an existing test** (not just
-adding one), flag it explicitly in the plan as needing the operator's explicit
-permission before the Red phase touches it.
+adding one), flag it explicitly in `## Permissions Requested`. Local Plan Mode:
+the operator's explicit permission is required before the Red phase touches it.
+Managed Cloud one-shot: listing that exact test path there is the
+pre-authorization; a later existing-test edit not listed still STOPS.
 
 Order steps so each builds on green predecessors, and **within what dependencies
 allow, drive higher-risk criteria first** (`P0` before `P3`) so the costliest
@@ -346,9 +415,12 @@ criterion is the same failure as accepting a skipped suite.
 
 ## STEP 2B — EXECUTION START: CLAIM THE LINEAR ISSUE
 
-This step runs only during plan **execution** (after operator approval) — never
-during Plan Mode production. Plan Mode stays read-only; do not call
-`save_issue` / `save_comment` / `save_document` while producing the plan.
+This step runs only during plan **execution** — after operator approval on a
+local Plan Mode run, or after the managed-Cloud work-order is written at
+`.cursor/plans/<plan-slug>.plan.md`. Never during plan production. Plan Mode
+stays read-only; Cloud plan production is read-only except that work-order
+write. Do not call `save_issue` / `save_comment` / `save_document` while
+producing the plan.
 
 When FIX mode was invoked with a Linear ID/URL, **or** FEATURE mode's plan has
 `linear_issue: REAZED-###` (not `none`): as the **first execution action**, before
@@ -706,7 +778,10 @@ crosswalk, milestone/estimate conventions, and label taxonomy from
   attach-over-create ladder first (most findings are expected to end up
   "left on ledger" or attached to an existing issue, not as a new issue), and
   enforces the **per-run cap of 3 net-new issues** — cap overflow also stays on
-  the ledger.
+  the ledger. **Managed Cloud one-shot does not auto-confirm** new Linear
+  finding issues: persist them on the durable ledger and STOP for operator
+  confirmation before creating net-new work. Attach-over-create and
+  left-on-ledger outcomes do not need a new-issue yes.
 - New issues (rung 4 of the ladder only) are filed in the team's
   **backlog/triage** state with a **milestone** set per the README convention
   (`docs/findings/README.md` M1–M9 filing map — `list_milestones` then assign;
@@ -778,9 +853,15 @@ reference the spun-off issue IDs in the close-out comment. Do not re-register.
 
 ## STEP 5 — PRESENT THE PLAN FOR APPROVAL
 
-Output the plan in the format below and stop for approval. Execution (spec
-update + the subagent loop + docs sync + FIX-mode Linear close-out) begins only
-after the operator approves the plan.
+Output the plan in the format below.
+
+- **Local Plan Mode:** stop for approval. Execution (spec update + the
+  subagent loop + docs sync + FIX-mode Linear close-out) begins only after
+  the operator approves the plan.
+- **Managed Cloud one-shot:** write the complete plan to
+  `.cursor/plans/<plan-slug>.plan.md` (repository work-order, not a silently
+  accepted native Cursor Plan), then begin execution in this turn. Do not
+  wait for a second accept. Do not invoke `CreatePlan`.
 
 **Carry the contract into execution.** The later execution turn is bound by the
 emitted plan text, **except START:** a stale `start-linear` todo **cannot
@@ -843,8 +924,9 @@ enumerate all three phases of **every** criterion as explicit
 
 <constraints>
 - DO NOT write, edit, or run application/test code while producing the plan —
-  Plan Mode is read-only; all mutation happens in the delegated subagents during
-  execution.
+  Plan Mode is read-only; managed Cloud plan production is read-only except the
+  work-order write to `.cursor/plans/<plan-slug>.plan.md`. All other mutation
+  happens in the delegated subagents during execution.
 - DO NOT pass `model` on Task calls for named `.cursor/agents/*` subagents
   unless the operator explicitly requested that model for this run. Agent
   frontmatter owns the model; omitting `model` lets it apply — copying the
@@ -863,9 +945,16 @@ enumerate all three phases of **every** criterion as explicit
   spec wins (or the spec is revised first, deliberately).
 - FIX MODE GOLDEN RULE: never patch code or tests to make a bug go away before
   the owning spec is updated with the missing rule. Spec → regression test →
-  code, in that order. No spec update approved → stop (don't incur context debt).
+  code, in that order. No spec update approved (local) / not listed in
+  `## Permissions Requested` (managed Cloud) → stop (don't incur context debt).
 - DO NOT create/edit a spec under `docs/specs/**` or modify/delete an existing
-  test without the operator's **explicit permission** — adding new tests is fine.
+  test without the operator's **explicit permission** — adding new tests is
+  fine. Managed Cloud one-shot: the initiating task pre-authorizes only the
+  exact paths listed in `## Permissions Requested`; any other spec or
+  existing-test edit still STOPS.
+- Cloud one-shot does not waive evidence, clarification, infra, delegation,
+  phase-exit, write-scope, or verification STOPs. It does not auto-confirm new
+  Linear finding issues.
 - DO NOT mark the feature done without delegating `docs-updater` (unless the
   rule's skip/no-duplicate conditions apply) and without the close-out format
   pass (`pnpm exec prettier --write` on this run's dirty paths).
@@ -891,17 +980,21 @@ execution turn).
 You are the **orchestrator**, not an implementer. When this plan is executed:
 
 - Your **only direct writes** are: (1) the **approved spec edit** under
-  `docs/specs/**`, (2) the findings revision pass on
+  `docs/specs/**` (local: after operator yes; managed Cloud: the exact path
+  listed in `## Permissions Requested`), (2) the findings revision pass on
   `docs/findings/runs/<plan-slug>.md` after every phase (and, at close-out, the
   merge of its open lines into `docs/findings/<category>.md` + prune to
   `archive.md`), (3) appending Refactor close-out sections to
   `docs/verifier-reports/tdd/<plan-slug>.md` after each `tdd-refactor` phase,
   and (4) at close-out, **`## Suggested Review Order (collated)`** (Step 4D),
   **`## Traceability (final)`**, and **`## Run metrics`** (Step 4E) in the same
-  tdd log. After a spec or living-findings (`docs/findings/<category>.md`)
-  write, `pnpm exec prettier --write` **that file** (never `prettier --write .`).
-  Snapshot trees (`docs/eval`, `docs/verifier-reports`, `docs/findings/runs`)
-  are prettierignored. Everything else is delegated.
+  tdd log. **Managed Cloud only, before execution:** also write the work-order
+  to `.cursor/plans/<plan-slug>.plan.md` (repository work-order, not a
+  silently accepted native Cursor Plan). After a spec or living-findings
+  (`docs/findings/<category>.md`) write, `pnpm exec prettier --write` **that
+  file** (never `prettier --write .`). Snapshot trees (`docs/eval`,
+  `docs/verifier-reports`, `docs/findings/runs`) are prettierignored.
+  Everything else is delegated.
 - **Every test change** comes from a `tdd-red` Task call. **Every source change**
   from `tdd-green`. **Every cleanup / re-verify** from `tdd-refactor`. Run them
   sequentially, one **phase** at a time (not one criterion at a time), honoring
@@ -976,7 +1069,9 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   **merge** the run file's open lines into the matching `docs/findings/<category>.md`
   (dedupe/sharpen), delegate `linear-resolver` to read the (already-curated)
   `docs/findings/*.md` (plus the plan's Out-of-Scope Findings table), file the
-  findings as linked Linear issues (your confirmation gates creation), then
+  findings as linked Linear issues (your confirmation gates creation — managed
+  Cloud does not auto-confirm net-new finding issues; persist to the ledger and
+  STOP), then
   **prune** each registered entry into `docs/findings/archive.md` with its issue
   id and **truncate/delete the run file**. If Linear is unavailable, the merged
   category files ARE the fallback backlog.
@@ -991,7 +1086,12 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `pnpm test:e2e:chromium <path>`). If a phase returns `BLOCKED (infra)`, STOP
   and report the remedy.
 - If you cannot delegate (Task tool unavailable in this mode), STOP and report —
-  do not self-implement.
+  do not self-implement. Managed Cloud one-shot does not waive this STOP.
+- **Managed Cloud one-shot:** after the work-order exists at
+  `.cursor/plans/<plan-slug>.plan.md`, execute immediately. Do not wait for a
+  second plan accept. Do not auto-confirm new Linear finding issues. Cloud
+  one-shot does not waive evidence, clarification, infra, delegation,
+  phase-exit, write-scope, or verification STOPs.
 - If the delegation-guard hook is installed, arm it as your FIRST execution
   action (`node .cursor/hooks/tdd-guard.mjs on`) and disarm it as your LAST
   (`node .cursor/hooks/tdd-guard.mjs off`). Before each phase's Task call, set
@@ -1002,7 +1102,9 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 
 ## Mode Check
 
-- Plan Mode: YES (proceeding) | NO (stopped — instruction to switch)
+- Plan Mode: YES (proceeding) | NO (stopped — instruction to switch) | CLOUD-MANAGED (one-shot)
+- Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | (fail-closed if probed and not exactly `managed`)
+- Work-order: `.cursor/plans/<plan-slug>.plan.md` (managed Cloud) | n/a (Plan Mode — native plan)
 - Workflow mode: FEATURE | FIX
 
 ## Issue & Root Cause (FIX mode only — omit for FEATURE)
@@ -1010,7 +1112,8 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 - Issue: `<REAZED-### / URL>` or free-text defect — observed vs. expected (1–2 lines).
 - Missing constraint (root cause): the spec rule that was absent/wrong.
 - Spec update proposed: `docs/specs/<file>` → the new rule/edge case/criterion
-  to add (the FIRST execution action, pending permission).
+  to add (the FIRST execution action; local: pending permission; managed Cloud:
+  listed in `## Permissions Requested`).
 
 ## Spec
 
@@ -1066,6 +1169,10 @@ List every write that needs explicit operator approval, or "none":
 
 - Spec create/edit: `docs/specs/<file>` — <why>
 - Existing-test edit: `<test file>` — <why a new test won't do>
+
+Local Plan Mode: wait for the operator's yes before those writes. Managed Cloud
+one-shot: the initiating task pre-authorizes **only** these listed paths; do not
+invent additional spec or existing-test edits. A path omitted here still STOPS.
 
 ## TDD Execution Loop
 
@@ -1214,7 +1321,9 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   `docs/findings/README.md` — filing floor, attach-over-create ladder, per-run cap
   of 3 — proposing only the entries that clear it as new/sub/umbrella issues
   (with milestone + priority), attaching to existing issues where the ladder
-  matches, and leaving the rest on the ledger, after your confirmation;
+  matches, and leaving the rest on the ledger, after your confirmation
+  (managed Cloud: persist to the ledger and STOP for that confirmation — do
+  not auto-confirm net-new finding issues);
   `linear-resolver` returns the finding→outcome mapping (filed / attached /
   umbrella / left-on-ledger) and the orchestrator then **prunes only the filed
   and attached entries** into `docs/findings/archive.md` with their outcome and
@@ -1243,23 +1352,30 @@ Collated into **`## Suggested Review Order (collated)`** in
 
 ## First Execution Action
 
-- The single concrete action to take on approval. When STEP 2B applies, a
-  **local** session resolves the plan file and delegates: "Invoke the
-  `linear-resolver` subagent to start work on <REAZED-###> (plan: <plan-slug>),
-  posting this digest." Task `run_in_background: true`. Do **not** wait for
-  that report before spec/C1. Fill `<plan-slug>` with this plan file's basename
-  in the emitted todo. A reader who only has this Linear issue's `Work started:`
-  summary comment must **not** look for `.cursor/plans/` and must **not** re-invoke
-  START when that comment is already on the issue — continue from the next todo
-  / implement the ACs. FEATURE, if further todos were assigned: "request
-  spec-write permission, then delegate Criterion 1 Red to tdd-red." FIX, if
-  further todos were assigned: "apply the approved spec update FIRST, then
-  delegate the regression test for <criterion> to tdd-red." Launch START
-  before that spec/Red step when a tracked issue exists (local orchestrator
-  only); do not wait for START to finish. A stale `start-linear` todo
-  **cannot override STEP 2B**. Clicking Run on the whole plan assigns further
-  todos and continues immediately; running only `start-linear` launches only
-  START.
+- **Local Plan Mode:** the single concrete action to take on approval. When
+  STEP 2B applies, a **local** session resolves the plan file and delegates:
+  "Invoke the `linear-resolver` subagent to start work on <REAZED-###> (plan:
+  <plan-slug>), posting this digest." Task `run_in_background: true`. Do
+  **not** wait for that report before spec/C1. Fill `<plan-slug>` with this
+  plan file's basename in the emitted todo. A reader who only has this Linear
+  issue's `Work started:` summary comment must **not** look for `.cursor/plans/`
+  and must **not** re-invoke START when that comment is already on the issue —
+  continue from the next todo / implement the ACs. FEATURE, if further todos
+  were assigned: "request spec-write permission, then delegate Criterion 1 Red
+  to tdd-red." FIX, if further todos were assigned: "apply the approved spec
+  update FIRST, then delegate the regression test for <criterion> to tdd-red."
+  Launch START before that spec/Red step when a tracked issue exists (local
+  orchestrator only); do not wait for START to finish. A stale `start-linear`
+  todo **cannot override STEP 2B**. Clicking Run on the whole plan assigns
+  further todos and continues immediately; running only `start-linear` launches
+  only START.
+- **Managed Cloud one-shot:** after writing `.cursor/plans/<plan-slug>.plan.md`
+  (repository work-order, not a silently accepted native Cursor Plan), do not
+  wait for a second accept. Launch START if STEP 2B applies (Task
+  `run_in_background: true`; do not wait), apply the spec / existing-test edits
+  listed in `## Permissions Requested`, then delegate Criterion 1 Red. Bound by
+  every non-waived STOP.
 
-End by stopping for approval — do not begin execution in this turn.
+Plan Mode: end by stopping for approval — do not begin execution in this turn.
+Managed Cloud one-shot: write the work-order, then begin execution in this turn.
 </output_format>
