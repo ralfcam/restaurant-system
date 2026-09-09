@@ -1,5 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { createServiceClient } from "@/lib/supabase/service"
+import { assertIsolatedHoursMutationTarget } from "@/lib/scheduling/hours-mutation-target"
 import { authEnvReady } from "../helpers/env"
 
 const TABLE_LABEL = "REAZED-312 probe"
@@ -10,7 +11,12 @@ const ITEM_NAME = "REAZED-312 probe item"
 describe.skipIf(!authEnvReady)("orders persistence after local reset", () => {
   let probeOrderId: string | null = null
 
+  beforeAll(() => {
+    assertIsolatedHoursMutationTarget()
+  })
+
   afterEach(async () => {
+    assertIsolatedHoursMutationTarget()
     if (!probeOrderId) return
     const supabase = createServiceClient()
     await supabase.from("orders").delete().eq("id", probeOrderId)

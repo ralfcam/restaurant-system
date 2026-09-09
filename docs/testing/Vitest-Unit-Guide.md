@@ -12,7 +12,7 @@
   bodySizeLimit schema guard)
 - Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
   queue-on-complete, cron job auth, cron mailer factory, Supabase hourly
-  Edge Function pin, marketing page)
+  Edge Function pin, marketing page, PV-ISO schema isolation scan)
 - Staff authorization: `tests/unit/auth/` (`requireStaffUser` /
   `requireSuperAdminUser` claims, staff-route proxy, login landing gate,
   local signup TOML, seed `raw_app_meta_data` for staff and super-admin)
@@ -37,7 +37,15 @@
   `tests/unit/floor/pos-menu-availability.test.ts`
 - Reservation isolation (RES-ISO):
   `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
-  glob-scan of `tests/integration/reservations/*.integ.test.ts`)
+  glob-scan of `tests/integration/reservations/*.integ.test.ts`; zero-arg
+  call; rejects an explicit-URL helper argument)
+- Review-email isolation (PV-ISO):
+  `tests/unit/marketing/review-email-schema-isolation.test.ts` (AST
+  glob-scan of `tests/integration/marketing/*.integ.test.ts`; `WRITE_HOOKS`
+  includes `beforeEach`)
+- POS order isolation (ORD-ISO):
+  `tests/unit/pos/orders-persistence-isolation.test.ts` (AST glob-scan of
+  `tests/integration/pos/*.integ.test.ts`; requires `beforeAll`)
 
 ## Conventions
 

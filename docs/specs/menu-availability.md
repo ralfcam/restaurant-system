@@ -1,7 +1,7 @@
 # Menu availability
 
 **Status:** Draft  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Scope
 
@@ -44,6 +44,22 @@ _(Expand during first `/sdd-to-tdd` run.)_
    `npx supabase db reset --local` provisions them and `createKitchenOrder` /
    `getActiveKitchenOrders` / `updateKitchenOrderStatus` durably persist and
    query kitchen tickets across a local reset.
+6. **ORD-ISO — Mutating POS order integration is local-only.** Mutating
+   automated coverage under `tests/integration/pos/*.integ.test.ts`
+   (service-role `orders` / `order_items` insert and cleanup delete) MUST
+   run only against **local** Supabase (`NEXT_PUBLIC_SUPABASE_URL` host
+   `127.0.0.1`, `localhost`, or `[::1]`). It MUST fail closed — not skip —
+   when the URL is the shared linked project `tilcqrudqxznnpepxjqq` (or
+   any other non-local host). Use `authEnvReady` /
+   `RESTAURANT_INTEGRATION_STRICT` **plus**
+   `assertIsolatedHoursMutationTarget()` from
+   `lib/scheduling/hours-mutation-target.ts` (same helper as booking-rules
+   RES-ISO / scheduling.md §15). Call it as the **first statement** of
+   `beforeAll` and of every cleanup hook that writes (`afterEach` /
+   `afterAll`). The call MUST be zero-argument. Add `beforeAll` when the
+   suite has none so the pin runs before the first `it()` write. Do not
+   put the guard in `createServiceClient`. A new file matching that glob
+   MUST include the same pin.
 
 ## Implementation trace (non-normative)
 
@@ -52,6 +68,7 @@ _(Expand during first `/sdd-to-tdd` run.)_
 | AC-2 PUBLIC-READ-PRIV | `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` on `menu_items` — `supabase/migrations/00000000000000_baseline.sql`, `supabase/migrations/20260825140000_operating_windows_privilege.sql`, `supabase/migrations/20260827160000_public_catalog_privileges.sql`                                                                                                                                                                             | `tests/integration/reservations/public-privileges.integ.test.ts` → "anon can SELECT menu_items and cannot INSERT"                                                                                                                                                    |
 | AC-4 POS live catalog | `/pos` (`app/pos/page.tsx`) `Promise.all` includes `getMenuItems()` and `<PosTerminal items={menuItems} />`; `PosTerminal` takes `items: MenuItemRow[]` (no `\bMENU_ITEMS\b`; `MENUS` / `MenuId` remain for tabs). `createKitchenOrder` unique line ids → one `menu_items` `.in()` of `id, name, price_value, available` → Map lookup → throw before any `orders` / `order_items` insert (`app/actions/operations.ts`).                    | `tests/unit/floor/pos-menu-availability.test.ts` → "POS sources menu items from the live catalog, not the static MENU_ITEMS seed"; "createKitchenOrder rejects a line item that is 86'd in the live menu_items table"                                                |
 | AC-5 orders schema    | `CREATE TABLE IF NOT EXISTS orders` / `order_items` in `supabase/migrations/00000000000000_baseline.sql` (RLS; `DROP POLICY IF EXISTS` + authenticated / `service_role` `FOR ALL`; `GRANT SELECT, INSERT, UPDATE, DELETE` to authenticated; `GRANT ALL` to `service_role`; no anon). `GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq TO authenticated`. Not in `supabase_realtime` — KDS polls `getActiveKitchenOrders` every 5s. | `tests/unit/floor/schema.test.ts` → "baseline persists orders and order_items for POS/KDS send-to-kitchen"; `tests/integration/pos/orders-persistence.integ.test.ts` → "service-role can persist and query orders/order_items after a local reset (send-to-kitchen)" |
+| ORD-ISO               | `assertIsolatedHoursMutationTarget()` (zero-arg) at start of `beforeAll` and write-cleanup hooks in every `tests/integration/pos/*.integ.test.ts`. Same helper as booking-rules RES-ISO.                                                                                                                                                                                                                                                   | `tests/unit/pos/orders-persistence-isolation.test.ts`                                                                                                                                                                                                                |
 
 ## References
 

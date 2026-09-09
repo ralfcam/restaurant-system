@@ -65,8 +65,12 @@ probes) is **local** Supabase only. Per
 imports `assertIsolatedHoursMutationTarget` from
 `lib/scheduling/hours-mutation-target.ts` (same helper as scheduling.md §15 /
 OH-SAVE above) and calls it as the **first statement** of `beforeAll` and of
-every write-cleanup hook (`afterEach` / `afterAll`). The guard fails closed
-when `NEXT_PUBLIC_SUPABASE_URL` is the linked project `tilcqrudqxznnpepxjqq`
+every write-cleanup hook (`afterEach` / `afterAll`). The call is
+**zero-argument** (`assertIsolatedHoursMutationTarget()`). The unit scan
+rejects `arguments.length !== 0` — an explicit local URL would pass the
+helper’s “explicit URL wins” rule while `createServiceClient()` still
+follows `NEXT_PUBLIC_SUPABASE_URL`. The guard fails closed when
+`NEXT_PUBLIC_SUPABASE_URL` is the linked project `tilcqrudqxznnpepxjqq`
 or any other non-local host — it does not skip. Do not put the guard in
 `createServiceClient` (staff/admin against the linked project remains valid
 production). A new file matching that glob MUST include the same pin. Unit
@@ -74,6 +78,35 @@ glob-scan:
 `tests/unit/reservations/reservation-integ-isolation.test.ts`. Helper
 fail-closed behavior stays owned by scheduling §15 /
 `tests/unit/scheduling/hours-mutation-target.test.ts`.
+
+## Local-only mutating coverage (PV-ISO)
+
+Mutating coverage under `tests/integration/marketing/*.integ.test.ts`
+(settings upsert/restore, `review_email_sends` / `reservations` inserts and
+cleanup) is **local** Supabase only. Per
+[../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
+PV-ISO, each suite imports the same
+`assertIsolatedHoursMutationTarget` helper and calls it as the **first
+statement** of every write hook that exists (`beforeAll`, `beforeEach`,
+`afterEach`, `afterAll`). The call is zero-argument. The guard fails closed
+on a non-local host — it does not skip. Do not put the guard in
+`createServiceClient`. A new file matching that glob MUST include the same
+pin. Unit glob-scan:
+`tests/unit/marketing/review-email-schema-isolation.test.ts`.
+
+## Local-only mutating coverage (ORD-ISO)
+
+Mutating coverage under `tests/integration/pos/*.integ.test.ts`
+(service-role `orders` / `order_items` insert and cleanup delete) is
+**local** Supabase only. Per
+[../specs/menu-availability.md](../specs/menu-availability.md) ORD-ISO, each
+suite calls `assertIsolatedHoursMutationTarget()` as the **first statement**
+of `beforeAll` and of every write-cleanup hook (`afterEach` / `afterAll`).
+When the only mutating write lives in `it()`, add a pin-only `beforeAll` —
+`afterEach` alone is too late. The call is zero-argument. Do not put the
+guard in `createServiceClient`. A new file matching that glob MUST include
+the same pin. Unit glob-scan:
+`tests/unit/pos/orders-persistence-isolation.test.ts`.
 
 ## Layout
 
@@ -83,8 +116,9 @@ fail-closed behavior stays owned by scheduling §15 /
 - Tests: `tests/integration/**/*.integ.test.ts`
 - Reservation isolation (RES-ISO): every
   `tests/integration/reservations/*.integ.test.ts` pins
-  `assertIsolatedHoursMutationTarget()` as the first statement of `beforeAll`
-  and write-cleanup hooks (see Local-only mutating coverage above).
+  `assertIsolatedHoursMutationTarget()` (zero-arg) as the first statement of
+  `beforeAll` and write-cleanup hooks (see Local-only mutating coverage
+  above).
 - Occupancy window trigger:
   `tests/integration/reservations/occupancy-window.integ.test.ts` (assignment-feasible
   holds — one occupying reservation per table, `party_size = seats` — then
@@ -101,13 +135,19 @@ fail-closed behavior stays owned by scheduling §15 /
   `tests/integration/reservations/review-email-pii.integ.test.ts` (service-role
   insert of nullable `reservations.email`; anon `select("email")` is empty +
   42501/PGRST301). RES-PRIV unchanged — no `GRANT SELECT`.
-- Review-email schema (PV-11–PV-13):
+- Review-email schema (PV-11–PV-13 / PV-ISO):
   `tests/integration/marketing/review-email-schema.integ.test.ts` (service-role
   upsert of `review_email_*` settings; `review_email_sends` insert + anon
-  denial; `reservations.completed_at` persist).
-- POS/KDS orders (AC-5):
+  denial; `reservations.completed_at` persist). Every
+  `tests/integration/marketing/*.integ.test.ts` pins
+  `assertIsolatedHoursMutationTarget()` as the first statement of each write
+  hook, including `beforeEach` (see Local-only mutating coverage above).
+- POS/KDS orders (AC-5 / ORD-ISO):
   `tests/integration/pos/orders-persistence.integ.test.ts` (service-role insert
-  - nested `order_items` select after local reset).
+  - nested `order_items` select after local reset). Every
+    `tests/integration/pos/*.integ.test.ts` pins
+    `assertIsolatedHoursMutationTarget()` in `beforeAll` (pin-only when the
+    write is in `it()`) and write-cleanup hooks.
 
 ## Skip vs strict
 

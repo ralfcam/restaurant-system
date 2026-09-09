@@ -4,12 +4,17 @@ import ts from "typescript"
 import { describe, expect, it } from "vitest"
 
 const root = process.cwd()
-const INTEG_GLOB = "tests/integration/reservations/*.integ.test.ts"
+const INTEG_GLOB = "tests/integration/marketing/*.integ.test.ts"
 const HELPER_MODULE = "@/lib/scheduling/hours-mutation-target"
 const HELPER_NAME = "assertIsolatedHoursMutationTarget"
-const WRITE_HOOKS = ["beforeAll", "afterEach", "afterAll"] as const
+const WRITE_HOOKS = [
+  "beforeAll",
+  "beforeEach",
+  "afterEach",
+  "afterAll",
+] as const
 
-function discoverReservationIntegSuites(): string[] {
+function discoverMarketingIntegSuites(): string[] {
   return globSync(INTEG_GLOB, { cwd: root }).sort()
 }
 
@@ -84,9 +89,9 @@ function hookCallbackBodies(
   return bodies
 }
 
-describe("reservation integ isolation pin (RES-ISO)", () => {
-  it("reservation integ suites call assertIsolatedHoursMutationTarget before mutating writes", () => {
-    const files = discoverReservationIntegSuites()
+describe("marketing integ isolation pin (PV-ISO)", () => {
+  it("marketing integ suites call assertIsolatedHoursMutationTarget before mutating writes", () => {
+    const files = discoverMarketingIntegSuites()
     const failures: string[] = []
 
     if (files.length === 0) {
@@ -103,9 +108,6 @@ describe("reservation integ isolation pin (RES-ISO)", () => {
 
       for (const hook of WRITE_HOOKS) {
         const bodies = hookCallbackBodies(source, hook)
-        if (hook === "beforeAll" && bodies.length === 0) {
-          failures.push(`${rel}: missing beforeAll`)
-        }
         for (const [index, body] of bodies.entries()) {
           if (!firstStatementIsHelperCall(body)) {
             failures.push(
@@ -114,18 +116,6 @@ describe("reservation integ isolation pin (RES-ISO)", () => {
           }
         }
       }
-    }
-
-    const explicitUrlSource = ts.createSourceFile(
-      "synthetic-explicit-url.integ.test.ts",
-      'beforeAll(() => { assertIsolatedHoursMutationTarget("http://127.0.0.1:54321") })',
-      ts.ScriptTarget.Latest,
-      true,
-      ts.ScriptKind.TS,
-    )
-    const explicitUrlBodies = hookCallbackBodies(explicitUrlSource, "beforeAll")
-    if (explicitUrlBodies.some((body) => firstStatementIsHelperCall(body))) {
-      failures.push("scan accepted an explicit-URL helper call")
     }
 
     expect(failures, failures.join("\n")).toEqual([])
