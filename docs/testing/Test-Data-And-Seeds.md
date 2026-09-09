@@ -58,7 +58,7 @@
 - **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
   retry), MIME alias validation, and a `next.config.mjs` `bodySizeLimit` schema guard.
   `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
-  cron job auth, cron mailer factory, `vercel.json` hourly pin, marketing page.
+  cron job auth, cron mailer factory, Supabase hourly Edge Function pin, marketing page.
   `tests/unit/auth/` — staff and super-admin claim gates
   plus seed `raw_app_meta_data` pins.
 - **Integration tests:** `tests/integration/marketing/review-email-schema.integ.test.ts`

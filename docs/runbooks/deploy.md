@@ -62,9 +62,26 @@ hosted backend). Never use local Docker keys (`127.0.0.1:54321`).
 - `NEXT_PUBLIC_SUPABASE_URL` — `https://tilcqrudqxznnpepxjqq.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `CRON_SECRET` — Bearer token for `GET /api/cron/review-email`. Fail-closed: unset or empty secret is 401 (never matches `Bearer undefined`). `vercel.json` `crons` pins `{ "path": "/api/cron/review-email", "schedule": "0 * * * *" }`. Authorized GET calls `processDueReviewEmails({ mailer: createReviewEmailMailer() })` (`lib/marketing/review-email-mailer.ts`); the factory still throws `Mail provider is not configured.` until a live provider exists (manual-UAT).
+- `CRON_SECRET` — Bearer token for `GET /api/cron/review-email` and for
+  `supabase/functions/review-email`. Fail-closed: unset or empty secret is
+  401 (never matches `Bearer undefined`). Do **not** add a Vercel `crons`
+  entry (Hobby rejects hourly). Hosted schedule is `pg_cron` → Edge
+  Function → this GET. Also set the function secret `REVIEW_EMAIL_APP_URL`
+  (production origin) and Vault secrets `project_url` + `cron_secret`.
+  Authorized GET calls `processDueReviewEmails({ mailer: createReviewEmailMailer() })`;
+  the factory still throws `Mail provider is not configured.` until a live
+  provider exists (manual-UAT).
 
 Never expose the service role key to the client bundle. Never commit it. Never expose `CRON_SECRET` to the client bundle.
+
+Hosted review-email timer (after the function is in the repo):
+
+```powershell
+npx supabase functions deploy review-email
+npx supabase secrets set CRON_SECRET=<same-as-vercel> REVIEW_EMAIL_APP_URL=https://restlink.realized.dev
+```
+
+Vault (`project_url` = `https://tilcqrudqxznnpepxjqq.supabase.co`, `cron_secret` = same Bearer) so `pg_cron` can POST `/functions/v1/review-email`. Baseline creates job `review-email-hourly` when those extensions exist.
 
 ## Supabase
 

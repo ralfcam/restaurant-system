@@ -32,7 +32,7 @@ upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
 | `/en`, `/en/menu`                              | Guest    | English public site (`localePrefix: as-needed`)                                              |
 | `/auth/login`, `/auth/callback`, `/auth/error` | Staff    | Supabase auth (flat routes; no locale segment)                                               |
 | `/admin/*`                                     | Staff    | Menu, reservations, scheduling, floor, branding, marketing (English-only; no locale segment) |
-| `/api/cron/review-email`                       | Cron     | Bearer `CRON_SECRET` GET; `createReviewEmailMailer()`; `vercel.json` `0 * * * *`             |
+| `/api/cron/review-email`                       | Cron     | Bearer `CRON_SECRET` GET; `createReviewEmailMailer()`; Supabase `review-email` Edge Function |
 | `/pos`                                         | Staff    | Point of sale (live `getTables()` / `getServers()` / `getMenuItems()`)                       |
 | `/kds`                                         | Staff    | Kitchen display                                                                              |
 

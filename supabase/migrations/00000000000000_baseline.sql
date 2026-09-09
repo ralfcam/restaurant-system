@@ -849,5 +849,48 @@ CREATE POLICY "Allow service_role full access to branding objects"
   USING (bucket_id = 'branding')
   WITH CHECK (bucket_id = 'branding');
 
+-- RES-45 / PV-15: hourly Edge Function invoke (not Vercel Cron — Hobby
+-- rejects `0 * * * *`). No-op when pg_cron/pg_net/vault are absent (slim
+-- Cloud Agent Postgres). Hosted: Vault secrets `project_url` + `cron_secret`.
+DO $review_email_cron$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_cron')
+     OR NOT EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'pg_net')
+  THEN
+    RAISE NOTICE 'pg_cron/pg_net not available; skip review-email schedule';
+    RETURN;
+  END IF;
+
+  CREATE EXTENSION IF NOT EXISTS pg_cron;
+  CREATE EXTENSION IF NOT EXISTS pg_net;
+
+  PERFORM cron.unschedule(j.jobid)
+  FROM cron.job AS j
+  WHERE j.jobname = 'review-email-hourly';
+
+  PERFORM cron.schedule(
+    'review-email-hourly',
+    '0 * * * *',
+    $job$
+    SELECT net.http_post(
+      url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'project_url' LIMIT 1)
+             || '/functions/v1/review-email',
+      headers := jsonb_build_object(
+        'Content-Type', 'application/json',
+        'Authorization', 'Bearer ' ||
+          (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'cron_secret' LIMIT 1)
+      ),
+      body := '{}'::jsonb
+    )
+    WHERE EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'project_url')
+      AND EXISTS (SELECT 1 FROM vault.decrypted_secrets WHERE name = 'cron_secret');
+    $job$
+  );
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE NOTICE 'review-email cron schedule skipped: %', SQLERRM;
+END
+$review_email_cron$;
+
 -- Force PostgREST to reload its schema cache
 NOTIFY pgrst, 'reload schema';

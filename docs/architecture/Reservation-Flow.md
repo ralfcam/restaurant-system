@@ -55,8 +55,9 @@ Criteria: [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-12.
 **Post-visit review email.** `transitionReservationStatus` to `completed`
 stamps `completed_at` and inserts `review_email_sends` (both in baseline;
 nullable `reservations.email` unchanged). Staff configure send on
-`/admin/marketing`. Hourly Vercel Cron (`vercel.json` `0 * * * *`) GETs
-`/api/cron/review-email` with `createReviewEmailMailer()`. Spec:
+`/admin/marketing`. Hourly Supabase `pg_cron` invokes Edge Function
+`review-email`, which GETs `/api/cron/review-email` with
+`createReviewEmailMailer()`. Spec:
 [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md).
 
 Key modules: `components/site/reservation-widget.tsx`,

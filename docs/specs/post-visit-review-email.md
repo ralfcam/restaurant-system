@@ -115,10 +115,13 @@ DELETE CASCADE` and `sent_at TIMESTAMPTZ` nullable default null. RLS
     remains manual-UAT.
 
 15. **PV-15 — Scheduled invocation** — Production MUST invoke
-    `GET /api/cron/review-email` on a schedule. `vercel.json` MUST contain
-    a `crons` entry whose `path` is `/api/cron/review-email` and whose
-    `schedule` is hourly (`0 * * * *`). Delay `0` sends on the next
-    hourly tick.
+    `GET /api/cron/review-email` on a schedule. MUST NOT register a
+    Vercel `crons` entry (Hobby rejects more-than-daily expressions).
+    Schedule is a Supabase Edge Function `review-email` invoked hourly
+    (`0 * * * *`) via `pg_cron` + `pg_net`. The function authenticates
+    with the same Bearer `CRON_SECRET` as PV-9 and forwards to the Next
+    route (PV-14 stays the worker). Delay `0` sends on the next hourly
+    tick.
 
 ## Implementation trace (non-normative)
 
@@ -126,8 +129,9 @@ FEATURE `post-visit_review_tdd_ac1962e1` (2026-08-30). C1–C11 shipped;
 live-provider-delivery is manual-UAT.
 
 PV-11–PV-15 require baseline `review_email_*` / `review_email_sends` /
-`reservations.completed_at` and a `vercel.json` hourly cron; this FIX owns
-those. Live provider delivery stays manual-UAT. Shipped DDL already includes
+`reservations.completed_at` and a Supabase-scheduled `review-email` Edge
+Function (not Vercel Cron); this FIX owns those. Live provider delivery
+stays manual-UAT. Shipped DDL already includes
 nullable `reservations.email` (CREATE TABLE column + `ALTER TABLE … ADD
 COLUMN IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
 
@@ -147,14 +151,14 @@ COLUMN IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
 | PV-12     | `review_email_sends` PK/FK CASCADE, RLS, service-role only                                                                                                                                | `tests/integration/marketing/review-email-schema.integ.test.ts`                                                       |
 | PV-13     | `reservations.completed_at` nullable timestamptz (CREATE + ALTER)                                                                                                                         | `tests/integration/marketing/review-email-schema.integ.test.ts`                                                       |
 | PV-14     | `createReviewEmailMailer()` in `lib/marketing/review-email-mailer.ts`; cron GET passes factory mailer                                                                                     | `tests/unit/marketing/review-email-cron-mailer.test.ts`                                                               |
-| PV-15     | `vercel.json` hourly cron `GET /api/cron/review-email`                                                                                                                                    | `tests/unit/marketing/review-email-cron-schedule.test.ts`                                                             |
+| PV-15     | Supabase Edge Function `review-email` + hourly `pg_cron`; no Vercel `crons`                                                                                                               | `tests/unit/marketing/review-email-cron-schedule.test.ts`                                                             |
 
 ## References
 
 - `app/admin/marketing/page.tsx`, `app/admin/marketing/review-email-settings-form.tsx`
 - `app/actions/marketing.ts`, `app/actions/reservations.ts` (`transitionReservationStatus`)
 - `lib/marketing/review-email.ts` (`processDueReviewEmails`), `lib/marketing/https-url.ts`, `lib/marketing/review-email-mailer.ts`
-- `app/api/cron/review-email/route.ts`, `vercel.json`
+- `app/api/cron/review-email/route.ts`, `supabase/functions/review-email/index.ts`
 - `components/staff/staff-shell.tsx` (Setup → Marketing)
 - `supabase/migrations/00000000000000_baseline.sql` (`reservations.email`, `completed_at`, `review_email_*`, `review_email_sends`)
 - [booking-rules.md](./booking-rules.md) (AC-5 RES-PRIV; intake / guest email)
