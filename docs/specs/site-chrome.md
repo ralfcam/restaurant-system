@@ -1,7 +1,7 @@
 # Site chrome (guest header & brand)
 
 **Status:** Draft  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-08
 
 ## Scope
 
@@ -28,8 +28,8 @@ default logo**.
 3. **SC-3 — Single shared header** — `app/[locale]/page.tsx` renders `<SiteHeader />` and
    contains no page-local fixed `<header>` block. `app/[locale]/menu/page.tsx` also
    renders `<SiteHeader />`. Both routes share the same nav: Menu link, Language
-   switcher, Staff login, Book a table. Language switcher wiring:
-   [site-localization.md](./site-localization.md) criterion 10.
+   switcher, Staff login, Book a table. Language switcher and localized header
+   chrome: [site-localization.md](./site-localization.md) AC-10–AC-16.
 
 4. **SC-4 — Visual readability (manual-UAT)** — When a custom logo is set, the
    48×48 px circular mark is visually readable on dark hero backgrounds at

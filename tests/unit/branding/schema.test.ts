@@ -205,7 +205,10 @@ describe("branding CMS schema and surfaces", () => {
   })
 
   it("homepage hero falls back to a blank background when no hero photo is set", () => {
-    const home = readFileSync(path.join(root, "app/[locale]/page.tsx"), "utf8")
+    const home = readFileSync(
+      path.join(root, "components/site/home-page-client.tsx"),
+      "utf8",
+    )
     expect(home).toMatch(/useRestaurantHeroImage/)
     expect(home).not.toMatch(/hero-dining\.png/)
   })

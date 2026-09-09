@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-09
 
 ## Layout
 
@@ -17,12 +17,19 @@
   local signup TOML, seed `raw_app_meta_data` for staff and super-admin)
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
   `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard, SC-4a
-  `shouldUseLightNavText`); `tests/unit/site-header.test.ts`; homepage HP-1
-  `tests/unit/site/homepage-layout.test.ts`
+  `shouldUseLightNavText`); `tests/unit/site-header.test.ts` (SiteHeader JSX
+  in `components/site/home-page-client.tsx`); homepage HP-1/HP-3
+  `tests/unit/site/homepage-layout.test.ts`; HP-2
+  `tests/unit/site/home-page-chefs-picks-ssr.test.ts`
+- Guest i18n: `tests/unit/i18n/` (header locale nav, catalog chrome,
+  `isActiveNavPath`, `resolveDocumentLang`, `DocumentLangSync` layout mount,
+  sheet switcher)
 - Super-admin chrome (SA-10): `tests/unit/branding/super-admin-chrome.test.ts`,
   `tests/unit/scheduling/super-admin-chrome.test.ts`,
   `tests/unit/floor/super-admin-chrome.test.ts`,
   `tests/unit/marketing/super-admin-chrome.test.ts`
+- Dev toolchain: `tests/unit/dev-toolchain/` (G-T1/G-L1/G-F1/G-W1/G-P1/G-O1,
+  including `pnpm-overrides-toolchain.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
