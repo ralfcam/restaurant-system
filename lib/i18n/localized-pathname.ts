@@ -36,3 +36,7 @@ export function localizedPathname(
 
   return `/${targetLocale}${pathWithoutLocale}`
 }
+
+export function isActiveNavPath(pathname: string, href: string): boolean {
+  return stripLocalePrefix(pathname) === href
+}

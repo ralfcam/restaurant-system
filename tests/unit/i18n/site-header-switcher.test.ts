@@ -20,6 +20,23 @@ describe("site header language switcher", () => {
     expect(source).toMatch(
       /import[\s\S]*LanguageSwitcher[\s\S]*from\s+["']@\/components\/site\/language-switcher["']/,
     )
-    expect(source).toMatch(/<LanguageSwitcher[\s/>]/)
+  })
+
+  it("site header renders LanguageSwitcher in desktop actions and mobile sheet", () => {
+    const source = readSiteHeaderSource()
+
+    const switcherOpens = source.match(/<LanguageSwitcher[\s/>]/g)
+    expect(switcherOpens).toHaveLength(2)
+
+    const desktopActions =
+      /Desktop Actions[\s\S]*?(?=\{\/\* Mobile|<\/header>)/.exec(source)?.[0]
+    expect(desktopActions).toBeDefined()
+    expect(desktopActions).toMatch(/<LanguageSwitcher[\s/>]/)
+
+    const sheetContent = /<SheetContent[\s\S]*?<\/SheetContent>/.exec(
+      source,
+    )?.[0]
+    expect(sheetContent).toBeDefined()
+    expect(sheetContent).toMatch(/<LanguageSwitcher[\s/>]/)
   })
 })

@@ -1,8 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import Link from "next/link"
+import NextLink from "next/link"
 import { usePathname } from "next/navigation"
+import { useTranslations } from "next-intl"
+import { Link } from "@/i18n/navigation"
 import { LockKeyhole, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RESTAURANT } from "@/lib/data"
@@ -10,18 +12,18 @@ import {
   shouldRenderSiteHeader,
   shouldUseLightNavText,
 } from "@/lib/site-chrome"
+import { isActiveNavPath } from "@/lib/i18n/localized-pathname"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
 import { BrandMark } from "@/components/site/brand-mark"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetTrigger, SheetContent } from "@/components/ui/sheet"
 import { LanguageSwitcher } from "@/components/site/language-switcher"
 
-const LINKS = [{ href: "/menu", label: "Menu" }]
-
 export function SiteHeader({
   overDarkBackground = true,
 }: { overDarkBackground?: boolean } = {}) {
   const pathname = usePathname()
+  const t = useTranslations("nav")
   const [isScrolled, setIsScrolled] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const { logoUrl } = useRestaurantLogo()
@@ -68,19 +70,16 @@ export function SiteHeader({
 
         {/* Desktop Nav — absolutely centered */}
         <nav className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 hidden items-center gap-0.5 md:flex">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-300 hover:underline",
-                navTextClass,
-                pathname === link.href && "font-bold",
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+          <Link
+            href="/menu"
+            className={cn(
+              "rounded-full px-4 py-2 text-sm font-semibold tracking-wide transition-colors duration-300 hover:underline",
+              navTextClass,
+              isActiveNavPath(pathname, "/menu") && "font-bold",
+            )}
+          >
+            {t("menu")}
+          </Link>
         </nav>
 
         {/* Desktop Actions — right third */}
@@ -99,17 +98,17 @@ export function SiteHeader({
               "rounded-full text-xs font-medium tracking-wide transition-colors duration-300",
               mutedNavTextClass,
             )}
-            render={<Link href="/admin" />}
+            render={<NextLink href="/admin" />}
           >
             <LockKeyhole className="size-3.5" />
-            Staff login
+            {t("staffLogin")}
           </Button>
           <Button
             size="sm"
             className="rounded-full px-5 text-xs font-medium tracking-wide"
             render={<Link href="/#reserve" />}
           >
-            Book a table
+            {t("bookTable")}
           </Button>
         </div>
 
@@ -123,33 +122,31 @@ export function SiteHeader({
             )}
           >
             <Menu className="size-5" />
-            <span className="sr-only">Open menu</span>
+            <span className="sr-only">{t("openMenu")}</span>
           </SheetTrigger>
           <SheetContent side="right" className="w-64">
             <nav className="flex flex-col gap-4 mt-8">
-              {LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              <Link
+                href="/menu"
+                className="text-lg font-semibold text-foreground hover:text-primary transition-colors"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                {t("menu")}
+              </Link>
               <LanguageSwitcher
                 variant="ghost"
                 className="w-full justify-start text-foreground"
+                onClick={() => setMobileMenuOpen(false)}
               />
               <div className="border-t pt-4">
                 <Button
                   variant="ghost"
                   className="w-full justify-start text-foreground"
-                  render={<Link href="/admin" />}
+                  render={<NextLink href="/admin" />}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   <LockKeyhole className="size-4 mr-2" />
-                  Staff login
+                  {t("staffLogin")}
                 </Button>
               </div>
               <Button
@@ -157,7 +154,7 @@ export function SiteHeader({
                 render={<Link href="/#reserve" />}
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Book a table
+                {t("bookTable")}
               </Button>
             </nav>
           </SheetContent>

@@ -1,5 +1,6 @@
 "use client"
 
+import type { MouseEventHandler } from "react"
 import { Globe } from "lucide-react"
 import { useLocale } from "next-intl"
 import NextLink from "next/link"
@@ -10,9 +11,11 @@ import { Button } from "@/components/ui/button"
 export function LanguageSwitcher({
   className,
   variant = "outline",
+  onClick,
 }: {
   className?: string
   variant?: "outline" | "ghost"
+  onClick?: MouseEventHandler
 }) {
   const locale = useLocale() as "fr" | "en"
   const pathname = usePathname() ?? "/"
@@ -26,6 +29,7 @@ export function LanguageSwitcher({
       size="sm"
       className={className ?? "gap-2"}
       data-testid="language-switcher"
+      onClick={onClick}
       render={<NextLink href={href} />}
     >
       <Globe className="size-4" />

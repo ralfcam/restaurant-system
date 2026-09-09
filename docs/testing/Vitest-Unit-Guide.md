@@ -19,6 +19,8 @@
   `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard, SC-4a
   `shouldUseLightNavText`); `tests/unit/site-header.test.ts`; homepage HP-1
   `tests/unit/site/homepage-layout.test.ts`
+- Guest i18n: `tests/unit/i18n/` (header locale nav, catalog chrome,
+  `isActiveNavPath`, `resolveDocumentLang`, sheet switcher)
 - Super-admin chrome (SA-10): `tests/unit/branding/super-admin-chrome.test.ts`,
   `tests/unit/scheduling/super-admin-chrome.test.ts`,
   `tests/unit/floor/super-admin-chrome.test.ts`,

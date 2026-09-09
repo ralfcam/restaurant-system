@@ -16,6 +16,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Reservations / booking            | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
 | Menu / 86 / POS / KDS             | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
 | Guest site chrome (header / logo) | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
+| Guest site localization           | [specs/site-localization.md](./specs/site-localization.md)                                                                      |
 | Guest homepage (hero / reserve)   | [specs/homepage.md](./specs/homepage.md)                                                                                        |
 | Branding CMS (admin-managed logo) | [specs/branding-cms.md](./specs/branding-cms.md)                                                                                |
 | Post-visit review email           | [specs/post-visit-review-email.md](./specs/post-visit-review-email.md)                                                          |
@@ -41,6 +42,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Menu availability / 86            | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                             |
 | Staff scheduling / tables         | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                             |
 | Guest header / brand logo         | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                |
+| Guest site localization (FR/EN)   | `specs/site-localization.md`       | `specs/site-chrome.md` (header chrome)                   |
 | Guest homepage hero / reserve     | `specs/homepage.md`                | `specs/site-chrome.md` (header); `booking-rules.md`      |
 | Admin-managed logo / branding CMS | `specs/branding-cms.md`            | `specs/site-chrome.md` (empty-by-default mark)           |
 | Post-visit review email           | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)    |
@@ -85,6 +87,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Staff chrome + POS inventory (`ux_staffchrome_pos_batch_9c4a1b`)                                  | 2026-09-02 | `specs/site-chrome.md` (SC-4a), `specs/homepage.md` (HP-1), `specs/staff-authorization.md` (SA-10), `specs/scheduling.md` (FP-13/FP-14), `architecture/Floor-Plan.md`, `architecture/Auth-And-RLS.md`, `architecture/Platform-Overview.md`, `architecture/Order-Flow.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md` |
 | REAZED-296 chef's picks service (`reazed-296_chefs_picks_service`)                                | 2026-09-03 | `specs/branding-cms.md` (BC-1 trace), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`                                                                                                                                                                                                                                                                                             |
 | REAZED-311/312 POS catalog + orders (`reazed-311-312_pos-catalog-persistence_7c3f9a1d`)           | 2026-09-03 | `specs/menu-availability.md` (AC-4/AC-5 trace), `architecture/Order-Flow.md`, `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `runbooks/deploy.md`                                                                                                                      |
+| RES-61 guest i18n followups (`res-61_guest_i18n_followups`)                                       | 2026-09-08 | `specs/site-localization.md` (AC-11–AC-16), `specs/site-chrome.md` (AC-10–16 cross-ref), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/E2E-Playwright-Guide.md`                                                                                                                                                                                                       |
 
 ## Seed path
 
