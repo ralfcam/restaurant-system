@@ -53,6 +53,14 @@ byte-identical in baseline, `20260818162000_operating_hour_segments.sql`,
 `table_label`. `completed` / `cancelled` / `no_show` do not occupy (BW-10).
 Criteria: [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-12.
 
+**Blocked-date reads.** `isDateBlocked`, `getBlockedDatesInMonth`, and
+`getBlockedDatesInRange` in `app/actions/availability.ts` query `blocked_dates`
+on the anon client. A non-null SELECT `error` is logged server-side and thrown as
+`Error("Could not load blocked dates.")` — they do not resolve `false` or `[]`.
+Successful empty/null data is unchanged (`isDateBlocked` is `false` with no row;
+list readers return `[]` only then). Caller recovery UI is out of scope.
+Criterion: [../specs/booking-rules.md](../specs/booking-rules.md) BD-READ-FAIL.
+
 **Post-visit review email.** `transitionReservationStatus` to `completed`
 stamps `completed_at` and inserts `review_email_sends` (both in baseline;
 nullable `reservations.email` unchanged). Staff configure send on

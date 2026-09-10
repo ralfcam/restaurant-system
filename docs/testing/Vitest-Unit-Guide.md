@@ -39,6 +39,8 @@
   `tests/unit/floor/pos-menu-availability.test.ts`
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
+- Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note
+  cap; BD-READ-FAIL blocked-date SELECT fail-closed)
 - Reservation isolation (RES-ISO):
   `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
   glob-scan of `tests/integration/reservations/*.integ.test.ts`; zero-arg

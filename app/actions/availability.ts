@@ -42,6 +42,16 @@ function isSchemaCacheError(
   )
 }
 
+const BLOCKED_DATES_LOAD_ERROR = "Could not load blocked dates."
+
+function rejectBlockedDatesRead(
+  operation: string,
+  error: { message?: string },
+): never {
+  console.error(`[availability] ${operation} error:`, error.message)
+  throw new Error(BLOCKED_DATES_LOAD_ERROR)
+}
+
 function defaultDay(dayOfWeek: number): OperatingDay {
   return DEFAULT_OPERATING_DAYS[dayOfWeek] ?? DEFAULT_OPERATING_DAYS[0]
 }
@@ -83,9 +93,8 @@ export async function isDateBlocked(dateISO: string): Promise<boolean> {
     .eq("date", dateISO)
     .maybeSingle()
 
-  // If table doesn't exist, assume no dates are blocked (fail open)
   if (error) {
-    return false
+    return rejectBlockedDatesRead("isDateBlocked", error)
   }
 
   return data !== null
@@ -109,8 +118,7 @@ export async function getBlockedDatesInMonth(
     .lte("date", endDate)
 
   if (error) {
-    console.error("[availability] getBlockedDatesInMonth error:", error.message)
-    return []
+    return rejectBlockedDatesRead("getBlockedDatesInMonth", error)
   }
 
   return (data ?? []).map((row) => row.date as string)
@@ -152,7 +160,10 @@ export async function getBlockedDatesInRange(
     .gte("date", startISO)
     .lte("date", endISO)
 
-  if (error) return []
+  if (error) {
+    return rejectBlockedDatesRead("getBlockedDatesInRange", error)
+  }
+
   return (data ?? []).map((row) => row.date as string)
 }
 
