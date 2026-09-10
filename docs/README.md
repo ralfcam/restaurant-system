@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-11
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -103,6 +103,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-46 hours RPC search_path (`res_46_search_path_cc45bd3e`)                                      | 2026-09-10 | `specs/scheduling.md` (OH-SAVE-PATH, by orchestrator), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md` (recorded-forward `20260818162000` replay / OH-SAVE-PATH-LINKED), `testing/Design-And-Patterns.md`, `testing/Vitest-Integration-Guide.md`, `dev-journal.md`                                                                                                                                   |
 | G-L1 unit timeout (`eslint_timeout_hardening_f994f816`)                                           | 2026-09-10 | `specs/dev-toolchain.md` (G-L1 C4, by orchestrator), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                   |
 | RES-49 fail-closed blocked dates (`res_49_fail_closed_8d0cc815`)                                  | 2026-09-10 | `specs/booking-rules.md` (BD-READ-FAIL, by orchestrator), `architecture/Reservation-Flow.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                          |
+| RES-TRIGGER-EXEC AUTHLESS (`res_trigger_authless_2132ecb2`)                                       | 2026-09-11 | `specs/booking-rules.md` (RES-TRIGGER-EXEC-AUTHLESS, by orchestrator), `testing/Vitest-Integration-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
 
 ## Seed path
 

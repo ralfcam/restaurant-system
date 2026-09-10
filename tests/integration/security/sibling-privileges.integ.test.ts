@@ -431,94 +431,96 @@ describe.skipIf(!authEnvReady)(
 
       expect(violations).toEqual([])
     })
-
-    it("local reset keeps validate_reservation_availability trigger-only and denies guest EXECUTE", async () => {
-      const violations: string[] = []
-      const migrationNames = readdirSync(MIGRATIONS_DIR)
-        .filter((name) => name.endsWith(".sql"))
-        .sort()
-      const defining: string[] = []
-
-      for (const name of migrationNames) {
-        const sql = readFileSync(path.join(MIGRATIONS_DIR, name), "utf8")
-        let searchFrom = 0
-        while (true) {
-          const createAt = sql.indexOf(CREATE_VALIDATE, searchFrom)
-          if (createAt === -1) break
-          defining.push(name)
-          const suffix = functionBodySuffix(sql, createAt)
-          if (suffix === null) {
-            violations.push(
-              `${name}: validate_reservation_availability body is not closed with $$;`,
-            )
-            break
-          }
-          let rest = stripLeadingSqlNoise(suffix)
-          if (!rest.startsWith(REVOKE_VALIDATE_PUBLIC)) {
-            violations.push(
-              `${name}: missing ${REVOKE_VALIDATE_PUBLIC} immediately after the function body`,
-            )
-          } else {
-            rest = stripLeadingSqlNoise(
-              rest.slice(REVOKE_VALIDATE_PUBLIC.length),
-            )
-            if (!rest.startsWith(REVOKE_VALIDATE_GUESTS)) {
-              violations.push(
-                `${name}: missing ${REVOKE_VALIDATE_GUESTS} immediately after PUBLIC revoke`,
-              )
-            }
-          }
-          searchFrom = createAt + CREATE_VALIDATE.length
-        }
-        if (GRANT_VALIDATE_EXECUTE.test(sql)) {
-          violations.push(
-            `${name}: re-grants guest EXECUTE on validate_reservation_availability()`,
-          )
-        }
-      }
-
-      if (defining.length === 0) {
-        violations.push(
-          "no migration contains CREATE OR REPLACE FUNCTION validate_reservation_availability()",
-        )
-      }
-
-      const raw = await execLocalCatalogSql(VALIDATE_TRIGGER_ACL_SQL)
-      const catalog = JSON.parse(raw) as ValidateTriggerAcl
-
-      if (catalog.guest_execute_acls.length > 0) {
-        violations.push(
-          `aclexplode guest/PUBLIC EXECUTE: ${catalog.guest_execute_acls.join(",")}`,
-        )
-      }
-      if (catalog.anon_execute) {
-        violations.push("anon has_function_privilege EXECUTE is true")
-      }
-      if (catalog.authenticated_execute) {
-        violations.push("authenticated has_function_privilege EXECUTE is true")
-      }
-      if (catalog.prosecdef !== true) {
-        violations.push(`prosecdef expected true got ${catalog.prosecdef}`)
-      }
-      if (!catalog.trigger?.present) {
-        violations.push("enforce_booking_rules trigger is missing")
-      } else {
-        if (!catalog.trigger.enabled) {
-          violations.push("enforce_booking_rules is disabled")
-        }
-        if (!catalog.trigger.before_insert_or_update) {
-          violations.push(
-            "enforce_booking_rules is not BEFORE INSERT OR UPDATE",
-          )
-        }
-        if (catalog.trigger.function !== "validate_reservation_availability") {
-          violations.push(
-            `enforce_booking_rules points at ${catalog.trigger.function}`,
-          )
-        }
-      }
-
-      expect(violations).toEqual([])
-    })
   },
 )
+
+describe("RES-TRIGGER-EXEC local catalog coverage", () => {
+  beforeAll(() => {
+    assertIsolatedHoursMutationTarget()
+  })
+
+  it("local reset keeps validate_reservation_availability trigger-only and denies guest EXECUTE", async () => {
+    const violations: string[] = []
+    const migrationNames = readdirSync(MIGRATIONS_DIR)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+    const defining: string[] = []
+
+    for (const name of migrationNames) {
+      const sql = readFileSync(path.join(MIGRATIONS_DIR, name), "utf8")
+      let searchFrom = 0
+      while (true) {
+        const createAt = sql.indexOf(CREATE_VALIDATE, searchFrom)
+        if (createAt === -1) break
+        defining.push(name)
+        const suffix = functionBodySuffix(sql, createAt)
+        if (suffix === null) {
+          violations.push(
+            `${name}: validate_reservation_availability body is not closed with $$;`,
+          )
+          break
+        }
+        let rest = stripLeadingSqlNoise(suffix)
+        if (!rest.startsWith(REVOKE_VALIDATE_PUBLIC)) {
+          violations.push(
+            `${name}: missing ${REVOKE_VALIDATE_PUBLIC} immediately after the function body`,
+          )
+        } else {
+          rest = stripLeadingSqlNoise(rest.slice(REVOKE_VALIDATE_PUBLIC.length))
+          if (!rest.startsWith(REVOKE_VALIDATE_GUESTS)) {
+            violations.push(
+              `${name}: missing ${REVOKE_VALIDATE_GUESTS} immediately after PUBLIC revoke`,
+            )
+          }
+        }
+        searchFrom = createAt + CREATE_VALIDATE.length
+      }
+      if (GRANT_VALIDATE_EXECUTE.test(sql)) {
+        violations.push(
+          `${name}: re-grants guest EXECUTE on validate_reservation_availability()`,
+        )
+      }
+    }
+
+    if (defining.length === 0) {
+      violations.push(
+        "no migration contains CREATE OR REPLACE FUNCTION validate_reservation_availability()",
+      )
+    }
+
+    const raw = await execLocalCatalogSql(VALIDATE_TRIGGER_ACL_SQL)
+    const catalog = JSON.parse(raw) as ValidateTriggerAcl
+
+    if (catalog.guest_execute_acls.length > 0) {
+      violations.push(
+        `aclexplode guest/PUBLIC EXECUTE: ${catalog.guest_execute_acls.join(",")}`,
+      )
+    }
+    if (catalog.anon_execute) {
+      violations.push("anon has_function_privilege EXECUTE is true")
+    }
+    if (catalog.authenticated_execute) {
+      violations.push("authenticated has_function_privilege EXECUTE is true")
+    }
+    if (catalog.prosecdef !== true) {
+      violations.push(`prosecdef expected true got ${catalog.prosecdef}`)
+    }
+    if (!catalog.trigger?.present) {
+      violations.push("enforce_booking_rules trigger is missing")
+    } else {
+      if (!catalog.trigger.enabled) {
+        violations.push("enforce_booking_rules is disabled")
+      }
+      if (!catalog.trigger.before_insert_or_update) {
+        violations.push("enforce_booking_rules is not BEFORE INSERT OR UPDATE")
+      }
+      if (catalog.trigger.function !== "validate_reservation_availability") {
+        violations.push(
+          `enforce_booking_rules points at ${catalog.trigger.function}`,
+        )
+      }
+    }
+
+    expect(violations).toEqual([])
+  })
+})

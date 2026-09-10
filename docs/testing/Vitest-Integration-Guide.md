@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-11
 
 ## Prerequisites
 
@@ -161,16 +161,36 @@ the same pin. Unit glob-scan:
   no table-wide `GRANT INSERT`; no authenticated `FOR ALL`; hostile insert
   of server-owned columns denied).
 - Sibling role matrix (RES-42):
-  `tests/integration/security/sibling-privileges.integ.test.ts` (live
-  `pg_policies` + `has_table_privilege` / `has_sequence_privilege` after local
-  reset; reservations guest table INSERT false, `has_column_privilege` INSERT
-  true only for those eight guest columns; `validate_reservation_availability`
-  trigger-only with guest `has_function_privilege` EXECUTE false).
+  `tests/integration/security/sibling-privileges.integ.test.ts`
+  `describe.skipIf(!authEnvReady)` `"sibling RLS/ACL matrix after local reset"`
+  (live `pg_policies` + `has_table_privilege` / `has_sequence_privilege` after
+  local reset; reservations guest table INSERT false, `has_column_privilege`
+  INSERT true only for those eight guest columns). The named RES-TRIGGER-EXEC
+  catalog `it()` is **not** in that skipIf describe — see Authless local-catalog
+  coverage below.
+
+## Authless local-catalog coverage (RES-TRIGGER-EXEC)
+
+The named catalog `it("local reset keeps validate_reservation_availability trigger-only and denies guest EXECUTE")` lives in a dedicated plain `describe("RES-TRIGGER-EXEC local catalog coverage")` **outside** `describe.skipIf(!authEnvReady)`. That describe keeps its own `beforeAll` whose first statement is zero-arg `assertIsolatedHoursMutationTarget()`. Missing local Docker/`psql` fails closed (does not skip). Other tests in the file may still use `describe.skipIf(!authEnvReady)`.
+
+Unit pin: `tests/unit/reservations/reservation-integ-isolation.test.ts` → `"RES-TRIGGER-EXEC local catalog coverage is outside the auth environment skip and retains its local guard"`. Spec: [../specs/booking-rules.md](../specs/booking-rules.md) RES-TRIGGER-EXEC-AUTHLESS.
+
+To prove the catalog `it()` executes without auth keys, run in a **child process/session** with a local URL and the keys/STRICT **unset** (`RESTAURANT_INTEGRATION_STRICT` setup rejects missing keys):
+
+```powershell
+$env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
+Remove-Item Env:NEXT_PUBLIC_SUPABASE_ANON_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY -ErrorAction SilentlyContinue
+Remove-Item Env:RESTAURANT_INTEGRATION_STRICT -ErrorAction SilentlyContinue
+pnpm test:integration tests/integration/security/sibling-privileges.integ.test.ts
+```
+
+The named trigger-EXECUTE test must appear as passed or failed, never only skipped. The sibling matrix `it("local reset exposes only the approved sibling role capability matrix")` may skip in that invocation.
 
 ## Skip vs strict
 
 Suites use `describe.skipIf(!authEnvReady)` when Supabase env is absent.
-With `RESTAURANT_INTEGRATION_STRICT=true`, missing env **throws** at setup (no silent skip).
+With `RESTAURANT_INTEGRATION_STRICT=true`, missing env **throws** at setup (no silent skip). The RES-TRIGGER-EXEC catalog `it()` is outside that skip (see Authless local-catalog coverage).
 
 ```powershell
 $env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration

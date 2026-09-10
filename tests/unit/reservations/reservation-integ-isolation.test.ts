@@ -131,3 +131,162 @@ describe("reservation integ isolation pin (RES-ISO)", () => {
     expect(failures, failures.join("\n")).toEqual([])
   })
 })
+
+const SIBLING_PRIVILEGES_SUITE =
+  "tests/integration/security/sibling-privileges.integ.test.ts"
+const TRIGGER_ACL_TITLE =
+  "local reset keeps validate_reservation_availability trigger-only and denies guest EXECUTE"
+
+function isNotAuthEnvReady(expression: ts.Expression): boolean {
+  return (
+    ts.isPrefixUnaryExpression(expression) &&
+    expression.operator === ts.SyntaxKind.ExclamationToken &&
+    ts.isIdentifier(expression.operand) &&
+    expression.operand.text === "authEnvReady"
+  )
+}
+
+function isAuthEnvSkipIfDescribe(node: ts.Node): node is ts.CallExpression {
+  if (!ts.isCallExpression(node)) return false
+  const skipIfCall = node.expression
+  if (!ts.isCallExpression(skipIfCall)) return false
+  if (!ts.isPropertyAccessExpression(skipIfCall.expression)) return false
+  if (
+    !ts.isIdentifier(skipIfCall.expression.expression) ||
+    skipIfCall.expression.expression.text !== "describe"
+  ) {
+    return false
+  }
+  if (skipIfCall.expression.name.text !== "skipIf") return false
+  const condition = skipIfCall.arguments[0]
+  return !!condition && isNotAuthEnvReady(condition)
+}
+
+function isPlainDescribe(node: ts.Node): node is ts.CallExpression {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "describe"
+  )
+}
+
+function isDescribeLike(node: ts.Node): node is ts.CallExpression {
+  return isPlainDescribe(node) || isAuthEnvSkipIfDescribe(node)
+}
+
+function isItOrTestCall(node: ts.Node): node is ts.CallExpression {
+  return (
+    ts.isCallExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    (node.expression.text === "it" || node.expression.text === "test")
+  )
+}
+
+function callTitle(node: ts.CallExpression): string | undefined {
+  const title = node.arguments[0]
+  if (!title) return undefined
+  if (ts.isStringLiteral(title) || ts.isNoSubstitutionTemplateLiteral(title)) {
+    return title.text
+  }
+  return undefined
+}
+
+function collectTriggerAclTests(source: ts.SourceFile): ts.CallExpression[] {
+  const matches: ts.CallExpression[] = []
+  function visit(node: ts.Node) {
+    if (isItOrTestCall(node) && callTitle(node) === TRIGGER_ACL_TITLE) {
+      matches.push(node)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return matches
+}
+
+function isDescendantOfAuthEnvSkipIf(node: ts.Node): boolean {
+  let current: ts.Node | undefined = node.parent
+  while (current) {
+    if (isAuthEnvSkipIfDescribe(current)) return true
+    current = current.parent
+  }
+  return false
+}
+
+function owningDescribe(node: ts.Node): ts.CallExpression | undefined {
+  let current: ts.Node | undefined = node.parent
+  while (current) {
+    if (isDescribeLike(current)) return current
+    current = current.parent
+  }
+  return undefined
+}
+
+function describeCallbackBody(
+  describeCall: ts.CallExpression,
+): ts.ConciseBody | undefined {
+  const callback = describeCall.arguments[1]
+  if (
+    callback &&
+    (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))
+  ) {
+    return callback.body
+  }
+  return undefined
+}
+
+function ownBeforeAllBodies(describeCall: ts.CallExpression): ts.ConciseBody[] {
+  const callback = describeCallbackBody(describeCall)
+  if (!callback) return []
+  const bodies: ts.ConciseBody[] = []
+  function visit(node: ts.Node, nestedDescribe: boolean) {
+    if (node !== describeCall && isDescribeLike(node)) {
+      ts.forEachChild(node, (child) => visit(child, true))
+      return
+    }
+    if (
+      !nestedDescribe &&
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === "beforeAll"
+    ) {
+      const hookCallback = node.arguments[0]
+      if (
+        hookCallback &&
+        (ts.isArrowFunction(hookCallback) ||
+          ts.isFunctionExpression(hookCallback))
+      ) {
+        bodies.push(hookCallback.body)
+      }
+    }
+    ts.forEachChild(node, (child) => visit(child, nestedDescribe))
+  }
+  visit(callback, false)
+  return bodies
+}
+
+describe("RES-TRIGGER-EXEC-AUTHLESS", () => {
+  it("RES-TRIGGER-EXEC local catalog coverage is outside the auth environment skip and retains its local guard", () => {
+    const source = parseSuite(SIBLING_PRIVILEGES_SUITE)
+    const tests = collectTriggerAclTests(source)
+    expect(tests).toHaveLength(1)
+
+    const [triggerAclTest] = tests
+    expect(
+      isDescendantOfAuthEnvSkipIf(triggerAclTest),
+      `${SIBLING_PRIVILEGES_SUITE}: "${TRIGGER_ACL_TITLE}" is nested under describe.skipIf(!authEnvReady)`,
+    ).toBe(false)
+
+    const owner = owningDescribe(triggerAclTest)
+    expect(
+      owner && isPlainDescribe(owner),
+      `${SIBLING_PRIVILEGES_SUITE}: "${TRIGGER_ACL_TITLE}" must live in a dedicated plain describe (not describe.skipIf)`,
+    ).toBe(true)
+
+    const beforeAllBodies = owner ? ownBeforeAllBodies(owner) : []
+    expect(
+      beforeAllBodies.length > 0 &&
+        beforeAllBodies.every((body) => firstStatementIsHelperCall(body)),
+      `${SIBLING_PRIVILEGES_SUITE}: owning describe beforeAll must start with ${HELPER_NAME}()`,
+    ).toBe(true)
+  })
+})
