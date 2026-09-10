@@ -41,14 +41,17 @@ Local `supabase/config.toml` has `[auth] enable_signup = false` and
 `[auth.email] enable_signup = false`. Those keys do not control hosted Auth —
 see [../runbooks/deploy.md](../runbooks/deploy.md). Spec:
 [../specs/staff-authorization.md](../specs/staff-authorization.md)
-(SA-1–SA-10; SA-6 is manual-UAT). Staff-only sessions still open `/admin` /
+(SA-1–SA-11; SA-6 is manual-UAT). Staff-only sessions still open `/admin` /
 `/pos` / `/kds`; SA-10 disables (does not hide) super-admin-only chrome via
 an `isSuperAdmin` prop from `isSuperAdminUser(authUser)`.
 
 ## Service role
 
 `lib/supabase/service.ts` uses `SUPABASE_SERVICE_ROLE_KEY` and bypasses RLS.
-Import only from `"use server"` modules — never from Client Components or `"use client"` files.
+The module begins with `import "server-only"` (SA-11) so a Client Component
+import fails at Next.js build time. A file-level `"use server"` directive or
+warning comment is not a substitute. Factory URL selection, service-role
+RLS-bypass behavior, and auth options are unchanged.
 
 ## RLS expectations
 

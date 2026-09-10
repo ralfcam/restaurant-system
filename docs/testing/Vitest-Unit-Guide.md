@@ -15,7 +15,8 @@
   Edge Function pin, marketing page, PV-ISO schema isolation scan)
 - Staff authorization: `tests/unit/auth/` (`requireStaffUser` /
   `requireSuperAdminUser` claims, staff-route proxy, login landing gate,
-  local signup TOML, seed `raw_app_meta_data` for staff and super-admin)
+  local signup TOML, seed `raw_app_meta_data` for staff and super-admin);
+  SA-11 service-role module fence: `tests/unit/supabase/service-boundary.test.ts`
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
   `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard, SC-4a
   `shouldUseLightNavText`); `tests/unit/site-header.test.ts` (SiteHeader JSX

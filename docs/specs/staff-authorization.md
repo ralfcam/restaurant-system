@@ -1,7 +1,7 @@
 # Staff authorization
 
 **Status:** Draft
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-10
 
 ## Scope
 
@@ -100,30 +100,47 @@ implies staff.
     `FloorPlan` (not the slot-interval control), and
     `ReviewEmailSettingsForm`.
 
+11. **SA-11 — Service-role client module boundary** —
+    `lib/supabase/service.ts`, which constructs and exports
+    `createServiceClient()` using `SUPABASE_SERVICE_ROLE_KEY`, MUST begin with
+    a side-effect `import "server-only"`. Any Client Component import of that
+    module MUST therefore be rejected by Next.js at build time. A file-level
+    `"use server"` directive or warning comment is not a substitute. The
+    fence MUST NOT change the factory's URL selection, service-role/RLS-bypass
+    behavior, auth options, or caller authorization gates; scheduling §15,
+    booking-rules RES-ISO, post-visit-review-email PV-ISO, and
+    menu-availability ORD-ISO remain caller-scoped isolation rules.
+
 ## Implementation trace (non-normative)
 
 FIX `seed_users_email_f5f7f0e6.plan.md` (REAZED-326, 2026-09-02). C1–C2 shipped.
 FIX `ux_staffchrome_pos_batch_9c4a1b` (REAZED-332, 2026-09-02). SA-10 shipped.
+FIX `res-37_service_boundary_ffc7ec3c` (RES-37, 2026-09-10). SA-11 shipped.
 
 | Criterion | Shipped in                                                                                                                                                                                                                                                | Tests                                                                                                                                                                                                  |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | SA-5      | `supabase/seed.sql` staff `auth.users.email` `'admin@test.local'`                                                                                                                                                                                         | `tests/unit/auth/seed-staff-claim.test.ts` → "seed staff auth.users.email is admin@test.local"                                                                                                         |
 | SA-9      | `supabase/seed.sql` super-admin `auth.users.email` `'superadmin@test.local'` (pairwise distinct from staff)                                                                                                                                               | `tests/unit/auth/seed-super-admin-claim.test.ts` → "seed super-admin auth.users.email is superadmin@test.local and differs from staff"                                                                 |
 | SA-10     | Page RSCs pass `isSuperAdmin={isSuperAdminUser(authUser)}`; branding editors, `SchedulingManager` contact fields, `FloorPlan` occupancy/safety (not slot-interval), `ReviewEmailSettingsForm`; `StaffShell` threads the flag; `/pos`/`/kds` `getAuthUser` | `tests/unit/branding/super-admin-chrome.test.ts`; `tests/unit/scheduling/super-admin-chrome.test.ts`; `tests/unit/floor/super-admin-chrome.test.ts`; `tests/unit/marketing/super-admin-chrome.test.ts` |
+| SA-11     | `lib/supabase/service.ts` first line `import "server-only"` (not `"use server"`); factory URL/key/auth options unchanged                                                                                                                                  | `tests/unit/supabase/service-boundary.test.ts` → "createServiceClient module imports server-only and is not a use-server file"; `tests/integration/setup.ts` `vi.mock("server-only", () => ({}))`      |
 
 ## Out of scope
 
 - Per-surface roles (admin vs POS vs KDS)
 - Staff invite / user-admin UI
 - Additional named roles or permissions beyond `staff` and `super_admin`
-- Changing `createServiceClient()` — service role remains the privileged-write
-  path after SA-1 / SA-7
+- Changing `createServiceClient()`'s URL selection,
+  RLS-bypass/privileged-write semantics, auth options, or authorized caller
+  set — service role remains the privileged-write path after SA-1 / SA-7.
+  SA-11's compile-time module fence is in scope.
 
 ## References
 
 - `lib/supabase/is-staff-user.ts`
 - `lib/supabase/require-staff.ts`
 - `lib/supabase/proxy.ts`
+- `lib/supabase/service.ts`
+- `tests/unit/supabase/service-boundary.test.ts` (SA-11)
 - `app/auth/login/page.tsx`
 - `supabase/config.toml`
 - `supabase/seed.sql`

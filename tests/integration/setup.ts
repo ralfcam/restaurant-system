@@ -1,4 +1,7 @@
+import { vi } from "vitest"
 import { authEnvReady, integrationStrict } from "./helpers/env"
+
+vi.mock("server-only", () => ({}))
 
 if (integrationStrict && !authEnvReady) {
   throw new Error(

@@ -111,7 +111,8 @@ the same pin. Unit glob-scan:
 ## Layout
 
 - Config: `vitest.integration.config.ts`
-- Setup: `tests/integration/setup.ts` (honours `RESTAURANT_INTEGRATION_STRICT`)
+- Setup: `tests/integration/setup.ts` (honours `RESTAURANT_INTEGRATION_STRICT`;
+  `vi.mock("server-only", () => ({}))` so suites can import fenced modules)
 - Helpers: `tests/integration/helpers/`
 - Tests: `tests/integration/**/*.integ.test.ts`
 - Reservation isolation (RES-ISO): every
