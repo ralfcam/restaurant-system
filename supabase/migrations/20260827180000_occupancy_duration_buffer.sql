@@ -247,3 +247,6 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated;

@@ -1,7 +1,7 @@
 # Dev toolchain
 
 **Status:** Draft  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Scope
 
@@ -55,6 +55,17 @@ pnpm override / Cloud Agent install pin.
      ESLint-reported severity for a known unused-disable-directive input via
      the ESLint Node API — a test that only checks config/dependency
      existence MUST NOT satisfy this criterion.
+   - **G-L1 C4 — Unit lint probes have a bounded 15-second budget** —
+     `vitest.unit.config.ts` MUST set `test.testTimeout` to exactly `15_000`
+     so dependency-heavy ESLint Node API probes (including
+     `ESLint.isPathIgnored`) do not fail the unit suite under whole-suite
+     worker contention. The regression guard in
+     `tests/unit/dev-toolchain/lint-toolchain.test.ts` MUST assert that
+     timeout value AND MUST still execute the existing `ESLint.isPathIgnored`
+     assertions against `supabase/.temp/**` and `supabase/.branches/**`. A
+     test that only checks the timeout config MUST NOT satisfy this
+     criterion; a test that drops the behavioral ignore coverage MUST NOT
+     satisfy this criterion.
 
 3. **G-F1 — Prettier is a repo tool** — `prettier` is in `devDependencies`.
    `pnpm exec prettier` resolves. `package.json` `scripts.format` MUST include
@@ -127,6 +138,7 @@ pnpm override / Cloud Agent install pin.
 | G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                                                                                                                                                                                                    | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"                                                                               |
 | G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                                                                                                                                                           | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                                                                                         |
 | G-L1 C3   | `eslint.config.mjs` `linterOptions.reportUnusedDisableDirectives: "error"`                                                                                                                                                                                                                                            | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "errors (not warns) on an unused eslint-disable directive"                                                                              |
+| G-L1 C4   | `vitest.unit.config.ts` (`test.testTimeout: 15_000`)                                                                                                                                                                                                                                                                  | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "gives dependency-heavy ESLint probes a 15-second unit timeout budget"                                                                  |
 | G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`)                                                                                                                                          | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts"                                                                          |
 | G-W1      | `next.config.mjs` (`projectRoot` from `fileURLToPath(import.meta.url)`; `turbopack.root` + `outputFileTracingRoot`)                                                                                                                                                                                                   | `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`                                                                                                                                 |
 | G-P1      | root `proxy.ts` (`export async function proxy`); `app/admin/layout.tsx` comment; `lib/supabase/proxy.ts` unchanged                                                                                                                                                                                                    | `tests/unit/dev-toolchain/proxy-convention.test.ts`; `tests/unit/i18n/middleware-scope.test.ts`                                                                                             |

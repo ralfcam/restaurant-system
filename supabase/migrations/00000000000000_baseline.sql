@@ -406,6 +406,9 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated;
+
 -- Atomic replace of the full weekly opening-hour schedule (staff / service role).
 -- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
 CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)

@@ -5,7 +5,7 @@
 
 ## Layout
 
-- Config: `vitest.unit.config.ts`
+- Config: `vitest.unit.config.ts` (`test.testTimeout: 15_000`)
 - Setup: `tests/unit/setup.ts`
 - Tests: `tests/unit/**/*.test.ts`
 - Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`

@@ -69,4 +69,13 @@ describe("eslint toolchain", () => {
 
     expect(message?.severity).toBe(2)
   })
+
+  it("gives dependency-heavy ESLint probes a 15-second unit timeout budget", () => {
+    const unitConfig = readFileSync(
+      path.join(repoRoot, "vitest.unit.config.ts"),
+      "utf8",
+    )
+
+    expect(unitConfig).toMatch(/testTimeout\s*:\s*15_000/)
+  })
 })

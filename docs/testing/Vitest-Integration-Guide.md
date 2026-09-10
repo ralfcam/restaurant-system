@@ -158,7 +158,8 @@ the same pin. Unit glob-scan:
   `tests/integration/security/sibling-privileges.integ.test.ts` (live
   `pg_policies` + `has_table_privilege` / `has_sequence_privilege` after local
   reset; reservations guest table INSERT false, `has_column_privilege` INSERT
-  true only for those eight guest columns).
+  true only for those eight guest columns; `validate_reservation_availability`
+  trigger-only with guest `has_function_privilege` EXECUTE false).
 
 ## Skip vs strict
 

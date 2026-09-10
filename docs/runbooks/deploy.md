@@ -365,18 +365,22 @@ try to replay history the remote has diverged from.
 
 ### Apply `20260828121224_table_fit_availability.sql` on an already-baselined remote
 
+**UAT freshness:** 2026-09-10 — re-run this latest function-defining forward on
+`tilcqrudqxznnpepxjqq` even when `20260828121224` is already recorded
+(RES-TRIGGER-EXEC-LINKED). Do not `db push` or reset forked history.
+
 For remotes that already recorded occupancy (`schema_migrations` has
 `20260827180000`), apply this last-writer `CREATE OR REPLACE` of
 `validate_reservation_availability` (table-fit after cover-count + date-scoped
-`pg_advisory_xact_lock`; do not `db push`). Local `db reset` already applies
-this file.
+`pg_advisory_xact_lock` + immediate EXECUTE revokes). Local `db reset` already
+applies this file.
 
 Do not use `db push` or `db reset --linked` for this — a full push/reset would
 try to replay history the remote has diverged from.
 
 1. Run the contents of `supabase/migrations/20260828121224_table_fit_availability.sql`
    against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
-   (single file, one call).
+   (single file, one call), even if the history row already exists.
 2. If `supabase_migrations.schema_migrations` has no row for this version yet,
    record it:
 
@@ -398,6 +402,10 @@ try to replay history the remote has diverged from.
 
    Confirm `validate_reservation_availability` table-fits after cover-count and
    takes `pg_advisory_xact_lock(305, days-since-epoch)`.
+   Confirm `has_function_privilege('anon', 'public.validate_reservation_availability()', 'EXECUTE')`
+   and `has_function_privilege('authenticated', 'public.validate_reservation_availability()', 'EXECUTE')`
+   are false; `enforce_booking_rules` remains enabled; Security Advisor EXECUTE
+   warning is absent.
 
 ### Apply `20260902214500_restaurant_settings_privilege.sql` on an already-baselined remote
 

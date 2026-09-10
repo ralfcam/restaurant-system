@@ -492,3 +492,15 @@ REGISTER: 0 filed · 0 attached · 2 left on ledger (security `conf_code` UNIQUE
 ### Resolved in-run
 
 - [x] Public INSERT RLS is unconstrained · `supabase/migrations/00000000000000_baseline.sql:114-115` reservations INSERT policy · `TO public` / `WITH CHECK (true)` plus table-wide `GRANT INSERT` lets a Data API client set `status` / `table_label` / `completed_at` unless the booking trigger rejects them · med · (found: tdd/res-45_review_email_schema_cron_7f3a91c2/C3/refactor) (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C3/green) → resolved 2026-09-10 plan `guest-reservation-insert-privileges_587ea4c9`: guest INSERT is `GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`; hostile insert regression shipped; public INSERT RLS policy preserved
+
+## res_47_grant_hardening_a330bfed close-out 2026-09-10
+
+REGISTER: 0 filed · 0 attached · 5 left on ledger (Linear MCP BLOCKED). Cap 3 unused. Source RES-47. Unrelated standing backlog not swept. Below-floor (4) and above-floor DEFINER-in-`public` (security med, awaiting operator yes) stay on `docs/findings/{security,tech-debt,test-debt}.md` — not archived.
+
+## eslint_timeout_hardening_f994f816 close-out 2026-09-10
+
+REGISTER: 0 filed · 0 attached · 2 left on ledger (below floor). Cap 3 unused. No tracked Linear issue. Unrelated standing backlog not swept.
+
+### Resolved in-run
+
+- [x] FIX-mode broader unit timeout · `tests/unit/dev-toolchain/lint-toolchain.test.ts:35` · 5s timeout spinning ESLint over gitignored supabase temp trees; `pnpm lint` itself passed; isolated re-run also timed out after C1 · med · (seen: /triage 2026-09-02) (found: tdd/seed_users_email_f5f7f0e6.plan.md/C2/refactor) (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C1/refactor) → resolved 2026-09-10 plan `eslint_timeout_hardening_f994f816` (G-L1 C4: `vitest.unit.config.ts` `test.testTimeout: 15_000`)
