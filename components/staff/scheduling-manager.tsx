@@ -25,6 +25,7 @@ import {
   DAY_NAMES,
   daysToWindowsMap,
   groupRowsByDay,
+  MAX_GUEST_NOTE_LENGTH,
   nextSuggestedSegment,
   summarizeOperatingDays,
   validateOperatingDays,
@@ -519,6 +520,7 @@ export function SchedulingManager({
                               )
                             }
                             aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} guest note`}
+                            maxLength={MAX_GUEST_NOTE_LENGTH}
                             className={NOTE_INPUT_CLS}
                           />
                           <button

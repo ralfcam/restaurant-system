@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-14 for the segmented homepage widget, occupancy window,
@@ -26,7 +26,8 @@ flowchart LR
 `restaurant_settings.slot_interval_minutes` from `/admin/floor`, clamps via
 `clampSlotIntervalMinutes`, and passes the step into `bookableTimesForDay`.
 `groupBookableSlots` assigns each time to one segment (BW-1), attaches optional
-`guest_note`, and renders until-badges via
+`guest_note` (inherits scheduling §13 OH-NOTE-SAVE; the widget does not
+truncate), and renders until-badges via
 `slotUntilTime(time, occupancyDurationMinutes)` (occupancy duration from
 `getGuestOccupancyDurationMinutes`, default 90; wraps past midnight; no
 safety buffer). Guests/date/time are exclusive accordions; Réserver advances

@@ -183,4 +183,39 @@ describe("upsertOperatingWindows", () => {
       }),
     )
   })
+
+  it("accepts 240-character guest notes and rejects 241 before replace_operating_windows", async () => {
+    const daysWithNote = (guestNote: string): OperatingDay[] =>
+      DEFAULT_OPERATING_DAYS.map((day) =>
+        day.day_of_week === 1
+          ? {
+              day_of_week: 1,
+              is_closed: false,
+              segments: [
+                {
+                  label: "Dinner",
+                  opens_at: "18:00",
+                  closes_at: "22:00",
+                  sort_order: 0,
+                  guest_note: guestNote,
+                },
+              ],
+            }
+          : day,
+      )
+
+    const accepted = await upsertOperatingWindows(daysWithNote("x".repeat(240)))
+    expect(accepted).toEqual({ success: true })
+    expect(mocks.rpc).toHaveBeenCalledWith(
+      "replace_operating_windows",
+      expect.anything(),
+    )
+
+    mocks.rpc.mockClear()
+
+    const rejected = await upsertOperatingWindows(daysWithNote("x".repeat(241)))
+    expect(rejected.success).toBe(false)
+    if (!rejected.success) expect(rejected.error).toMatch(/240/)
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
 })

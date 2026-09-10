@@ -75,7 +75,8 @@ the route locale. An in-widget language toggle is out of scope.
    segment `sort_order`, assigns each time via BW-1, falls back unlabeled
    headings to the time range (`09:00–11:00`), omits empty groups, and
    attaches a non-empty `guest_note`. Blank/whitespace notes are omitted from
-   the payload and render no helper.
+   the payload and render no helper. The attached note inherits scheduling
+   §13 OH-NOTE-SAVE; the widget does not independently truncate it.
 
 10. **BW-5 — Slot generation uses restaurant interval** — `getAvailableSlots`
     reads `restaurant_settings.slot_interval_minutes`, clamps via BW-3, and

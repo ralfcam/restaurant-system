@@ -118,6 +118,19 @@ describe("opening-hour segments schema and surfaces", () => {
       expect(forward).toContain(grantAll)
     }
   })
+
+  it("limits each scheduling guest-note input with the shared 240-character cap", () => {
+    const manager = read("components/staff/scheduling-manager.tsx")
+    const inputBlocks = manager.match(/<input\b[\s\S]*?\/>/g) ?? []
+    const guestNoteInputs = inputBlocks.filter((block) =>
+      block.toLowerCase().includes("guest note"),
+    )
+
+    expect(guestNoteInputs.length).toBeGreaterThan(0)
+    for (const block of guestNoteInputs) {
+      expect(block).toContain("maxLength={MAX_GUEST_NOTE_LENGTH}")
+    }
+  })
 })
 
 describe("servers table schema and seed (FP-14)", () => {
