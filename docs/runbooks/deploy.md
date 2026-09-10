@@ -153,7 +153,8 @@ for remotes that already applied baseline (see below).
 
 Repo SQL is not the same as the deployed PostgREST cache. Local `db reset`
 already defines `replace_operating_windows(p_windows jsonb)` in the baseline
-(`DELETE FROM operating_windows WHERE TRUE` — hosted safe-delete, error 21000
+(`SECURITY INVOKER`, `SET search_path = ''`,
+`DELETE FROM public.operating_windows WHERE TRUE` — hosted safe-delete, error 21000
 without a predicate). Linked remotes that applied an older baseline must apply
 `20260818162000_operating_hour_segments.sql` (drop `UNIQUE(day_of_week)`, add
 `label` / `sort_order` / `guest_note`, `CREATE OR REPLACE` the RPC,
@@ -161,7 +162,7 @@ without a predicate). Linked remotes that applied an older baseline must apply
 `NOTIFY pgrst, 'reload schema'`). Until that
 file is applied, staff Save on `/admin/scheduling` misses the function
 (PGRST202 / schema cache). Spec: [../specs/scheduling.md](../specs/scheduling.md)
-OH-SAVE (§15).
+OH-SAVE (§15), OH-SAVE-PATH (§15).
 
 On `tilcqrudqxznnpepxjqq` that version is recorded as `20260818162000` /
 `operating_hour_segments`. That is **not** a full `db push`: remote
@@ -199,7 +200,17 @@ below; do not `db push`. Until `20260825140000` is applied on a forked remote
 that still has the old hours policy or DML grants, a logged-in Data API client
 can mutate hours.
 
-### Apply a single forward migration on an already-baselined remote
+### Apply `20260818162000_operating_hour_segments.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-09-10 — recorded-forward replay / search-path Advisor /
+staff Save (OH-SAVE-PATH-LINKED). On `tilcqrudqxznnpepxjqq` this version is
+**already recorded**. Replay the current idempotent file even though the
+history row exists. Do not insert or repair that history row, `db push`, or
+reset linked history.
+
+First confirm `validate_reservation_availability()` body parity with the
+latest writer (`20260828121224_table_fit_availability.sql`) so this replay
+does not regress RES-47 EXECUTE revokes.
 
 Do not use `db push` or `db reset --linked` for this — the file already ends
 with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
@@ -207,25 +218,29 @@ replay history the remote has diverged from.
 
 1. Run the contents of `supabase/migrations/20260818162000_operating_hour_segments.sql`
    against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
-   (single file, one call).
-2. If `supabase_migrations.schema_migrations` has no row for this version yet,
-   record it:
-
-   ```sql
-   INSERT INTO supabase_migrations.schema_migrations (version, name)
-   VALUES ('20260818162000', 'operating_hour_segments');
-   ```
-
-   Alternatively, `npx supabase migration repair 20260818162000 --status applied`
-   marks the same history row applied — but `migration repair` only updates
-   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
-
-3. Verify:
+   (single file, one call). Do not `INSERT` into
+   `supabase_migrations.schema_migrations` and do not
+   `npx supabase migration repair 20260818162000`.
+2. Verify:
 
    ```sql
    SELECT version, name FROM supabase_migrations.schema_migrations
    WHERE version = '20260818162000';
+
+   SELECT p.proconfig, p.prosecdef,
+     has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+     has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute,
+     has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_execute
+   FROM pg_proc p
+   JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'replace_operating_windows'
+   LIMIT 1;
    ```
+
+   Confirm `proconfig` contains `search_path=""`, `prosecdef` is false
+   (`SECURITY INVOKER`), guest EXECUTE is denied, and `service_role` EXECUTE
+   is granted. Security Advisor lint 0011 is absent. Staff Save on
+   `/admin/scheduling` still persists multiple segments.
 
 ### Apply `20260825140000_operating_windows_privilege.sql` on an already-baselined remote
 

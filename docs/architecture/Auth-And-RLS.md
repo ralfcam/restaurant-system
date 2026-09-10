@@ -87,11 +87,13 @@ data (`operating_windows`, `menu_items`,
 `GRANT ALL ON TABLE operating_windows TO service_role`. There is no authenticated
 `FOR ALL` policy (`DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"`;
 no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Staff writes go
-through `replace_operating_windows` (`service_role` `EXECUTE` only). Identical
-GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql` and
+through `replace_operating_windows` (`SECURITY INVOKER`, exact
+`SET search_path = ''`, `DELETE FROM public.operating_windows` /
+`INSERT INTO public.operating_windows`, `service_role` `EXECUTE` only).
+Identical GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql` and
 `20260825140000_operating_windows_privilege.sql` (apply on already-baselined
 remotes per [../runbooks/deploy.md](../runbooks/deploy.md); do not `db push`).
-Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
+Spec: [../specs/scheduling.md](../specs/scheduling.md) §15–§16.
 
 `restaurant_settings` is SELECT-only for `anon` and `authenticated`
 (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges

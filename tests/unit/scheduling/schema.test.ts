@@ -40,8 +40,12 @@ describe("opening-hour segments schema and surfaces", () => {
 
     expect(baseline).toMatch(/guest_note TEXT/)
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS guest_note/)
-    expect(baseline).toMatch(/INSERT INTO operating_windows \([^)]*guest_note/)
-    expect(migration).toMatch(/INSERT INTO operating_windows \([^)]*guest_note/)
+    expect(baseline).toMatch(
+      /INSERT INTO public\.operating_windows \([^)]*guest_note/,
+    )
+    expect(migration).toMatch(
+      /INSERT INTO public\.operating_windows \([^)]*guest_note/,
+    )
   })
 
   it("admin scheduling manager lets staff add labeled opening-hour segments", () => {

@@ -232,12 +232,13 @@ REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, aut
 CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
 RETURNS void
 LANGUAGE plpgsql
+SET search_path = ''
 AS $$
 BEGIN
   -- WHERE TRUE satisfies hosted safe-delete (error 21000 without a predicate).
-  DELETE FROM operating_windows WHERE TRUE;
+  DELETE FROM public.operating_windows WHERE TRUE;
 
-  INSERT INTO operating_windows (
+  INSERT INTO public.operating_windows (
     day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
   )
   SELECT

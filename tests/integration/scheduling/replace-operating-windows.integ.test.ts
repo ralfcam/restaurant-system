@@ -1,4 +1,6 @@
 import { execFile } from "node:child_process"
+import { readdirSync, readFileSync } from "node:fs"
+import path from "node:path"
 import { promisify } from "node:util"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import { createClient } from "@/lib/supabase/client-server"
@@ -33,6 +35,67 @@ async function execLocalHoursPrivilegeSql(sql: string) {
     "-c",
     sql,
   ])
+}
+
+const MIGRATIONS_DIR = path.join(process.cwd(), "supabase", "migrations")
+const CREATE_REPLACE_OPERATING_WINDOWS =
+  "CREATE OR REPLACE FUNCTION replace_operating_windows"
+
+type ReplaceWindowsCatalog = {
+  proconfig: string[] | null
+  prosecdef: boolean | null
+  anon_execute: boolean
+  authenticated_execute: boolean
+  service_role_execute: boolean
+}
+
+const REPLACE_WINDOWS_CATALOG_SQL = `
+SELECT json_build_object(
+  'proconfig', p.proconfig,
+  'prosecdef', p.prosecdef,
+  'anon_execute', has_function_privilege('anon', p.oid, 'EXECUTE'),
+  'authenticated_execute', has_function_privilege(
+    'authenticated', p.oid, 'EXECUTE'
+  ),
+  'service_role_execute', has_function_privilege(
+    'service_role', p.oid, 'EXECUTE'
+  )
+)
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname = 'replace_operating_windows'
+LIMIT 1;
+`
+
+function replaceOperatingWindowsBlock(
+  sql: string,
+  createAt: number,
+): string | null {
+  const asDollar = sql.indexOf("AS $$", createAt)
+  if (asDollar === -1) return null
+  const end = sql.indexOf("$$;", asDollar)
+  if (end === -1) return null
+  return sql.slice(createAt, end + 3)
+}
+
+async function execLocalHoursCatalogSql(sql: string): Promise<string> {
+  const { stdout } = await execFileAsync("docker", [
+    "exec",
+    "supabase_db_restaurant-system",
+    "psql",
+    "-U",
+    "postgres",
+    "-d",
+    "postgres",
+    "-v",
+    "ON_ERROR_STOP=1",
+    "-t",
+    "-A",
+    "-c",
+    sql,
+  ])
+  return stdout.trim()
 }
 
 const MONDAY = 1
@@ -204,6 +267,93 @@ describe.skipIf(!authEnvReady)("replace_operating_windows (PostgREST)", () => {
       remaining.splice(matchIndex, 1)
     }
     expect(remaining).toHaveLength(0)
+  })
+
+  it("replace_operating_windows pins an empty search_path and qualified table writes", async () => {
+    const violations: string[] = []
+    const migrationNames = readdirSync(MIGRATIONS_DIR)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+    const defining: string[] = []
+
+    for (const name of migrationNames) {
+      const sql = readFileSync(path.join(MIGRATIONS_DIR, name), "utf8")
+      let searchFrom = 0
+      while (true) {
+        const createAt = sql.indexOf(
+          CREATE_REPLACE_OPERATING_WINDOWS,
+          searchFrom,
+        )
+        if (createAt === -1) break
+        defining.push(name)
+        const block = replaceOperatingWindowsBlock(sql, createAt)
+        if (block === null) {
+          violations.push(
+            `${name}: replace_operating_windows body is not closed with $$;`,
+          )
+          break
+        }
+        const header = block.slice(0, block.indexOf("AS $$"))
+        if (!header.includes("SET search_path = ''")) {
+          violations.push(`${name}: missing exact SET search_path = ''`)
+        }
+        if (/SET search_path\s+TO\b/i.test(header)) {
+          violations.push(
+            `${name}: SET search_path TO is not the empty-path pin`,
+          )
+        }
+        if (!block.includes("DELETE FROM public.operating_windows")) {
+          violations.push(
+            `${name}: missing DELETE FROM public.operating_windows`,
+          )
+        }
+        if (!block.includes("INSERT INTO public.operating_windows")) {
+          violations.push(
+            `${name}: missing INSERT INTO public.operating_windows`,
+          )
+        }
+        if (/SECURITY\s+DEFINER/i.test(block)) {
+          violations.push(`${name}: SECURITY DEFINER is forbidden`)
+        }
+        searchFrom = createAt + CREATE_REPLACE_OPERATING_WINDOWS.length
+      }
+    }
+
+    if (defining.length === 0) {
+      violations.push(
+        "no migration contains CREATE OR REPLACE FUNCTION replace_operating_windows",
+      )
+    }
+
+    const raw = await execLocalHoursCatalogSql(REPLACE_WINDOWS_CATALOG_SQL)
+    if (!raw) {
+      violations.push("replace_operating_windows is missing from pg_proc")
+    } else {
+      const catalog = JSON.parse(raw) as ReplaceWindowsCatalog
+      const proconfig = catalog.proconfig ?? []
+      if (
+        !Array.isArray(catalog.proconfig) ||
+        !proconfig.some((entry) => entry.includes('search_path=""'))
+      ) {
+        violations.push(
+          `proconfig must contain search_path="" got ${JSON.stringify(catalog.proconfig)}`,
+        )
+      }
+      if (catalog.prosecdef !== false) {
+        violations.push(`prosecdef expected false got ${catalog.prosecdef}`)
+      }
+      if (catalog.anon_execute) {
+        violations.push("anon has_function_privilege EXECUTE is true")
+      }
+      if (catalog.authenticated_execute) {
+        violations.push("authenticated has_function_privilege EXECUTE is true")
+      }
+      if (!catalog.service_role_execute) {
+        violations.push("service_role has_function_privilege EXECUTE is false")
+      }
+    }
+
+    expect(violations).toEqual([])
   })
 
   describe("OH-PRIV authenticated Data API", () => {
