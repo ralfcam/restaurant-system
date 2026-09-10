@@ -131,7 +131,10 @@ stay on the anon client (`lib/supabase/client-server.ts`). Spec:
 Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
 and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`
 then `GRANT SELECT` only).
-`reservations` is insert-only (`REVOKE ALL` then `GRANT INSERT`);
+`reservations` is insert-only (`REVOKE ALL` then
+`GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`);
+guest INSERT is not table-wide. Server-owned `id`, `status`, `table_label`,
+`created_at`, and `completed_at` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
 There is no authenticated `FOR ALL` (or other write) policy on those three

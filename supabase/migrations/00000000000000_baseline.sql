@@ -112,8 +112,10 @@ CREATE POLICY "Allow public insert reservations"
   TO public
   WITH CHECK (true);
 
--- RES-42 / REAZED-308: RES-PRIV — guest INSERT only; drop public SELECT and
--- authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
+-- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
+-- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
+-- id, status, table_label, created_at, completed_at have no guest INSERT privilege.
+-- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 
 DROP POLICY IF EXISTS "Allow authenticated full access to reservations" ON reservations;
@@ -127,7 +129,7 @@ CREATE POLICY "Allow service_role full access to reservations"
 
 -- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
 REVOKE ALL ON TABLE reservations FROM PUBLIC, anon, authenticated;
-GRANT INSERT ON TABLE reservations TO anon, authenticated;
+GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code) ON TABLE reservations TO anon, authenticated;
 GRANT ALL ON TABLE reservations TO service_role;
 
 -- ── review_email_sends (PV-6 claim row) ──────────────────────────────────────

@@ -62,9 +62,16 @@ type SequencePrivilegeRow = {
   role: string
 } & SequenceCaps
 
+type ColumnPrivilegeRow = {
+  column: string
+  role: string
+  insert: boolean
+}
+
 type CatalogMatrix = {
   policies: PolicyRow[]
   table_privileges: TablePrivilegeRow[]
+  column_privileges: ColumnPrivilegeRow[]
   sequence_privileges: SequencePrivilegeRow[]
   rls: { table: string; enabled: boolean }[]
 }
@@ -79,7 +86,6 @@ const NONE_TABLE: TableCaps = {
   trigger: false,
 }
 const SELECT_ONLY: TableCaps = { ...NONE_TABLE, select: true }
-const INSERT_ONLY: TableCaps = { ...NONE_TABLE, insert: true }
 const ALL_TABLE: TableCaps = {
   select: true,
   insert: true,
@@ -102,9 +108,35 @@ const SERVICE_SEQUENCE: SequenceCaps = {
 
 function guestTableCaps(table: string): TableCaps {
   if (table === "blocked_dates" || table === "menu_items") return SELECT_ONLY
-  if (table === "reservations") return INSERT_ONLY
   return NONE_TABLE
 }
+
+const RESERVATION_COLUMNS = [
+  "id",
+  "guest_name",
+  "party_size",
+  "date",
+  "time",
+  "status",
+  "phone",
+  "notes",
+  "table_label",
+  "conf_code",
+  "created_at",
+  "email",
+  "completed_at",
+] as const
+
+const GUEST_INSERT_COLUMNS = new Set([
+  "guest_name",
+  "party_size",
+  "date",
+  "time",
+  "phone",
+  "email",
+  "notes",
+  "conf_code",
+])
 
 const CATALOG_SQL = `
 SELECT json_build_object(
@@ -132,6 +164,17 @@ SELECT json_build_object(
       'trigger', has_table_privilege(r.name, format('public.%I', t.name), 'TRIGGER')
     ) ORDER BY t.name, r.name), '[]'::json)
     FROM (SELECT unnest(ARRAY[${IN_SCOPE_TABLES.map((t) => `'${t}'`).join(", ")}]) AS name) t
+    CROSS JOIN (
+      SELECT unnest(ARRAY['public', 'anon', 'authenticated', 'service_role']) AS name
+    ) r
+  ),
+  'column_privileges', (
+    SELECT COALESCE(json_agg(json_build_object(
+      'column', c.name,
+      'role', r.name,
+      'insert', has_column_privilege(r.name, 'public.reservations', c.name, 'INSERT')
+    ) ORDER BY c.name, r.name), '[]'::json)
+    FROM (SELECT unnest(ARRAY[${RESERVATION_COLUMNS.map((c) => `'${c}'`).join(", ")}]) AS name) c
     CROSS JOIN (
       SELECT unnest(ARRAY['public', 'anon', 'authenticated', 'service_role']) AS name
     ) r
@@ -253,6 +296,18 @@ describe.skipIf(!authEnvReady)(
         if (!capsEqual(actual, expected)) {
           violations.push(
             `${row.table} ${row.role}: expected ${JSON.stringify(expected)} got ${JSON.stringify(actual)}`,
+          )
+        }
+      }
+
+      for (const row of catalog.column_privileges) {
+        if (row.role === "service_role") continue
+        const expectedInsert =
+          (row.role === "anon" || row.role === "authenticated") &&
+          GUEST_INSERT_COLUMNS.has(row.column)
+        if (row.insert !== expectedInsert) {
+          violations.push(
+            `reservations ${row.role} INSERT ${row.column}: expected ${expectedInsert} got ${row.insert}`,
           )
         }
       }

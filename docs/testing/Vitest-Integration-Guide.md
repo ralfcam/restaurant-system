@@ -151,11 +151,14 @@ the same pin. Unit glob-scan:
     write is in `it()`) and write-cleanup hooks.
 - Catalog privileges (RES-PRIV / PUBLIC-READ-PRIV / SIB-PRIV):
   `tests/integration/reservations/public-privileges.integ.test.ts` (`REVOKE ALL`
-  then guest INSERT/SELECT only; no authenticated `FOR ALL`).
+  then guest `GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`;
+  no table-wide `GRANT INSERT`; no authenticated `FOR ALL`; hostile insert
+  of server-owned columns denied).
 - Sibling role matrix (RES-42):
   `tests/integration/security/sibling-privileges.integ.test.ts` (live
   `pg_policies` + `has_table_privilege` / `has_sequence_privilege` after local
-  reset).
+  reset; reservations guest table INSERT false, `has_column_privilege` INSERT
+  true only for those eight guest columns).
 
 ## Skip vs strict
 

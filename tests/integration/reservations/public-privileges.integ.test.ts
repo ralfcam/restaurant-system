@@ -14,7 +14,10 @@ const MIGRATION_FILES = [
   "supabase/migrations/20260827160000_public_catalog_privileges.sql",
 ] as const
 
-const GRANT_INSERT = "GRANT INSERT ON TABLE reservations TO anon, authenticated"
+const GRANT_INSERT =
+  "GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code) ON TABLE reservations TO anon, authenticated"
+const GRANT_INSERT_TABLE_WIDE =
+  "GRANT INSERT ON TABLE reservations TO anon, authenticated"
 const REVOKE_ALL =
   "REVOKE ALL ON TABLE reservations FROM PUBLIC, anon, authenticated"
 const GRANT_SERVICE = "GRANT ALL ON TABLE reservations TO service_role"
@@ -53,6 +56,11 @@ function isPermissionError(
 // Wednesday, far-future, never a blocked date by default.
 const TEST_DATE = "2027-04-21"
 const TEST_TIME = "19:00"
+// Distinct from C1 (2027-04-21 / 19:00), atomic-booking (2027-03-17),
+// occupancy-window (2027-06-16), table-fit (2027-07-14), review-email-pii
+// (2027-08-18). Far-future Wednesday.
+const HOSTILE_DATE = "2027-10-13"
+const HOSTILE_TIME = "18:00"
 const GUEST_NAME = "Privilege Insert Guest"
 const GUEST_PHONE = "555-0308"
 
@@ -63,6 +71,11 @@ async function cleanupTestSlot() {
     .delete()
     .eq("date", TEST_DATE)
     .eq("time", TEST_TIME)
+  await supabase
+    .from("reservations")
+    .delete()
+    .eq("date", HOSTILE_DATE)
+    .eq("time", HOSTILE_TIME)
 }
 
 describe.skipIf(!authEnvReady)("reservations RES-PRIV insert-only", () => {
@@ -100,17 +113,21 @@ describe.skipIf(!authEnvReady)("reservations RES-PRIV insert-only", () => {
     const admin = createServiceClient()
     const { data: staffRow, error: staffError } = await admin
       .from("reservations")
-      .select("guest_name,phone")
+      .select("guest_name,phone,status,table_label,completed_at")
       .eq("conf_code", confCode)
       .maybeSingle()
     expect(staffError).toBeNull()
     expect(staffRow?.guest_name).toBe(GUEST_NAME)
     expect(staffRow?.phone).toBe(GUEST_PHONE)
+    expect(staffRow?.status).toBe("confirmed")
+    expect(staffRow?.table_label).toBeNull()
+    expect(staffRow?.completed_at).toBeNull()
 
     for (const rel of MIGRATION_FILES) {
       const sql = readSql(rel)
       expect(sql).toContain(REVOKE_ALL)
       expect(sql).toContain(GRANT_INSERT)
+      expect(sql).not.toContain(GRANT_INSERT_TABLE_WIDE)
       expect(sql.indexOf(REVOKE_ALL)).toBeLessThan(sql.indexOf(GRANT_INSERT))
       expect(sql).toContain(DROP_AUTH_FULL)
       const dropAuthIdx = sql.indexOf(DROP_AUTH_FULL)
@@ -123,6 +140,37 @@ describe.skipIf(!authEnvReady)("reservations RES-PRIV insert-only", () => {
 
     const baseline = readSql(MIGRATION_FILES[0])
     expect(baseline).toContain(CREATE_PUBLIC_INSERT)
+  })
+
+  it("guest INSERT rejects server-owned reservation fields and non-guest status", async () => {
+    const confCode = `TVL-${Math.floor(1000 + Math.random() * 9000)}`
+    const anon = createClient()
+    const { error: insertError } = await anon.from("reservations").insert({
+      guest_name: GUEST_NAME,
+      party_size: 2,
+      date: HOSTILE_DATE,
+      time: HOSTILE_TIME,
+      phone: GUEST_PHONE,
+      conf_code: confCode,
+      notes: "RES-PRIV-COLS hostile",
+      status: "completed",
+      table_label: "T99",
+      completed_at: "2027-10-13T21:00:00.000Z",
+    })
+
+    const admin = createServiceClient()
+    const { data: persisted, error: staffError } = await admin
+      .from("reservations")
+      .select("conf_code")
+      .eq("conf_code", confCode)
+      .maybeSingle()
+    if (persisted) {
+      await admin.from("reservations").delete().eq("conf_code", confCode)
+    }
+
+    expect(insertError).not.toBeNull()
+    expect(staffError).toBeNull()
+    expect(persisted).toBeNull()
   })
 })
 

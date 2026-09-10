@@ -178,7 +178,8 @@ The same file also
 `GRANT ALL ON TABLE blocked_dates TO service_role`, and the same for
 `reservations` and `menu_items` (EARLY-PRIV). Catalog recipes are
 `REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated` then only the
-public capability (`GRANT INSERT` on `reservations`; `GRANT SELECT` on
+public capability (`GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`
+on `reservations`; `GRANT SELECT` on
 `blocked_dates` / `menu_items`) then `GRANT ALL TO service_role`.
 `DROP POLICY IF EXISTS` drops authenticated `FOR ALL` (and public SELECT on
 `reservations`) and never `CREATE`s those policies — same order in every
@@ -273,10 +274,17 @@ replay history the remote has diverged from.
 
 ### Apply `20260827160000_public_catalog_privileges.sql` on an already-baselined remote
 
-**UAT freshness:** 2026-08-27 — apply this file when `20260825140000` is already
-recorded (M1-linked-remote-apply; do not `db push`). Then confirm
-`has_table_privilege('anon', 'reservations', 'INSERT')` is true and
-`has_table_privilege('anon', 'reservations', 'SELECT')` is false; confirm
+**UAT freshness:** 2026-09-10 — RES-PRIV-REMOTE deferred/manual. Linked project
+`tilcqrudqxznnpepxjqq` already records `20260827160000`; this run did not mutate
+remote. Applying the idempotent `REVOKE ALL` + column `GRANT INSERT` (or
+resetting this no-user pre-production project) is a separately authorized
+operator pass. After that pass, confirm
+`has_table_privilege('anon', 'reservations', 'INSERT')` and the same for
+`authenticated` are false (column-only GRANT); `has_column_privilege` INSERT
+is true only for `guest_name`, `party_size`, `date`, `time`, `phone`, `email`,
+`notes`, `conf_code`; false for `id`, `status`, `table_label`, `created_at`,
+`completed_at` and for `PUBLIC` on every `reservations` column;
+`has_table_privilege(..., 'SELECT')` on `reservations` stays false. Confirm
 `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
 `has_table_privilege('anon', 'menu_items', 'SELECT')` are true and INSERT is
 false for both.
@@ -307,9 +315,14 @@ replay history the remote has diverged from.
    WHERE version = '20260827160000';
    ```
 
-   Confirm `has_table_privilege('anon', 'reservations', 'INSERT')` is true and
-   `has_table_privilege('anon', 'reservations', 'SELECT')` is false. Confirm
-   the same INSERT/SELECT split for `authenticated`. Confirm
+   Confirm `has_table_privilege('anon', 'reservations', 'INSERT')` is false and
+   the same for `authenticated` (column-only guest GRANT). Confirm
+   `has_column_privilege` INSERT is true only for `guest_name`, `party_size`,
+   `date`, `time`, `phone`, `email`, `notes`, `conf_code`; false for `id`,
+   `status`, `table_label`, `created_at`, `completed_at` and for `PUBLIC` on
+   every `reservations` column. Confirm
+   `has_table_privilege('anon', 'reservations', 'SELECT')` is false (same for
+   `authenticated`). Confirm
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
    `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
    is false for both. Confirm policy `"Allow public read reservations"` is gone
