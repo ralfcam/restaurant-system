@@ -34,9 +34,9 @@ stops at a local commit on the current branch.
 
 **Ground truth — Linear↔GitHub automation:** see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc) for
-the full event table, the accumulator-branch re-merge gap, and the START
-In Progress carve-out (In Review/Done stay automation-owned). In short:
-`On PR merge → Done` only fires for a
+the full event table, the accumulator-branch re-merge gap, and the
+automation-owned execution statuses (In Progress / In Review / Done). In
+short: `On PR merge → Done` only fires for a
 closing-linked PR. A **direct** `staging` commit's trailer does not
 resurface on promotion — `/push` from `staging` closes that gap by injecting
 the aggregated closing line into the promotion PR itself. A **feature PR**
@@ -45,9 +45,12 @@ into `staging` closes at that merge (no fallback line). See Step 5a below.
 You perform **no Linear write** — Done is driven entirely by Linear's `On PR
 merge → Done` automation once a properly linked PR merges and an operator
 merges it, never by `linear-resolver` CLOSE-OUT/GROOM or by this gate. In
-Progress was set at `/sdd-to-tdd` START (PR open is backup). In Review (when
-present) is automation-owned — see
+Progress fires when a linked draft/open PR exists; until then the issue may
+remain Todo. In Review is automation-owned (review activity or
+ready-for-merge) — see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).
+This command verifies and, on PASS, makes the closing-linked **local**
+commit. It never pushes, never readies a PR, and never merges.
 
 Permission to Fail: say "I don't know" / "cannot verify" rather than guessing.
 Inability to verify a gate is a non-PASS verdict, never a silent advance.
@@ -385,8 +388,8 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
   PR (auto-discovered from the current branch, or pinned by URL if
   discovery would be ambiguous), preps promotion (aggregates + injects
   closing trailers) whenever that PR's base is the default branch, and
-  requests review to fire In Review (In Progress was set at START; PR open is
-  backup). Point to
+  requests review so In Review can fire from review activity or
+  ready-for-merge (In Progress fires from the linked draft/open PR). Point to
   `/sdd-to-tdd <next prioritized issue>` to drive the next item in the
   meantime (then `/commit` again).
 - **PASS, on `staging` (per Step 5a):** `/push` run from `staging` already

@@ -77,7 +77,8 @@ not hardcode a cycle number here.
 - **Todo means scheduled:** assign the team’s **current** Linear cycle.
 - **Backlog / new REGISTER FINDINGS issues:** no cycle (unscheduled).
 - **In Progress / In Review** missing a cycle: GROOM may set current cycle
-  as a **field-only** write (no state move; In Progress stays START-only).
+  as a **field-only** write (no state move; execution status is
+  automation-owned).
 - If `list_cycles(current)` is empty: `cannot verify`, skip cycle, still
   assign milestone.
 - Never auto-assign **next** or **previous**.

@@ -213,7 +213,7 @@ milestone rank — never a filter.
 ## PHASE 3 — Write-set split (read-only)
 
 Pick the **local lane** first: the top Urgent/High (Todo, or already In
-Progress from START) as a pasteable `/sdd-to-tdd REAZED-###`. It **stays on the
+Progress from a linked PR) as a pasteable `/sdd-to-tdd REAZED-###`. It **stays on the
 current `staging` checkout**. Hub-walk it too so you can compare write-sets.
 Ranking is **priority, then PHASE 1B milestone rank, then in current cycle
 before not**. "Not" includes unscheduled, previous, and next. Priority still
@@ -312,7 +312,7 @@ command does not invent an identity or open a spawn door:
   Follow-up on a running agent is another `@Cursor` comment.
   Do **not** open any of those three doors from this command or from
   `linear-resolver` — that spawn is exactly why START never writes
-  them (see
+  assignee, delegate, or `@Cursor` (see
   [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
   The local `linear-spawn-guard` hook denies them; cloud agents do not
   run `beforeMCPExecution` hooks, so this prose still binds.
