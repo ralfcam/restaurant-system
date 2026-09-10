@@ -38,24 +38,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS table_merge_members_table_id_uidx
 ALTER TABLE table_merges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE table_merge_members ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV: table merges are service_role-only (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to table_merges" ON table_merges;
-CREATE POLICY "Allow authenticated full access to table_merges"
-  ON table_merges FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow authenticated full access to table_merge_members" ON table_merge_members;
 
 DROP POLICY IF EXISTS "Allow service_role full access to table_merges" ON table_merges;
 CREATE POLICY "Allow service_role full access to table_merges"
   ON table_merges FOR ALL
   TO service_role
-  USING (true)
-  WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow authenticated full access to table_merge_members" ON table_merge_members;
-CREATE POLICY "Allow authenticated full access to table_merge_members"
-  ON table_merge_members FOR ALL
-  TO authenticated
   USING (true)
   WITH CHECK (true);
 
@@ -66,9 +56,10 @@ CREATE POLICY "Allow service_role full access to table_merge_members"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE table_merges TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE table_merges FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE table_merges TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE table_merge_members TO authenticated;
+REVOKE ALL ON TABLE table_merge_members FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE table_merge_members TO service_role;
 
 DO $$

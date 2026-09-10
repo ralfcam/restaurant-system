@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Current state
 
@@ -10,9 +10,11 @@
   CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; RES-PRIV
   insert-only, no `GRANT SELECT`), `menu_items`,
   `restaurant_settings`, public `branding` storage bucket, `servers` (FP-14,
-  `-- REAZED-329`, after the `tables` GRANT block), `orders` / `order_items`
-  (staff-only RLS/grants like `tables` / `servers`; `GRANT USAGE, SELECT` on
-  `orders_order_number_seq`; not in `supabase_realtime`), and booking
+  `-- REAZED-329`, after the `tables` GRANT block; service-role-only like
+  `tables`), `orders` / `order_items`
+  (service-role-only RLS/`GRANT ALL`; `REVOKE ALL` then `GRANT USAGE, SELECT`
+  on `orders_order_number_seq` to `service_role` only; not in
+  `supabase_realtime`), and booking
   trigger `enforce_booking_rules`. Baseline also has
   `restaurant_settings.review_email_enabled` (default false),
   `review_email_copy`, `review_email_maps_url`,
@@ -28,8 +30,8 @@
   `20260825140000_operating_windows_privilege.sql` (OH-PRIV SELECT-only on
   `operating_windows` plus `GRANT ALL` for `operating_windows`, `blocked_dates`,
   `reservations`, `menu_items`; RES-PRIV insert-only on `reservations`;
-  PUBLIC-READ-PRIV `GRANT SELECT` / `REVOKE` DML on `blocked_dates` and
-  `menu_items`; BC-1 SELECT-only on `restaurant_settings`; apply on
+  PUBLIC-READ-PRIV `REVOKE ALL` then `GRANT SELECT` on `blocked_dates` and
+  `menu_items`; drop authenticated `FOR ALL` on those siblings; BC-1 SELECT-only on `restaurant_settings`; apply on
   already-baselined remotes — not a full `db push`), and
   `20260827160000_public_catalog_privileges.sql` (same RES-PRIV / PUBLIC-READ-PRIV
   strings when `20260825140000` is already recorded), plus

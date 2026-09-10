@@ -474,3 +474,12 @@ REGISTER: 0 filed · 2 attached · 2 left on ledger (below floor). Already-track
 - [x] POS orders-persistence integ has no local-host isolation pin · `tests/integration/pos/orders-persistence.integ.test.ts` · same class as RES-39 · high · (found: tdd/res-39_pin_reservation_integ_local_a7c3e1f2/plan/triage) → resolved in-run tdd/res_iso_followup_pins_b8e4c2a1/C3 (ORD-ISO)
 - [x] Scan accepts an explicit local URL · `tests/unit/reservations/reservation-integ-isolation.test.ts` · `isHelperCall` did not require zero args · high · (found: tdd/res-39_pin_reservation_integ_local_a7c3e1f2/C1/refactor) → resolved in-run tdd/res_iso_followup_pins_b8e4c2a1/C1
 - [x] Catalog AST recipe still callee-name-only / omits `beforeEach` · `docs/testing/Design-And-Patterns.md` · docs-updater refreshed zero-arg + spec-named WRITE_HOOKS · low · (found: tdd/res_iso_followup_pins_b8e4c2a1/C1/red) → resolved in-run docs-updater
+
+## res-42_sibling_privilege_lock_6f2a8c1d close-out 2026-09-10
+
+REGISTER: 0 filed · 2 attached · 23 left on ledger (20 below floor + 3 operator confirmation for net-new). Cap 3 unused. Unattended close-out did not create net-new Linear issues.
+
+### Filed / attached
+
+- [x] `createServiceClient` module has no `server-only` · `lib/supabase/service.ts:1-21` · service_role client is only safe if this file never enters a client bundle; `"use server"` on callers is not the same as a module fence · med · (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C1/refactor) → REAZED-322 (attached)
+- [x] `restaurant_settings` still has authenticated `FOR ALL` · `tests/unit/branding/schema.test.ts` pins drop/recreate of that policy; table is outside RES-42’s sibling list · a JWT Data API client can still mutate settings if grants allow it · med · (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C7/red) → REAZED-298 (attached)

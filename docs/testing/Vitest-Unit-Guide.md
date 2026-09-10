@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Layout
 
@@ -36,6 +36,8 @@
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
   `tests/unit/floor/pos-menu-availability.test.ts`
+- Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
+  `tests/unit/reservations/get-range-service-client.test.ts`
 - Reservation isolation (RES-ISO):
   `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
   glob-scan of `tests/integration/reservations/*.integ.test.ts`; zero-arg

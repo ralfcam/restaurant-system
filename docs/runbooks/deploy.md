@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Vercel
 
@@ -176,13 +176,14 @@ strings as baseline for `anon, authenticated`, plus
 `GRANT ALL ON TABLE operating_windows TO service_role` in that same file.
 The same file also
 `GRANT ALL ON TABLE blocked_dates TO service_role`, and the same for
-`reservations` and `menu_items` (EARLY-PRIV). That does not drop those tables'
-authenticated `FOR ALL` policies (REAZED-299). It also carries RES-PRIV
-(`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE` on `reservations`;
-`DROP POLICY IF EXISTS "Allow public read reservations"`, no `CREATE`) and
-PUBLIC-READ-PRIV (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` on
-`blocked_dates` and `menu_items`). If `20260825140000` is already recorded,
-those catalog strings must be applied via
+`reservations` and `menu_items` (EARLY-PRIV). Catalog recipes are
+`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated` then only the
+public capability (`GRANT INSERT` on `reservations`; `GRANT SELECT` on
+`blocked_dates` / `menu_items`) then `GRANT ALL TO service_role`.
+`DROP POLICY IF EXISTS` drops authenticated `FOR ALL` (and public SELECT on
+`reservations`) and never `CREATE`s those policies — same order in every
+object-owning file, not only the latest forward. If `20260825140000` is
+already recorded, those catalog strings must be applied via
 `20260827160000_public_catalog_privileges.sql` (editing an applied file does
 not re-run). The same `20260825140000` file also carries BC-1 SELECT-only on
 `restaurant_settings` (`DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"`;
@@ -191,7 +192,7 @@ no `CREATE`; `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`;
 `20260825140000` is already recorded, apply
 `20260902214500_restaurant_settings_privilege.sql`. Spec:
 [../specs/scheduling.md](../specs/scheduling.md)
-OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18);
+OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18), SIB-PRIV (§19);
 [../specs/branding-cms.md](../specs/branding-cms.md) BC-1. Apply per the recipes
 below; do not `db push`. Until `20260825140000` is applied on a forked remote
 that still has the old hours policy or DML grants, a logged-in Data API client
@@ -311,7 +312,8 @@ replay history the remote has diverged from.
    the same INSERT/SELECT split for `authenticated`. Confirm
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
    `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
-   is false for both. Confirm policy `"Allow public read reservations"` is gone.
+   is false for both. Confirm policy `"Allow public read reservations"` is gone
+   and no authenticated `FOR ALL` policy remains on those catalog tables.
 
 ### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote
 
@@ -437,6 +439,13 @@ npx supabase db reset --local
 ```powershell
 npx supabase db reset --linked --yes
 ```
+
+**UAT freshness:** 2026-09-10 — RES42-M1 (operator-owned). Because the
+platform is pre-production, sibling privilege lock (SIB-PRIV / RES-PRIV /
+menu AC-2 / AC-5 / FP-1 / FP-8 / FP-14) is not a dated compatibility
+migration. After this linked reset (or a full local reset), assert live
+`pg_policies` plus `has_table_privilege` / `has_sequence_privilege` for
+every sibling role. Role-matrix smoke is operator-owned, not CI.
 
 Schema-only (skip seed): append `--no-seed` to either command.
 

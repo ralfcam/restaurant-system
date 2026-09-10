@@ -15,12 +15,18 @@ const MIGRATION_FILES = [
 ] as const
 
 const GRANT_INSERT = "GRANT INSERT ON TABLE reservations TO anon, authenticated"
-const REVOKE_SELECT_UPDATE_DELETE =
-  "REVOKE SELECT, UPDATE, DELETE ON TABLE reservations FROM anon, authenticated"
+const REVOKE_ALL =
+  "REVOKE ALL ON TABLE reservations FROM PUBLIC, anon, authenticated"
+const GRANT_SERVICE = "GRANT ALL ON TABLE reservations TO service_role"
 const DROP_PUBLIC_READ =
   'DROP POLICY IF EXISTS "Allow public read reservations"'
 const CREATE_PUBLIC_READ = 'CREATE POLICY "Allow public read reservations"'
-const GRANT_SELECT_ANON = "GRANT SELECT ON TABLE reservations TO anon"
+const CREATE_PUBLIC_INSERT = 'CREATE POLICY "Allow public insert reservations"'
+const DROP_AUTH_FULL =
+  'DROP POLICY IF EXISTS "Allow authenticated full access to reservations"'
+const CREATE_AUTH_FULL =
+  'CREATE POLICY "Allow authenticated full access to reservations"'
+const GRANT_SELECT_RESERVATIONS = "GRANT SELECT ON TABLE reservations"
 
 function readSql(rel: string) {
   const filePath = path.join(root, rel)
@@ -70,7 +76,7 @@ describe.skipIf(!authEnvReady)("reservations RES-PRIV insert-only", () => {
     await cleanupTestSlot()
   })
 
-  it("anon can INSERT reservations and cannot SELECT guest PII", async () => {
+  it("guest roles can INSERT reservations only and no authenticated full-access policy remains", async () => {
     const confCode = `TVL-${Math.floor(1000 + Math.random() * 9000)}`
     const anon = createClient()
     const { error: insertError } = await anon.from("reservations").insert({
@@ -103,21 +109,35 @@ describe.skipIf(!authEnvReady)("reservations RES-PRIV insert-only", () => {
 
     for (const rel of MIGRATION_FILES) {
       const sql = readSql(rel)
+      expect(sql).toContain(REVOKE_ALL)
       expect(sql).toContain(GRANT_INSERT)
-      expect(sql).toContain(REVOKE_SELECT_UPDATE_DELETE)
+      expect(sql.indexOf(REVOKE_ALL)).toBeLessThan(sql.indexOf(GRANT_INSERT))
+      expect(sql).toContain(DROP_AUTH_FULL)
+      const dropAuthIdx = sql.indexOf(DROP_AUTH_FULL)
+      expect(sql.indexOf(CREATE_AUTH_FULL, dropAuthIdx)).toBe(-1)
       expect(sql).toContain(DROP_PUBLIC_READ)
-      expect(sql).not.toContain(GRANT_SELECT_ANON)
+      expect(sql).not.toContain(CREATE_PUBLIC_READ)
+      expect(sql).not.toContain(GRANT_SELECT_RESERVATIONS)
+      expect(sql).toContain(GRANT_SERVICE)
     }
 
     const baseline = readSql(MIGRATION_FILES[0])
-    expect(baseline).not.toContain(CREATE_PUBLIC_READ)
+    expect(baseline).toContain(CREATE_PUBLIC_INSERT)
   })
 })
 
 const GRANT_SELECT_BLOCKED_DATES =
   "GRANT SELECT ON TABLE blocked_dates TO anon, authenticated"
-const REVOKE_DML_BLOCKED_DATES =
-  "REVOKE INSERT, UPDATE, DELETE ON TABLE blocked_dates FROM anon, authenticated"
+const REVOKE_ALL_BLOCKED_DATES =
+  "REVOKE ALL ON TABLE blocked_dates FROM PUBLIC, anon, authenticated"
+const GRANT_SERVICE_BLOCKED_DATES =
+  "GRANT ALL ON TABLE blocked_dates TO service_role"
+const DROP_AUTH_FULL_BLOCKED_DATES =
+  'DROP POLICY IF EXISTS "Allow authenticated full access to blocked_dates"'
+const CREATE_AUTH_FULL_BLOCKED_DATES =
+  'CREATE POLICY "Allow authenticated full access to blocked_dates"'
+const CREATE_PUBLIC_READ_BLOCKED_DATES =
+  'CREATE POLICY "Allow public read blocked_dates"'
 
 // Distinct from C1 (2027-04-21) and atomic-booking.integ.test.ts (2027-03-17).
 const BLOCKED_DATE = "2027-05-19"
@@ -140,7 +160,7 @@ describe.skipIf(!authEnvReady)("blocked_dates PUBLIC-READ-PRIV", () => {
     await cleanupBlockedDates()
   })
 
-  it("anon can SELECT blocked_dates and cannot INSERT", async () => {
+  it("guest roles can SELECT blocked_dates only and no authenticated full-access policy remains", async () => {
     const admin = createServiceClient()
     const { error: seedError } = await admin.from("blocked_dates").insert({
       date: BLOCKED_DATE,
@@ -164,16 +184,33 @@ describe.skipIf(!authEnvReady)("blocked_dates PUBLIC-READ-PRIV", () => {
 
     for (const rel of MIGRATION_FILES) {
       const sql = readSql(rel)
+      expect(sql).toContain(REVOKE_ALL_BLOCKED_DATES)
       expect(sql).toContain(GRANT_SELECT_BLOCKED_DATES)
-      expect(sql).toContain(REVOKE_DML_BLOCKED_DATES)
+      expect(sql.indexOf(REVOKE_ALL_BLOCKED_DATES)).toBeLessThan(
+        sql.indexOf(GRANT_SELECT_BLOCKED_DATES),
+      )
+      expect(sql).toContain(DROP_AUTH_FULL_BLOCKED_DATES)
+      const dropAuthIdx = sql.indexOf(DROP_AUTH_FULL_BLOCKED_DATES)
+      expect(sql.indexOf(CREATE_AUTH_FULL_BLOCKED_DATES, dropAuthIdx)).toBe(-1)
+      expect(sql).toContain(GRANT_SERVICE_BLOCKED_DATES)
     }
+
+    const baseline = readSql(MIGRATION_FILES[0])
+    expect(baseline).toContain(CREATE_PUBLIC_READ_BLOCKED_DATES)
   })
 })
 
 const GRANT_SELECT_MENU_ITEMS =
   "GRANT SELECT ON TABLE menu_items TO anon, authenticated"
-const REVOKE_DML_MENU_ITEMS =
-  "REVOKE INSERT, UPDATE, DELETE ON TABLE menu_items FROM anon, authenticated"
+const REVOKE_ALL_MENU_ITEMS =
+  "REVOKE ALL ON TABLE menu_items FROM PUBLIC, anon, authenticated"
+const GRANT_SERVICE_MENU_ITEMS = "GRANT ALL ON TABLE menu_items TO service_role"
+const DROP_AUTH_FULL_MENU_ITEMS =
+  'DROP POLICY IF EXISTS "Allow authenticated full access to menu_items"'
+const CREATE_AUTH_FULL_MENU_ITEMS =
+  'CREATE POLICY "Allow authenticated full access to menu_items"'
+const CREATE_PUBLIC_READ_MENU_ITEMS =
+  'CREATE POLICY "Allow public read menu_items"'
 
 const MENU_PROBE_ID = "reazed-308-c3-anon-insert"
 const MENU_PROBE_SLUG = "reazed-308-c3-anon-insert"
@@ -194,7 +231,7 @@ describe.skipIf(!authEnvReady)("menu_items PUBLIC-READ-PRIV", () => {
     await cleanupMenuProbe()
   })
 
-  it("anon can SELECT menu_items and cannot INSERT", async () => {
+  it("guest roles can SELECT menu_items only and no authenticated full-access policy remains", async () => {
     const anon = createClient()
     const { data: rows, error: selectError } = await anon
       .from("menu_items")
@@ -214,10 +251,27 @@ describe.skipIf(!authEnvReady)("menu_items PUBLIC-READ-PRIV", () => {
     })
     expect(isPermissionError(insertError)).toBe(true)
 
+    const admin = createServiceClient()
+    const { data: staffRows, error: staffError } = await admin
+      .from("menu_items")
+      .select("id")
+    expect(staffError).toBeNull()
+    expect(staffRows?.length ?? 0).toBeGreaterThan(0)
+
     for (const rel of MIGRATION_FILES) {
       const sql = readSql(rel)
+      expect(sql).toContain(REVOKE_ALL_MENU_ITEMS)
       expect(sql).toContain(GRANT_SELECT_MENU_ITEMS)
-      expect(sql).toContain(REVOKE_DML_MENU_ITEMS)
+      expect(sql.indexOf(REVOKE_ALL_MENU_ITEMS)).toBeLessThan(
+        sql.indexOf(GRANT_SELECT_MENU_ITEMS),
+      )
+      expect(sql).toContain(DROP_AUTH_FULL_MENU_ITEMS)
+      const dropAuthIdx = sql.indexOf(DROP_AUTH_FULL_MENU_ITEMS)
+      expect(sql.indexOf(CREATE_AUTH_FULL_MENU_ITEMS, dropAuthIdx)).toBe(-1)
+      expect(sql).toContain(GRANT_SERVICE_MENU_ITEMS)
     }
+
+    const baseline = readSql(MIGRATION_FILES[0])
+    expect(baseline).toContain(CREATE_PUBLIC_READ_MENU_ITEMS)
   })
 })

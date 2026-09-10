@@ -4,23 +4,29 @@
 -- 20260825140000_operating_windows_privilege.sql so
 -- `supabase db reset --local` stays equivalent.
 --
--- REAZED-308: RES-PRIV — drop public SELECT (keep DROP IF EXISTS; do not CREATE);
--- GRANT INSERT / REVOKE SELECT, UPDATE, DELETE for anon, authenticated.
--- REAZED-308: PUBLIC-READ-PRIV — GRANT SELECT / REVOKE INSERT, UPDATE, DELETE
--- for anon, authenticated on blocked_dates and menu_items.
+-- RES-42 / REAZED-308: RES-PRIV — guest INSERT only; drop public SELECT and
+-- authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
+-- REAZED-308: PUBLIC-READ-PRIV — blocked_dates and menu_items SELECT-only
+-- (REVOKE ALL then GRANT SELECT; drop authenticated FOR ALL).
 
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
+DROP POLICY IF EXISTS "Allow authenticated full access to reservations" ON reservations;
+REVOKE ALL ON TABLE reservations FROM PUBLIC, anon, authenticated;
 GRANT INSERT ON TABLE reservations TO anon, authenticated;
-REVOKE SELECT, UPDATE, DELETE ON TABLE reservations FROM anon, authenticated;
+GRANT ALL ON TABLE reservations TO service_role;
 
--- REAZED-308: PUBLIC-READ-PRIV — GRANT SELECT / REVOKE INSERT, UPDATE, DELETE
--- for anon, authenticated.
+-- RES-42 / REAZED-308: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to blocked_dates" ON blocked_dates;
+REVOKE ALL ON TABLE blocked_dates FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE blocked_dates TO anon, authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE blocked_dates FROM anon, authenticated;
+GRANT ALL ON TABLE blocked_dates TO service_role;
 
--- REAZED-308: PUBLIC-READ-PRIV — GRANT SELECT / REVOKE INSERT, UPDATE, DELETE
--- for anon, authenticated on menu_items.
+-- RES-42 / REAZED-308: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to menu_items" ON menu_items;
+REVOKE ALL ON TABLE menu_items FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menu_items TO anon, authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE menu_items FROM anon, authenticated;
+GRANT ALL ON TABLE menu_items TO service_role;
 
 NOTIFY pgrst, 'reload schema';

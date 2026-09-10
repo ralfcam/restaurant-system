@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-02
+**Last updated:** 2026-09-10
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -43,7 +43,11 @@ static `TABLES` seed in `lib/data.ts`. `/pos`'s Table picker lists live
 `getTables()` rows via `app/pos/page.tsx` (`dynamic = "force-dynamic"`) into
 `PosTerminal` `tables`, also not `TABLES`. The Server picker lists live
 `getServers()` rows (`servers` in baseline + seed; not a `lib/data.ts`
-`SERVERS` constant) in the same `Promise.all`. When `tables` or `servers` is
+`SERVERS` constant) in the same `Promise.all`. `tables`, `servers`,
+`table_merges`, `table_merge_members`, and `status_events` are service-role-only
+after reset (no `PUBLIC`/`anon`/`authenticated` table privilege or authenticated
+`FOR ALL`; staff reads via `requireStaffUser` + `createServiceClient`). Spec:
+[../specs/scheduling.md](../specs/scheduling.md) SIB-PRIV (§19). When `tables` or `servers` is
 empty, that `Select` is `disabled` with `value={… || undefined}` and a
 placeholder (`No tables available` / `No servers available`). Occupancy-duration
 and safety-buffer chrome on `/admin/floor` take an `isSuperAdmin` prop (SA-10);

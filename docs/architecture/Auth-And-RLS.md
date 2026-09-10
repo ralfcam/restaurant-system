@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Auth flow
 
@@ -59,13 +59,18 @@ idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
 `menu_items`, `restaurant_settings`, `tables`, `servers`, `orders`,
 `order_items`, `review_email_sends`. `servers` mirrors
-`tables` (`GRANT SELECT, INSERT, UPDATE, DELETE` to `authenticated`,
-`GRANT ALL` to `service_role`; `-- REAZED-329`). `orders` / `order_items`
-copy that staff-only convention (`CREATE TABLE IF NOT EXISTS`,
-`DROP POLICY IF EXISTS` + authenticated / `service_role` `FOR ALL`, matching
-table grants, no anon). `GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq`
-to `authenticated` (BIGSERIAL `nextval` is not covered by table grants). They
-are not added to `supabase_realtime`; KDS polls. Spec:
+`tables` (`REVOKE ALL` from `PUBLIC`, `anon`, `authenticated`;
+`GRANT ALL` to `service_role`; `-- REAZED-329` / RES-42). `servers`,
+`table_merges`, `table_merge_members`, `status_events`, `orders`, and
+`order_items` use the same private sibling recipe: `DROP POLICY IF EXISTS`
+the authenticated `FOR ALL` (never `CREATE`), service-role `FOR ALL`,
+`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`, then
+`GRANT ALL TO service_role` only. Sequence `orders_order_number_seq` is
+`REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` then
+`GRANT USAGE, SELECT` to `service_role` only (`USAGE` is `nextval`; do not
+leave default sequence `UPDATE` on `service_role`). They are not added to
+`supabase_realtime`; KDS polls. Spec:
+[../specs/scheduling.md](../specs/scheduling.md) SIB-PRIV (§19),
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-5. Public storage bucket `branding` holds the
 optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
 ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
@@ -102,14 +107,26 @@ do not `db push`). Spec: [../specs/branding-cms.md](../specs/branding-cms.md) BC
 Early-baseline siblings `blocked_dates`, `reservations`, and `menu_items` also
 `GRANT ALL ON TABLE <t> TO service_role` in those same two files (after each
 table's service_role RLS block in baseline; before `NOTIFY pgrst` in the
-forward). That does not drop their authenticated `FOR ALL` policies
-(REAZED-299). Spec: [../specs/scheduling.md](../specs/scheduling.md) §17.
+forward). Authenticated `FOR ALL` on those tables is dropped (no `CREATE`) —
+SIB-PRIV / RES-PRIV / menu AC-2. Spec:
+[../specs/scheduling.md](../specs/scheduling.md) §17, §19.
+
+Staff list and mutation for those siblings (including `getReservations`,
+`getAllMenuItems`, and menu CRUD/toggle) is `requireStaffUser` plus
+`createServiceClient` (`lib/supabase/service.ts`). The cookie JWT client
+(`lib/supabase/server.ts`) is not used on those paths. Guest catalog reads
+stay on the anon client (`lib/supabase/client-server.ts`). Spec:
+[../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
 
 Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
-and `authenticated` (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`).
-`reservations` is insert-only (`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE`);
+and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`
+then `GRANT SELECT` only).
+`reservations` is insert-only (`REVOKE ALL` then `GRANT INSERT`);
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
+There is no authenticated `FOR ALL` (or other write) policy on those three
+tables.
 Nullable `reservations.email` and `reservations.completed_at` are in baseline
 (CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
 is unchanged. `review_email_sends` is service-role-only (`ENABLE RLS`,

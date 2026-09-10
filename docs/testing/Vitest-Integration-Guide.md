@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Prerequisites
 
@@ -148,6 +148,13 @@ the same pin. Unit glob-scan:
     `tests/integration/pos/*.integ.test.ts` pins
     `assertIsolatedHoursMutationTarget()` in `beforeAll` (pin-only when the
     write is in `it()`) and write-cleanup hooks.
+- Catalog privileges (RES-PRIV / PUBLIC-READ-PRIV / SIB-PRIV):
+  `tests/integration/reservations/public-privileges.integ.test.ts` (`REVOKE ALL`
+  then guest INSERT/SELECT only; no authenticated `FOR ALL`).
+- Sibling role matrix (RES-42):
+  `tests/integration/security/sibling-privileges.integ.test.ts` (live
+  `pg_policies` + `has_table_privilege` / `has_sequence_privilege` after local
+  reset).
 
 ## Skip vs strict
 
