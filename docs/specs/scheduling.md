@@ -291,15 +291,20 @@ migration (do not `db push` the forked history); apply that file per
 **17. EARLY-PRIV — Early-baseline tables GRANT ALL to service_role** —
 `blocked_dates`, `reservations`, and `menu_items` MUST
 `GRANT ALL ON TABLE <t> TO service_role` in `00000000000000_baseline.sql` and
-`20260825140000_operating_windows_privilege.sql`. If `20260825140000` is
-already recorded on a remote, a new idempotent forward file MUST carry the
-same three `GRANT ALL` strings (editing an applied file does not re-run).
-Authenticated write policies and guest table privileges on these tables are
-specified by SIB-PRIV (§19) for `blocked_dates`, by booking-rules AC-5 for
-`reservations`, and by menu-availability AC-2 for `menu_items` — not frozen
-by this section. Linked remote
-`tilcqrudqxznnpepxjqq` MUST receive the same `GRANT ALL` via that forward
-file per [docs/runbooks/deploy.md](../runbooks/deploy.md).
+`20260825140000_operating_windows_privilege.sql`. Those two files are the
+defining surfaces. Fresh or local history remains baseline plus the normal
+migration chain. On an already-baselined forked remote, apply
+`20260825140000_operating_windows_privilege.sql` when that version is absent;
+if `20260825140000` is already recorded, apply
+`20260827160000_public_catalog_privileges.sql` for catalog privilege changes
+instead of replaying the applied file (editing an applied file does not
+re-run). Do not `db push` the forked history. Authenticated write policies and
+guest table privileges on these tables are specified by SIB-PRIV (§19) for
+`blocked_dates`, by booking-rules AC-5 for `reservations`, and by
+menu-availability AC-2 for `menu_items` — not frozen by this section. Linked
+remote `tilcqrudqxznnpepxjqq` MUST receive the same `GRANT ALL` via that
+state-dependent forward file per
+[docs/runbooks/deploy.md](../runbooks/deploy.md).
 
 **18. PUBLIC-READ-PRIV — Catalog tables guests read via the anon Data API** —
 `blocked_dates` MUST `GRANT SELECT ON TABLE blocked_dates TO anon, authenticated`
@@ -310,9 +315,12 @@ and `20260827160000_public_catalog_privileges.sql`. Public SELECT RLS stays.
 There MUST NOT be an authenticated `FOR ALL` (or other write) RLS policy
 (SIB-PRIV §19). `menu_items` uses the same GRANT/REVOKE strings
 (menu-availability AC-2) in those same three files. This
-MUST NOT `GRANT SELECT ON TABLE reservations`. If `20260825140000` is already
-recorded on a remote, the new dated file MUST carry the GRANT/REVOKE (editing
-an applied file does not re-run). Linked remote `tilcqrudqxznnpepxjqq` receives
+MUST NOT `GRANT SELECT ON TABLE reservations`. On an already-baselined forked
+remote, apply `20260825140000_operating_windows_privilege.sql` when that
+version is absent; if `20260825140000` is already recorded, apply
+`20260827160000_public_catalog_privileges.sql` for catalog privilege changes
+instead of replaying the applied file (editing an applied file does not
+re-run). Do not `db push`. Linked remote `tilcqrudqxznnpepxjqq` receives
 that forward file per [docs/runbooks/deploy.md](../runbooks/deploy.md).
 Linked-remote apply is manual-UAT.
 
