@@ -45,12 +45,14 @@ named `CreatePlan`; that block's `input.name` is the plan's name and is how you
 find the plan file. A conversation with no such block is still a valid target —
 recap the conversation itself.
 
-**Issues** default to the restaurant-system project in the realized Linear workspace:
-
-- Workspace `realized` · Project **restaurant-system** (`restaurant-system-a19062c2799e`)
-- Owning team **Realized**, issues are `REAZED-###`
-- Project URL: https://linear.app/realized/project/restaurant-system-a19062c2799e
-- Canonical issue URL: `https://linear.app/realized/issue/REAZED-###`
+**Issues** belong to the fixed **Realized** team (`RES`, IDs `RES-###`).
+There is no default Linear project. For an Issue recap, discover the team's
+live nonterminal `V-X.X` projects and validate the issue's current project
+using
+[.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
+This command remains read-only: it reports an unallocated/ambiguous project
+rather than moving the issue. Canonical issue URL:
+`https://linear.app/realized/issue/RES-###`.
 
 **Invocation:**
 
@@ -61,7 +63,7 @@ optional**, because every accepted target shape already identifies its own lane:
 | -------------------------------------------------------------------------------------- | ------------------- |
 | `*.plan.md` — `@`-attached path, full path, or bare filename in either plans dir above | Plan (plan file)    |
 | a `<uuid>.jsonl` path, a transcript directory, or a bare chat `<uuid>`                 | Plan (conversation) |
-| `REAZED-###`, a Linear issue URL, or an `@`-pasted issue link                          | Issue               |
+| `RES-###`, a Linear issue URL, or an `@`-pasted issue link                             | Issue               |
 
 So `/tldr @c:\…\<uuid>.jsonl` and `/tldr Plan @c:\…\<uuid>.jsonl` behave
 identically. Strip a leading `@` from any target before resolving it. If a given
@@ -137,14 +139,14 @@ Mode.
 
 1. Drop a leading `Plan` / `Issue` keyword if present (case-insensitive) — it is
    optional and only a label. Strip a leading `@` from the target.
-2. Require a concrete `<target>` (path, chat UUID, URL, or `REAZED-###`). If there is
+2. Require a concrete `<target>` (path, chat UUID, URL, or `RES-###`). If there is
    no target at all: STOP and output one line —
-   `Usage: /tldr [Plan|Issue] <@.cursor/plans/…|chat-uuid|REAZED-###|Linear URL>` —
+   `Usage: /tldr [Plan|Issue] <@.cursor/plans/…|chat-uuid|RES-###|Linear URL>` —
    then end the turn.
 3. **Classify by shape**, not by the keyword:
    - ends in `.plan.md` → **plan file**
    - a `<uuid>.jsonl` path, a transcript directory, or a bare UUID → **conversation**
-   - `REAZED-###` or a `linear.app` URL → **issue**
+   - `RES-###` or a `linear.app` URL → **issue**
      If the shape matches none of these, stop with the one-line usage hint. If a
      supplied keyword disagrees with the shape, follow the shape and note it in one
      clause.
@@ -157,8 +159,9 @@ Mode.
    `<transcripts>/<uuid>/<uuid>.jsonl`. A bare UUID or a directory target is
    completed to that path. Never resolve to a file under `subagents/`. Reject an
    unknown UUID with a one-line stop.
-6. **Issue:** extract the issue id (`REAZED-###`) from a bare id or from a Linear
-   URL (path segment or query). Reject unparseable targets with a one-line stop.
+6. **Issue:** extract the issue id (`RES-###`) from a bare id or from a Linear
+   URL (path segment or query). Reject non-RES or unparseable targets with a
+   one-line stop.
 
 ## STEP 2 — Load source (read-only)
 
@@ -222,8 +225,8 @@ Mode.
 - **Conversation that ended in a plan:** slugify the last plan's name the way
   Cursor does — lowercase, whitespace runs → `_`, **hyphens preserved**, other
   punctuation dropped — then `Glob` `*<slug>*.plan.md` across both dirs (the file adds
-  an `_<hash>` suffix). E.g. `REAZED-1290 security residuals` →
-  `sg-1290_security_residuals_d885ddfb.plan.md`. `Read` the hit: the plan is the
+  an `_<hash>` suffix). E.g. `RES-1290 security residuals` →
+  `res-1290_security_residuals_d885ddfb.plan.md`. `Read` the hit: the plan is the
   cheap, dense source, so let it drive Why, How, and Where. The transcript's
   closing turns supply anything decided **after** the plan — later turns often
   revise or supersede it, so recap the final state, not the plan as drafted. If no
@@ -235,7 +238,14 @@ Mode.
   truncated before the query text, derive the ask from those closing turns and say
   it is inferred, rather than paying for a full line-1 read. If the chat ended
   unresolved, say so instead of implying completion.
-- **Issue:** call Linear MCP `get_issue` with the parsed id. Use title +
+- **Issue:** resolve the Realized team once, then call `list_projects` for that
+  team and paginate fully. Keep only nonterminal projects whose normalized name
+  matches `V-X.X`, classified ongoing/available from live status. Call Linear
+  MCP `get_issue` with the parsed id and require its team key to be `RES`.
+  Validate its returned project against that discovered set; if it is missing,
+  terminal, incompatible, or tied under the shared allocation evidence, say
+  `project cannot verify` in the status line rather than inventing or writing
+  a route. Use title +
   description for Why and How. Use any product/domain surface and any
   paths/specs named in the body for Where. Set `includeRelations: true` only if
   the body alone is too thin to fill How or Where; still do not invent content
@@ -243,7 +253,7 @@ Mode.
   state drives the status line: **Backlog**, **Todo**, **In Progress**, **In
   Review**, **Canceled**, and **Duplicate** are all unfinished work; only
   **Done** licenses omitting the line. Include the issue URL in the header — the
-  one the tool returns, else `https://linear.app/realized/issue/REAZED-###`.
+  one the tool returns, else `https://linear.app/realized/issue/RES-###`.
 
 If load fails (missing file, unknown UUID, Linear unreachable, unknown id):
 report "cannot load …" briefly and stop.
@@ -278,7 +288,7 @@ Header:
   a markdown link whose target is the bare UUID (no `.jsonl`). When it ended in a
   plan, name that plan in the same line — e.g.
   `# TLDR — Chat: [tldr command design](<uuid>) → Plan: <plan name>`.
-- Issue: `# TLDR — Issue: REAZED-### <title>` (plus URL on the same or next line when available)
+- Issue: `# TLDR — Issue: RES-### <title>` (plus URL on the same or next line when available)
 - Status line, when emitted: the line immediately after the header (after the
   issue URL in an Issue run), before `## Why`.
 

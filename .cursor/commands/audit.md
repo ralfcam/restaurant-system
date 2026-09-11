@@ -22,17 +22,23 @@ Testing (target convention): Vitest (unit + integration) · Playwright e2e
 Lint: `pnpm lint` (eslint)
 
 Linear workspace: https://linear.app/realized
-Project: https://linear.app/realized/project/restaurant-system-a19062c2799e
-Team: Realized (issue prefix REAZED-###)
-Linear is operational/release-gate tracking only and is OUT OF SCOPE for
-this audit — it is not a spec-conformance authority and no part measures
-code or coverage against Linear state. The links are kept for reference.
+Team: Realized (team key and issue prefix `RES`)
+Version projects: discovered live as nonterminal `V-X.X` projects per
+[.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc);
+there is no hardcoded Linear project default.
+Linear issues are operational/release-gate tracking only and are OUT OF SCOPE
+for this audit — Linear is not a spec-conformance authority and no part
+measures code or coverage against issue state. The sole Linear side effect is
+one final project status update, after the audit and findings-ledger handoff,
+so project stakeholders can see the repo-derived verdict. That visibility
+update never changes the acceptance bar or files issues.
 
 Source of truth — docs/specs/ ONLY.
-Every spec file under docs/specs/ is the SOLE authority this audit
-measures code against. Enumerate docs/specs/ at run time (exclude
-README.md and any pure pointer/redirect file with no acceptance
-criteria of its own) — do not hardcode the spec list. Expected areas
+Every in-scope spec file under docs/specs/ is the SOLE authority this audit
+measures code against. With no argument, enumerate every spec at run time
+(exclude README.md and any pure pointer/redirect file with no acceptance
+criteria of its own). A targeted invocation derives a strict subset as defined
+below and records omitted specs as out of scope, never verified. Expected areas
 include booking/reservations, menu availability, scheduling/floor plan,
 POS/KDS order flow, auth/RLS, and platform NFRs — but enumerate at run time.
 
@@ -65,17 +71,52 @@ Enforce strictly:
   architecture note, testing guide). A mismatch with those is background,
   not a finding — only spec deviations and spec-coverage gaps count.
 
-Read every spec under docs/specs/ and the codebase before writing a
-single finding. Treat docs/specs/ as the only acceptance bar. Work through
-all seven parts in order. Do not skip a part.
+Before writing a finding, read every spec and implementation surface selected
+by the normalized audit scope. With no argument, that means every spec and the
+complete codebase. Treat docs/specs/ as the only acceptance bar. Work through
+all seven parts in order; a targeted run narrows evidence, not the acceptance
+standard or mandatory Blocker controls.
+
+## AUDIT SCOPE — normalize before Wave 0
+
+Invocation: `/audit [project-url|project-name] [issue-list]`.
+
+1. Resolve the Realized team once and require key `RES`. Call `list_projects`
+   for that team, paginate fully, normalize names to `V-X.X`, exclude terminal
+   projects, and classify the rest as ongoing or available from live status.
+2. Normalize the optional argument with
+   [linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc):
+   - no argument → complete repository audit;
+   - project → targeted audit of owning specs/code derived from that project's
+     active issues and milestones;
+   - issue IDs/URLs or multiline Markdown list → resolve every item with
+     `get_issue`, then hub-walk only those listed issues to owning specs and
+     implementation surfaces;
+   - project plus list → audit only listed issues that validate against the
+     pinned project.
+3. Canonicalize project URLs by `/project/<slug>/...`, ignoring layout/query
+   parameters. De-duplicate issues in supplied order. Reject malformed,
+   unresolved, non-RES, terminal-project, or project-incompatible entries
+   without broadening scope. No unlisted issue may add an audited surface.
+4. Linear fields choose scope only. Findings still require evidence against
+   `docs/specs/**`; issue descriptions and milestones never become the bar.
+5. Every targeted run still executes relevant mandatory cross-cutting controls
+   and all Blocker-class checks (service-role isolation, dependency pins, and
+   RLS FORCE posture). List every omitted spec as `out of scope`, not
+   `verified`.
+6. Select one health-update project: explicit valid project first; otherwise
+   the uniquely best ongoing project by scope match, then earliest target date
+   and current-version order. No ongoing project or a remaining tie fails
+   closed for the visibility update without changing the audit verdict.
 
 Execution strategy (wave-ordered — dependencies flow downward):
 
 - Wave 0 — Foundation (run first): PART 1 env & config conformance to spec NFRs.
 - Wave 1 — Parallel deep dives (dispatch simultaneously; no cross-deps).
   Wave at the Task fan-out cap in `.cursor/rules/task-fanout.mdc`.
-  - PART 2 per-spec — one `spec-verifier` Task PER SPEC in docs/specs/
-    (exclude README.md). `model: inherit`.
+  - PART 2 per-spec — one `spec-verifier` Task per spec in the normalized
+    audit scope (all specs only for no-argument runs; exclude README.md).
+    `model: inherit`.
   - PART 3–6 — one `audit-explorer` Task per part/subsection, handing the
     part text + report path. `model: inherit`. Do not use anonymous explore.
 - Wave 2 — Synthesis (after Wave 1 returns): PART 3E booking/reservation
@@ -147,10 +188,12 @@ governs it, record a COVERAGE GAP):
 ---
 
 PART 2 — PER-SPEC VERIFIER SUB-AGENTS
-Source of truth: every spec under docs/specs/
+Source of truth: every spec in the normalized docs/specs/ audit scope
 
-For EVERY spec file in docs/specs/ (exclude README.md), deploy one
-`spec-verifier` Task. Wave at the fan-out cap. `model: inherit`.
+For EVERY in-scope spec file (exclude README.md), deploy one `spec-verifier`
+Task. A no-argument run includes every spec; a targeted run includes only the
+derived set and records all others as out of scope. Wave at the fan-out cap.
+`model: inherit`.
 
 2A. Spec → report mapping (deterministic)
 
@@ -158,7 +201,8 @@ For EVERY spec file in docs/specs/ (exclude README.md), deploy one
   (nested under docs/verifier-reports/prd/ only if the spec lives in a prd/ subfolder).
 - Report basename MUST equal spec basename.
 - If a report exists, OVERWRITE with a fresh run.
-- Enumerate docs/specs/ at run time — do not hardcode the spec list.
+- Enumerate docs/specs/ at run time, then apply the normalized scope — do not
+  hardcode the spec list.
 
 2B. Verifier Sub-Agent brief (hand verbatim with [SPEC PATH] and [REPORT PATH])
 Objective: Review implementation of [Feature/Module] against [SPEC PATH].
@@ -316,6 +360,8 @@ _Audited: [timestamp of run]_
 
 ## Executive Summary
 
+- Audit scope: complete repository | project `<V-X.X>` | exact issues
+  `<RES-###, ...>` | project + exact issues
 - Verdict: shippable as-is | shippable with fixes | not shippable
 - Top 3 risks
 - Most critical spec-vs-code deviation
@@ -339,6 +385,8 @@ One line per control present and correct, with evidence.
 
 ### Spec Coverage Matrix
 
+Targeted runs mark omitted specs `out of scope`, never `verified`.
+
 ### Conformance Verdict
 
 ### Cross-Cutting Gaps (≥3 specs)
@@ -353,11 +401,18 @@ Each agent writes docs/verifier-reports/<basename>.md with:
 
 ## Recommended Next Actions
 
+## Project Health Update (after PART 8)
+
+- Project: <resolved project, never `/projects/all`>
+- Audit run key: `audit:<YYYY-MM-DD>:<full HEAD SHA>`
+- Health: onTrack | atRisk | offTrack
+- Status update: created | updated (same run key) | blocked
+
 </output_format>
 
 ---
 
-PART 8 — FINDINGS LEDGER HANDOFF (always last; never Linear)
+PART 8 — FINDINGS LEDGER HANDOFF (last audit part; never Linear)
 
 After PARTS 1–7, write Blocker/High findings (and Medium for
 `docs/findings/security.md`) into the matching ledger file under
@@ -367,4 +422,56 @@ and estimate crosswalk. Do **not** create Linear issues in this command —
 `/triage` is the filing owner. Do **not** score Linear as a spec bar.
 
 Skip PART 8 when the operator says `ledger=off`. There is no PART 9
-(runtime probes) in this repo — `/audit` stays repo-only.
+(runtime probes) in this repo — `/audit` analysis stays repo-only. The final
+project-health visibility handoff below publishes that repo-derived result but
+does not add a runtime or Linear acceptance check.
+
+---
+
+FINAL — PROJECT HEALTH VISIBILITY (after PART 8; always last)
+
+This is a visibility handoff, not another audit part and not an acceptance
+check. Run it after PART 8 completes, or after PART 8 is explicitly skipped
+with `ledger=off`.
+
+1. Resolve the target project from live Linear data. Default to the exact
+   project selected during AUDIT SCOPE: an explicit valid RES `V-X.X` project
+   first; otherwise the uniquely best ongoing project by audited scope match,
+   earliest target date, then current-version ordering. Never target the
+   `/projects/all` collection, an available/terminal project, or infer a
+   project from a repository/collection URL. If no ongoing project exists or
+   selection remains tied, report the update as blocked without changing the
+   audit verdict.
+2. Read `git rev-parse HEAD` and construct the stable run key
+   `audit:<YYYY-MM-DD>:<full HEAD SHA>`. A rerun on the same date and HEAD has
+   the same key.
+3. Build one bounded Markdown digest containing only:
+   - `Audit run key: <key>`;
+   - shippability and spec-conformance verdicts;
+   - Blocker/High/Medium/Low counts;
+   - at most the top three risks; and
+   - the generated main/per-spec verifier-report paths.
+4. Map project health with this precedence:
+   - `offTrack` when any Blocker exists or conformance is
+     `NON-CONFORMANT`;
+   - otherwise `atRisk` when any High exists, any conformance/coverage gap
+     remains, or the repo is not clean/spec-conformant;
+   - otherwise `onTrack` for a clean, shippable,
+     `SPEC-CONFORMANT` result.
+5. Delegate exactly once:
+   "Use the linear-resolver subagent to publish the audit project update for
+   <resolved project> with run key <key>, health <health>, and this bounded
+   digest: <digest>."
+   The resolver's `PROJECT-UPDATE` duty is the only writer. The parent audit
+   command never calls `save_status_update`.
+6. The resolver must use `get_status_updates({ type: "project", project })`
+   to find `Audit run key: <key>`. It updates the matching status update by
+   ID or creates one when absent, using `save_status_update`. It must not
+   create an additional update for the same key.
+7. Report `created`, `updated`, or `blocked` with the resolved project and run
+   key. A blocked visibility write does not erase or soften the completed
+   repo audit.
+
+Never call `save_issue`, `save_comment`, or any issue workflow-state write
+from this final step. Project `health` is not an issue status, and
+**In Progress**, **In Review**, and **Done** remain automation-owned.

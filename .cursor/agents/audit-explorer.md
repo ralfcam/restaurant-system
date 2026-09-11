@@ -42,7 +42,7 @@ text plus the shared contract below.
 **Evidence rules (every finding):**
 
 - Cite a specific `path/to/file.ts:line`, `ENV_VAR_NAME`, config key, or
-  requirement ID (`REQ-0XX` / `REAZED-###`). No finding may rest on memory or generic
+  requirement ID (`REQ-0XX` / `RES-###`). No finding may rest on memory or generic
   framework lore.
 - Report exactly what IS or IS NOT there; do not chain inferences more than one
   hop from evidence.

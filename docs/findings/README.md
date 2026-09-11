@@ -2,7 +2,12 @@
 
 Open out-of-scope discoveries from `/sdd-to-tdd`, `/capture`, and `/audit`
 PART 8. **Active files hold open items only.** After an item is filed to
-Linear (`REAZED-###`), move it to [archive.md](./archive.md).
+Linear (`RES-###`), move it to [archive.md](./archive.md).
+
+Workflow ownership:
+`docs/findings + Linear Triage → /triage → Backlog → /dispatch → Todo/current cycle`.
+Linear **Triage** is the team's special intake inbox, not a normal workflow
+status.
 
 | File                                 | Category                          |
 | ------------------------------------ | --------------------------------- |
@@ -14,13 +19,16 @@ Linear (`REAZED-###`), move it to [archive.md](./archive.md).
 Entry format (one line per open item):
 
 ```markdown
-- [ ] <title> · <file:line/area> · <why it matters> · <severity> · (found: <REAZED-###>/<criterion>/<phase>)
+- [ ] <title> · <file:line/area> · <why it matters> · <severity> · (found: <RES-###>/<criterion>/<phase>)
 ```
 
 ## Issue-filing policy (throttle creation, prefer re-use)
 
 Cited by `linear-resolver`, `/sdd-to-tdd` STEP 4C, `/triage`, and `/audit`
-PART 8. Default project: **restaurant-system**. Prefix: **`REAZED-###`**.
+PART 8. Fixed team: **Realized** (`RES`, issue IDs **`RES-###`**). There is no
+default Linear project: discover nonterminal `V-X.X` version projects and
+allocate fail-closed per
+[.cursor/rules/linear-project-routing.mdc](../../.cursor/rules/linear-project-routing.mdc).
 
 **Filing floor.** Propose new Linear work only at or above:
 
@@ -50,9 +58,12 @@ A second sighting, or a first stamp **>60 days** old → archive as
 **Prunable class** (batch cancel under one operator confirmation): Backlog +
 Medium-or-lower + no `security` + no update in **45+ days**.
 
-**Milestone.** Assign an **existing** restaurant-system project milestone by
-exact Linear name (em dash `—`). Never invent `Launch-blocking`. Agents
-must `list_milestones` then assign by the map below — never invent a name.
+**Milestone.** `/dispatch` finalizes the milestone for ordinary accepted
+Backlog work. `/triage` assigns one only for its explicit Urgent fast lane.
+Use an **existing milestone owned by the allocated `V-X.X` project** by exact
+Linear name (em dash `—`). Never reuse a same-named milestone across projects,
+invent `Launch-blocking`, or hardcode a project; call `list_milestones` for
+the owning project and use the map below.
 
 | Signal                                             | Milestone                                  |
 | -------------------------------------------------- | ------------------------------------------ |
@@ -69,19 +80,41 @@ must `list_milestones` then assign by the map below — never invent a name.
 Empty M1–M9 will look incomplete/ambiguous in `/dispatch` until they have
 member issues; that is acceptable.
 
-**Cycle.** Two Linear axes: **milestones** = SDLC phase (M1–M9 above);
-**cycles** = this sprint. Never invent a cycle name. Resolve the current
-cycle at apply time with `list_cycles({ teamId, type: "current" })` — do
-not hardcode a cycle number here.
+**Command-to-milestone contract.**
 
-- **Todo means scheduled:** assign the team’s **current** Linear cycle.
-- **Backlog / new REGISTER FINDINGS issues:** no cycle (unscheduled).
-- **In Progress / In Review** missing a cycle: GROOM may set current cycle
-  as a **field-only** write (no state move; execution status is
-  automation-owned).
-- If `list_cycles(current)` is empty: `cannot verify`, skip cycle, still
-  assign milestone.
-- Never auto-assign **next** or **previous**.
+- `/design` is pre-implementation work only: M1 for genuine project/bootstrap
+  definition, M2 for requirements/spec definition, and M3 for architecture,
+  schema, or UX decisions.
+- `/sdd-to-tdd` may remain M2 for an existing-spec contract
+  clarification/correction. FEATURE/FIX implementation maps to M4; test/audit,
+  real-user beta validation, UAT/RC, launch-critical/security/money, and
+  maintenance map to M5, M6, M7, M8, and M9. Do not apply a blanket M4+ rule;
+  route by work type.
+- Work mixing unresolved design and implementation is split into linked issues.
+  The M1–M3 decision/design issue blocks the later implementation issue, which
+  `/dispatch` must not schedule until the governing spec is testable.
+
+**Scheduling ownership.** Two Linear axes: **milestones** = SDLC phase
+(M1–M9 above); **cycles** = this sprint.
+
+- `/triage` ordinary acceptance → **Backlog, no cycle**. It does not finalize
+  ordinary milestone, priority, or estimate.
+- `/triage` fast lane → **Todo + current cycle** only for a ledger
+  **Blocker** (mapped to Linear **Urgent**) or an already explicitly Urgent
+  Linear Triage issue.
+- A `blocked-by` relation affects dependency order; it does not by itself
+  make an issue Urgent.
+- `/dispatch` selects a capacity-bounded Backlog batch, finalizes its
+  milestone/priority/estimate, and moves only the approved selection to
+  **Todo + current cycle**.
+- A dispatch card may include an issue only after a post-apply re-read
+  confirms **Todo** in the current cycle.
+- Backlog and ordinary new REGISTER FINDINGS issues remain unscheduled.
+- In Progress / In Review / Done are automation-owned; intake/scheduling
+  commands do not perform routine metadata backfill on them.
+- Resolve current cycle at apply time with
+  `list_cycles({ teamId, type: "current" })`. Never invent a cycle or use
+  next/previous.
 
 **Estimate crosswalk** (audit Effort → Linear estimate):
 
@@ -101,3 +134,7 @@ not hardcode a cycle number here.
 | Low     | P3                                | low                       | Low    |
 
 When two signals disagree, take the higher.
+
+`Blocker` is ledger terminology and maps to Linear `Urgent`. A
+`blocked-by` relation is not a severity signal and never triggers that mapping
+on its own.

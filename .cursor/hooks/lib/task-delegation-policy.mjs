@@ -1,5 +1,5 @@
 /**
- * Detectors for two Task-delegation hazards observed in the REAZED-1386 Wave 3
+ * Detectors for two Task-delegation hazards observed in the RES-1386 Wave 3
  * incident: a nested `generalPurpose` subagent, invoked with an explicit
  * `model` override, uploaded a plan-body comment through raw Linear MCP
  * calls it was never scoped to make.

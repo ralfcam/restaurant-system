@@ -8,9 +8,22 @@ then promotion = `staging →` default branch). Agents never merge. You merge
 in the GitHub UI. Linear **In Progress** / **In Review** / **Done** are
 automation-owned (draft/open PR, review/ready-for-merge, closing-linked merge).
 
-Linear IDs are **`REAZED-###`**, team **Realized**, project
-[restaurant-system](https://linear.app/realized/project/restaurant-system-a19062c2799e).
+Linear IDs are **`RES-###`** on the fixed **Realized** team. Linear projects
+are discovered dynamically: active work routes only to live nonterminal
+**`V-X.X`** projects, classified ongoing/available from their Linear status
+and allocated fail-closed by
+[`rules/linear-project-routing.mdc`](rules/linear-project-routing.mdc).
 Specs live in [`docs/specs/`](../docs/specs/).
+Linear Triage is the special intake inbox. Ordinary accepted work lands in
+Backlog without a cycle; `/dispatch` schedules only its confirmed bounded
+selection into Todo/current cycle.
+
+Milestones are project-owned M1–M9 routes: `/design` is M1–M3
+pre-implementation work; `/sdd-to-tdd` routes contract clarification to M2,
+implementation to M4, and test/beta/UAT/launch/maintenance work to M5–M9.
+Tracked routing/spec conflicts use one bounded `Clarification required`
+comment through `linear-resolver`; the existing Linear-to-Slack relay provides
+visibility. That comment never triggers In Review/Done automation.
 
 Vercel team **ralfcams-projects** (`team_MP13K4M0To2S4Duu2kknllAb`), git-linked
 project **restaurant-system** (`prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz`). Dashboard:
@@ -33,7 +46,12 @@ There is no GitHub QA workflow in this repo. Local gates are
 
 ## Recommended cycle
 
-`/audit` → `/triage` → `/dispatch` → (`/sdd-to-tdd` → `/commit` → `/push`)×N → you merge
+`docs/findings + Linear Triage` → `/triage` → `Backlog` → `/dispatch` →
+`Todo/current cycle` → (`/sdd-to-tdd` → `/commit` → `/push`)×N → you merge
+
+`/audit` remains spec-first and writes findings to the ledger, then publishes
+one idempotent project-health digest through `linear-resolver`. Linear is
+visibility only, never the audit acceptance bar.
 
 - **Greenfield (no owning spec):** idea → [`/design`](commands/design.md) →
   new `docs/specs/<slug>.md` → `/sdd-to-tdd @<file>` FEATURE
@@ -44,8 +62,9 @@ There is no GitHub QA workflow in this repo. Local gates are
 ```mermaid
 flowchart TD
   subgraph snapshot [Snapshot]
-    Audit["/audit repo-only"]
+    Audit["/audit spec-first"]
     Audit --> Ledger["docs/findings"]
+    Audit --> ProjectHealth["Linear project health"]
   end
   subgraph adhoc [Ad-hoc]
     Capture["/capture"]
@@ -53,10 +72,13 @@ flowchart TD
     Capture --> Ledger
     Design --> Spec["docs/specs new file"]
   end
-  Ledger --> Triage["/triage"]
-  Triage --> Dispatch["/dispatch card"]
+  LinearTriage["Linear Triage inbox"] --> Triage["/triage intake"]
+  Ledger --> Triage
+  Triage --> Backlog["Backlog / no cycle"]
+  Backlog --> Dispatch["/dispatch bounded scheduler"]
+  Dispatch --> Todo["Todo / current cycle"]
   Spec --> Sdd["/sdd-to-tdd FEATURE"]
-  Dispatch --> Sdd2["/sdd-to-tdd REAZED-###"]
+  Todo --> Sdd2["/sdd-to-tdd RES-###"]
   Sdd --> Commit["/commit"]
   Sdd2 --> Commit
   Commit --> Push["/push"]
@@ -69,19 +91,19 @@ flowchart TD
 
 ## Command map
 
-| Command                                 | Job                                                                                 | Typical next                  |
-| --------------------------------------- | ----------------------------------------------------------------------------------- | ----------------------------- |
-| [`/audit`](commands/audit.md)           | Spec / test / tracking snapshot. PART 8 writes the ledger                           | `/triage`                     |
-| [`/triage`](commands/triage.md)         | Groom Linear + ledger                                                               | `/dispatch`                   |
-| [`/dispatch`](commands/dispatch.md)     | Split card: local Urgent/High on this `staging` checkout + 0–3 background worktrees | `/sdd-to-tdd REAZED-###`      |
-| [`/design`](commands/design.md)         | Greenfield spec — hub walk, grill, one new spec file                                | `/sdd-to-tdd @<file>` FEATURE |
-| [`/sdd-to-tdd`](commands/sdd-to-tdd.md) | Plan Mode, START, then Red → Green → Refactor                                       | `/commit`                     |
-| [`/commit`](commands/commit.md)         | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes            | `/push`                       |
-| [`/push`](commands/push.md)             | Human heads (`sdd/REAZED-###` or `staging` promotion). Never merges                 | You merge                     |
-| [`/intake`](commands/intake.md)         | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                     | You merge                     |
-| [`/capture`](commands/capture.md)       | Observation → ledger                                                                | `/triage`                     |
-| [`/tldr`](commands/tldr.md)             | Recap a plan, chat, or `REAZED-###` (Ask Mode)                                      | —                             |
-| [`/reflect`](commands/reflect.md)       | Re-check a thread’s claims against the tree                                         | —                             |
+| Command                                 | Job                                                                                     | Typical next                  |
+| --------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------- |
+| [`/audit`](commands/audit.md)           | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update        | `/triage`                     |
+| [`/triage`](commands/triage.md)         | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current    | `/dispatch`                   |
+| [`/dispatch`](commands/dispatch.md)     | Confirm bounded Backlog scheduling, re-read Todo, emit one local + 0–3 background cards | `/sdd-to-tdd RES-###`         |
+| [`/design`](commands/design.md)         | Greenfield spec — hub walk, grill, one new spec file                                    | `/sdd-to-tdd @<file>` FEATURE |
+| [`/sdd-to-tdd`](commands/sdd-to-tdd.md) | Plan Mode, START, then Red → Green → Refactor                                           | `/commit`                     |
+| [`/commit`](commands/commit.md)         | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes                | `/push`                       |
+| [`/push`](commands/push.md)             | Human heads (`sdd/RES-###` or `staging` promotion). Never merges                        | You merge                     |
+| [`/intake`](commands/intake.md)         | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                         | You merge                     |
+| [`/capture`](commands/capture.md)       | Observation → ledger                                                                    | `/triage`                     |
+| [`/tldr`](commands/tldr.md)             | Recap a plan, chat, or `RES-###` (Ask Mode)                                             | —                             |
+| [`/reflect`](commands/reflect.md)       | Re-check a thread’s claims against the tree                                             | —                             |
 
 Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 
@@ -92,7 +114,9 @@ Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 | Skip                                                                                              | Why                                         |
 | ------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | `/audit` after every ticket                                                                       | TDD + `/commit` already prove the criterion |
-| `/dispatch` writing Linear, git, or starting TDD                                                  | The card is pasteable only                  |
+| `/dispatch` scheduling beyond its approved one-local/three-background selection                   | Capacity bound is part of the contract      |
+| `/dispatch` emitting a card before Todo/current-cycle post-apply confirmation                     | Failed/partial promotions are excluded      |
+| `/audit` filing issues or using Linear as an acceptance bar                                       | Project update is visibility only           |
 | Background-dispatching auth / RLS / reservation or order status transitions / destructive deletes | Closed P0-surface list; those stay local    |
 | `/intake` on a non-`cursor/` head                                                                 | Use `/push`                                 |
 | `/push` while an OPEN `cursor/` PR exists                                                         | Intake first                                |
@@ -114,6 +138,7 @@ Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 ## Next reading
 
 - [`rules/staging-accumulator.mdc`](rules/staging-accumulator.mdc)
+- [`rules/linear-project-routing.mdc`](rules/linear-project-routing.mdc)
 - [`rules/grilling.mdc`](rules/grilling.mdc)
 - [`rules/linear-automation.mdc`](rules/linear-automation.mdc)
 - [`rules/scheduled-jobs.mdc`](rules/scheduled-jobs.mdc)

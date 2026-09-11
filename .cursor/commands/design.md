@@ -28,6 +28,20 @@ If a hub walk finds an existing owner (even a `folded` stub), `/design` stops
 and hands off — it never drafts a competing file for something `/sdd-to-tdd`
 FEATURE's own extend-with-permission path already owns.
 
+**Milestone boundary:** cite
+[.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
+`/design` is pre-implementation work in M1–M3 only: M1 for genuine
+project/bootstrap definition, M2 for requirements/spec definition, and M3 for
+architecture, schema, or UX decisions. Implementation, test/audit, UAT,
+launch, and maintenance work belongs to the matching M4–M9 route, not this
+command. If one request mixes unresolved design and implementation, propose
+two linked issues: the M1–M3 decision/design issue blocks the later
+implementation issue.
+
+When the input names a tracked `RES-###` issue, it may receive one bounded
+clarification comment through `linear-resolver`; this is the only Linear-write
+exception. The parent command remains read-only.
+
 **Dialogue discipline** cites
 [.cursor/rules/grilling.mdc](.cursor/rules/grilling.mdc): every decision point
 in shaping the spec — a scope boundary, a choice between plausible approaches,
@@ -74,6 +88,19 @@ Walk [`docs/specs/README.md`](docs/specs/README.md) and every file in
   `/sdd-to-tdd @<file>` FEATURE. Do not draft a competing new file.
 - **If no owner exists:** proceed — this is `/design`'s target case.
 
+## STEP 1B — VALIDATE THE MILESTONE ROUTE
+
+Classify the requested work before dialogue:
+
+- M1 — genuine project/bootstrap definition only;
+- M2 — requirements, PRD, new-spec definition, or contract clarification;
+- M3 — architecture, schema, UX, or wireframe decision.
+
+Fail closed if the signal ties. Route implementation to `/sdd-to-tdd` (normally
+M4), test/audit to M5, real-user beta work to M6, UAT/RC to M7,
+launch-critical/security/money to M8, and maintenance to M9. A mixed request
+must be split and linked before implementation can be dispatchable.
+
 ## STEP 2 — DIALOGUE (one question at a time, per grilling.mdc)
 
 Elicit the shape of the spec through the operator, not by guessing it
@@ -105,6 +132,15 @@ the conflicting spec rule and ask whether the operator wants to keep the
 existing rule (constrain the new idea to fit it) or change the contract
 (which routes through `/sdd-to-tdd` FIX on the existing spec, not through
 this new draft).
+
+For a tracked issue, call `list_comments` and resume only when a later human
+answer unambiguously resolves the question. Otherwise render the exact stable
+`Clarification required` body and key
+`clarify:<RES-id>:<spec-basename>:<rule-or-ac>` in the plan. A local run
+requires approval before delegating the comment; a managed Cloud task launched
+from that tracked issue preauthorizes this bounded visibility comment. The
+issue stays in Triage/Backlog and no spec is drafted while the decision is
+open.
 
 ## STEP 3 — DRAFT THE SPEC (in the plan only — not written to disk yet)
 
@@ -138,14 +174,17 @@ executed:
   case directly — no `tdd-*` subagent, no TDD loop; that begins only once
   `/sdd-to-tdd` picks up the file), and (2) — only if the dialogue surfaced
   out-of-scope deferrals — one `docs-updater` Task delegation appending them
-  to `docs/findings/product-gaps.md`.
+  to `docs/findings/product-gaps.md`; and (3), only for an unresolved tracked
+  blocker whose exact comment was approved, one `linear-resolver` CLARIFY
+  delegation.
 - You MUST NOT edit `app/**`, `components/**`, `hooks/**`, `lib/**`,
   `src/**`, `supabase/**`, or `tests/**`, and MUST NOT delegate a subagent to
   do so. `/design` produces a spec, nothing else.
 - You MUST NOT edit an **existing** spec file — STEP 1's hub walk already
   routed that case to `/sdd-to-tdd @<canonical-file>` before execution began.
-- You MUST NOT call Linear MCP or delegate `linear-resolver` — `/design`
-  causes no Linear write.
+- You MUST NOT call Linear MCP directly. Except for the bounded approved
+  CLARIFY delegation above, do not delegate `linear-resolver` or mutate an
+  issue.
 - You MUST NOT auto-run `/sdd-to-tdd` — surface it as the Next step, a
   separate operator-initiated turn.
 - If out-of-scope deferrals exist, delegate **one** `docs-updater` Task (same
@@ -183,7 +222,8 @@ docs/findings/README.md entry format."` Each line stamped
 - DO NOT write application or test code, and DO NOT edit an existing spec —
   `/design` writes at most one brand-new spec file.
 - DO NOT call Linear MCP directly, or delegate anything to `linear-resolver`
-  — the only write besides the spec file is the gated `docs-updater` ledger
+  except one operator-approved CLARIFY comment on a named tracked issue. The
+  only other write besides the spec file is the gated `docs-updater` ledger
   delegation for out-of-scope deferrals.
 - DO NOT write `docs/findings/*.md` yourself — delegate `docs-updater`, same
   as `/capture`.
@@ -207,6 +247,13 @@ open with the Execution Protocol block above **verbatim**.
 
 (If an owner was found, stop the output here after the routing line — do not
 continue to the dialogue/draft sections below.)
+
+## Milestone Route (STEP 1B)
+
+- Work type: project/bootstrap | requirements/spec | architecture/schema/UX
+- Route: M1 | M2 | M3
+- Mixed design + implementation: no | split into linked decision issue
+  blocking later implementation
 
 ## Dialogue Summary (STEP 2)
 
@@ -233,6 +280,10 @@ One line per question asked and the operator's confirmed answer:
 
 - Decision required: keep the existing rule (constrain this idea) | change
   the contract via `/sdd-to-tdd` FIX on the existing spec
+- Tracked issue: `RES-###` | none
+- Stable key and exact bounded comment: `<clarify:... + body>` | local only
+- Comment approval: required before `linear-resolver` CLARIFY | managed Cloud
+  issue launch preauthorized
   (or "none")
 
 ## PHASE 5 Execution Todos
@@ -241,6 +292,7 @@ One line per question asked and the operator's confirmed answer:
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `write-spec`          | Write the approved spec to `docs/specs/REQ-###-<slug>.md` directly (no subagent — design owns this write)                  |
 | `product-gaps-phase5` | Invoke the `docs-updater` subagent to apply design ledger writes to `docs/findings/product-gaps.md` (omit if no deferrals) |
+| `clarify-<RES-id>`    | Invoke `linear-resolver` CLARIFY with the exact approved comment; comment-only; omit when no tracked unresolved blocker    |
 
 ## Next in the Cycle
 

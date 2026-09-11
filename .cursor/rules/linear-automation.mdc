@@ -1,5 +1,5 @@
 ---
-description: Ground truth for this workspace's Linear↔GitHub automation (PR lifecycle → issue state, Done on staging or default-branch merge, comment/message automations, the direct-commit accumulator gap, and the "no agent writes In Progress/In Review/Done" doctrine). Referenced by /commit, /push, /sdd-to-tdd, and the linear-resolver subagent — read this instead of restating the table.
+description: Ground truth for Linear↔GitHub execution status, Triage→Backlog intake, bounded dispatch scheduling, audit project-health visibility, and the no-agent In Progress/In Review/Done doctrine. Referenced by /commit, /push, /sdd-to-tdd, /triage, /dispatch, /audit, and linear-resolver.
 alwaysApply: false
 ---
 
@@ -9,6 +9,14 @@ alwaysApply: false
 agent-written. Agents post START/resolution comments and Git/PR artifacts;
 Linear's team GitHub automations move issues through those three statuses. See
 [Linear GitHub docs — Workflow automation](https://linear.app/docs/github#workflow-automation).
+
+Issue intake/scheduling is a separate path:
+`docs/findings + Linear Triage → /triage → Backlog → /dispatch → Todo/current cycle`.
+Linear Triage is a special inbox, not a workflow-status preset. `/triage`
+accepts ordinary work into unscheduled Backlog and uses Todo/current cycle
+only for ledger Blocker → Linear Urgent or explicitly Urgent intake.
+`/dispatch` finalizes ordinary scheduling for its operator-approved bounded
+selection and emits cards only after a Todo/current-cycle re-read.
 
 ## Cycle
 
@@ -29,7 +37,7 @@ flowchart LR
   Loop --> LR
   LR -->|"comment automation"| IR1["In Review optional"]
   LR --> Commit
-  Commit -->|"local commit Fixes REAZED-###"| Local["Commit on branch"]
+  Commit -->|"local commit Fixes RES-###"| Local["Commit on branch"]
   Local --> Push
   Push -->|"git push + draft/open PR"| IP["In Progress via PR"]
   Push --> PR
@@ -102,12 +110,17 @@ the plan file itself. Its labels (`Mode:`, `Owning spec:`, `Criteria:`,
 headers. Do **not** add a comment automation that matches the digest or the
 `Work started:` line.
 
+`Clarification required` comments are Slack visibility triggers only. They
+must never match an automation that moves an issue to In Progress, In Review,
+or Done; they never trigger In Review/Done. The source command leaves the issue in Triage/Backlog and resumes only
+after a re-run finds an unambiguous human answer in later Linear comments.
+
 ## The accumulator-branch gap
 
 This gap applies to **direct commits on `staging`** (the local `/dispatch`
 lane), not to feature PRs. Per Linear's GitHub re-merge behavior, a branch that
 already merged other PRs does **not** resurface those PRs' links when it is
-later merged again. A `Fixes REAZED-###` trailer in a commit that landed
+later merged again. A `Fixes RES-###` trailer in a commit that landed
 **directly on `staging`** therefore does **not**, by itself, close the issue
 when `staging` is later promoted to the default branch — the _promotion PR
 itself_ must carry the closing words. `/push` run from `staging` (or pinned
@@ -118,7 +131,7 @@ checks are green.
 
 A **feature PR** into `staging` is a different path: its own commits were not
 previously merged, so the closing trailer on those commits (and `/commit`'s
-`Fixes REAZED-###`) is visible on that PR. `On PR merge → Done` fires at the
+`Fixes RES-###`) is visible on that PR. `On PR merge → Done` fires at the
 staging merge. `/push` does not promotion-prep that PR (base is not the
 default branch).
 
@@ -134,7 +147,7 @@ merges.
 
 **No execution-status writes.** Agents never call `save_issue` to set
 **In Progress**, **In Review**, or **Done** — in START, CLOSE-OUT, REGISTER
-FINDINGS, or GROOM. There is no START carve-out and no PR-open "backup" write:
+FINDINGS, GROOM, or CLARIFY. There is no START carve-out and no PR-open "backup" write:
 the draft/open PR event is the In Progress writer.
 
 **START is comment-only.** `linear-resolver` START — delegated as the first
@@ -159,6 +172,19 @@ cloud agent with Linear MCP access is still restrained by this prose. START
 MCP failure is visibility-only — the TDD loop continues. Plan Mode production
 does not write Linear.
 
+**CLARIFY is comment-only.** `/triage`, `/dispatch`, `/design`,
+`/sdd-to-tdd`, and `/capture` may delegate one exact operator-approved
+`Clarification required` comment for a tracked blocker. Only
+`linear-resolver` writes it, using `list_comments` + `save_comment`; no issue
+field, workflow state, assignee, delegate, project, milestone, cycle, or scope
+changes. Stable keys are
+`clarify:<RES-id>:<spec-basename>:<rule-or-ac>`: an identical unresolved key
+is skipped, materially changed evidence updates by comment ID, and a different
+rule/criterion gets a new key. Local Plan Mode requires exact-comment
+approval; a managed Cloud task launched from the tracked issue preauthorizes
+that bounded visibility comment only. The existing Linear-to-Slack relay
+reposts it; the harness never calls Slack.
+
 **CLOSE-OUT never writes workflow state.** `linear-resolver` CLOSE-OUT posts
 the structured resolution comment only (`save_comment`). Agents and commands
 never call `save_issue` to set In Review, In Progress, or Done during fix
@@ -174,7 +200,7 @@ close-out.
   Never agent-written via `save_issue`.
 - **Done** — `On PR merge → Done` when a closing-linked PR merges into
   **`staging` or the default branch**. A feature PR's own
-  not-previously-merged commits carry `/commit`'s `Fixes REAZED-###` trailer,
+  not-previously-merged commits carry `/commit`'s `Fixes RES-###` trailer,
   so the staging merge closes the issue. Direct commits on `staging` still
   need the promotion PR to carry the aggregated closing line (`/push`
   injects it when base is the default branch). The **operator** performs that
@@ -186,48 +212,66 @@ never something an agent compensates for with a direct `save_issue` state
 write, and never something delegated to `linear-resolver` as a workaround.
 START is not a fallback for a missed PR-open In Progress.
 
-**GROOM mode** (`/triage`) is narrowly scoped, not a general exception: an
-operator-approved grooming batch may move an issue **Backlog ↔ Todo**, or to
-**Canceled** or **Duplicate** (each with a linking comment), via `save_issue`
-— both are terminal, GROOM-settable states, not automation-owned (unlike In
-Progress/In Review/Done). A **prunable-class sweep batch** (see
-`docs/findings/README.md` Issue-filing policy) may move several issues to
-Canceled under one operator confirmation on the named batch instead of
-per-issue confirmation — still one linking comment per issue. GROOM must
-**never** move **workflow state** of **In Progress, In Review, or Done**.
-Those three only ever change via the GitHub PR automations above. GROOM
-**may** write **cycle** as a **field-only** update on In Progress / In Review
-(current cycle, no state move) when `/triage` names a missing-cycle backfill
-— see the cycle policy in `docs/findings/README.md`.
+**GROOM mode** is narrowly shared by `/triage` and `/dispatch`, not a general
+exception:
 
-## Issue-property conventions (milestone, cycle, estimate, filing policy)
+- `/triage`: named live-Triage intake only. Ordinary accepted work moves to
+  Backlog with no cycle. An explicitly Urgent issue or ledger Blocker may move
+  to Todo/current cycle with verified fast-lane metadata. `blocked-by` alone
+  does not imply Urgent. Linked Duplicate/Canceled cleanup is allowed.
+- `/dispatch`: only the operator-approved, capacity-bounded selection may
+  receive final milestone/priority/estimate and move Backlog → Todo/current
+  cycle.
+
+GROOM never performs a broad Backlog scheduling/backfill sweep and must never
+move workflow state of In Progress, In Review, or Done. Those statuses only
+change through the GitHub PR automations above.
+
+## Intake and issue-property conventions
 
 The **filing floor, attach-over-create ladder, per-run issue cap, ledger TTL,
 milestone convention** (M1–M9 names + filing map — never invent
-`Launch-blocking`), **cycle policy** (Todo = current cycle; Backlog /
-REGISTER FINDINGS unscheduled), and **estimate crosswalk** live in
+`Launch-blocking`), **intake/scheduling policy** (ordinary Triage = Backlog/no
+cycle; Urgent fast lane = Todo/current; dispatch finalizes ordinary selected
+work), and **estimate crosswalk** live in
 `docs/findings/README.md` — the single policy `linear-resolver`, `/sdd-to-tdd`
 STEP 4C, `/triage`, and `/audit` PART 8 all cite. This file governs
 _workflow state_ (In Progress / In Review / Done via GitHub PR automations;
-and the GROOM-settable states above);
+and the narrow GROOM-settable intake/scheduling states above);
 `docs/findings/README.md` governs _which issues get created at all_ and the
 non-workflow properties (priority, milestone, cycle, estimate, labels) set on
 them. Update that file, not this one, if the filing policy or property
 conventions change.
+
+## Audit project health
+
+After `/audit` finishes synthesis and the findings-ledger handoff,
+`linear-resolver` PROJECT-UPDATE may publish one bounded project status
+update. It uses only `get_status_updates` plus `save_status_update` and
+upserts by `audit:<date>:<HEAD>` run key. The deterministic health mapping is
+`onTrack` for clean/spec-conformant, `atRisk` for gaps/High findings, and
+`offTrack` for a Blocker or NON-CONFORMANT verdict. Project health is not an
+issue workflow state and Linear remains outside the audit acceptance bar.
+
+The parent audit command cannot bypass the writer: `save_status_update` is
+guarded alongside `save_issue` and `save_comment`. Status-update bodies are
+also scanned for an `@Cursor` spawn mention. Cloud agents do not run
+`beforeMCPExecution`, so `linear-resolver`'s matching prose prohibition still
+applies there.
 
 ## Operator merge checklist
 
 The only human-performed step in this cycle is merging in the GitHub UI.
 Two paths:
 
-**Feature PR** (head `sdd/REAZED-###` or any non-`staging` feature branch →
+**Feature PR** (head `sdd/RES-###` or any non-`staging` feature branch →
 base `staging`) — lighter; `/push` does not promotion-prep it:
 
 1. Confirm `/push` opened the PR as `<head> → staging` and requested review
    (or reported the single-operator caveat).
 2. Confirm required checks are green (`/push` reports this advisorily; verify
    in the GitHub UI before merging).
-3. Merge the feature PR in the GitHub UI. The PR's own `Fixes REAZED-###`
+3. Merge the feature PR in the GitHub UI. The PR's own `Fixes RES-###`
    trailer is what Linear sees; the issue should move to **Done** at this
    merge.
 4. If Done does not fire (~1 minute), check the closing link on **that** PR.
@@ -237,7 +281,7 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
 
 1. Run `/push` from `staging` (or `/push <promotion-PR-URL>` if discovery is
    ambiguous) — confirm the `## Linear close-out` block /
-   `Fixes REAZED-###[, REAZED-###, ...]` line is present on **that** PR (not
+   `Fixes RES-###[, RES-###, ...]` line is present on **that** PR (not
    just buried in staging commits).
 2. Confirm required checks are green (`/push` reports this advisorily; verify
    in the GitHub UI before merging).
@@ -269,3 +313,5 @@ request or activity` and `On PR ready for merge` → In Review.
   `Full plan:`, `Problem:`, `Approach:`, `Out-of-scope findings:`) are an
   audit trail only. Close-out automations must keep matching close-out
   headers (`Verification:`, `Root cause:`, …), never the START summary.
+- Do **not** add any execution-status automation for the
+  `Clarification required` prefix. It is a visibility/question marker only.

@@ -81,7 +81,7 @@ do not request review, do not instruct the operator to merge. Do **not** edit
 the working tree (no `pnpm format`, no `next lint --fix`) — classify and hand
 off (AC-1312-2). Remote `gh pr checks` do **not** substitute — local
 lint + typecheck + test:unit is the hard gate (independent of GitHub Actions availability;
-REAZED-668 having QA disabled does not lower the bar).
+RES-668 having QA disabled does not lower the bar).
 
 **Classify the failed step, then emit a paste-ready next command.**
 `scripts/qa-shared.mjs` `runFast()` exits on the first red step and prints
@@ -111,7 +111,7 @@ collapse this into a generic "fix lint + typecheck + test:unit".
 **Forbidden Operator-next strings** (AC-1312-2): `fix lint+typecheck+test:unit, then re-run /push`;
 `/sdd-to-tdd` with no argument; `/capture …`; `/audit` as the default for a
 gate red. Product-code agents already live under `/sdd-to-tdd` (`tdd-red` /
-`tdd-green` / `tdd-refactor`) — pass a valid `bug:` (or `REAZED-###`) argument;
+`tdd-green` / `tdd-refactor`) — pass a valid `bug:` (or `RES-###`) argument;
 do not invent a classifier agent.
 
 ### 2. Push
@@ -169,7 +169,7 @@ do not invent a classifier agent.
          derive title and body from `git log origin/staging...HEAD` (never
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
        - `gh pr create --draft --base <that-base> --head <current-branch> --title "..." --body "..."`
-       - Do **not** pre-inject `## Linear close-out` or any `Fixes REAZED-###`
+       - Do **not** pre-inject `## Linear close-out` or any `Fixes RES-###`
          line — Step 4 owns trailer aggregation/injection when base is the
          default branch.
     5. If `gh pr create` fails → STOP and report the error; do not invent a PR.
@@ -188,16 +188,16 @@ do not invent a classifier agent.
 - **If the PR's base == default branch:**
   1. **Aggregate closing trailers.** Pull every commit message in the PR:
      `gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`.
-     Scan for lines matching `^(Fixes|Closes|Resolves)\s+(REAZED-\d+)`
+     Scan for lines matching `^(Fixes|Closes|Resolves)\s+(RES-\d+)`
      (case-insensitive on the keyword), across all commits. De-duplicate the
-     issue IDs into one line: `Fixes REAZED-###[, REAZED-###, ...]`. If none are
+     issue IDs into one line: `Fixes RES-###[, RES-###, ...]`. If none are
      found, report that plainly and continue — some PRs carry no
      tracked-issue work, which is not necessarily an error.
   2. **Inject the link into the PR description (idempotent, append-only).** If
      the PR title or body already contains every aggregated ID paired with a
      closing word, skip — already correctly linked. Otherwise, append (never
      overwrite) a clearly delimited block via
-     `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes REAZED-###[, REAZED-###]\n"`.
+     `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, RES-###]\n"`.
      Preserve the existing body verbatim above this block. Re-fetch and
      confirm the edit landed before proceeding.
 
@@ -227,7 +227,7 @@ do not invent a classifier agent.
 - Otherwise `gh pr checks <n>` — report status. This is **advisory** — it
   does not block this command, but warn plainly if checks are red or pending
   before the operator merges. Local `pnpm lint; pnpm typecheck; pnpm test:unit` (Step 1) is the hard gate;
-  remote checks do not substitute while QA is disabled (REAZED-668).
+  remote checks do not substitute while QA is disabled (RES-668).
 - If the PR carries only a lightweight check set by design (see
   [docs/testing/Pyramid-Overview.md](docs/testing/Pyramid-Overview.md)'s
   local-first policy — full pyramid runs on `main` push, not necessarily as a
@@ -325,7 +325,7 @@ Exactly these sections:
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
 2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch".
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
-4. **Promotion prep** — "ran — <aggregated `Fixes REAZED-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
+4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Review request** — "deferred — PR is draft; `gh pr ready <n>` starts CI and fires In Review" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the close-out comment automation".
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; checks start at `gh pr ready <n>`" (expected, not a warning) | each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.

@@ -1,5 +1,5 @@
 ---
-description: Accumulator identity (staging), background branch prefix sdd/REAZED-###, Done-on-staging semantics, no agent gh pr merge, and /dispatch eligibility. Referenced by /dispatch, /push, /intake, /commit, and /triage — read this instead of restating the split.
+description: Accumulator identity (staging), background branch prefix sdd/RES-###, Done-on-staging semantics, no agent gh pr merge, and bounded /dispatch scheduling/card eligibility. Referenced by /dispatch, /push, /intake, /commit, and /triage — read this instead of restating the split.
 alwaysApply: false
 ---
 
@@ -21,19 +21,19 @@ itself. Agents read this rule rather than restating the split in a command.
 
 ## Background branch prefix
 
-Background `/dispatch` worktrees use **`sdd/REAZED-###`** (the Linear identifier
-in the branch name). Do not invent a `cursor/REAZED-*` intake identity — that
+Background `/dispatch` worktrees use **`sdd/RES-###`** (the Linear identifier
+in the branch name). Do not invent a `cursor/RES-*` intake identity — that
 pattern matches nothing this repo has shipped.
 
 **Cloud-agent heads:** observed `origin` shape is `cursor/<slug>-<4 hex>`
-(never `cursor/REAZED-###`). A cloud PR is identified by that **head pattern**,
-not by author and not by an `REAZED-###` in the branch name. `/intake` is the
+(never `cursor/RES-###`). A cloud PR is identified by that **head pattern**,
+not by author and not by an `RES-###` in the branch name. `/intake` is the
 inbound firewall for those PRs.
 
 ## Done-on-staging
 
 A feature PR carries its own not-previously-merged commits with `/commit`’s
-`Fixes REAZED-###` trailer, so Linear’s `On PR merge → Done` fires when that PR
+`Fixes RES-###` trailer, so Linear’s `On PR merge → Done` fires when that PR
 merges into **`staging`**. Direct commits on `staging` (the local lane) still
 need the promotion PR to carry the aggregated closing line — see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).
@@ -46,8 +46,13 @@ in Shell. Never compensate a missed Done transition with `save_issue`.
 
 ## Dispatch eligibility
 
-`/dispatch` may recommend at most **1–3** background items. An issue is
-eligible only when **all** of these hold (cite
+`/dispatch` may plan from Backlog or already-scheduled Todo, but may emit at
+most **one local card plus 1–3 background cards**. A Backlog issue is not card
+eligible merely because it was selected: the operator must approve the
+bounded GROOM batch, and the post-apply re-read must confirm **Todo in the
+current cycle**. Failed or partial promotions are excluded.
+
+A background card is eligible only when **all** of these hold (cite
 [docs/findings/README.md](docs/findings/README.md#issue-filing-policy-throttle-creation-prefer-re-use)
 for estimate and prunable-class; do not hardcode Linear point values):
 
@@ -61,16 +66,20 @@ for estimate and prunable-class; do not hardcode Linear point values):
   the change is test-only — unit coverage of a listed surface fails this
   bullet even when the write-set is entirely under `tests/**`. The list is
   **closed**; a surface not on it is background-eligible:
+  - payment capture, refund, payout, credit, or any charge to a stored method
+  - offer or modification **accept / decline**
   - authentication, session, or token issuance
-  - authorization: RLS policy, permission helpers
-  - reservation or order **status transition** (the state machine itself)
+  - authorization: RLS policy, cron authorization, permission helpers
+  - reservation, job, or order **status transition** (the state machine itself)
   - irreversible or destructive data operations (hard deletes, destructive
     migrations, irreversible bulk updates)
-  Anything else is background-eligible on this bullet. Adding a surface is a
-  deliberate edit to this list with a reason, not a judgment call at dispatch
-  time. A mis-prioritized P0 still fails this bullet when its surface is listed.
-  Drop reason token remains `auth-RLS-FSM`.
-- State is **Todo** (not Backlog, In Progress, or In Review).
+    Anything else is background-eligible on this bullet. Adding a surface is a
+    deliberate edit to this list with a reason, not a judgment call at dispatch
+    time. A mis-prioritized P0 still fails this bullet when its surface is listed.
+    Drop reason token remains `auth-RLS-FSM`.
+- Post-apply state is confirmed **Todo** in the live current cycle. Backlog
+  may be considered during planning, but an unconfirmed Backlog promotion,
+  In Progress, or In Review issue never receives a card.
 - The owning spec under `docs/specs/` **already carries** the acceptance
   criterion — no missing-AC / spec-authorship work in the background lane.
 - **Unit-decidable:** the criterion can be proven at `tests/unit/**` without
@@ -78,10 +87,9 @@ for estimate and prunable-class; do not hardcode Linear point values):
 - **Write-set disjoint** from the local-lane issue (files from
   `codegraph_explore` on named symbols per
   [.cursor/rules/codegraph.mdc](.cursor/rules/codegraph.mdc), or `cannot verify` — and `cannot
-  verify` is not eligible).
+verify` is not eligible).
 - **Not prunable-class** (README: Backlog + Medium-or-lower + no `security` +
-  45+ days stale). Todo membership already excludes that class; still drop
-  any issue that would qualify if it were on Backlog.
+  45+ days stale). Apply this before promoting a Backlog candidate.
 
 ## WIP gate vs the background lane
 
@@ -89,15 +97,16 @@ for estimate and prunable-class; do not hardcode Linear point values):
 eligibility bullets above measure different things, and they read as
 contradictory whenever the gate is ACTIVE. They are not:
 
-- The gate governs `/triage`'s **filing floor** and **local**-lane ordering.
-  It does not shrink, veto, or re-scope the background lane.
+- The gate governs `/triage`'s **filing floor** and Urgent fast-lane intake.
+  `/dispatch` owns local/background ordering. The gate does not shrink,
+  veto, or re-scope the background lane.
 - Urgent/High is never background-eligible (first bullet above), so a
-  background pick can never lower the gate. "Burndown-only" means *no new
-  FEATURE runs* — not *no background lane*.
+  background pick can never lower the gate. "Burndown-only" means _no new
+  FEATURE runs_ — not _no background lane_.
 - Never promote an Urgent/High into the background lane to make it count
   toward burndown. The gate does not relax eligibility.
-- While the gate is ACTIVE it falls only through local-lane completions and
-  `/triage` cancellation/re-prioritization. Report background picks as
+- While the gate is ACTIVE it falls through Urgent/High completions and
+  confirmed terminal intake cleanup. Report background picks as
   **throughput**, not burndown.
 - Filing new issues under an operator override raises the count the gate
   measures — state the resulting Urgent+High total when that override is used.

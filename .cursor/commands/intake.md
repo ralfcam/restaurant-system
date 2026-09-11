@@ -18,7 +18,7 @@ auto-discover OPEN PRs whose head starts with `cursor/` and require exactly
 one; multiple or zero means STOP (pin, or there is nothing to intake).
 
 **Why this exists:** `/push` is the firewall for local branches
-(`sdd/REAZED-###`, `staging` promotion). A Cloud Agent opens its own PR from
+(`sdd/RES-###`, `staging` promotion). A Cloud Agent opens its own PR from
 the Dashboard base-branch setting. That PR never runs `/push`. This
 command is the inbound catch.
 Run `/intake` before `/push` when a `cursor/` PR is open — `/push` on the local lane advances `origin/staging`, and `/intake`'s descendant check then STOPs that cloud head until it is rebased.
@@ -29,13 +29,13 @@ and
 [.cursor/rules/staging-accumulator.mdc](.cursor/rules/staging-accumulator.mdc).
 Feature PRs must base to `staging`. `On PR merge → Done` fires only for a
 closing-linked PR. A cloud PR was not produced by `/commit`, so it usually
-carries no `Fixes REAZED-###` — without a trailer the issue never closes.
+carries no `Fixes RES-###` — without a trailer the issue never closes.
 
 **Cloud-PR identity:** the head pattern `cursor/<slug>-<4 hex>`
 (`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`). Never identify a cloud
 PR by author. Historical cloud PRs are authored by the operator
 (`ralfcam`, `is_bot: false`) — that account is on every human PR too and
-carries no signal. Never invent a `cursor/REAZED-###` identity.
+carries no signal. Never invent a `cursor/RES-###` identity.
 
 **Re-check `.cursor/environment.json` on the default branch:**
 [.cursor/environment.json](.cursor/environment.json) pins the cloud
@@ -83,19 +83,19 @@ thinking: { type: "adaptive", effort: "medium" }
     `cursor/` heads matching the cloud-PR pattern that have **no**
     OPEN PR (`git ls-remote --heads origin 'cursor/*'`; skip any
     head already listed by `gh pr list --state open`). Per orphan:
-    `<head> @ <oid-short> — no OPEN PR — REAZED-### | cannot verify`.
+    `<head> @ <oid-short> — no OPEN PR — RES-### | cannot verify`.
     Scan that head's tip commit subject only
-    (`git log -1 --format=%s <oid>`) for `REAZED-\d+` — never invent
+    (`git log -1 --format=%s <oid>`) for `RES-\d+` — never invent
     from the slug. Do **not** `gh pr create`. If none, omit the extra
     list.
-  - **More than one:** For each candidate, run the Step 5 `REAZED-\d+`
+  - **More than one:** For each candidate, run the Step 5 `RES-\d+`
     scan (title, body,
     `gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`)
     to surface its Linear ID — `cannot verify` per PR if none is found,
     never invented. STOP and list every candidate as `#<n> <head> →
-    <base> — REAZED-### | cannot verify`. If two or more candidates
+    <base> — RES-### | cannot verify`. If two or more candidates
     share the same ID, append one line: "duplicate cloud dispatch on
-    REAZED-### — reconcile (close or delete the redundant branch)
+    RES-### — reconcile (close or delete the redundant branch)
     before pinning." The operator still must pin `/intake <n>`.
 - Do **not** create a PR. Do **not** `git push`. This command only
   intakes an existing OPEN cloud PR.
@@ -106,7 +106,7 @@ thinking: { type: "adaptive", effort: "medium" }
   `^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`.
 - If it does not: **STOP**. Report `<head> → <base>` and tell the
   operator to use `/push` — this command does not touch human branches
-  (`sdd/REAZED-###`, `staging`, or any other non-`cursor/` head).
+  (`sdd/RES-###`, `staging`, or any other non-`cursor/` head).
 - Do **not** treat `author.login` or `author.is_bot` as the gate. The
   operator's account authors both cloud and human PRs.
 
@@ -160,7 +160,7 @@ place would bury that work. Reuse the create + Windows teardown fences
 already scoped in
 [.cursor/commands/dispatch.md](.cursor/commands/dispatch.md) — same
 `Copy-Item` / `pnpm install` / `rmdir` retry — with an `intake-<n>`
-path instead of `sdd/REAZED-###`.
+path instead of `sdd/RES-###`.
 
 ```powershell
 git fetch origin
@@ -234,20 +234,20 @@ branch does not exist, that is fine — continue the rmdir retry. Do
 ### 5. Attach the Linear trailer
 
 A cloud PR was not produced by `/commit`, so it usually has no
-`Fixes REAZED-###`. Done fires on a closing-linked merge — see
+`Fixes RES-###`. Done fires on a closing-linked merge — see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).
 
 1. Scan the PR title, body, and commits
    (`gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`)
-   for `REAZED-\d+`. Also accept an existing
-   `^(Fixes|Closes|Resolves)\s+(REAZED-\d+)` line (case-insensitive on the
+   for `RES-\d+`. Also accept an existing
+   `^(Fixes|Closes|Resolves)\s+(RES-\d+)` line (case-insensitive on the
    keyword). De-duplicate IDs.
 2. If **no** ID can be identified: report `cannot verify` and **skip**
    — do not guess from the slug, the author, or a Linear search.
 3. If the title or body already closing-links every identified ID:
    skip — already linked.
 4. Otherwise append (never overwrite) via
-   `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes REAZED-###[, REAZED-###]\n"`.
+   `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, RES-###]\n"`.
    Preserve the existing body verbatim above this block. Re-fetch and
    confirm the edit landed.
 
@@ -292,7 +292,7 @@ note that rather than treating it as a gap.
    only if both pass and base is not already `staging`. STOP on failed
    ancestry — never naive-retarget.
 4. Isolated worktree `pnpm lint; pnpm typecheck; pnpm test:unit`. On red: tear down, classify, STOP.
-5. Append `Fixes REAZED-###` when identifiable; `cannot verify` skips.
+5. Append `Fixes RES-###` when identifiable; `cannot verify` skips.
 6. Request review if none requested (single-operator caveat).
 7. Never merge, never call Linear MCP, never check out the cloud head
    in the operator's tree.
@@ -338,11 +338,11 @@ Tone: professional and actionable. Length: concise.
 
 Exactly these sections:
 
-1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" (include any Step 1 orphan list: `<head> @ <oid-short> — no OPEN PR — REAZED-### | cannot verify`) | "stopped — multiple open cloud PRs; pin `/intake <n>`" (include the per-candidate `#<n> <head> — REAZED-### | cannot verify` breakdown and any duplicate-dispatch line from Step 1) | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
+1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" (include any Step 1 orphan list: `<head> @ <oid-short> — no OPEN PR — RES-### | cannot verify`) | "stopped — multiple open cloud PRs; pin `/intake <n>`" (include the per-candidate `#<n> <head> — RES-### | cannot verify` breakdown and any duplicate-dispatch line from Step 1) | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
 2. **Cloud-PR gate** — "MATCH — `<head>`" | "stopped — NO-MATCH (not this command)".
 3. **Base firewall** — "already on staging — ancestry held; no edit" | "retargeted — `<old-base>` → staging; descendant + drag-in checks held" | "stopped — head is not a descendant of `origin/staging`; rebase onto staging, then `/intake`" | "stopped — retarget would drag `origin/staging..origin/main` (<N> commits); rebase onto staging, then `/intake`" | "stopped — cannot verify ancestry".
 4. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed, isolated worktree intake-<n>)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run. On stop, remaining sections are `n/a — stopped at whole-suite gate`. Tear-down: `removed` | `failed — <why>`.
-5. **Linear trailer** — "already linked — <IDs>" | "injected — `Fixes REAZED-###[, …]`" | "skipped — cannot verify source issue" | "n/a — stopped earlier".
+5. **Linear trailer** — "already linked — <IDs>" | "injected — `Fixes RES-###[, …]`" | "skipped — cannot verify source issue" | "n/a — stopped earlier".
 6. **Review request** — "fired — requested `<reviewer>`" | "already present — skipped" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the close-out comment automation" | "n/a — no PR / stopped earlier".
 7. **Checks** (advisory; omit if no PR) — each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local worktree lint + typecheck + test:unit is Step 4, not this section.
 8. **Linear expectations** — In Progress fires from a linked draft/open PR (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command. Report the `.cursor/environment.json` state on the default branch as observed this run.

@@ -115,7 +115,7 @@ artifact here — content is owned by `/audit` (via `docs-updater`),
 On PASS: stage the allowlisted dirty paths explicitly (never blanket-add);
 commit with `docs(<audit|findings|verifier-reports>): <summary>`; **no
 closing magic word** (an artifact commit resolves no tracked issue; use
-`Refs REAZED-###` only when the operator names one); skip §5a (no trailer to
+`Refs RES-###` only when the operator names one); skip §5a (no trailer to
 aggregate) but still report the branch; never push; next is always `/push`.
 Over-engineering: `Lean already. Ship.`
 
@@ -285,7 +285,7 @@ Gate-remediation PASS uses the §0 staging and `style:`/`chore:` message rules
 (no `Fixes` trailer unless a tracked issue already owns it), then skips to
 §5a. Docs-artifact PASS uses the §0 staging and
 `docs(<audit|findings|verifier-reports>):` message rules (no closing magic
-word; `Refs REAZED-###` only when the operator names one), skips §5a (no trailer
+word; `Refs RES-###` only when the operator names one), skips §5a (no trailer
 to aggregate) but still reports the branch, then continues to §6. Post-TDD
 PASS continues below.
 
@@ -322,7 +322,7 @@ writes Git history, and it happens **only on PASS** (never on CHANGES-REQUESTED
 
 <1–3 lines: what changed and why; the criterion / spec rule it satisfies>
 
-Fixes REAZED-###[, REAZED-###]
+Fixes RES-###[, RES-###]
 ```
 
 **Require** a closing magic word (`Fixes` / `Closes` / `Resolves`) when the change
@@ -366,13 +366,13 @@ ready-to-paste aggregated line as a fallback:
   closing trailer accumulated since the last promotion (including this run's)
   so the operator has one ready-to-paste line as a fallback:
   `git log origin/<default>..HEAD -E --grep='^(Fixes|Closes|Resolves) ' --format='%B'`
-  and de-duplicate the issue IDs across all matches into a single
-  `Fixes REAZED-###[, REAZED-###, ...]` line. Report it. `/push` (run from `staging`,
+  and scan matching lines for `RES-\d+`; de-duplicate those issue IDs into a single
+  `Fixes RES-###[, RES-###, ...]` line. Report it. `/push` (run from `staging`,
   or pointed at the promotion PR's URL) injects this line itself once its
   base resolves to the default branch — this fallback line just covers the
   case where discovery is ambiguous.
 - **If current branch is any other non-default head** (feature branch, e.g.
-  `sdd/REAZED-###`): no fallback line needed. The feature PR `/push` opens
+  `sdd/RES-###`): no fallback line needed. The feature PR `/push` opens
   against `staging` carries this commit's trailer and closes on the staging
   merge. Note that in the report. Do not aggregate
   `origin/<default>..HEAD` — that range would include unrelated staging
@@ -383,7 +383,7 @@ ready-to-paste aggregated line as a fallback:
 This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd → /commit → /push)×N
 → [operator merge] → /audit` loop, so always close by naming the next move:
 
-- **PASS:** the commit carries `Fixes REAZED-###` (or multiple IDs) on the current
+- **PASS:** the commit carries `Fixes RES-###` (or multiple IDs) on the current
   branch. Next is always **`/push`** — it publishes the branch, resolves the
   PR (auto-discovered from the current branch, or pinned by URL if
   discovery would be ambiguous), preps promotion (aggregates + injects
@@ -397,7 +397,7 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
   branch) — no separate invocation needed. Only pin `/push
 <promotion-PR-URL>` if auto-discovery would be ambiguous (e.g. more than one
   open PR shares this head). Once prepped, the aggregated
-  `Fixes REAZED-###[, ...]` line is on the promotion PR so the operator's merge
+  `Fixes RES-###[, ...]` line is on the promotion PR so the operator's merge
   actually triggers Done for leftover direct commits.
 - **PASS, on a feature branch (per Step 5a):** `/push` opens (or updates) the
   feature PR against `staging`. That PR carries the trailer and closes the
@@ -491,7 +491,7 @@ thinking: { type: "adaptive", effort: "high" }
   gate-remediation) instead of mixing.
 - **Docs-artifact: never put a closing magic word** (`Fixes` / `Closes` /
   `Resolves`) on the commit. An artifact commit resolves no tracked issue.
-  `Refs REAZED-###` only when the operator names one.
+  `Refs RES-###` only when the operator names one.
 - **Docs-artifact: never author or "fix" report/ledger content in this
   lane.** Content is owned by `/audit` (via `docs-updater`), `/capture`, and
   `/triage`; CHANGES-REQUESTED routes back to the owning command.
@@ -517,7 +517,7 @@ Exactly these sections:
 4. **Docs close-out** — packet + docs-updater report present (or explicit skip); traceability rows; UAT stamps; drift flags — `ok` | `CHANGES-REQUESTED: <missing>`. Gate-remediation: `n/a — gate-remediation`. Docs-artifact: `n/a — docs-artifact`.
 5. **Findings** — must-fixes (with the precise criterion + the phase agent to route each back to), or "none". Always include a required **Over-engineering (delete-list)** subsection (§3.5): the tagged `delete:`/`stdlib:`/`native:`/`yagni:`/`shrink:` list (or "Lean already. Ship.") + `net: -N lines possible`; note which items (if any) drove CHANGES-REQUESTED vs. which are advisory/residual for `/triage`. Docs-artifact: report the artifact-shape review (`ok` | `CHANGES-REQUESTED: <path>`) and `Lean already. Ship.`; no delete-list of code.
 6. **Commit** — on PASS: the staged file list + the Linear-convention message (with closing magic word), the resulting `<SHA>` (committed), and the branch it landed on + whether that branch is the repo's default branch. Gate-remediation PASS: `style:` / `chore:` message, no `Fixes` unless a tracked issue already owns it. Docs-artifact PASS: `docs(<audit|findings|verifier-reports>):` message, no closing magic word. Otherwise "not committed — <verdict reason>" (or "safety stop — <reason>" if PASS but staging couldn't be scoped).
-7. **Linear** — on PASS + tracked issue(s): closing magic word recorded. If the commit landed on the default branch: "issue(s) move to **Done** via the `On PR merge → Done` automation once the operator merges the PR that `/push` opens/updates — no state write by this gate." If it landed on `staging`: explicit note that this **direct commit** alone will **not** trigger the automation on later promotion (cite the re-merge behavior), plus the aggregated `Fixes REAZED-###[, ...]` line and an instruction to run `/push` from `staging` (or `/push <promotion-PR-URL>`) before the operator merges that promotion PR. If it landed on a feature branch: "issue(s) move to **Done** when the operator merges the feature PR into `staging` — no promotion-PR fallback line; `/push` opens `<head> → staging`." If untracked or gate-remediation without a tracked owner: "no Linear issue — commit only." Docs-artifact: "no Linear issue — artifact commit only." Otherwise "not committed — <verdict reason>; issue(s) unchanged by this gate."
+7. **Linear** — on PASS + tracked issue(s): closing magic word recorded. If the commit landed on the default branch: "issue(s) move to **Done** via the `On PR merge → Done` automation once the operator merges the PR that `/push` opens/updates — no state write by this gate." If it landed on `staging`: explicit note that this **direct commit** alone will **not** trigger the automation on later promotion (cite the re-merge behavior), plus the aggregated `Fixes RES-###[, ...]` line and an instruction to run `/push` from `staging` (or `/push <promotion-PR-URL>`) before the operator merges that promotion PR. If it landed on a feature branch: "issue(s) move to **Done** when the operator merges the feature PR into `staging` — no promotion-PR fallback line; `/push` opens `<head> → staging`." If untracked or gate-remediation without a tracked owner: "no Linear issue — commit only." Docs-artifact: "no Linear issue — artifact commit only." Otherwise "not committed — <verdict reason>; issue(s) unchanged by this gate."
 8. **Next in the cycle** — PASS: `→ /push` (publishes the branch, resolves the PR, preps promotion when applicable, requests review), then `→ /dispatch` (or `→ /sdd-to-tdd <next issue>` when already on the local lane) then `/commit`. PASS on `staging`: `/push` from this branch auto-preps the open promotion PR; once prepped, **operator merge** in GitHub. PASS on a feature branch: `/push` opens `<head> → staging`; **operator merge** of that PR. PASS (gate-remediation): `→ /push` only. PASS (docs-artifact): `→ /push`, then the cycle position the operator was already in (`/triage` after an `/audit`, `/dispatch` after a `/triage`). After a burndown batch (post-merge): `→ /triage` to re-groom and `→ /audit` to re-verify RESOLVED + catch REGRESSIONs. CHANGES-REQUESTED: `→ /sdd-to-tdd` back-loop on the named criterion (docs-artifact: re-run the owning `/audit` / `/triage` / `/capture`). FAIL (format): files still red after this turn's write+re-check — name them; do not hand a write to the operator. FAIL: the blocking gate + remediation — whole-suite lint + typecheck + test:unit classification is `/push`'s job, never empty `/sdd-to-tdd`.
    </output_format>
    </output>

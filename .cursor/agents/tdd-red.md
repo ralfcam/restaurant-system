@@ -184,7 +184,7 @@ the **canonical catalog**, not in this agent:
 
 - `docs/testing/Vitest-Unit-Guide.md` — server-action + Supabase mock checklists,
   chain gotchas, fixtures.
-- `docs/testing/Design-And-Patterns.md` — the "Unit recipes (promoted from REAZED-…)"
+- `docs/testing/Design-And-Patterns.md` — the "Unit recipes (promoted from RES-…)"
   tables mapping scenario → mocks → reference test.
 
 Before writing, read the catalog row for your area (and 1–2 sibling tests) to

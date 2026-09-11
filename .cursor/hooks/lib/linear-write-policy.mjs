@@ -1,6 +1,7 @@
 /**
- * Allow-flag for Linear MCP writes. Parent save_issue / save_comment are
- * denied unless a linear-resolver subagent is in flight.
+ * Allow-flag for Linear MCP writes. Parent save_issue / save_comment /
+ * save_status_update calls are denied unless a linear-resolver subagent is
+ * in flight.
  *
  * Reads (list_*, get_*) stay unrestricted. Residual: a concurrent parent
  * write while linear-resolver is in flight also passes. Cloud agents do
@@ -14,7 +15,11 @@ import { isLinearServer } from "./mcp-payload.mjs"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = join(__dirname, "..", "state", "linear-writer.json")
 
-export const LINEAR_WRITE_TOOLS = new Set(["save_issue", "save_comment"])
+export const LINEAR_WRITE_TOOLS = new Set([
+  "save_issue",
+  "save_comment",
+  "save_status_update",
+])
 
 export function isLinearWriteTool(toolName) {
   return typeof toolName === "string" && LINEAR_WRITE_TOOLS.has(toolName)
@@ -43,7 +48,7 @@ export function setAllowed(allowed) {
   saveState({ allowed: Boolean(allowed) })
 }
 
-/** `{ deny: true }` when Linear save_issue/save_comment and the flag is off. */
+/** `{ deny: true }` when a guarded Linear writer runs with the flag off. */
 export function checkLinearWrite(server, toolName, allowed = isAllowed()) {
   if (!isLinearServer(server)) return null
   if (!isLinearWriteTool(toolName)) return null

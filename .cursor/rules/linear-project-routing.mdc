@@ -1,0 +1,96 @@
+---
+description: Shared RES team, V-X.X project discovery, exact command scopes, fail-closed allocation, audit targeting, and command-to-milestone routing.
+alwaysApply: false
+---
+
+# Linear project routing
+
+This is the shared routing contract for `/triage`, `/dispatch`, `/audit`,
+`/tldr`, `/design`, `/sdd-to-tdd`, and `linear-resolver`. Linear workspace
+identity is fixed: team **Realized**, team key and issue prefix **`RES`**, issue
+IDs **`RES-###`**. Linear project identity is dynamic; never default to a
+repository, Vercel project, legacy project URL, or `/projects/all`.
+
+## Discover the version-project set
+
+1. Resolve the Realized team once and require key `RES`.
+2. Call `list_projects` for that team and paginate until exhausted.
+3. Normalize each project name by trimming whitespace and uppercasing the `V`;
+   accept only names matching `^V-\d+\.\d+$` (**`V-X.X`**).
+4. Exclude terminal projects. Classify every remaining version project as
+   **ongoing** or **available** from its live Linear project status; never infer
+   either class from the name, repository, or a hardcoded list.
+5. A failed page, unresolved status, malformed version, or unresolved tie is
+   `cannot verify`. Fail closed: do not schedule, move, mutate, emit a dispatch
+   card, or publish an audit update for the affected item.
+
+## Normalize optional command scopes
+
+The PM commands share one grammar:
+
+- no argument: use the live nonterminal RES `V-X.X` set;
+- one project URL or exact project name: pin that exact version project;
+- issue IDs, issue URLs, or a multiline Markdown issue list: de-duplicate into
+  an exact ordered inclusion set;
+- project plus issue list: pin the project as the target boundary and use the
+  issue list as the complete candidate set.
+
+For project URLs, canonicalize only the `/project/<slug>/...` path identity;
+ignore `/overview`, other layout suffixes, and query parameters. Resolve the
+slug/name against live projects and reject terminal, non-RES, or non-`V-X.X`
+projects. Resolve every supplied issue with `get_issue`. Report malformed,
+unresolved, or non-RES entries and exclude them; never broaden the scope to
+compensate.
+
+An explicit issue list is a hard inclusion boundary, not approval or forced
+selection. Reads needed for team/project validation, milestones, cycle,
+relations, specs, de-duplication, and ranking remain allowed. No unlisted issue
+may be scheduled, mutated, or audited. Supplied order is only the last
+tie-break after dependencies and risk.
+
+With combined scope, preserve an issue already in the pinned project. Otherwise
+show the proposed move in the approval plan. A project-incompatible issue is
+deferred through `CLARIFY`, never silently reassigned.
+
+## Allocate an issue
+
+Use the first unambiguous compatible signal:
+
+1. explicit valid pinned project;
+2. the issue's existing nonterminal RES version project;
+3. the project of its parent or issue that blocks it;
+4. scope evidence in project descriptions/labels plus milestone compatibility;
+5. for Urgent/Blocker work, the uniquely compatible ongoing project;
+6. the earliest compatible available version (semantic version, then target
+   date when needed).
+
+Every selected project must come from this run's discovered set. Conflicting
+signals or a tie posts/updates the stable clarification for a tracked issue and
+leaves it in Triage/Backlog; an untracked ledger item stays unscheduled with
+the same question in the local plan.
+
+## Select one audit project
+
+Use an explicit valid project first. Otherwise choose the uniquely best
+**ongoing** project by audited scope match, then earliest target date, then
+current semantic version ordering. If no ongoing project exists or a tie
+remains, fail closed and skip the project-health update without changing the
+repo-derived audit verdict.
+
+## Command-to-milestone route
+
+Use only an existing milestone in the selected project's M1–M9 set:
+
+- `/design` is pre-implementation only: M1 for genuine project/bootstrap
+  definition, M2 for requirements/spec definition, M3 for architecture,
+  schema, or UX decisions.
+- `/sdd-to-tdd` contract clarification/correction of an existing spec may
+  remain M2; FEATURE/FIX implementation is M4. Test/audit, beta or real-user
+  validation, UAT/RC, launch-critical/security/money, and maintenance work map
+  to M5, M6, M7, M8, and M9 respectively.
+- Do not impose a blanket M4+ rule on `/sdd-to-tdd`; validate the work type.
+- Mixed unresolved design and implementation becomes two linked issues: the
+  M1–M3 decision/design issue blocks the later implementation issue. Dispatch
+  must not schedule implementation until the governing spec is testable.
+
+`docs/findings/README.md` owns the complete milestone names and signal map.

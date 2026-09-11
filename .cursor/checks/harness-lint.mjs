@@ -8,8 +8,9 @@
  * Checks:
  *   links            repo-root-relative markdown links in .cursor/{rules,commands,agents}
  *   fanout           TASK_FANOUT_INFLIGHT_CAP matches the number in task-fanout.mdc
- *   prefix           dispatch + staging-accumulator use sdd/REAZED- (not sdd/SG-);
- *                    triage/tldr/dispatch default to restaurant-system (not SG→REAZED)
+ *   routing          fixed RES identity; dynamic nonterminal V-X.X discovery;
+ *                    exact scopes; fail-closed allocation; milestone routes
+ *   clarify          resolver-only bounded/idempotent comment feedback loop
  *   gates            commit.md names lint, typecheck, test:unit, gate open, harness-lint
  *   capture          capture.md pins Validation Summary row count = PHASE 5 slug count
  *   ledger           linear-resolver + triage Grep ledger before MCP
@@ -17,9 +18,12 @@
  *                    via Corepack-independent local prettier (Linux Cloud Agents
  *                    and Windows; PATH Corepack shims are not portable)
  *   dispatch         includeRelations + verified-negative vs cannot-verify
+ *   pm-workflow      triage intake, bounded dispatch scheduling, audit project
+ *                    update, and single-writer/spawn-guard ownership
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { runPnpm } from "./run-pnpm.mjs"
 
 const FINDINGS_LEDGER = [
@@ -31,6 +35,7 @@ const FINDINGS_LEDGER = [
 ]
 const ROOT = process.cwd()
 const violations = []
+const LEGACY_ISSUE_PREFIX = ["REA", "ZED"].join("")
 
 function fail(id, msg) {
   violations.push(`${id}: ${msg}`)
@@ -112,32 +117,163 @@ function checkFanout() {
   }
 }
 
-function checkPrefix() {
-  for (const rel of [
-    ".cursor/commands/dispatch.md",
-    ".cursor/rules/staging-accumulator.mdc",
-  ]) {
-    const text = readFileSync(join(ROOT, rel), "utf8")
-    if (!text.includes("sdd/REAZED-"))
-      fail("prefix", `${rel} must name sdd/REAZED-`)
-    if (/sdd\/SG-/.test(text)) fail("prefix", `${rel} still mentions sdd/SG-`)
+export function detectActiveRoutingTextViolations(rel, text) {
+  const found = []
+  if (new RegExp(`\\b${LEGACY_ISSUE_PREFIX}-`, "i").test(text)) {
+    found.push(`${rel} contains the legacy Linear issue prefix`)
   }
+  if (
+    /https:\/\/linear\.app\/[^\s)]+\/project\/[^\s)]+/i.test(text) ||
+    /(?:Default project|Platform override):/i.test(text)
+  ) {
+    found.push(`${rel} hardcodes a Linear project default or URL`)
+  }
+  return found
+}
+
+function requireAll(id, rel, text, needles) {
+  for (const needle of needles) {
+    if (!text.includes(needle)) fail(id, `${rel} must contain ${needle}`)
+  }
+}
+
+function checkRoutingContracts() {
+  const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
+  const active = [
+    ".cursor/README.md",
+    "docs/findings/README.md",
+    ...walk(join(ROOT, ".cursor", "rules"), ".mdc").map((p) =>
+      p.slice(ROOT.length + 1).replaceAll("\\", "/"),
+    ),
+    ...walk(join(ROOT, ".cursor", "commands"), ".md").map((p) =>
+      p.slice(ROOT.length + 1).replaceAll("\\", "/"),
+    ),
+    ...walk(join(ROOT, ".cursor", "agents"), ".md").map((p) =>
+      p.slice(ROOT.length + 1).replaceAll("\\", "/"),
+    ),
+  ]
+  for (const rel of active) {
+    for (const message of detectActiveRoutingTextViolations(rel, read(rel))) {
+      fail("routing", message)
+    }
+  }
+
+  const routingRel = ".cursor/rules/linear-project-routing.mdc"
+  const routing = read(routingRel)
+  requireAll("routing", routingRel, routing, [
+    "team **Realized**",
+    "prefix **`RES`**",
+    "`list_projects`",
+    "paginate until exhausted",
+    "`^V-\\d+\\.\\d+$`",
+    "**ongoing**",
+    "**available**",
+    "Fail closed",
+    "explicit valid pinned project",
+    "existing nonterminal RES version project",
+    "project of its parent or issue that blocks it",
+    "descriptions/labels plus milestone compatibility",
+    "for Urgent/Blocker work",
+    "earliest compatible available version",
+    "Select one audit project",
+    "no ongoing project exists or a tie",
+  ])
+
   for (const rel of [
     ".cursor/commands/triage.md",
-    ".cursor/commands/tldr.md",
     ".cursor/commands/dispatch.md",
+    ".cursor/commands/audit.md",
+    ".cursor/commands/tldr.md",
   ]) {
-    const text = readFileSync(join(ROOT, rel), "utf8")
-    const hasDefault =
-      text.includes("project/restaurant-system") ||
-      text.includes("Default project: **restaurant-system**")
-    if (!hasDefault)
-      fail(
-        "prefix",
-        `${rel} must name restaurant-system as the default project`,
-      )
-    if (text.includes("key **SG** → issues are `REAZED-###`"))
-      fail("prefix", `${rel} still claims SG emits REAZED-###`)
+    const text = read(rel)
+    requireAll("routing", rel, text, [
+      "linear-project-routing.mdc",
+      "list_projects",
+      "V-X.X",
+      "RES",
+    ])
+  }
+
+  for (const rel of [
+    ".cursor/commands/triage.md",
+    ".cursor/commands/dispatch.md",
+    ".cursor/commands/audit.md",
+  ]) {
+    const text = read(rel)
+    requireAll("routing", rel, text, [
+      "/project/<slug>/...",
+      "query",
+      "multiline Markdown",
+      "get_issue",
+      "non-RES",
+    ])
+  }
+
+  requireAll(
+    "routing",
+    ".cursor/commands/triage.md",
+    read(".cursor/commands/triage.md"),
+    [
+      "explicit issues: read exactly",
+      "pinned project",
+      "allocated V-X.X project",
+      "ongoing",
+    ],
+  )
+  requireAll(
+    "routing",
+    ".cursor/commands/dispatch.md",
+    read(".cursor/commands/dispatch.md"),
+    [
+      "complete ordered candidate pool",
+      "explicit list is the complete",
+      "within their owning project",
+      "cross-project",
+      "final tie-break",
+    ],
+  )
+  requireAll(
+    "routing",
+    ".cursor/commands/audit.md",
+    read(".cursor/commands/audit.md"),
+    [
+      "AUDIT SCOPE",
+      "complete repository audit",
+      "owning specs/code",
+      "hub-walk only",
+      "omitted spec",
+      "mandatory cross-cutting controls",
+    ],
+  )
+
+  const findingsRel = "docs/findings/README.md"
+  requireAll("routing", findingsRel, read(findingsRel), [
+    "Fixed team: **Realized**",
+    "nonterminal `V-X.X`",
+    "allocated `V-X.X` project",
+  ])
+
+  const fixtureRel = ".cursor/checks/fixtures/routing-scopes.json"
+  if (!existsSync(join(ROOT, fixtureRel))) {
+    fail("routing", `${fixtureRel} is missing`)
+  } else {
+    try {
+      const fixtures = JSON.parse(read(fixtureRel))
+      for (const name of [
+        "project issues-view URL with layout and query",
+        "multiline Markdown issue list preserves ordered first occurrences",
+        "duplicates malformed and mixed-team entries fail closed",
+        "project plus list is an intersection boundary",
+        "dispatch list larger than lane capacity remains bounded",
+        "targeted audit derives scope from listed issue hubs",
+      ]) {
+        if (!fixtures.some((fixture) => fixture.name === name)) {
+          fail("routing", `${fixtureRel} must include fixture: ${name}`)
+        }
+      }
+    } catch (error) {
+      fail("routing", `${fixtureRel} is invalid JSON: ${error.message}`)
+    }
   }
 }
 
@@ -158,7 +294,7 @@ function checkCaptureSlugRule() {
 
 function checkLedgerFirst() {
   const needle =
-    "Grep ledger before MCP: Grep `docs/findings/archive.md` and open `docs/findings/*.md` for `REAZED-###` before the first `list_issues` / `get_issue`."
+    "Grep ledger before MCP: Grep `docs/findings/archive.md` and open `docs/findings/*.md` for `RES-###` before the first `list_issues` / `get_issue`."
   for (const rel of [
     ".cursor/agents/linear-resolver.md",
     ".cursor/commands/triage.md",
@@ -234,17 +370,234 @@ function checkDispatchNeedles() {
   }
 }
 
-checkLinks()
-checkFanout()
-checkPrefix()
-checkGates()
-checkCaptureSlugRule()
-checkLedgerFirst()
-checkFindingsFormat()
-checkDispatchNeedles()
+function checkPmWorkflowContracts() {
+  const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
+  const requireAll = (rel, text, needles) => {
+    for (const needle of needles) {
+      if (!text.includes(needle))
+        fail("pm-workflow", `${rel} must contain ${needle}`)
+    }
+  }
 
-if (violations.length) {
-  for (const v of violations) console.error(v)
-  process.exit(1)
+  const triageRel = ".cursor/commands/triage.md"
+  const triage = read(triageRel)
+  requireAll(triageRel, triage, [
+    'state: "triage"',
+    "Linear Triage is an intake inbox, not a normal workflow status",
+    "Ordinary accepted work",
+    "Backlog",
+    "Urgent fast lane",
+    "`blocked-by` relation is dependency evidence",
+    "leaves scheduling metadata for `/dispatch`",
+  ])
+  for (const stale of [
+    'There is **no "Triage" state',
+    "Inspect all open issues in parallel",
+    "`backfill-*`",
+    "`sweep-*`",
+  ]) {
+    if (triage.includes(stale))
+      fail(
+        "pm-workflow",
+        `${triageRel} still contains stale contract: ${stale}`,
+      )
+  }
+
+  const dispatchRel = ".cursor/commands/dispatch.md"
+  const dispatch = read(dispatchRel)
+  requireAll(dispatchRel, dispatch, [
+    "schedule-selected",
+    "emit-post-apply-card",
+    "one local",
+    "three background",
+    "Backlog → Todo",
+    "one explicit GROOM batch",
+    "post-apply re-read",
+    "linear-resolver",
+  ])
+  for (const stale of [
+    "There is no execution phase",
+    "card is the whole deliverable",
+    "never write Linear",
+  ]) {
+    if (dispatch.includes(stale))
+      fail(
+        "pm-workflow",
+        `${dispatchRel} still contains stale contract: ${stale}`,
+      )
+  }
+
+  const auditRel = ".cursor/commands/audit.md"
+  const audit = read(auditRel)
+  requireAll(auditRel, audit, [
+    "Source of truth — docs/specs/ ONLY",
+    "FINAL — PROJECT HEALTH VISIBILITY",
+    "Audit run key:",
+    "get_status_updates",
+    "save_status_update",
+    "`onTrack`",
+    "`atRisk`",
+    "`offTrack`",
+    "`/projects/all`",
+  ])
+  if (
+    audit.indexOf("FINAL — PROJECT HEALTH VISIBILITY") < audit.indexOf("PART 8")
+  ) {
+    fail("pm-workflow", `${auditRel} project update must follow PART 8`)
+  }
+
+  const resolverRel = ".cursor/agents/linear-resolver.md"
+  const resolver = read(resolverRel)
+  requireAll(resolverRel, resolver, [
+    "`/triage` or `/dispatch`",
+    "PROJECT-UPDATE",
+    "get_status_updates",
+    "save_status_update",
+    "may call only",
+    "Audit run key:",
+  ])
+
+  const writePolicyRel = ".cursor/hooks/lib/linear-write-policy.mjs"
+  const writePolicy = read(writePolicyRel)
+  requireAll(writePolicyRel, writePolicy, ['"save_status_update"'])
+
+  const spawnPolicyRel = ".cursor/hooks/lib/linear-spawn-policy.mjs"
+  const spawnPolicy = read(spawnPolicyRel)
+  requireAll(spawnPolicyRel, spawnPolicy, [
+    'toolName === "save_status_update"',
+    "mentionHit(a.body",
+  ])
 }
-console.log("harness-lint: ok")
+
+function checkMilestoneRouting() {
+  const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
+  requireAll(
+    "milestone-routing",
+    ".cursor/commands/design.md",
+    read(".cursor/commands/design.md"),
+    [
+      "pre-implementation work in M1–M3 only",
+      "M1 for genuine",
+      "M2 for requirements/spec",
+      "M3 — architecture",
+      "blocks the later",
+    ],
+  )
+  requireAll(
+    "milestone-routing",
+    ".cursor/commands/sdd-to-tdd.md",
+    read(".cursor/commands/sdd-to-tdd.md"),
+    [
+      "Route by the work being performed",
+      "M2 — Requirements Sign-Off",
+      "M4 — Code Complete",
+      "Do not impose a blanket M4+",
+      "M5, M6, M7, M8, and",
+      "decision/design issue blocks the implementation issue",
+    ],
+  )
+  requireAll(
+    "milestone-routing",
+    "docs/findings/README.md",
+    read("docs/findings/README.md"),
+    [
+      "Command-to-milestone contract",
+      "`/design` is pre-implementation",
+      "`/sdd-to-tdd` may remain M2",
+      "Do not apply a blanket M4+",
+    ],
+  )
+}
+
+function checkClarificationLoop() {
+  const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
+  const resolverRel = ".cursor/agents/linear-resolver.md"
+  const resolver = read(resolverRel)
+  requireAll("clarify", resolverRel, resolver, [
+    "Six duties: CLARIFY comment",
+    "## Workflow — CLARIFY",
+    "may call only `list_comments` and",
+    "`save_comment`",
+    "Clarification required",
+    "clarify:<RES-id>:<spec-basename>:<rule-or-ac>",
+    "identical unresolved key",
+    "materially changed spec evidence",
+    "different rule/criterion",
+    "START_SUMMARY_MAX_CHARS",
+    "Do not call Slack",
+    "trigger In Review/Done automations",
+  ])
+
+  for (const rel of [
+    ".cursor/commands/triage.md",
+    ".cursor/commands/dispatch.md",
+    ".cursor/commands/design.md",
+    ".cursor/commands/sdd-to-tdd.md",
+    ".cursor/commands/capture.md",
+  ]) {
+    requireAll("clarify", rel, read(rel), [
+      "linear-resolver",
+      "CLARIFY",
+      "Clarification required",
+      "clarify:<RES-id>:<spec-basename>:<rule-or-ac>",
+    ])
+  }
+
+  const automationRel = ".cursor/rules/linear-automation.mdc"
+  requireAll("clarify", automationRel, read(automationRel), [
+    "CLARIFY is comment-only",
+    "Slack visibility triggers only",
+    "never trigger In Review/Done",
+  ])
+}
+
+function checkResIdentity() {
+  const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
+  for (const rel of [
+    ".cursor/commands/dispatch.md",
+    ".cursor/rules/staging-accumulator.mdc",
+  ]) {
+    if (!read(rel).includes("sdd/RES-")) {
+      fail("identity", `${rel} must name sdd/RES-`)
+    }
+  }
+  for (const rel of [
+    ".cursor/commands/commit.md",
+    ".cursor/commands/push.md",
+    ".cursor/commands/intake.md",
+  ]) {
+    requireAll("identity", rel, read(rel), ["Fixes RES-", "RES-\\d+"])
+  }
+  requireAll(
+    "identity",
+    ".cursor/rules/vercel-project.mdc",
+    read(".cursor/rules/vercel-project.mdc"),
+    ["Project slug: `restaurant-system`"],
+  )
+}
+
+export function runHarnessLint() {
+  checkLinks()
+  checkFanout()
+  checkRoutingContracts()
+  checkResIdentity()
+  checkGates()
+  checkCaptureSlugRule()
+  checkLedgerFirst()
+  checkFindingsFormat()
+  checkDispatchNeedles()
+  checkPmWorkflowContracts()
+  checkMilestoneRouting()
+  checkClarificationLoop()
+
+  if (violations.length) {
+    for (const v of violations) console.error(v)
+    return 1
+  }
+  console.log("harness-lint: ok")
+  return 0
+}
+
+if (resolve(process.argv[1] || "") === fileURLToPath(import.meta.url)) {
+  process.exit(runHarnessLint())
+}

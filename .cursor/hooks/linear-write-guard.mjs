@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * beforeMCPExecution: deny parent Linear save_issue / save_comment unless
- * linear-writer.json is { "allowed": true }.
+ * beforeMCPExecution: deny parent Linear save_issue / save_comment /
+ * save_status_update unless linear-writer.json is { "allowed": true }.
  *
  * subagentStart (matcher linear-resolver): set the allow flag.
  *   node .cursor/hooks/linear-write-guard.mjs start
@@ -59,9 +59,10 @@ function main() {
       user_message: `Blocked a parent Linear ${extracted.toolName} — writes are linear-resolver-only.`,
       agent_message:
         `linear-write guard: ${extracted.toolName} mutates Linear. The parent orchestrator ` +
-        "must not call save_issue or save_comment. Delegate via the Task tool to " +
-        "linear-resolver (which sets the allow flag on subagentStart). Reads " +
-        "(list_*, get_*) stay unrestricted. See .cursor/agents/linear-resolver.md.",
+        "must not call save_issue, save_comment, or save_status_update. Delegate via " +
+        "the Task tool to linear-resolver (which sets the allow flag on " +
+        "subagentStart). Reads (list_*, get_*) stay unrestricted. See " +
+        ".cursor/agents/linear-resolver.md.",
     })
   } catch (err) {
     console.error("[linear-write-guard]", err)
