@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest"
 import { createClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { assertIsolatedHoursMutationTarget } from "@/lib/scheduling/hours-mutation-target"
 import { authEnvReady } from "../helpers/env"
 
 const SETTINGS_ID = 1
@@ -27,6 +28,7 @@ describe.skipIf(!authEnvReady)(
   "review-email schema PV-11 settings columns",
   () => {
     beforeEach(async () => {
+      assertIsolatedHoursMutationTarget()
       const supabase = createServiceClient()
       const { data, error } = await supabase
         .from("restaurant_settings")
@@ -38,6 +40,7 @@ describe.skipIf(!authEnvReady)(
     })
 
     afterEach(async () => {
+      assertIsolatedHoursMutationTarget()
       await restoreRestaurantSettingsSingleton()
       priorSettings = null
     })
@@ -104,10 +107,12 @@ describe.skipIf(!authEnvReady)(
   "review-email schema PV-12 send-queue table",
   () => {
     beforeAll(async () => {
+      assertIsolatedHoursMutationTarget()
       await cleanupSendsTestSlot()
     })
 
     afterEach(async () => {
+      assertIsolatedHoursMutationTarget()
       await cleanupSendsTestSlot()
     })
 
@@ -167,10 +172,12 @@ describe.skipIf(!authEnvReady)(
   "review-email schema PV-13 completed_at clock",
   () => {
     beforeAll(async () => {
+      assertIsolatedHoursMutationTarget()
       await cleanupSendsTestSlot()
     })
 
     afterEach(async () => {
+      assertIsolatedHoursMutationTarget()
       await cleanupSendsTestSlot()
     })
 

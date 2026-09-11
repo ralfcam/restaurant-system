@@ -27,7 +27,7 @@ Support subagents:
 
 - Installed skills (Next.js, Supabase, shadcn) — used by `tdd-green` for APIs.
 - `docs-updater` — syncs `docs/` after implementation ships (you delegate it; background). Fallback finding-registrar only when Linear is unavailable (appends to a backlog doc).
-- `linear-resolver` — Linear issue manager. START (execution): moves the invoked issue Backlog/Todo → In Progress and posts a single bounded `Work started:` summary comment (Problem/Approach/Out-of-scope findings; the plan file itself is never posted to Linear). CLOSE-OUT (FIX): posts the structured resolution comment (In Review/Done are automation-owned). Any mode: registers out-of-scope findings as new, linked Linear issues (with confirmation) so deferred discoveries aren't lost.
+- `linear-resolver` — Linear issue manager. START (execution): posts a single bounded `Work started:` summary comment (Problem/Approach/Out-of-scope findings; the plan file itself is never posted to Linear; no workflow-state write). CLOSE-OUT (FIX): posts the structured resolution comment (In Progress/In Review/Done are automation-owned). Any mode: registers out-of-scope findings as new, linked Linear issues (with confirmation) so deferred discoveries aren't lost.
 
 Repo rules that govern this loop:
 
@@ -163,7 +163,8 @@ violations (orchestrator touching `tests/**` / source; Red touching source;
 Green/Refactor touching tests); failed verification (no fresh command
 evidence; skipped suite treated as green); newly discovered Linear
 finding-issue creation (persist to the ledger; stop for operator confirmation —
-do not auto-confirm).
+do not auto-confirm); a `/commit` CHANGES-REQUESTED, FAIL, or permission/
+verification stop; a `/push` BLOCKED, whole-suite-gate, or safety stop.
 
 **Durable work-order (required before any spec/test/source mutation):**
 Render the complete plan in the output format below to
@@ -174,8 +175,12 @@ phase Task this work-order path + the criterion/part id.
 
 Then execute immediately in the same turn: START (if STEP 2B applies) → the
 enumerated spec / existing-test edits → Criterion 1 Red → the rest of the
-loop. Bound by the Execution Protocol and the work-order text. A spec or
-existing-test path **not** listed in `## Permissions Requested` still STOPS.
+loop → on successful close-out, `.cursor/commands/commit.md` → on PASS,
+`.cursor/commands/push.md`. Bound by the Execution Protocol and the
+work-order text. A spec or existing-test path **not** listed in
+`## Permissions Requested` still STOPS. Do not continue past a BLOCKED,
+CHANGES-REQUESTED, FAIL, permission, verification, or `/push` safety stop.
+Never `gh pr ready`. Never `gh pr merge`.
 
 ## STEP 1 — CLASSIFY INPUT, THEN RESOLVE THE SPEC (source of truth)
 
@@ -413,7 +418,7 @@ relevant manual runbook if one exists, and exclude it from the automated
 Red→Green→Refactor loop. Faking automated coverage for an inherently-manual
 criterion is the same failure as accepting a skipped suite.
 
-## STEP 2B — EXECUTION START: CLAIM THE LINEAR ISSUE
+## STEP 2B — EXECUTION START: ANNOUNCE WORK ON THE LINEAR ISSUE
 
 This step runs only during plan **execution** — after operator approval on a
 local Plan Mode run, or after the managed-Cloud work-order is written at
@@ -454,16 +459,19 @@ children. Skip for free-text `bug:` input with no tracked issue, and skip
 FEATURE when `linear_issue` is `none`.
 
 **The summary is unconditional whenever the issue exists.** A non-BLOCKED START
-always posts this run's bounded summary to the corresponding issue — In Review and
-terminal included. The state table still governs state (Backlog/Todo → In
-Progress only); the summary is not gated on that table.
+always posts this run's bounded summary to the corresponding issue — In Review
+and terminal included. START does **not** write workflow state. **In Progress**
+is derived from a linked draft/open PR (see
+[.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc));
+until that PR exists, the issue may remain Todo.
 
 START is **non-blocking** and **must not stall the loop**: invoke
 `linear-resolver` START with `run_in_background: true` and continue immediately.
 If it later returns `## Linear — BLOCKED`, that is visibility only. Non-blocking
 does **not** make the summary optional — only `## Linear — BLOCKED` or the
-absence of a tracked issue exempts it. Do not auto-assign. In Review/Done stay
-automation-owned — START may only move Backlog/Todo → In Progress (see
+absence of a tracked issue exempts it. Do not auto-assign. In Progress / In
+Review / Done stay automation-owned — START posts the `Work started:` comment
+only (see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
 
 The plan you emit MUST include a `start-linear` todo as the first execution
@@ -600,17 +608,20 @@ After the loop completes for the feature (all criteria green through Refactor),
 run close-out steps **in this order** — do not delegate `docs-updater` until
 Steps 4D and 4E have written to the tdd log and the Docs sync packet is assembled:
 
-| #   | Step                                         | Owner                            | Writes to                                                                         |
-| --- | -------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------- |
-| 1   | **4D** — Collate review trail                | Orchestrator                     | `docs/verifier-reports/tdd/<plan-slug>.md`                                        |
-| 2   | **4E** — Traceability final + pattern list   | Orchestrator                     | Same tdd log                                                                      |
-| 3   | **Packet** — Assemble Docs sync packet       | Orchestrator                     | Thread (markdown block)                                                           |
-| 4   | **4** — Docs sync                            | `docs-updater`                   | `docs/**` + thread report                                                         |
-| 5   | **4C** — Findings merge + register           | Orchestrator + `linear-resolver` | `docs/findings/**`                                                                |
-| 6   | **4B** — Linear close-out                    | `linear-resolver`                | Linear (FIX only)                                                                 |
-| 7   | **Format** — Prettier this run's dirty paths | Orchestrator                     | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`) |
+| #   | Step                                         | Owner                            | Writes to                                                                            |
+| --- | -------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
+| 1   | **4D** — Collate review trail                | Orchestrator                     | `docs/verifier-reports/tdd/<plan-slug>.md`                                           |
+| 2   | **4E** — Traceability final + pattern list   | Orchestrator                     | Same tdd log                                                                         |
+| 3   | **Packet** — Assemble Docs sync packet       | Orchestrator                     | Thread (markdown block)                                                              |
+| 4   | **4** — Docs sync                            | `docs-updater`                   | `docs/**` + thread report                                                            |
+| 5   | **4C** — Findings merge + register           | Orchestrator + `linear-resolver` | `docs/findings/**`                                                                   |
+| 6   | **4B** — Linear close-out                    | `linear-resolver`                | Linear (FIX only)                                                                    |
+| 7   | **Format** — Prettier this run's dirty paths | Orchestrator                     | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`)    |
+| 8   | **4F** — Commit / push handoff               | Orchestrator                     | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
+| 8   | **4F** — Commit / push handoff               | Orchestrator                     | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
 
-Keep `docs-updater` `is_background: true`, but **do not hand off to `/commit` until
+Keep `docs-updater` `is_background: true`, but **do not hand off to `/commit`
+(local) or execute `.cursor/commands/commit.md` (managed Cloud) until
 the docs-updater report appears in the thread** (wait/poll the Task) **and** the
 close-out format pass (step 7) has run. A missing docs-updater report → `/commit`
 → CHANGES-REQUESTED.
@@ -730,7 +741,8 @@ subagent in the background:
 - **Do not** commit doc edits yourself; `docs-updater` leaves `docs/` dirty for
   human review.
 - **Wait** for the docs-updater report in-thread before proceeding to 4C/4B.
-  After 4C/4B, run the format pass, then point to `/commit`.
+  After 4C/4B, run the format pass, then STEP 4F (local: point to `/commit`;
+  managed Cloud: execute commit then push on PASS).
 
 ## STEP 4C — MERGE + REGISTER OUT-OF-SCOPE FINDINGS (any mode)
 
@@ -819,37 +831,59 @@ Steps 4, 4C (and findings registration when applicable), delegate the
 issue, handing it: the issue ID, the root-cause constraint, the updated spec
 path, the regression test path, the changed source files, and the verification
 results. It **posts the comment only** — no workflow state write (`save_issue`
-for In Review/In Progress/Done is forbidden in CLOSE-OUT; In Progress was set at
-START; Linear automations own In Review/Done). The
+for In Review/In Progress/Done is forbidden in CLOSE-OUT; In Progress is
+derived from a linked PR, not START; Linear automations own In Progress/In
+Review/Done). The
 tree is still dirty/uncommitted; commit + push + operator merge are pending.
-State this as the final execution step of a fix. Skip entirely for free-text
+State this as the final Linear step of a fix. Skip entirely for free-text
 `bug:` input with no tracked issue.
 
 **In Review** is automation-driven: team comment/message automation on the
-close-out comment and/or GitHub PR review activity once a linked PR exists (see
+close-out comment and/or GitHub PR review activity / ready-for-merge once a
+linked PR exists (see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
-**In Progress** was set at START (execution first action); `/push` PR open is
-backup. **`/commit` then `/push` are the consequential next steps that advance the issue
-toward Done.** Advancing to **Done** is Linear's team-configured GitHub automation
+**In Progress** fires when `/push` opens or updates a linked draft/open PR;
+until then the issue may remain Todo. **`/commit` then `/push` are the
+consequential next steps that advance the issue toward Done.** Advancing to
+**Done** is Linear's team-configured GitHub automation
 (`On PR merge → Done`, Settings → Workflows & automations) reacting to a
 closing-linked PR merging to the default branch **once the operator merges
-it** — not a state write by any agent. The sequence: `/commit`, triggered in
-the **same thread directly after this run**, re-verifies the gates ran
-green-and-executed, reviews the shipped diff against the criteria, emits a
-`PASS`/`CHANGES-REQUESTED`/`FAIL` verdict, and on `PASS` **commits the run's
-work locally** with a Linear **closing magic word** (`Fixes` / `Closes` /
-`Resolves REAZED-###`) in the message. `/push` then publishes that commit: if it
-lands directly on a PR to the default branch, the automation fires once the
-operator merges it, with no further prep. If it lands on an accumulator branch
-(e.g. `staging`) that gets promoted later via a batch PR, `/push
-<promotion-PR-URL>` is what guarantees that promotion PR itself carries the
-closing words before the operator merges it — Linear does not resurface links
-from commits already merged into an earlier branch. Neither `/commit` nor
-`/push` performs a Linear state write, and neither ever merges. Leave the tree
-dirty (no commit) and point the operator to `/commit`.
+it** — not a state write by any agent. The sequence: `/commit` re-verifies
+the gates ran green-and-executed, reviews the shipped diff against the
+criteria, emits a `PASS`/`CHANGES-REQUESTED`/`FAIL` verdict, and on `PASS`
+**commits the run's work locally** with a Linear **closing magic word**
+(`Fixes` / `Closes` / `Resolves REAZED-###`) in the message. `/push` then
+publishes that commit: if it lands directly on a PR to the default branch,
+the automation fires once the operator merges it, with no further prep. If
+it lands on an accumulator branch (e.g. `staging`) that gets promoted later
+via a batch PR, `/push <promotion-PR-URL>` is what guarantees that promotion
+PR itself carries the closing words before the operator merges it — Linear
+does not resurface links from commits already merged into an earlier branch.
+Neither `/commit` nor `/push` performs a Linear state write, and neither
+ever merges. **Local:** leave the tree dirty (no commit) and point the
+operator to `/commit`. **Managed Cloud:** after the format pass, execute
+`.cursor/commands/commit.md` in this turn; on PASS execute
+`.cursor/commands/push.md` (STEP 4F).
 
 **Combine with finding registration.** If Step 4C already registered findings,
 reference the spun-off issue IDs in the close-out comment. Do not re-register.
+
+## STEP 4F — COMMIT / PUSH HANDOFF (after format pass)
+
+After 4C/4B and the close-out format pass:
+
+- **Local Plan Mode execution:** leave the tree dirty for human review and
+  **point the operator to `/commit`**. Do not run `/commit` or `/push`
+  yourself. Local sessions retain this manual handoff.
+- **Managed Cloud one-shot:** do **not** pause. Execute
+  [`.cursor/commands/commit.md`](.cursor/commands/commit.md) in this same
+  turn (verification + closing-linked local commit only). On **PASS**,
+  execute [`.cursor/commands/push.md`](.cursor/commands/push.md) (gates,
+  publication, draft PR create/update, review request). Stop on BLOCKED,
+  CHANGES-REQUESTED, FAIL, permission, verification, or any safety stop in
+  those commands — do not continue past them. Never `gh pr ready`. Never
+  `gh pr merge`. Never a Linear state write. `/commit` never pushes;
+  `/push` never readies or merges.
 
 ## STEP 5 — PRESENT THE PLAN FOR APPROVAL
 
@@ -919,7 +953,7 @@ enumerate all three phases of **every** criterion as explicit
   Task, and must **not** wait before those next todos. The `4-format` todo
   MUST specify **INPUT:** this run's dirty paths from `git status --porcelain`;
   **OUTPUT:** `pnpm exec prettier --write <path> …` (never `.`); it runs after
-  4C/4B and before pointing at `/commit`.
+  4C/4B and before STEP 4F (`/commit` handoff or managed-Cloud continuation).
   </instructions>
 
 <constraints>
@@ -1019,14 +1053,14 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `src/**`, or `supabase/**` yourself. If you are about to, STOP and issue the
   matching `Use the <agent> subagent to …` Task call instead.
   **Exception (mechanical only):** after close-out (docs-updater + 4C) and before
-  pointing at `/commit`, you MAY run `pnpm exec prettier --write` via Shell on
+  STEP 4F, you MAY run `pnpm exec prettier --write` via Shell on
   paths already dirty from this run (`git status --porcelain`). Never
   `prettier --write .`. This is not a substitute for `tdd-*` implementation
   writes.
 - Docs sync = `docs-updater` (background). **Wait for its report in-thread**
-  before 4C. After 4C/4B, run the format pass, then point to `/commit`. Linear
-  START (In Progress on the invoked issue + one bounded `Work started:`
-  summary comment), close-out (resolution comment only — no In Review/Done write), AND
+  before 4C. After 4C/4B, run the format pass, then STEP 4F. Linear
+  START (one bounded `Work started:` summary comment on the invoked issue —
+  no In Progress/In Review/Done write), close-out (resolution comment only), AND
   out-of-scope finding registration = `linear-resolver`. Do not do their work
   inline. START is the first execution Task when a tracked issue exists, invoked
   with `run_in_background: true`. Do **not** wait for START before spec edits or
@@ -1048,7 +1082,9 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 - **Close-out sequence (mandatory):** 4D → 4E → Docs sync packet → Step 4
   (docs-updater) → 4C → 4B (FIX) → **format pass** (`pnpm exec prettier --write`
   on this run's dirty paths from `git status --porcelain`; never `.`) → then
-  point to `/commit`. After each Refactor phase, append that
+  STEP 4F (**local:** point to `/commit`; **managed Cloud:** execute
+  `.cursor/commands/commit.md`, and on PASS execute
+  `.cursor/commands/push.md`). After each Refactor phase, append that
   criterion's `Suggested review order:` and `Reusable pattern:` lines to
   `docs/verifier-reports/tdd/<plan-slug>.md` (Step 3). At close-out: collate
   **`## Suggested Review Order (collated)`** into the tdd log (4D); append
@@ -1089,9 +1125,13 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   do not self-implement. Managed Cloud one-shot does not waive this STOP.
 - **Managed Cloud one-shot:** after the work-order exists at
   `.cursor/plans/<plan-slug>.plan.md`, execute immediately. Do not wait for a
-  second plan accept. Do not auto-confirm new Linear finding issues. Cloud
-  one-shot does not waive evidence, clarification, infra, delegation,
-  phase-exit, write-scope, or verification STOPs.
+  second plan accept. Do not auto-confirm new Linear finding issues. After a
+  successful close-out (format pass complete; START BLOCKED remains
+  visibility-only), execute `.cursor/commands/commit.md`; on PASS execute
+  `.cursor/commands/push.md`. Cloud one-shot does not waive evidence,
+  clarification, infra, delegation, phase-exit, write-scope, verification,
+  CHANGES-REQUESTED, or `/push` safety STOPs. Never `gh pr ready`. Never
+  `gh pr merge`.
 - If the delegation-guard hook is installed, arm it as your FIRST execution
   action (`node .cursor/hooks/tdd-guard.mjs on`) and disarm it as your LAST
   (`node .cursor/hooks/tdd-guard.mjs off`). Before each phase's Task call, set
@@ -1249,8 +1289,11 @@ Task `run_in_background: true`; do not wait for its report before spec/C1. Fill
 Close-out todos: `4d-review-trail`, `4e-traceability`, `4-docs-packet`,
 `4-docs-updater`, `4c-findings`, `4b-linear` (FIX only), `4-format`.
 
-`4-format` is last: after 4C/4B, `pnpm exec prettier --write` this run's dirty
-paths (`git status --porcelain`; never `.`), then point to `/commit`.
+`4-format` is last delegated todo: after 4C/4B, `pnpm exec prettier --write`
+this run's dirty paths (`git status --porcelain`; never `.`), then STEP 4F
+(local: point to `/commit`; managed Cloud: execute
+`.cursor/commands/commit.md`, and on PASS execute
+`.cursor/commands/push.md`).
 
 After 4E, assemble and paste the **Docs sync packet** (see command Step 4) and
 delegate `docs-updater` (background) with that packet, or state explicit
@@ -1296,24 +1339,28 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   `linear-resolver` to start work on `<issue ID>` (plan: `<plan-slug>` — emit
   the real plan-file basename), posting this plan's `## Linear Plan Digest`
   (bounded to `START_SUMMARY_MAX_CHARS`) as the single `Work started:`
-  comment — never the plan file itself. Task `run_in_background: true`; do
-  not wait for its report before spec/C1. If that `Work started:` comment
-  already carries this plan slug, skip START (idempotent update is
-  local-orchestrator STEP 2B, not a cloud re-entry). State: Backlog/Todo → In
-  Progress only. Artifacts: unconditional on any resolved issue (In Review
+  comment — never the plan file itself, never a workflow-state write. Task
+  `run_in_background: true`; do not wait for its report before spec/C1. If
+  that `Work started:` comment already carries this plan slug, skip START
+  (idempotent update is local-orchestrator STEP 2B, not a cloud re-entry).
+  In Progress is derived from a linked draft/open PR; until then the issue
+  may remain Todo. Artifacts: unconditional on any resolved issue (In Review
   and terminal included). Skip for free-text `bug:` with no ID, and FEATURE
   when `linear_issue` is `none`. START BLOCKED is visibility-only (the
   summary is exempted only then, or when there is no tracked issue —
   non-blocking does not make the summary optional).
 - **Close-out (FIX mode only — omit for FEATURE):** delegate `linear-resolver`
-  for `<issue ID>`: post structured resolution comment only (no workflow state
-  write — In Review is automation-owned; In Progress was set at START). (Skip if no tracked issue.) Done is
-  Linear's own `On PR merge → Done` team automation reacting to a closing-linked
-  PR merge once the operator merges it, driven by the `/commit` gate's local
-  commit (closing magic word) and `/push` publishing it — and, if that commit
-  lands on an accumulator branch, `/push <promotion-PR-URL>` — neither performs
-  a Linear write and neither merges. Run `/commit` in this thread after the
-  workflow. End the run by pointing the operator to `/commit`.
+  for `<issue ID>`: post structured resolution comment only (no workflow
+  state write — In Progress/In Review/Done are automation-owned; In Progress
+  fires on a linked draft/open PR). (Skip if no tracked issue.) Done is
+  Linear's own `On PR merge → Done` team automation reacting to a
+  closing-linked PR merge once the operator merges it, driven by the
+  `/commit` gate's local commit (closing magic word) and `/push` publishing
+  it — and, if that commit lands on an accumulator branch,
+  `/push <promotion-PR-URL>` — neither performs a Linear write and neither
+  merges. **Local:** end the run by pointing the operator to `/commit`.
+  **Managed Cloud:** STEP 4F — execute `.cursor/commands/commit.md`; on PASS
+  execute `.cursor/commands/push.md`.
 - **Findings registration (any mode — omit if ledger empty):** first **merge**
   `docs/findings/runs/<plan-slug>.md` open lines into `docs/findings/<category>.md`
   (Step 4C), then delegate `linear-resolver` to read the active `docs/findings/*.md`
@@ -1373,9 +1420,11 @@ Collated into **`## Suggested Review Order (collated)`** in
   (repository work-order, not a silently accepted native Cursor Plan), do not
   wait for a second accept. Launch START if STEP 2B applies (Task
   `run_in_background: true`; do not wait), apply the spec / existing-test edits
-  listed in `## Permissions Requested`, then delegate Criterion 1 Red. Bound by
-  every non-waived STOP.
+  listed in `## Permissions Requested`, then delegate Criterion 1 Red. After
+  successful close-out, execute `.cursor/commands/commit.md`; on PASS execute
+  `.cursor/commands/push.md` (STEP 4F). Bound by every non-waived STOP.
 
 Plan Mode: end by stopping for approval — do not begin execution in this turn.
-Managed Cloud one-shot: write the work-order, then begin execution in this turn.
+Managed Cloud one-shot: write the work-order, then begin execution in this turn
+and, on a successful close-out, continue through commit and push.
 </output_format>

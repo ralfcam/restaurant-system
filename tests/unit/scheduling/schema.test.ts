@@ -40,8 +40,12 @@ describe("opening-hour segments schema and surfaces", () => {
 
     expect(baseline).toMatch(/guest_note TEXT/)
     expect(migration).toMatch(/ADD COLUMN IF NOT EXISTS guest_note/)
-    expect(baseline).toMatch(/INSERT INTO operating_windows \([^)]*guest_note/)
-    expect(migration).toMatch(/INSERT INTO operating_windows \([^)]*guest_note/)
+    expect(baseline).toMatch(
+      /INSERT INTO public\.operating_windows \([^)]*guest_note/,
+    )
+    expect(migration).toMatch(
+      /INSERT INTO public\.operating_windows \([^)]*guest_note/,
+    )
   })
 
   it("admin scheduling manager lets staff add labeled opening-hour segments", () => {
@@ -118,13 +122,35 @@ describe("opening-hour segments schema and surfaces", () => {
       expect(forward).toContain(grantAll)
     }
   })
+
+  it("limits each scheduling guest-note input with the shared 240-character cap", () => {
+    const manager = read("components/staff/scheduling-manager.tsx")
+    const inputBlocks = manager.match(/<input\b[\s\S]*?\/>/g) ?? []
+    const guestNoteInputs = inputBlocks.filter((block) =>
+      block.toLowerCase().includes("guest note"),
+    )
+
+    expect(guestNoteInputs.length).toBeGreaterThan(0)
+    for (const block of guestNoteInputs) {
+      expect(block).toContain("maxLength={MAX_GUEST_NOTE_LENGTH}")
+    }
+  })
 })
 
 describe("servers table schema and seed (FP-14)", () => {
-  it("servers table exists in baseline with staff/service_role access and is seeded", () => {
+  it("servers are seeded and service-role-only", () => {
     const baseline = read("supabase/migrations/00000000000000_baseline.sql")
-    expect(baseline).toMatch(/-- REAZED-329/)
-    expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS servers/)
+    const dropAuthFull =
+      'DROP POLICY IF EXISTS "Allow authenticated full access to servers"'
+    const createAuthFull =
+      'CREATE POLICY "Allow authenticated full access to servers"'
+    const revokeAll =
+      "REVOKE ALL ON TABLE servers FROM PUBLIC, anon, authenticated"
+    const grantAuthenticated =
+      "GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE servers TO authenticated"
+
+    expect(baseline).toContain("-- REAZED-329")
+    expect(baseline).toContain("CREATE TABLE IF NOT EXISTS servers")
 
     const columns = baseline.match(
       /CREATE TABLE IF NOT EXISTS servers\s*\(([\s\S]*?)\);/,
@@ -135,13 +161,18 @@ describe("servers table schema and seed (FP-14)", () => {
     expect(columns).toMatch(/created_at TIMESTAMPTZ NOT NULL DEFAULT NOW\(\)/)
     expect(columns).toMatch(/updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW\(\)/)
 
-    expect(baseline).toMatch(/ALTER TABLE servers ENABLE ROW LEVEL SECURITY/)
-    expect(baseline).toMatch(
-      /CREATE POLICY "Allow authenticated full access to servers"[\s\S]*?ON servers FOR ALL[\s\S]*?TO authenticated/,
+    expect(baseline).toContain("ALTER TABLE servers ENABLE ROW LEVEL SECURITY")
+    expect(baseline).toContain(dropAuthFull)
+    const dropAuthIdx = baseline.indexOf(dropAuthFull)
+    expect(baseline.indexOf(createAuthFull, dropAuthIdx)).toBe(-1)
+    expect(baseline).toContain(revokeAll)
+    expect(baseline).not.toContain(grantAuthenticated)
+    expect(baseline).toContain(
+      'CREATE POLICY "Allow service_role full access to servers"',
     )
-    expect(baseline).toMatch(
-      /CREATE POLICY "Allow service_role full access to servers"[\s\S]*?ON servers FOR ALL[\s\S]*?TO service_role/,
-    )
+    expect(baseline).toContain("ON servers FOR ALL")
+    expect(baseline).toContain("TO service_role")
+    expect(baseline).toContain("GRANT ALL ON TABLE servers TO service_role")
 
     const seed = read("supabase/seed.sql")
     const serversInsert = seed.match(/INSERT INTO servers[\s\S]{0,2000}/)?.[0]

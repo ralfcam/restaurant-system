@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { devNull } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
@@ -89,4 +89,82 @@ test("sdd-to-tdd.md pins managed Cloud one-shot contract", () => {
   assert.ok(cmd.includes("do not auto-confirm"))
   assert.ok(cmd.includes("Do **not** invoke `CreatePlan`"))
   assert.ok(cmd.includes("unattended Agent-mode launches"))
+})
+
+function walk(dir, ext, acc = []) {
+  if (!existsSync(dir)) return acc
+  for (const name of readdirSync(dir)) {
+    const p = join(dir, name)
+    if (statSync(p).isDirectory()) walk(p, ext, acc)
+    else if (p.endsWith(ext)) acc.push(p)
+  }
+  return acc
+}
+
+test("linear-automation.mdc pins automation-only execution statuses", () => {
+  const rule = readFileSync(
+    join(ROOT, ".cursor", "rules", "linear-automation.mdc"),
+    "utf8",
+  )
+  assert.ok(rule.includes("No execution-status writes"))
+  assert.ok(rule.includes("START is comment-only"))
+  assert.match(rule, /PR ready for merge[\s\S]*?In Review/)
+  assert.ok(!rule.includes("→ No action"))
+  assert.ok(!/START is the (only |primary )?In Progress/.test(rule))
+  assert.ok(rule.includes("There is no START carve-out"))
+})
+
+test("linear-resolver START is comment-only", () => {
+  const agent = readFileSync(
+    join(ROOT, ".cursor", "agents", "linear-resolver.md"),
+    "utf8",
+  )
+  assert.ok(agent.includes("Never set an execution status in any mode"))
+  assert.ok(agent.includes("START must not call `save_issue`"))
+  assert.ok(!agent.includes('state: "In Progress"'))
+  assert.ok(!agent.includes("START is the only In Progress write"))
+  assert.ok(!agent.includes("Moved:"))
+})
+
+test("sdd-to-tdd.md pins managed Cloud TDD → commit → push continuation", () => {
+  const cmd = readFileSync(
+    join(ROOT, ".cursor", "commands", "sdd-to-tdd.md"),
+    "utf8",
+  )
+  assert.ok(cmd.includes("STEP 4F"))
+  assert.ok(cmd.includes(".cursor/commands/commit.md"))
+  assert.ok(cmd.includes(".cursor/commands/push.md"))
+  assert.ok(cmd.includes("Never `gh pr ready`"))
+  assert.ok(cmd.includes("Never `gh pr merge`"))
+  assert.ok(cmd.includes("point the operator to `/commit`"))
+  assert.ok(cmd.includes("START does **not** write workflow state"))
+})
+
+test("active commands/rules/agents do not describe START as an In Progress writer", () => {
+  const files = [
+    ...walk(join(ROOT, ".cursor", "rules"), ".mdc"),
+    ...walk(join(ROOT, ".cursor", "commands"), ".md"),
+    ...walk(join(ROOT, ".cursor", "agents"), ".md"),
+  ]
+  const forbidden = [
+    /START is the (only |primary )?In Progress/,
+    /START-writable/,
+    /START-only/,
+    /START populates In Progress/,
+    /Backlog\/Todo → In Progress/,
+    /PR ready for merge.*No action/,
+    /→ No action/,
+  ]
+  assert.ok(files.length > 0)
+  for (const file of files) {
+    const text = readFileSync(file, "utf8")
+    for (const re of forbidden) {
+      const m = text.match(re)
+      assert.equal(
+        m,
+        null,
+        `${file} still describes forbidden execution-status ownership: ${m?.[0]}`,
+      )
+    }
+  }
 })

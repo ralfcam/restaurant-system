@@ -161,8 +161,8 @@ then operator-merge (never a state move — In Review/Done are automation-owned,
 see [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc));
 a stale In Progress item surfaces as a recommendation for the operator to nudge
 the assignee or re-check progress (never a GROOM **state** move off In Progress —
-`/sdd-to-tdd` START populates In Progress; GROOM must not change that state;
-missing-cycle on In Progress is a field-only write); an
+In Progress is automation-owned via a linked draft/open PR; GROOM must not
+change that state; missing-cycle on In Progress is a field-only write); an
 unassigned high-priority issue surfaces as a recommendation for the **operator**
 to assign, because `linear-resolver` never writes `assignee` — that field is a
 Cloud Agent spawn door (see
@@ -286,8 +286,8 @@ is forbidden unless the operator explicitly requested that model for this run:
 
 - **Grooming batch (GROOM mode)** — re-prioritization, consolidation, and
   **Backlog → Todo / cancellation-only** state moves (never In Progress, In
-  Review, or Done **state** — In Review/Done are automation-owned; In Progress is
-  START-writable from `/sdd-to-tdd` only, not GROOM; see
+  Review, or Done **state** — In Progress/In Review/Done are automation-owned,
+  never GROOM; see
   [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
   Every confirmed **Backlog → Todo** also sets `cycle` to **current** (resolver
   resolves `list_cycles(type: "current")` at apply time; the batch may say
@@ -430,8 +430,8 @@ recipes). Cluster-vs-independent grouping here is a coarse Linear hint;
   `sweep-*`, `backfill-*`, `prune-ledger`, and `next-in-cycle` (the PHASE 4
   whitelist).
 - DO NOT let a GROOM delegation carry a state move to In Progress, In Review,
-  or Done in any mode — In Review/Done are automation-owned (GitHub PR
-  lifecycle); In Progress is `/sdd-to-tdd` START only, never GROOM (see
+  or Done in any mode — In Progress/In Review/Done are automation-owned (GitHub
+  PR lifecycle), never GROOM (see
   [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
   GROOM state moves are limited to **Backlog → Todo** and cancellation (with a
   linking comment). Field-only **cycle** backfill on In Progress / In Review
@@ -506,7 +506,7 @@ Per item:
 - Signal: <evidence + age/last-activity>
 - Delegation (promote / add-to-cycle/project / estimate only): `linear-resolver` GROOM — <exact issue IDs + fields>
 - Promote / add-to-cycle: cycle **current** (<live cycle name/number from `list_cycles(current)`>) | cannot verify (no current cycle)
-- Recommendation (close-ready / nudge-stale / needs-owner only — NOT a GROOM delegation; In Review/Done are automation-owned; In Progress is START-only, not GROOM; `assignee` is a Cloud Agent spawn door): `<prose, e.g. "run /push <promotion-PR-URL>, then operator merge" | "operator to nudge assignee" | "operator to assign an owner">`
+- Recommendation (close-ready / nudge-stale / needs-owner only — NOT a GROOM delegation; In Progress/In Review/Done are automation-owned; In Progress is not GROOM; `assignee` is a Cloud Agent spawn door): `<prose, e.g. "run /push <promotion-PR-URL>, then operator merge" | "operator to nudge assignee" | "operator to assign an owner">`
 
 ## Plan — Pruning (PHASE 2(e) — aggressive grooming)
 

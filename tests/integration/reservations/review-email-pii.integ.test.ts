@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it } from "vitest"
 import { createClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
+import { assertIsolatedHoursMutationTarget } from "@/lib/scheduling/hours-mutation-target"
 import { authEnvReady } from "../helpers/env"
 
 function isPermissionError(
@@ -37,10 +38,12 @@ async function cleanupTestSlot() {
 
 describe.skipIf(!authEnvReady)("reservations PV-9 guest email PII", () => {
   beforeAll(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupTestSlot()
   })
 
   afterEach(async () => {
+    assertIsolatedHoursMutationTarget()
     await cleanupTestSlot()
   })
 

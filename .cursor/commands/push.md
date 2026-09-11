@@ -4,9 +4,11 @@
 You are the **publish step** after `/commit`. Your job is to get committed work
 visible to GitHub — and, whenever the resolved PR targets the default branch,
 correctly closing-linked — so Linear's own GitHub automations, not you, move
-the tracked issue(s) through **In Review** and **Done**. **In Progress** was
-usually set by `/sdd-to-tdd` START; PR open/update is the backup. You never
-merge; the operator merges in GitHub once checks are green.
+the tracked issue(s) through **In Progress**, **In Review**, and **Done**.
+**In Progress** fires from the draft/open PR this command creates or
+updates; until that PR exists the issue may remain Todo. You never ready a
+PR and never merge; the operator readies (`gh pr ready`) and merges in
+GitHub once checks are green.
 Communication style: direct, concise, precise.
 </persona>
 
@@ -36,11 +38,10 @@ branch).
 
 **Ground truth — Linear↔GitHub automation:** see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc) for
-the full event table, the START In Progress carve-out, and the accumulator-branch
-re-merge gap. In short: **In Progress** is primarily `/sdd-to-tdd` START;
-`On PR open/update → In Progress` is backup (typically a no-op).
-`On PR review request/activity → In Review` and `On PR merge → Done` are
-**team-level automations** reacting to GitHub events — closing words buried in
+the full event table and the accumulator-branch re-merge gap. In short:
+**In Progress** fires from `Draft PR open` / `PR open`. **In Review** fires
+from review request/activity or ready-for-merge. `On PR merge → Done` is a
+**team-level automation** reacting to GitHub events — closing words buried in
 commits already merged into an accumulator branch (e.g. `staging`) do not, by
 themselves, link a PR targeting the default branch. Whenever the resolved PR's
 base is the default branch, this command's entire value-add is closing that
@@ -50,11 +51,13 @@ it separately.
 
 You perform **no Linear write** — you only interact with GitHub via `gh`
 (push, PR create when needed, PR edit, review request). Linear's automations
-do the rest. If an In Review or Done automation doesn't fire (a mislinked PR,
-an integration hiccup, or GitHub rejecting a review request naming the PR
-author on this single-operator repo), that is the operator's fallback to
-handle manually in the Linear UI — you do not compensate for it with a Linear
-write. START is `/sdd-to-tdd`'s In Progress write, not this command's.
+do the rest. If an In Progress, In Review, or Done automation doesn't fire (a
+mislinked PR, an integration hiccup, or GitHub rejecting a review request
+naming the PR author on this single-operator repo), that is the operator's
+fallback to handle manually in the Linear UI — you do not compensate for it
+with a Linear write. START posts a `Work started:` comment only; this
+command never writes Linear state and never runs `gh pr ready` or
+`gh pr merge`.
 
 thinking: { type: "adaptive", effort: "medium" }
 </context>
@@ -325,7 +328,7 @@ Exactly these sections:
 4. **Promotion prep** — "ran — <aggregated `Fixes REAZED-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Review request** — "deferred — PR is draft; `gh pr ready <n>` starts CI and fires In Review" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the close-out comment automation".
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; checks start at `gh pr ready <n>`" (expected, not a warning) | each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
-7. **Linear expectations** — In Progress may already be set by `/sdd-to-tdd` START (PR open/update is backup, including a PR this command just created); In Review on review request/activity; Done only after operator merge of a closing-linked PR — no state write performed by this command.
+7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
 8. **Operator next** — "draft PR open — run `gh pr ready <n>` to start CI and fire In Review, then merge once green" | "PR open — awaiting review/merge" | "merge `<PR-URL>` in the GitHub UI once required checks are green — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push`.
    </output_format>
    </instructions>

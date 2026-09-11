@@ -1,3 +1,5 @@
+import "server-only"
+
 /**
  * Supabase client initialised with the service role key.
  * Bypasses Row Level Security — for use exclusively in server-side admin

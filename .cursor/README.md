@@ -5,7 +5,8 @@ Map of the Cursor command cycle in this folder. Command files under
 
 Work ships on the **`staging` accumulator** (feature PR = `<head> → staging`,
 then promotion = `staging →` default branch). Agents never merge. You merge
-in the GitHub UI. Linear **In Review** / **Done** are automation-owned.
+in the GitHub UI. Linear **In Progress** / **In Review** / **Done** are
+automation-owned (draft/open PR, review/ready-for-merge, closing-linked merge).
 
 Linear IDs are **`REAZED-###`**, team **Realized**, project
 [restaurant-system](https://linear.app/realized/project/restaurant-system-a19062c2799e).
@@ -95,7 +96,7 @@ Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 | Background-dispatching auth / RLS / reservation or order status transitions / destructive deletes | Closed P0-surface list; those stay local    |
 | `/intake` on a non-`cursor/` head                                                                 | Use `/push`                                 |
 | `/push` while an OPEN `cursor/` PR exists                                                         | Intake first                                |
-| Agent `gh pr merge` or Linear In Review / Done                                                    | You merge; automations own those states     |
+| Agent `gh pr merge` or Linear In Progress / In Review / Done                                      | You merge; automations own those states     |
 | `/review` as a Linear Done gate                                                                   | Mode 1 file/plan revise only                |
 
 ---

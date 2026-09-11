@@ -1,21 +1,22 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Layout
 
-- Config: `vitest.unit.config.ts`
+- Config: `vitest.unit.config.ts` (`test.testTimeout: 15_000`)
 - Setup: `tests/unit/setup.ts`
 - Tests: `tests/unit/**/*.test.ts`
 - Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`
   bodySizeLimit schema guard)
 - Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
   queue-on-complete, cron job auth, cron mailer factory, Supabase hourly
-  Edge Function pin, marketing page)
+  Edge Function pin, marketing page, PV-ISO schema isolation scan)
 - Staff authorization: `tests/unit/auth/` (`requireStaffUser` /
   `requireSuperAdminUser` claims, staff-route proxy, login landing gate,
-  local signup TOML, seed `raw_app_meta_data` for staff and super-admin)
+  local signup TOML, seed `raw_app_meta_data` for staff and super-admin);
+  SA-11 service-role module fence: `tests/unit/supabase/service-boundary.test.ts`
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
   `SITE_LOGO.src`, Restaurant Link name, `menu-catalog` rename guard, SC-4a
   `shouldUseLightNavText`); `tests/unit/site-header.test.ts` (SiteHeader JSX
@@ -24,7 +25,8 @@
   `tests/unit/site/home-page-chefs-picks-ssr.test.ts`
 - Guest i18n: `tests/unit/i18n/` (header locale nav, catalog chrome,
   `isActiveNavPath`, `resolveDocumentLang`, `DocumentLangSync` layout mount,
-  sheet switcher)
+  sheet switcher, middleware-scope cookie-option merge and segment-bounded
+  locale skip)
 - Super-admin chrome (SA-10): `tests/unit/branding/super-admin-chrome.test.ts`,
   `tests/unit/scheduling/super-admin-chrome.test.ts`,
   `tests/unit/floor/super-admin-chrome.test.ts`,
@@ -35,6 +37,21 @@
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
   `tests/unit/floor/pos-menu-availability.test.ts`
+- Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
+  `tests/unit/reservations/get-range-service-client.test.ts`
+- Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note
+  cap; BD-READ-FAIL blocked-date SELECT fail-closed)
+- Reservation isolation (RES-ISO):
+  `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
+  glob-scan of `tests/integration/reservations/*.integ.test.ts`; zero-arg
+  call; rejects an explicit-URL helper argument)
+- Review-email isolation (PV-ISO):
+  `tests/unit/marketing/review-email-schema-isolation.test.ts` (AST
+  glob-scan of `tests/integration/marketing/*.integ.test.ts`; `WRITE_HOOKS`
+  includes `beforeEach`)
+- POS order isolation (ORD-ISO):
+  `tests/unit/pos/orders-persistence-isolation.test.ts` (AST glob-scan of
+  `tests/integration/pos/*.integ.test.ts`; requires `beforeAll`)
 
 ## Conventions
 

@@ -1,6 +1,5 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
@@ -585,7 +584,7 @@ export async function getReservations(opts?: {
   const staffUser = await requireStaffUser()
   if (!staffUser) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   let query = supabase
     .from("reservations")

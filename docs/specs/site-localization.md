@@ -40,7 +40,13 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
    locale routing so flat staff auth pages (e.g. `/auth/login`) are not
    rewritten into a `[locale]` path that has no matching route. `/pos/**` and
    `/kds/**` skip locale routing as staff chrome (unified with `/admin/**` per
-   [staff-authorization.md](staff-authorization.md) SA-2).
+   [staff-authorization.md](staff-authorization.md) SA-2). Exclusion prefixes
+   are path-segment-bounded: a pathname matches only when it equals the prefix
+   or continues with `/` (`/auth`, `/auth/`, `/auth/**` — not `/authorship`;
+   same rule for `/admin`, `/api`, `/pos`, `/kds`). `/auth/**` includes
+   `/auth/login`, `/auth/callback`, and `/auth/error`. `/auth/**` skip MUST be
+   proven through the composition root (`proxy` + `updateSession`, locale
+   middleware not applied), matching the existing `/admin/**` pin.
 4. **Switch-path helper** — `localizedPathname(path, targetLocale)` maps paths
    under as-needed rules: `/menu`→`/en/menu`, `/en/menu`→`/menu`, `/`→`/en`,
    `/en`→`/`.
@@ -96,11 +102,25 @@ Implementation: `next-intl` URL routing with React Context via `NextIntlClientPr
     from `next/navigation`, pass that pathname to `resolveDocumentLang`, and
     write `document.documentElement.lang`. First paint may keep using the
     server `lang` on `<html>`.
+18. **Session cookies survive locale merge** — On a localize path, every
+    cookie present on the `updateSession` response MUST appear on the composed
+    `proxy` response. `cookies.set` MUST forward the options object from
+    `getAll()` (`httpOnly`, `secure`, `sameSite`, `path`, and `maxAge` /
+    `expires` when present). Name/value-only copy does not satisfy this
+    criterion. Skip-locale paths already return the session response unchanged.
+19. **Segment-bounded locale exclusion** — `resolveLocaleRoutingDecision`
+    returns `skip-locale` iff the pathname is exactly an excluded prefix or is
+    that prefix plus `/…`. Lookalikes that only share a string prefix
+    (`/authorship`, `/administrator`, `/apiculture`, `/postal`, `/kdssuffix`)
+    return `localize`. `/auth/error` returns `skip-locale`. `proxy("/auth/error")`
+    and `proxy("/auth/login")` MUST call `updateSession` and MUST return that
+    session response (locale middleware not applied).
 
 ## Implementation trace (non-normative)
 
 FEATURE `res-61_guest_i18n_followups` (RES-61, 2026-09-08). AC-11–AC-16 shipped; AC-9 remains manual-UAT.
 FEATURE `html_lang_pnpm_pin_70d248bc` (2026-09-09). AC-17 shipped.
+FIX `res-50_locale_mw_session_cookies_a3f1c8e2` (RES-50, 2026-09-09). AC-18/AC-19 shipped.
 
 | Criterion | Shipped in                                                                                                                                                                                                                               | Tests                                                                                                                                                             |
 | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -112,6 +132,8 @@ FEATURE `html_lang_pnpm_pin_70d248bc` (2026-09-09). AC-17 shipped.
 | AC-15     | Two `LanguageSwitcher` instances in `components/site/site-header.tsx` — desktop actions region and `SheetContent`                                                                                                                        | `tests/unit/i18n/site-header-switcher.test.ts` → "site header renders LanguageSwitcher in desktop actions and mobile sheet"                                       |
 | AC-16     | `resolveDocumentLang` in `lib/i18n/document-lang.ts`; `app/layout.tsx` `pathnameFromRequestHeaders` + `<html lang={resolveDocumentLang(…)}>`                                                                                             | `tests/unit/i18n/document-lang.test.ts` → "resolveDocumentLang follows public locale and staff English"                                                           |
 | AC-17     | `DocumentLangSync` in `lib/i18n/document-lang-sync.tsx` (`"use client"`, `usePathname`, `useLayoutEffect` → `document.documentElement.lang`); `app/layout.tsx` mounts `<DocumentLangSync />` (first paint still AC-16 `<html lang={…}>`) | `tests/unit/i18n/document-lang.test.ts` → "layout mounts a client document-lang sync from usePathname"                                                            |
+| AC-18     | `proxy.ts` copies `sessionResponse.cookies?.getAll()` via `{ name, value, ...options }` into `intlResponse.cookies.set(name, value, options)`                                                                                            | `tests/unit/i18n/middleware-scope.test.ts` → "session cookies and Set-Cookie options survive locale merge"                                                        |
+| AC-19     | `i18n/middleware-scope.ts` `resolveLocaleRoutingDecision` matches `pathname === prefix \|\| pathname.startsWith(prefix + "/")`                                                                                                           | `tests/unit/i18n/middleware-scope.test.ts` → "locale exclusion is segment-bounded including auth/error through proxy"                                             |
 
 ## Message catalog keys (public site)
 

@@ -213,6 +213,9 @@ type BookableSlotGroup = {
   guest_note?: string
 }
 
+/** OH-NOTE-SAVE: max length of a trimmed non-empty `guest_note` (JS string characters). */
+export const MAX_GUEST_NOTE_LENGTH = 240
+
 /** Blank/whitespace → undefined so guest payloads omit the key (BW-4). Persist with `?? null`. */
 function trimmedGuestNote(
   value: string | null | undefined,
@@ -409,6 +412,13 @@ export function validateOperatingDays(days: OperatingDay[]): string | null {
 
     if (day.segments.length === 0) {
       return `${DAY_NAMES[day.day_of_week]} is open but has no segments.`
+    }
+
+    for (const segment of day.segments) {
+      const note = trimmedGuestNote(segment.guest_note)
+      if (note && note.length > MAX_GUEST_NOTE_LENGTH) {
+        return `Guest note must be at most ${MAX_GUEST_NOTE_LENGTH} characters.`
+      }
     }
 
     const ranges = day.segments.map((segment) => ({

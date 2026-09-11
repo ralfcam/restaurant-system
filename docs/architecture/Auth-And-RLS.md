@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-11
 
 ## Auth flow
 
@@ -41,14 +41,17 @@ Local `supabase/config.toml` has `[auth] enable_signup = false` and
 `[auth.email] enable_signup = false`. Those keys do not control hosted Auth —
 see [../runbooks/deploy.md](../runbooks/deploy.md). Spec:
 [../specs/staff-authorization.md](../specs/staff-authorization.md)
-(SA-1–SA-10; SA-6 is manual-UAT). Staff-only sessions still open `/admin` /
+(SA-1–SA-11; SA-6 is manual-UAT). Staff-only sessions still open `/admin` /
 `/pos` / `/kds`; SA-10 disables (does not hide) super-admin-only chrome via
 an `isSuperAdmin` prop from `isSuperAdminUser(authUser)`.
 
 ## Service role
 
 `lib/supabase/service.ts` uses `SUPABASE_SERVICE_ROLE_KEY` and bypasses RLS.
-Import only from `"use server"` modules — never from Client Components or `"use client"` files.
+The module begins with `import "server-only"` (SA-11) so a Client Component
+import fails at Next.js build time. A file-level `"use server"` directive or
+warning comment is not a substitute. Factory URL selection, service-role
+RLS-bypass behavior, and auth options are unchanged.
 
 ## RLS expectations
 
@@ -59,13 +62,18 @@ idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
 `menu_items`, `restaurant_settings`, `tables`, `servers`, `orders`,
 `order_items`, `review_email_sends`. `servers` mirrors
-`tables` (`GRANT SELECT, INSERT, UPDATE, DELETE` to `authenticated`,
-`GRANT ALL` to `service_role`; `-- REAZED-329`). `orders` / `order_items`
-copy that staff-only convention (`CREATE TABLE IF NOT EXISTS`,
-`DROP POLICY IF EXISTS` + authenticated / `service_role` `FOR ALL`, matching
-table grants, no anon). `GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq`
-to `authenticated` (BIGSERIAL `nextval` is not covered by table grants). They
-are not added to `supabase_realtime`; KDS polls. Spec:
+`tables` (`REVOKE ALL` from `PUBLIC`, `anon`, `authenticated`;
+`GRANT ALL` to `service_role`; `-- REAZED-329` / RES-42). `servers`,
+`table_merges`, `table_merge_members`, `status_events`, `orders`, and
+`order_items` use the same private sibling recipe: `DROP POLICY IF EXISTS`
+the authenticated `FOR ALL` (never `CREATE`), service-role `FOR ALL`,
+`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`, then
+`GRANT ALL TO service_role` only. Sequence `orders_order_number_seq` is
+`REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` then
+`GRANT USAGE, SELECT` to `service_role` only (`USAGE` is `nextval`; do not
+leave default sequence `UPDATE` on `service_role`). They are not added to
+`supabase_realtime`; KDS polls. Spec:
+[../specs/scheduling.md](../specs/scheduling.md) SIB-PRIV (§19),
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-5. Public storage bucket `branding` holds the
 optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
 ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
@@ -79,11 +87,13 @@ data (`operating_windows`, `menu_items`,
 `GRANT ALL ON TABLE operating_windows TO service_role`. There is no authenticated
 `FOR ALL` policy (`DROP POLICY IF EXISTS "Allow authenticated full access to operating_windows"`;
 no `CREATE`). Public SELECT and `service_role` `FOR ALL` stay. Staff writes go
-through `replace_operating_windows` (`service_role` `EXECUTE` only). Identical
-GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql` and
+through `replace_operating_windows` (`SECURITY INVOKER`, exact
+`SET search_path = ''`, `DELETE FROM public.operating_windows` /
+`INSERT INTO public.operating_windows`, `service_role` `EXECUTE` only).
+Identical GRANT/REVOKE, GRANT ALL, and DROP live in `00000000000000_baseline.sql` and
 `20260825140000_operating_windows_privilege.sql` (apply on already-baselined
 remotes per [../runbooks/deploy.md](../runbooks/deploy.md); do not `db push`).
-Spec: [../specs/scheduling.md](../specs/scheduling.md) §16.
+Spec: [../specs/scheduling.md](../specs/scheduling.md) §15–§16.
 
 `restaurant_settings` is SELECT-only for `anon` and `authenticated`
 (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges
@@ -100,16 +110,40 @@ gate. Identical GRANT/REVOKE, GRANT ALL, and DROP live in
 do not `db push`). Spec: [../specs/branding-cms.md](../specs/branding-cms.md) BC-1.
 
 Early-baseline siblings `blocked_dates`, `reservations`, and `menu_items` also
-`GRANT ALL ON TABLE <t> TO service_role` in those same two files (after each
-table's service_role RLS block in baseline; before `NOTIFY pgrst` in the
-forward). That does not drop their authenticated `FOR ALL` policies
-(REAZED-299). Spec: [../specs/scheduling.md](../specs/scheduling.md) §17.
+`GRANT ALL ON TABLE <t> TO service_role` in `00000000000000_baseline.sql` and
+`20260825140000_operating_windows_privilege.sql` (after each table's
+service_role RLS block in baseline; before `NOTIFY pgrst` in the forward).
+Those two files are the defining surfaces. On an already-baselined forked
+remote, apply `20260825140000_operating_windows_privilege.sql` when that
+version is unrecorded; if `20260825140000` is already recorded, apply
+`20260827160000_public_catalog_privileges.sql` for catalog privilege changes
+instead of replaying the applied file (do not `db push`). Authenticated
+`FOR ALL` on those tables is dropped (no `CREATE`) — SIB-PRIV / RES-PRIV /
+menu AC-2. Spec:
+[../specs/scheduling.md](../specs/scheduling.md) §17, §19.
+
+Staff list and mutation for those siblings (including `getReservations`,
+`getAllMenuItems`, and menu CRUD/toggle) is `requireStaffUser` plus
+`createServiceClient` (`lib/supabase/service.ts`). The cookie JWT client
+(`lib/supabase/server.ts`) is not used on those paths. Guest catalog reads
+stay on the anon client (`lib/supabase/client-server.ts`). Spec:
+[../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
 
 Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
-and `authenticated` (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`).
-`reservations` is insert-only (`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE`);
+and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`
+then `GRANT SELECT` only).
+`reservations` is insert-only (`REVOKE ALL` then
+`GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`);
+guest INSERT is not table-wide. Identity is still unique:
+`CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`
+immediately after the `reservations` table create, even though guests can set
+`conf_code`. Server-owned `id`, `status`, `table_label`,
+`created_at`, and `completed_at` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
+There is no authenticated `FOR ALL` (or other write) policy on those three
+tables.
 Nullable `reservations.email` and `reservations.completed_at` are in baseline
 (CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
 is unchanged. `review_email_sends` is service-role-only (`ENABLE RLS`,
@@ -118,8 +152,11 @@ Spec: [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
 PV-9, PV-12, PV-13.
 Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
 `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
-and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
-`20260825140000` is already recorded; do not `db push`). Spec:
+and `20260827160000_public_catalog_privileges.sql` (on an already-baselined
+forked remote, apply `20260825140000_operating_windows_privilege.sql` when
+that version is absent; if `20260825140000` is already recorded, apply
+`20260827160000_public_catalog_privileges.sql` for catalog privilege changes
+instead of replaying the applied file; do not `db push`). Spec:
 [../specs/scheduling.md](../specs/scheduling.md) §18,
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
@@ -127,8 +164,14 @@ and `20260827160000_public_catalog_privileges.sql` (apply the dated file when
 `validate_reservation_availability` (`enforce_booking_rules`) is
 `SECURITY DEFINER` so that insert-only path can still cover-count and
 table-fit `reservations` / `tables` for the occupancy window (booking-rules
-BW-9) and compatible-table bookability (BW-12). Last-writer body is identical
-in baseline, `20260818162000_operating_hour_segments.sql`,
+BW-9) and compatible-table bookability (BW-12). It is trigger-only, not a
+guest RPC: every migration that `CREATE OR REPLACE`s the function immediately
+follows the body with `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC`
+and `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated`
+(`CREATE OR REPLACE` preserves an already-open ACL). Spec:
+[../specs/booking-rules.md](../specs/booking-rules.md) RES-TRIGGER-EXEC.
+Last-writer body is identical in baseline,
+`20260818162000_operating_hour_segments.sql`,
 `20260827180000_occupancy_duration_buffer.sql`, and
 `20260828121224_table_fit_availability.sql`.
 

@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-10
 
 ## Vercel
 
@@ -153,7 +153,8 @@ for remotes that already applied baseline (see below).
 
 Repo SQL is not the same as the deployed PostgREST cache. Local `db reset`
 already defines `replace_operating_windows(p_windows jsonb)` in the baseline
-(`DELETE FROM operating_windows WHERE TRUE` — hosted safe-delete, error 21000
+(`SECURITY INVOKER`, `SET search_path = ''`,
+`DELETE FROM public.operating_windows WHERE TRUE` — hosted safe-delete, error 21000
 without a predicate). Linked remotes that applied an older baseline must apply
 `20260818162000_operating_hour_segments.sql` (drop `UNIQUE(day_of_week)`, add
 `label` / `sort_order` / `guest_note`, `CREATE OR REPLACE` the RPC,
@@ -161,7 +162,7 @@ without a predicate). Linked remotes that applied an older baseline must apply
 `NOTIFY pgrst, 'reload schema'`). Until that
 file is applied, staff Save on `/admin/scheduling` misses the function
 (PGRST202 / schema cache). Spec: [../specs/scheduling.md](../specs/scheduling.md)
-OH-SAVE (§15).
+OH-SAVE (§15), OH-SAVE-PATH (§15).
 
 On `tilcqrudqxznnpepxjqq` that version is recorded as `20260818162000` /
 `operating_hour_segments`. That is **not** a full `db push`: remote
@@ -176,13 +177,15 @@ strings as baseline for `anon, authenticated`, plus
 `GRANT ALL ON TABLE operating_windows TO service_role` in that same file.
 The same file also
 `GRANT ALL ON TABLE blocked_dates TO service_role`, and the same for
-`reservations` and `menu_items` (EARLY-PRIV). That does not drop those tables'
-authenticated `FOR ALL` policies (REAZED-299). It also carries RES-PRIV
-(`GRANT INSERT` / `REVOKE SELECT, UPDATE, DELETE` on `reservations`;
-`DROP POLICY IF EXISTS "Allow public read reservations"`, no `CREATE`) and
-PUBLIC-READ-PRIV (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE` on
-`blocked_dates` and `menu_items`). If `20260825140000` is already recorded,
-those catalog strings must be applied via
+`reservations` and `menu_items` (EARLY-PRIV). Catalog recipes are
+`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated` then only the
+public capability (`GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`
+on `reservations`; `GRANT SELECT` on
+`blocked_dates` / `menu_items`) then `GRANT ALL TO service_role`.
+`DROP POLICY IF EXISTS` drops authenticated `FOR ALL` (and public SELECT on
+`reservations`) and never `CREATE`s those policies — same order in every
+object-owning file, not only the latest forward. If `20260825140000` is
+already recorded, those catalog strings must be applied via
 `20260827160000_public_catalog_privileges.sql` (editing an applied file does
 not re-run). The same `20260825140000` file also carries BC-1 SELECT-only on
 `restaurant_settings` (`DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings"`;
@@ -191,13 +194,23 @@ no `CREATE`; `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`;
 `20260825140000` is already recorded, apply
 `20260902214500_restaurant_settings_privilege.sql`. Spec:
 [../specs/scheduling.md](../specs/scheduling.md)
-OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18);
+OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18), SIB-PRIV (§19);
 [../specs/branding-cms.md](../specs/branding-cms.md) BC-1. Apply per the recipes
 below; do not `db push`. Until `20260825140000` is applied on a forked remote
 that still has the old hours policy or DML grants, a logged-in Data API client
 can mutate hours.
 
-### Apply a single forward migration on an already-baselined remote
+### Apply `20260818162000_operating_hour_segments.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-09-10 — recorded-forward replay / search-path Advisor /
+staff Save (OH-SAVE-PATH-LINKED). On `tilcqrudqxznnpepxjqq` this version is
+**already recorded**. Replay the current idempotent file even though the
+history row exists. Do not insert or repair that history row, `db push`, or
+reset linked history.
+
+First confirm `validate_reservation_availability()` body parity with the
+latest writer (`20260828121224_table_fit_availability.sql`) so this replay
+does not regress RES-47 EXECUTE revokes.
 
 Do not use `db push` or `db reset --linked` for this — the file already ends
 with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
@@ -205,25 +218,29 @@ replay history the remote has diverged from.
 
 1. Run the contents of `supabase/migrations/20260818162000_operating_hour_segments.sql`
    against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
-   (single file, one call).
-2. If `supabase_migrations.schema_migrations` has no row for this version yet,
-   record it:
-
-   ```sql
-   INSERT INTO supabase_migrations.schema_migrations (version, name)
-   VALUES ('20260818162000', 'operating_hour_segments');
-   ```
-
-   Alternatively, `npx supabase migration repair 20260818162000 --status applied`
-   marks the same history row applied — but `migration repair` only updates
-   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
-
-3. Verify:
+   (single file, one call). Do not `INSERT` into
+   `supabase_migrations.schema_migrations` and do not
+   `npx supabase migration repair 20260818162000`.
+2. Verify:
 
    ```sql
    SELECT version, name FROM supabase_migrations.schema_migrations
    WHERE version = '20260818162000';
+
+   SELECT p.proconfig, p.prosecdef,
+     has_function_privilege('anon', p.oid, 'EXECUTE') AS anon_execute,
+     has_function_privilege('authenticated', p.oid, 'EXECUTE') AS authenticated_execute,
+     has_function_privilege('service_role', p.oid, 'EXECUTE') AS service_role_execute
+   FROM pg_proc p
+   JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname = 'replace_operating_windows'
+   LIMIT 1;
    ```
+
+   Confirm `proconfig` contains `search_path=""`, `prosecdef` is false
+   (`SECURITY INVOKER`), guest EXECUTE is denied, and `service_role` EXECUTE
+   is granted. Security Advisor lint 0011 is absent. Staff Save on
+   `/admin/scheduling` still persists multiple segments.
 
 ### Apply `20260825140000_operating_windows_privilege.sql` on an already-baselined remote
 
@@ -272,10 +289,17 @@ replay history the remote has diverged from.
 
 ### Apply `20260827160000_public_catalog_privileges.sql` on an already-baselined remote
 
-**UAT freshness:** 2026-08-27 — apply this file when `20260825140000` is already
-recorded (M1-linked-remote-apply; do not `db push`). Then confirm
-`has_table_privilege('anon', 'reservations', 'INSERT')` is true and
-`has_table_privilege('anon', 'reservations', 'SELECT')` is false; confirm
+**UAT freshness:** 2026-09-10 — RES-PRIV-REMOTE deferred/manual. Linked project
+`tilcqrudqxznnpepxjqq` already records `20260827160000`; this run did not mutate
+remote. Applying the idempotent `REVOKE ALL` + column `GRANT INSERT` (or
+resetting this no-user pre-production project) is a separately authorized
+operator pass. After that pass, confirm
+`has_table_privilege('anon', 'reservations', 'INSERT')` and the same for
+`authenticated` are false (column-only GRANT); `has_column_privilege` INSERT
+is true only for `guest_name`, `party_size`, `date`, `time`, `phone`, `email`,
+`notes`, `conf_code`; false for `id`, `status`, `table_label`, `created_at`,
+`completed_at` and for `PUBLIC` on every `reservations` column;
+`has_table_privilege(..., 'SELECT')` on `reservations` stays false. Confirm
 `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
 `has_table_privilege('anon', 'menu_items', 'SELECT')` are true and INSERT is
 false for both.
@@ -306,12 +330,18 @@ replay history the remote has diverged from.
    WHERE version = '20260827160000';
    ```
 
-   Confirm `has_table_privilege('anon', 'reservations', 'INSERT')` is true and
-   `has_table_privilege('anon', 'reservations', 'SELECT')` is false. Confirm
-   the same INSERT/SELECT split for `authenticated`. Confirm
+   Confirm `has_table_privilege('anon', 'reservations', 'INSERT')` is false and
+   the same for `authenticated` (column-only guest GRANT). Confirm
+   `has_column_privilege` INSERT is true only for `guest_name`, `party_size`,
+   `date`, `time`, `phone`, `email`, `notes`, `conf_code`; false for `id`,
+   `status`, `table_label`, `created_at`, `completed_at` and for `PUBLIC` on
+   every `reservations` column. Confirm
+   `has_table_privilege('anon', 'reservations', 'SELECT')` is false (same for
+   `authenticated`). Confirm
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
    `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
-   is false for both. Confirm policy `"Allow public read reservations"` is gone.
+   is false for both. Confirm policy `"Allow public read reservations"` is gone
+   and no authenticated `FOR ALL` policy remains on those catalog tables.
 
 ### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote
 
@@ -350,18 +380,22 @@ try to replay history the remote has diverged from.
 
 ### Apply `20260828121224_table_fit_availability.sql` on an already-baselined remote
 
+**UAT freshness:** 2026-09-10 — re-run this latest function-defining forward on
+`tilcqrudqxznnpepxjqq` even when `20260828121224` is already recorded
+(RES-TRIGGER-EXEC-LINKED). Do not `db push` or reset forked history.
+
 For remotes that already recorded occupancy (`schema_migrations` has
 `20260827180000`), apply this last-writer `CREATE OR REPLACE` of
 `validate_reservation_availability` (table-fit after cover-count + date-scoped
-`pg_advisory_xact_lock`; do not `db push`). Local `db reset` already applies
-this file.
+`pg_advisory_xact_lock` + immediate EXECUTE revokes). Local `db reset` already
+applies this file.
 
 Do not use `db push` or `db reset --linked` for this — a full push/reset would
 try to replay history the remote has diverged from.
 
 1. Run the contents of `supabase/migrations/20260828121224_table_fit_availability.sql`
    against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
-   (single file, one call).
+   (single file, one call), even if the history row already exists.
 2. If `supabase_migrations.schema_migrations` has no row for this version yet,
    record it:
 
@@ -383,6 +417,10 @@ try to replay history the remote has diverged from.
 
    Confirm `validate_reservation_availability` table-fits after cover-count and
    takes `pg_advisory_xact_lock(305, days-since-epoch)`.
+   Confirm `has_function_privilege('anon', 'public.validate_reservation_availability()', 'EXECUTE')`
+   and `has_function_privilege('authenticated', 'public.validate_reservation_availability()', 'EXECUTE')`
+   are false; `enforce_booking_rules` remains enabled; Security Advisor EXECUTE
+   warning is absent.
 
 ### Apply `20260902214500_restaurant_settings_privilege.sql` on an already-baselined remote
 
@@ -437,6 +475,13 @@ npx supabase db reset --local
 ```powershell
 npx supabase db reset --linked --yes
 ```
+
+**UAT freshness:** 2026-09-10 — RES42-M1 (operator-owned). Because the
+platform is pre-production, sibling privilege lock (SIB-PRIV / RES-PRIV /
+menu AC-2 / AC-5 / FP-1 / FP-8 / FP-14) is not a dated compatibility
+migration. After this linked reset (or a full local reset), assert live
+`pg_policies` plus `has_table_privilege` / `has_sequence_privilege` for
+every sibling role. Role-matrix smoke is operator-owned, not CI.
 
 Schema-only (skip seed): append `--no-seed` to either command.
 

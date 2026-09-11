@@ -1,6 +1,5 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
@@ -58,7 +57,7 @@ const CHEFS_PICKS_LIMIT_ERROR =
   "You can pin up to 5 dishes as chef's picks — unpin one first."
 
 async function wouldExceedChefsPicksLimit(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createServiceClient>,
   itemId?: string,
 ): Promise<boolean> {
   let query = supabase
@@ -163,7 +162,7 @@ export async function getAllMenuItems(): Promise<MenuItemRow[]> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data, error } = await supabase
     .from("menu_items")
     .select("*")
@@ -186,7 +185,7 @@ export async function upsertMenuItem(
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "Unauthorized." }
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   if (item.popular) {
     const { data: existing } = await supabase
       .from("menu_items")
@@ -222,7 +221,7 @@ export async function createMenuItem(
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "Unauthorized." }
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   if (item.popular && (await wouldExceedChefsPicksLimit(supabase))) {
     return { error: CHEFS_PICKS_LIMIT_ERROR }
   }
@@ -247,7 +246,7 @@ export async function deleteMenuItem(id: string): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "Unauthorized." }
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { error } = await supabase.from("menu_items").delete().eq("id", id)
   if (error) {
     console.error("[menu] deleteMenuItem error:", error.message)
@@ -266,7 +265,7 @@ export async function toggleMenuItemAvailability(
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "Unauthorized." }
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { error } = await supabase
     .from("menu_items")
     .update({ available })

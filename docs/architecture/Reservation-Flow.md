@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-09
+**Last updated:** 2026-09-11
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-14 for the segmented homepage widget, occupancy window,
@@ -26,7 +26,8 @@ flowchart LR
 `restaurant_settings.slot_interval_minutes` from `/admin/floor`, clamps via
 `clampSlotIntervalMinutes`, and passes the step into `bookableTimesForDay`.
 `groupBookableSlots` assigns each time to one segment (BW-1), attaches optional
-`guest_note`, and renders until-badges via
+`guest_note` (inherits scheduling §13 OH-NOTE-SAVE; the widget does not
+truncate), and renders until-badges via
 `slotUntilTime(time, occupancyDurationMinutes)` (occupancy duration from
 `getGuestOccupancyDurationMinutes`, default 90; wraps past midnight; no
 safety buffer). Guests/date/time are exclusive accordions; Réserver advances
@@ -35,7 +36,11 @@ Step 2 requires guest name and a valid email; phone is optional (BW-7 / BW-13).
 After INSERT succeeds, `createReservation` calls `sendBookingConfirmation` from
 the in-memory payload (no `.select()` of the inserted row). A throwing mailer
 is caught; `conf_code` is still returned (AC-4 / BW-14). Live provider stays
-manual-UAT.
+manual-UAT. `conf_code` uniqueness is database-enforced:
+`CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`
+immediately after the `reservations` table create in
+`supabase/migrations/00000000000000_baseline.sql`. Guest INSERT still includes
+`conf_code`; `createReservation` 23505 retry is unchanged.
 
 **Occupancy window.** `confirmed` and `seated` occupy covers on
 `[start, nextBookableTime(start))` (occupancy + staff-manageable buffer,
@@ -51,6 +56,14 @@ byte-identical in baseline, `20260818162000_operating_hour_segments.sql`,
 `20260828121224_table_fit_availability.sql`. Guest INSERT does not write
 `table_label`. `completed` / `cancelled` / `no_show` do not occupy (BW-10).
 Criteria: [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-12.
+
+**Blocked-date reads.** `isDateBlocked`, `getBlockedDatesInMonth`, and
+`getBlockedDatesInRange` in `app/actions/availability.ts` query `blocked_dates`
+on the anon client. A non-null SELECT `error` is logged server-side and thrown as
+`Error("Could not load blocked dates.")` — they do not resolve `false` or `[]`.
+Successful empty/null data is unchanged (`isDateBlocked` is `false` with no row;
+list readers return `[]` only then). Caller recovery UI is out of scope.
+Criterion: [../specs/booking-rules.md](../specs/booking-rules.md) BD-READ-FAIL.
 
 **Post-visit review email.** `transitionReservationStatus` to `completed`
 stamps `completed_at` and inserts `review_email_sends` (both in baseline;

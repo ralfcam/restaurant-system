@@ -224,17 +224,21 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated;
+
 -- Atomic replace of the full weekly opening-hour schedule (staff / service role).
 -- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
 CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
 RETURNS void
 LANGUAGE plpgsql
+SET search_path = ''
 AS $$
 BEGIN
   -- WHERE TRUE satisfies hosted safe-delete (error 21000 without a predicate).
-  DELETE FROM operating_windows WHERE TRUE;
+  DELETE FROM public.operating_windows WHERE TRUE;
 
-  INSERT INTO operating_windows (
+  INSERT INTO public.operating_windows (
     day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
   )
   SELECT

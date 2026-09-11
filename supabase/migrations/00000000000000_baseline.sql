@@ -60,12 +60,9 @@ CREATE POLICY "Allow public read blocked_dates"
   USING (true);
 
 DROP POLICY IF EXISTS "Allow public read access" ON blocked_dates;
+-- RES-42 / REAZED-308: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to blocked_dates" ON blocked_dates;
-CREATE POLICY "Allow authenticated full access to blocked_dates"
-  ON blocked_dates FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access" ON blocked_dates;
 DROP POLICY IF EXISTS "Allow service_role full access to blocked_dates" ON blocked_dates;
@@ -76,11 +73,9 @@ CREATE POLICY "Allow service_role full access to blocked_dates"
   WITH CHECK (true);
 
 -- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
-GRANT ALL ON TABLE blocked_dates TO service_role;
--- REAZED-308: PUBLIC-READ-PRIV — GRANT SELECT / REVOKE INSERT, UPDATE, DELETE
--- for anon, authenticated.
+REVOKE ALL ON TABLE blocked_dates FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE blocked_dates TO anon, authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE blocked_dates FROM anon, authenticated;
+GRANT ALL ON TABLE blocked_dates TO service_role;
 
 -- ── reservations ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS reservations (
@@ -102,6 +97,8 @@ CREATE TABLE IF NOT EXISTS reservations (
   completed_at TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code);
+
 -- PV-9: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations without
 -- email; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
@@ -117,16 +114,13 @@ CREATE POLICY "Allow public insert reservations"
   TO public
   WITH CHECK (true);
 
--- REAZED-308: RES-PRIV — drop public SELECT (keep DROP IF EXISTS; do not CREATE);
--- GRANT INSERT / REVOKE SELECT, UPDATE, DELETE for anon, authenticated.
+-- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
+-- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
+-- id, status, table_label, created_at, completed_at have no guest INSERT privilege.
+-- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 
 DROP POLICY IF EXISTS "Allow authenticated full access to reservations" ON reservations;
-CREATE POLICY "Allow authenticated full access to reservations"
-  ON reservations FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to reservations" ON reservations;
 CREATE POLICY "Allow service_role full access to reservations"
@@ -136,9 +130,9 @@ CREATE POLICY "Allow service_role full access to reservations"
   WITH CHECK (true);
 
 -- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE reservations FROM PUBLIC, anon, authenticated;
+GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code) ON TABLE reservations TO anon, authenticated;
 GRANT ALL ON TABLE reservations TO service_role;
-GRANT INSERT ON TABLE reservations TO anon, authenticated;
-REVOKE SELECT, UPDATE, DELETE ON TABLE reservations FROM anon, authenticated;
 
 -- ── review_email_sends (PV-6 claim row) ──────────────────────────────────────
 -- RES-45 / PV-12: one queue row per reservation; service_role only (no public policies).
@@ -190,12 +184,9 @@ CREATE POLICY "Allow public read menu_items"
   TO public
   USING (true);
 
+-- RES-42 / REAZED-308: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to menu_items" ON menu_items;
-CREATE POLICY "Allow authenticated full access to menu_items"
-  ON menu_items FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to menu_items" ON menu_items;
 CREATE POLICY "Allow service_role full access to menu_items"
@@ -205,11 +196,9 @@ CREATE POLICY "Allow service_role full access to menu_items"
   WITH CHECK (true);
 
 -- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
-GRANT ALL ON TABLE menu_items TO service_role;
--- REAZED-308: PUBLIC-READ-PRIV — GRANT SELECT / REVOKE INSERT, UPDATE, DELETE
--- for anon, authenticated on menu_items.
+REVOKE ALL ON TABLE menu_items FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menu_items TO anon, authenticated;
-REVOKE INSERT, UPDATE, DELETE ON TABLE menu_items FROM anon, authenticated;
+GRANT ALL ON TABLE menu_items TO service_role;
 
 -- ── Booking rules trigger ────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION validate_reservation_availability()
@@ -419,17 +408,21 @@ BEGIN
 END;
 $$;
 
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated;
+
 -- Atomic replace of the full weekly opening-hour schedule (staff / service role).
 -- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
 CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
 RETURNS void
 LANGUAGE plpgsql
+SET search_path = ''
 AS $$
 BEGIN
   -- WHERE TRUE satisfies hosted safe-delete (error 21000 without a predicate).
-  DELETE FROM operating_windows WHERE TRUE;
+  DELETE FROM public.operating_windows WHERE TRUE;
 
-  INSERT INTO operating_windows (
+  INSERT INTO public.operating_windows (
     day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
   )
   SELECT
@@ -487,12 +480,8 @@ END $$;
 
 ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV: tables is service_role-only (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to tables" ON tables;
-CREATE POLICY "Allow authenticated full access to tables"
-  ON tables FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to tables" ON tables;
 CREATE POLICY "Allow service_role full access to tables"
@@ -501,7 +490,8 @@ CREATE POLICY "Allow service_role full access to tables"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE tables TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE tables FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE tables TO service_role;
 
 -- ── servers (POS picker inventory) ───────────────────────────────────────────
@@ -515,12 +505,8 @@ CREATE TABLE IF NOT EXISTS servers (
 
 ALTER TABLE servers ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV: servers is service_role-only (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to servers" ON servers;
-CREATE POLICY "Allow authenticated full access to servers"
-  ON servers FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to servers" ON servers;
 CREATE POLICY "Allow service_role full access to servers"
@@ -529,7 +515,8 @@ CREATE POLICY "Allow service_role full access to servers"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE servers TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE servers FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE servers TO service_role;
 
 -- FP-8: temporary table arrangements (combined seat capacity + expected time).
@@ -556,24 +543,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS table_merge_members_table_id_uidx
 ALTER TABLE table_merges ENABLE ROW LEVEL SECURITY;
 ALTER TABLE table_merge_members ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV: table merges are service_role-only (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to table_merges" ON table_merges;
-CREATE POLICY "Allow authenticated full access to table_merges"
-  ON table_merges FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow authenticated full access to table_merge_members" ON table_merge_members;
 
 DROP POLICY IF EXISTS "Allow service_role full access to table_merges" ON table_merges;
 CREATE POLICY "Allow service_role full access to table_merges"
   ON table_merges FOR ALL
   TO service_role
-  USING (true)
-  WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow authenticated full access to table_merge_members" ON table_merge_members;
-CREATE POLICY "Allow authenticated full access to table_merge_members"
-  ON table_merge_members FOR ALL
-  TO authenticated
   USING (true)
   WITH CHECK (true);
 
@@ -584,9 +561,10 @@ CREATE POLICY "Allow service_role full access to table_merge_members"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE table_merges TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE table_merges FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE table_merges TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE table_merge_members TO authenticated;
+REVOKE ALL ON TABLE table_merge_members FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE table_merge_members TO service_role;
 
 -- ── status_events (assignment / transition audit) ────────────────────────────
@@ -613,12 +591,8 @@ END $$;
 
 ALTER TABLE status_events ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV: status_events is service_role-only (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to status_events" ON status_events;
-CREATE POLICY "Allow authenticated full access to status_events"
-  ON status_events FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to status_events" ON status_events;
 CREATE POLICY "Allow service_role full access to status_events"
@@ -627,7 +601,8 @@ CREATE POLICY "Allow service_role full access to status_events"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE status_events TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE status_events FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE status_events TO service_role;
 
 -- ── orders / order_items (POS/KDS send-to-kitchen) ────────────────────────────
@@ -663,24 +638,14 @@ CREATE TABLE IF NOT EXISTS order_items (
 ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV / menu AC-5: orders and order_items are service_role-only.
 DROP POLICY IF EXISTS "Allow authenticated full access to orders" ON orders;
-CREATE POLICY "Allow authenticated full access to orders"
-  ON orders FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
+DROP POLICY IF EXISTS "Allow authenticated full access to order_items" ON order_items;
 
 DROP POLICY IF EXISTS "Allow service_role full access to orders" ON orders;
 CREATE POLICY "Allow service_role full access to orders"
   ON orders FOR ALL
   TO service_role
-  USING (true)
-  WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow authenticated full access to order_items" ON order_items;
-CREATE POLICY "Allow authenticated full access to order_items"
-  ON order_items FOR ALL
-  TO authenticated
   USING (true)
   WITH CHECK (true);
 
@@ -691,13 +656,15 @@ CREATE POLICY "Allow service_role full access to order_items"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE orders TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE orders FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE orders TO service_role;
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE order_items TO authenticated;
+REVOKE ALL ON TABLE order_items FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE order_items TO service_role;
--- BIGSERIAL nextval is not covered by table grants; match authenticated/service_role.
-GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq TO authenticated;
-GRANT ALL ON SEQUENCE orders_order_number_seq TO service_role;
+-- RES-42 / menu AC-5: BIGSERIAL nextval needs USAGE; SELECT is currval.
+-- REVOKE ALL (including service_role) then GRANT USAGE, SELECT only.
+REVOKE ALL ON SEQUENCE orders_order_number_seq FROM PUBLIC, anon, authenticated, service_role;
+GRANT USAGE, SELECT ON SEQUENCE orders_order_number_seq TO service_role;
 
 DO $$
 BEGIN

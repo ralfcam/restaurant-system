@@ -470,3 +470,45 @@ REGISTER: 0 filed · 2 attached · 2 left on ledger (below floor). Already-track
 - [x] Three independent `restaurant_settings` upsert helpers · `app/actions/branding.ts:353` / `app/actions/restaurant-info.ts:56` / `app/actions/menu.ts:145` · each upserts `{ id: 1, …, updated_at }` via service role; no shared writer · med · (found: tdd/reazed-296_chefs_picks_service/C296-1/green) → REAZED-296 (attached; this run skipped duplicate)
 - [x] `authenticated` FOR ALL `USING (true)` on `orders`/`order_items` · `supabase/migrations/00000000000000_baseline.sql:640-659` · Matches AC-5/`tables` convention, but any authenticated Data API client can mutate tickets; staff gate is only in `requireStaffUser` on server actions · med · (found: tdd/reazed-311-312_pos-catalog-persistence_7c3f9a1d/312-C1/refactor) → REAZED-299 (attached)
 - [x] `package.json` `pnpm.overrides` ignored by pnpm 11 · `package.json` `pnpm.overrides` · `"pnpm" field in package.json is no longer read` warning on every `pnpm test:unit` · low · (found: tdd/reazed-298_settings_priv_1059/C298-1/red) → resolved 2026-09-08: override lives in `pnpm-workspace.yaml`; `packageManager` is `pnpm@12.3.4`
+- [x] Marketing review-email-schema integ has no local-host isolation pin · `tests/integration/marketing/review-email-schema.integ.test.ts` · same class as RES-39 · high · (found: tdd/res-39_pin_reservation_integ_local_a7c3e1f2/plan/triage) → resolved in-run tdd/res_iso_followup_pins_b8e4c2a1/C2 (PV-ISO)
+- [x] POS orders-persistence integ has no local-host isolation pin · `tests/integration/pos/orders-persistence.integ.test.ts` · same class as RES-39 · high · (found: tdd/res-39_pin_reservation_integ_local_a7c3e1f2/plan/triage) → resolved in-run tdd/res_iso_followup_pins_b8e4c2a1/C3 (ORD-ISO)
+- [x] Scan accepts an explicit local URL · `tests/unit/reservations/reservation-integ-isolation.test.ts` · `isHelperCall` did not require zero args · high · (found: tdd/res-39_pin_reservation_integ_local_a7c3e1f2/C1/refactor) → resolved in-run tdd/res_iso_followup_pins_b8e4c2a1/C1
+- [x] Catalog AST recipe still callee-name-only / omits `beforeEach` · `docs/testing/Design-And-Patterns.md` · docs-updater refreshed zero-arg + spec-named WRITE_HOOKS · low · (found: tdd/res_iso_followup_pins_b8e4c2a1/C1/red) → resolved in-run docs-updater
+
+## res-42_sibling_privilege_lock_6f2a8c1d close-out 2026-09-10
+
+REGISTER: 0 filed · 2 attached · 23 left on ledger (20 below floor + 3 operator confirmation for net-new). Cap 3 unused. Unattended close-out did not create net-new Linear issues.
+
+### Filed / attached
+
+- [x] `createServiceClient` module has no `server-only` · `lib/supabase/service.ts:1-21` · service_role client is only safe if this file never enters a client bundle; `"use server"` on callers is not the same as a module fence · med · (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C1/refactor) → REAZED-322 (attached)
+- [x] `restaurant_settings` still has authenticated `FOR ALL` · `tests/unit/branding/schema.test.ts` pins drop/recreate of that policy; table is outside RES-42’s sibling list · a JWT Data API client can still mutate settings if grants allow it · med · (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C7/red) → REAZED-298 (attached)
+- [x] Full integration collect fails on `server-only` · `tests/integration/reservations/{atomic-booking,occupancy-window,table-fit}.integ.test.ts` via `lib/marketing/booking-confirmation.ts:1` · Not a 312-C2 regression; those files import the confirmation path and Vitest does not alias `server-only`, so the whole integration folder cannot be claimed green · med · (found: tdd/reazed-311-312_pos-catalog-persistence_7c3f9a1d/312-C2/refactor) (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C5/refactor) → resolved 2026-09-10 by RES-37 (`tests/integration/setup.ts` `vi.mock("server-only")`)
+
+## guest-reservation-insert-privileges_587ea4c9 close-out 2026-09-10
+
+REGISTER: 0 filed · 0 attached · 2 left on ledger (security `conf_code` UNIQUE is above floor — Linear filing gated on operator confirmation; test-debt `id`/`created_at` assert is `med`, below non-security floor). Cap 3 unused. No tracked Linear issue. Unrelated standing backlog not swept.
+
+### Resolved in-run
+
+- [x] Public INSERT RLS is unconstrained · `supabase/migrations/00000000000000_baseline.sql:114-115` reservations INSERT policy · `TO public` / `WITH CHECK (true)` plus table-wide `GRANT INSERT` lets a Data API client set `status` / `table_label` / `completed_at` unless the booking trigger rejects them · med · (found: tdd/res-45_review_email_schema_cron_7f3a91c2/C3/refactor) (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C3/green) → resolved 2026-09-10 plan `guest-reservation-insert-privileges_587ea4c9`: guest INSERT is `GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`; hostile insert regression shipped; public INSERT RLS policy preserved
+
+## res_47_grant_hardening_a330bfed close-out 2026-09-10
+
+REGISTER: 0 filed · 0 attached · 5 left on ledger (Linear MCP BLOCKED). Cap 3 unused. Source RES-47. Unrelated standing backlog not swept. Below-floor (4) and above-floor DEFINER-in-`public` (security med, awaiting operator yes) stay on `docs/findings/{security,tech-debt,test-debt}.md` — not archived.
+
+## eslint_timeout_hardening_f994f816 close-out 2026-09-10
+
+REGISTER: 0 filed · 0 attached · 2 left on ledger (below floor). Cap 3 unused. No tracked Linear issue. Unrelated standing backlog not swept.
+
+### Resolved in-run
+
+- [x] FIX-mode broader unit timeout · `tests/unit/dev-toolchain/lint-toolchain.test.ts:35` · 5s timeout spinning ESLint over gitignored supabase temp trees; `pnpm lint` itself passed; isolated re-run also timed out after C1 · med · (seen: /triage 2026-09-02) (found: tdd/seed_users_email_f5f7f0e6.plan.md/C2/refactor) (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C1/refactor) → resolved 2026-09-10 plan `eslint_timeout_hardening_f994f816` (G-L1 C4: `vitest.unit.config.ts` `test.testTimeout: 15_000`)
+
+## reservation-code-uniqueness_c4d50986 close-out 2026-09-11
+
+REGISTER: 0 filed · 0 attached · 1 left on ledger (this run's test-debt `createReservation` 23505 retry coverage is med, below high-only floor). Cap 3 unused. No tracked Linear issue. Standing backlog not swept. Hostile-test lookup-by-conf_code left on `test-debt.md` (database uniqueness does not resolve a random-code collision with a pre-existing row).
+
+### Resolved in-run
+
+- [x] `conf_code` is guest-insertable and has no UNIQUE constraint · `supabase/migrations/00000000000000_baseline.sql:81-98` (`conf_code TEXT NOT NULL`, no UNIQUE) · AC-5 puts `conf_code` on the guest INSERT allowlist; two guests can persist the same code and confirmation lookup is then ambiguous · high · (found: tdd/guest-reservation-insert-privileges_587ea4c9/RES-PRIV-COLS/green) (in-scope: tdd/reservation-code-uniqueness_c4d50986) → resolved 2026-09-11 plan `reservation-code-uniqueness_c4d50986`: `CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)` in baseline; regression `confirmation-code-uniqueness.integ.test.ts`

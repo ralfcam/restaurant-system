@@ -13,8 +13,11 @@ export async function proxy(request: NextRequest) {
 
   const intlResponse = await runIntlMiddleware(request)
 
-  for (const { name, value } of sessionResponse.cookies?.getAll() ?? []) {
-    intlResponse.cookies.set(name, value)
+  // getAll() flattens flags onto each cookie; rest-spread is the options bag
+  // (setAll() in lib/supabase/proxy.ts nests them as `options` instead).
+  const sessionCookies = sessionResponse.cookies?.getAll() ?? []
+  for (const { name, value, ...options } of sessionCookies) {
+    intlResponse.cookies.set(name, value, options)
   }
 
   return intlResponse

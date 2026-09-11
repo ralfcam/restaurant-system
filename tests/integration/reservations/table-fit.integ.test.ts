@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { authEnvReady } from "../helpers/env"
 import { createServiceClient } from "@/lib/supabase/service"
+import { assertIsolatedHoursMutationTarget } from "@/lib/scheduling/hours-mutation-target"
 import { createReservation } from "@/app/actions/reservations"
 
 // createReservation calls revalidatePath on success, which requires a
@@ -27,6 +28,7 @@ describe.skipIf(!authEnvReady)(
   "validate_reservation_availability — table-fit (BW-12)",
   () => {
     beforeAll(async () => {
+      assertIsolatedHoursMutationTarget()
       const supabase = createServiceClient()
       const { data } = await supabase.from("tables").select("seats")
       const seats = (data ?? []).map((row) => row.seats as number)
@@ -38,6 +40,7 @@ describe.skipIf(!authEnvReady)(
     })
 
     afterEach(async () => {
+      assertIsolatedHoursMutationTarget()
       await cleanupTestDate()
     })
 

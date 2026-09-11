@@ -123,6 +123,22 @@ DELETE CASCADE` and `sent_at TIMESTAMPTZ` nullable default null. RLS
     route (PV-14 stays the worker). Delay `0` sends on the next hourly
     tick.
 
+16. **PV-ISO — Mutating review-email integration is local-only.** Mutating
+    automated coverage under `tests/integration/marketing/*.integ.test.ts`
+    (settings upsert/restore, `review_email_sends` / `reservations`
+    inserts and cleanup) MUST run only against **local** Supabase
+    (`NEXT_PUBLIC_SUPABASE_URL` host `127.0.0.1`, `localhost`, or `[::1]`).
+    It MUST fail closed — not skip — when the URL is the shared linked
+    project `tilcqrudqxznnpepxjqq` (or any other non-local host). Use
+    `authEnvReady` / `RESTAURANT_INTEGRATION_STRICT` **plus**
+    `assertIsolatedHoursMutationTarget()` from
+    `lib/scheduling/hours-mutation-target.ts` (same helper as
+    booking-rules RES-ISO / scheduling.md §15). Call it as the **first
+    statement** of every write hook that exists (`beforeAll`,
+    `beforeEach`, `afterEach`, `afterAll`). The call MUST be
+    zero-argument. Do not put the guard in `createServiceClient`. A new
+    file matching that glob MUST include the same pin.
+
 ## Implementation trace (non-normative)
 
 FEATURE `post-visit_review_tdd_ac1962e1` (2026-08-30). C1–C11 shipped;
@@ -152,6 +168,7 @@ COLUMN IF NOT EXISTS`; RES-PRIV unchanged — no `GRANT SELECT`).
 | PV-13     | `reservations.completed_at` nullable timestamptz (CREATE + ALTER)                                                                                                                         | `tests/integration/marketing/review-email-schema.integ.test.ts`                                                       |
 | PV-14     | `createReviewEmailMailer()` in `lib/marketing/review-email-mailer.ts`; cron GET passes factory mailer                                                                                     | `tests/unit/marketing/review-email-cron-mailer.test.ts`                                                               |
 | PV-15     | Supabase Edge Function `review-email` + hourly `pg_cron`; no Vercel `crons`                                                                                                               | `tests/unit/marketing/review-email-cron-schedule.test.ts`                                                             |
+| PV-ISO    | `assertIsolatedHoursMutationTarget()` (zero-arg) at start of every write hook in `tests/integration/marketing/*.integ.test.ts`. Same helper as booking-rules RES-ISO.                     | `tests/unit/marketing/review-email-schema-isolation.test.ts`                                                          |
 
 ## References
 

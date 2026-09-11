@@ -24,12 +24,8 @@ ALTER TABLE tables ADD COLUMN IF NOT EXISTS expected_minutes INT NOT NULL DEFAUL
 
 ALTER TABLE tables ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV: tables is service_role-only (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to tables" ON tables;
-CREATE POLICY "Allow authenticated full access to tables"
-  ON tables FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to tables" ON tables;
 CREATE POLICY "Allow service_role full access to tables"
@@ -38,7 +34,8 @@ CREATE POLICY "Allow service_role full access to tables"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE tables TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE tables FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE tables TO service_role;
 
 CREATE TABLE IF NOT EXISTS status_events (
@@ -62,12 +59,8 @@ END $$;
 
 ALTER TABLE status_events ENABLE ROW LEVEL SECURITY;
 
+-- RES-42 / SIB-PRIV: status_events is service_role-only (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to status_events" ON status_events;
-CREATE POLICY "Allow authenticated full access to status_events"
-  ON status_events FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Allow service_role full access to status_events" ON status_events;
 CREATE POLICY "Allow service_role full access to status_events"
@@ -76,7 +69,8 @@ CREATE POLICY "Allow service_role full access to status_events"
   USING (true)
   WITH CHECK (true);
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE status_events TO authenticated;
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE status_events FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE status_events TO service_role;
 
 DO $$
