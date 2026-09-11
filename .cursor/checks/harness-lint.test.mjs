@@ -14,6 +14,8 @@ import {
   CLARIFY_STATE_UNCHANGED_RELS,
   DESIGN_WRITE_WHITELIST_FORBIDDEN,
   DESIGN_WRITE_WHITELIST_NEEDLES,
+  DISPATCH_PORTFOLIO_NEEDLES,
+  DISPATCH_REGRESSION_PATTERNS,
   GROOM_ARTIFACT_NEEDLES,
   GROOM_STALE_NEEDLES,
   RUN_FILE_LIFECYCLE_NEEDLES,
@@ -22,10 +24,16 @@ import {
   detectClarifyOnlyCaptureViolations,
   detectClarifyStateWordingViolations,
   detectDesignWriteWhitelistViolations,
+  detectDispatchPortfolioViolations,
   detectGroomArtifactViolations,
   detectGroomStaleGuardViolations,
   detectRunFileLifecycleViolations,
 } from "./harness-lint.mjs"
+import {
+  DAILY_QUEUE_MAXIMUM,
+  DAILY_QUEUE_MINIMUM,
+  calculateDailyQueueCapacity,
+} from "../hooks/lib/dispatch-capacity-policy.mjs"
 import { runPnpm } from "./run-pnpm.mjs"
 
 const ROOT = process.cwd()
@@ -128,22 +136,67 @@ test("routing scope fixtures cover every normalized invocation edge", () => {
       "multiline Markdown issue list preserves ordered first occurrences",
       "duplicates malformed and mixed-team entries fail closed",
       "project plus list is an intersection boundary",
-      "dispatch list larger than lane capacity remains bounded",
+      "dispatch explicit list receives full portfolio outcomes",
+      "daily activation counts current-cycle Todo toward maximum",
+      "repeated daily activation at maximum promotes nothing",
       "targeted audit derives scope from listed issue hubs",
       "decorated overview URL resolves by exact slug then versionKey",
     ],
   )
   assert.deepEqual(fixtures[1].expectedIssueIds, ["RES-42", "RES-7"])
   assert.deepEqual(fixtures[2].expectedRejected, ["OPS-9", "RES-nope"])
-  assert.equal(fixtures[4].expectedMaximumSelected, 4)
-  assert.match(fixtures[5].expectedBehavior, /omitted specs are out of scope/)
+  assert.deepEqual(
+    fixtures[4].expectedPortfolioOutcomeIds,
+    fixtures[4].expectedIssueIds,
+  )
+  assert.deepEqual(
+    fixtures[4].expectedMetadataScopeIds,
+    fixtures[4].expectedIssueIds,
+  )
+  assert.deepEqual(fixtures[4].expectedNonWaveIds, ["RES-3", "RES-4", "RES-5"])
+  assert.equal(fixtures[4].expectedNonWaveState, "Backlog")
+  assert.equal(fixtures[4].expectedNonWaveCycle, null)
+  const portfolioCapacity = calculateDailyQueueCapacity(
+    fixtures[4].existingActiveCount,
+    fixtures[4].eligibleReadyIds.length,
+  )
   assert.equal(
-    fixtures[6].expectedProjectSlug,
+    portfolioCapacity.activationCount,
+    fixtures[4].expectedActivationSlots,
+  )
+  assert.deepEqual(
+    fixtures[4].expectedActivationIds,
+    fixtures[4].eligibleReadyIds.slice(0, fixtures[4].expectedActivationSlots),
+  )
+  assert.match(fixtures[4].expectedCloudBehavior, /optional advice only/)
+  assert.match(fixtures[4].expectedCardGate, /post-apply/)
+
+  const capacity = calculateDailyQueueCapacity(
+    fixtures[5].existingActiveCount,
+    fixtures[5].eligibleReadyCount,
+  )
+  assert.equal(DAILY_QUEUE_MINIMUM, fixtures[5].expectedMinimum)
+  assert.equal(DAILY_QUEUE_MAXIMUM, fixtures[5].expectedMaximum)
+  assert.equal(capacity.activationCount, fixtures[5].expectedActivationSlots)
+  assert.equal(
+    capacity.projectedActiveCount,
+    fixtures[5].expectedProjectedActiveCount,
+  )
+
+  const repeated = calculateDailyQueueCapacity(
+    fixtures[6].existingActiveCount,
+    fixtures[6].eligibleReadyCount,
+  )
+  assert.equal(repeated.activationCount, 0)
+  assert.equal(repeated.projectedActiveCount, 10)
+  assert.match(fixtures[7].expectedBehavior, /omitted specs are out of scope/)
+  assert.equal(
+    fixtures[8].expectedProjectSlug,
     "restaurant-system-v-02-features-enhancing-4b49445c1129",
   )
-  assert.equal(fixtures[6].expectedVersionKey, "V-0.2")
+  assert.equal(fixtures[8].expectedVersionKey, "V-0.2")
   assert.equal(
-    fixtures[6].expectedDisplayName,
+    fixtures[8].expectedDisplayName,
     "restaurant-system V-0.2 (Features Enhancing)",
   )
 })
@@ -215,7 +268,7 @@ test("dispatch.md pins includeRelations and verified-negative", () => {
   assert.ok(dispatch.includes("cannot verify` is for tool/MCP failure"))
 })
 
-test("PM harness assigns intake to triage and bounded scheduling to dispatch", () => {
+test("PM harness assigns intake to triage and split portfolio/daily scopes to dispatch", () => {
   const triage = readFileSync(
     join(ROOT, ".cursor", "commands", "triage.md"),
     "utf8",
@@ -225,7 +278,7 @@ test("PM harness assigns intake to triage and bounded scheduling to dispatch", (
   assert.ok(triage.includes("Ordinary accepted work"))
   assert.ok(triage.includes("Urgent fast lane"))
   assert.ok(
-    /ordinary intake\s+leaves scheduling metadata for `\/dispatch`/.test(
+    /ordinary intake\s+leaves portfolio metadata and daily-wave activation for `\/dispatch`/.test(
       triage,
     ),
   )
@@ -238,12 +291,15 @@ test("PM harness assigns intake to triage and bounded scheduling to dispatch", (
     "utf8",
   )
   for (const needle of [
-    "schedule-selected",
-    "emit-post-apply-card",
-    "one local",
-    "three background",
+    "groom-portfolio",
+    "activate-daily-wave",
+    "emit-daily-plan",
+    "Every scoped Backlog issue",
+    "existing daily queue",
+    "preferred minimum total active = **5**",
+    "hard maximum total active = **10**",
     "Backlog → Todo",
-    "one explicit GROOM batch",
+    "Cloud parallelization recommendations",
     "post-apply re-read",
   ]) {
     assert.ok(dispatch.includes(needle), `dispatch must contain ${needle}`)
@@ -302,8 +358,12 @@ test("doctrine mirrors the intake and scheduling flow", () => {
   assert.ok(findings.includes("docs/findings + Linear Triage"))
   assert.ok(findings.includes("A `blocked-by` relation"))
   assert.ok(staging.includes("post-apply re-read must confirm"))
-  assert.match(staging, /Backlog\s+may be considered during planning/)
+  assert.ok(staging.includes("full approved"))
+  assert.ok(staging.includes("Backlog scope"))
+  assert.ok(staging.includes("hard maximum is 10"))
+  assert.ok(staging.includes("recommendation evidence only"))
   assert.ok(automation.includes("narrowly shared by `/triage` and `/dispatch`"))
+  assert.ok(automation.includes("promotes a non-wave issue"))
   assert.match(automation, /Project health is not an\s+issue workflow state/)
 })
 
@@ -542,6 +602,58 @@ test("GROOM artifact contracts pass live files and fail without relation or comm
       text,
       needles,
       detectGroomArtifactViolations,
+    )
+  }
+})
+
+test("dispatch portfolio mirrors pass live files and fail each missing clause", () => {
+  for (const [rel, needles] of Object.entries(DISPATCH_PORTFOLIO_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertMissingClauseNegatives(
+      rel,
+      text,
+      needles,
+      detectDispatchPortfolioViolations,
+    )
+  }
+})
+
+test("dispatch negative controls reject legacy cap, non-wave promotion, Cloud spawn, and premature cards", () => {
+  const rel = ".cursor/commands/dispatch.md"
+  const text = readFileSync(join(ROOT, rel), "utf8")
+  assert.deepEqual(detectDispatchPortfolioViolations(rel, text), [])
+
+  const controls = [
+    {
+      id: "legacy-four-item-cap",
+      text: "The combined selected set is therefore at most four issues.",
+    },
+    {
+      id: "non-wave-promotion",
+      text: "After grooming, promote non-wave issues.",
+    },
+    {
+      id: "cloud-spawn-authorization",
+      text: "Cloud recommendation authorizes agent spawn.",
+    },
+    {
+      id: "pre-confirmation-card",
+      text: "Emit cards before Todo/current-cycle confirmation.",
+    },
+  ]
+
+  assert.deepEqual(
+    DISPATCH_REGRESSION_PATTERNS.map(({ id }) => id),
+    controls.map(({ id }) => id),
+  )
+  for (const control of controls) {
+    const violations = detectDispatchPortfolioViolations(
+      rel,
+      `${text}\n${control.text}\n`,
+    )
+    assert.ok(
+      violations.some((violation) => violation.includes(control.id)),
+      `expected ${control.id} violation, got ${violations.join(" | ")}`,
     )
   }
 })

@@ -1,5 +1,5 @@
 ---
-description: Ground truth for Linear↔GitHub execution status, Triage→Backlog intake, bounded dispatch scheduling, audit project-health visibility, and the no-agent In Progress/In Review/Done doctrine. Referenced by /commit, /push, /sdd-to-tdd, /triage, /dispatch, /audit, and linear-resolver.
+description: Ground truth for Linear↔GitHub execution status, Triage→Backlog intake, dispatch portfolio grooming/daily activation, audit project-health visibility, and the no-agent In Progress/In Review/Done doctrine.
 alwaysApply: false
 ---
 
@@ -15,8 +15,10 @@ Issue intake/scheduling is a separate path:
 Linear Triage is a special inbox, not a workflow-status preset. `/triage`
 accepts ordinary work into unscheduled Backlog and uses Todo/current cycle
 only for ledger Blocker → Linear Urgent or explicitly Urgent intake.
-`/dispatch` finalizes ordinary scheduling for its operator-approved bounded
-selection and emits cards only after a Todo/current-cycle re-read.
+`/dispatch` metadata-grooms every approved scoped Backlog issue while keeping
+non-wave work in Backlog with `cycle=null`; a separate approved daily wave
+promotes only enough ready issues to keep the total active queue within 5–10.
+Cards follow a Todo/current-cycle post-apply re-read.
 
 ## Cycle
 
@@ -219,12 +221,15 @@ exception:
   Backlog with no cycle. An explicitly Urgent issue or ledger Blocker may move
   to Todo/current cycle with verified fast-lane metadata. `blocked-by` alone
   does not imply Urgent. Linked Duplicate/Canceled cleanup is allowed.
-- `/dispatch`: only the operator-approved, capacity-bounded selection may
-  receive final milestone/priority/estimate and move Backlog → Todo/current
-  cycle.
+- `/dispatch`: one exact, scope-bounded `groom-portfolio` batch may finalize
+  project/milestone/priority and a verified estimate for every approved
+  scoped Backlog ID while preserving Backlog/no-cycle. A separate
+  `activate-daily-wave` batch may move only its approved ready IDs
+  Backlog → Todo/current cycle after counting existing Todo/current-cycle
+  issues toward the hard maximum of 10.
 
-GROOM never performs a broad Backlog scheduling/backfill sweep and must never
-move workflow state of In Progress, In Review, or Done. Those statuses only
+GROOM never performs an unscoped Backlog sweep, promotes a non-wave issue, or
+moves workflow state of In Progress, In Review, or Done. Those statuses only
 change through the GitHub PR automations above.
 
 ## Intake and issue-property conventions
@@ -232,16 +237,18 @@ change through the GitHub PR automations above.
 The **filing floor, attach-over-create ladder, per-run issue cap, ledger TTL,
 milestone convention** (M1–M9 names + filing map — never invent
 `Launch-blocking`), **intake/scheduling policy** (ordinary Triage = Backlog/no
-cycle; Urgent fast lane = Todo/current; dispatch finalizes ordinary selected
-work), and **estimate crosswalk** live in
+cycle; Urgent fast lane = Todo/current; dispatch grooms the full scoped
+Backlog portfolio and activates only the approved daily wave), and **estimate
+crosswalk** live in
 `docs/findings/README.md` — the single policy `linear-resolver`, `/sdd-to-tdd`
 STEP 4C, `/triage`, and `/audit` PART 8 all cite. This file governs
 _workflow state_ (In Progress / In Review / Done via GitHub PR automations;
 and the narrow GROOM-settable intake/scheduling states above);
 `docs/findings/README.md` governs _which issues get created at all_ and the
 non-workflow properties (priority, milestone, cycle, estimate, labels) set on
-them. Update that file, not this one, if the filing policy or property
-conventions change.
+them. Dispatch's metadata-only portfolio batch and selected-only daily
+activation are separate approvals. Update that file, not this one, if the
+filing policy or property conventions change.
 
 ## Audit project health
 

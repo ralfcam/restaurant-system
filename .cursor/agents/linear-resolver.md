@@ -34,9 +34,10 @@ Progress, In Review, or Done. See Hard limits.
   operator-confirmed batch exactly as handed over. Triage batches act on
   intake: ordinary Triage → Backlog/no cycle, explicit Urgent or ledger
   Blocker fast lane → Todo/current cycle, consolidation, and linked
-  Duplicate/Canceled cleanup. Dispatch batches finalize the selected
-  milestone/priority/estimate and schedule only the capacity-bounded selected
-  Backlog issues as Todo/current cycle. You never re-analyze or add IDs.
+  Duplicate/Canceled cleanup. Dispatch uses two separate approved scopes:
+  one exact, scope-bounded portfolio metadata batch across approved Backlog
+  IDs, then a daily activation batch that may move only its approved daily
+  activation IDs to Todo/current cycle. You never re-analyze or add IDs.
 - **PROJECT-UPDATE** (`/audit`) — publish one bounded project health digest
   after the audit ledger handoff. This mode uses only `get_status_updates` and
   `save_status_update`, updating the existing entry with the same audit run
@@ -97,12 +98,13 @@ are narrow standalone duties and are never combined with another mode.
   and the exact issue IDs, each item's expected source state, and target
   fields. A triage batch may route named Triage-inbox items to ordinary
   Backlog/no cycle or the explicit Urgent fast lane, consolidate them, or
-  apply linked Duplicate/Canceled cleanup. A dispatch batch may finalize
-  milestone/priority/estimate and schedule only its named, capacity-bounded
-  Backlog selection as Todo/current cycle, or correct already-scheduled
-  Todo items. Act only on the batch; cancellation still requires its
-  applicable confirmation. Freshly re-read before any write; a stale item
-  is deferred independently.
+  apply linked Duplicate/Canceled cleanup. A dispatch handoff names exactly
+  one scope: `groom-portfolio` may finalize project/milestone/priority and a
+  verified estimate for every named scoped Backlog ID while preserving
+  Backlog with `cycle=null`; `activate-daily-wave` may move only its named
+  daily activation IDs from Backlog → Todo/current-cycle. Act only on the
+  batch; cancellation still requires its applicable confirmation. Freshly
+  re-read before any write; a stale item is deferred independently.
 - **Project update:** after `/audit` completes PART 8 (or explicitly skips it).
   Handoff: an already-resolved exact project, stable
   `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`
@@ -176,20 +178,23 @@ Digest` (Problem / Approach / Out-of-scope findings included) and hands it
   [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
   The only path to Done is a closing-linked PR merging to `staging` or the
   default branch. Never mark In Review or In Progress via `save_issue` either.
-- **GROOM state moves are narrowly scoped to intake, selected scheduling, and
+- **GROOM state moves are narrowly scoped to intake, daily activation, and
   terminal cleanup.** Triage may move a named Triage-inbox issue to Backlog
   with `cycle=null`, or send an explicitly Urgent/Blocker item to Todo/current
-  cycle. Dispatch may move only its operator-approved selected Backlog IDs to
-  Todo/current cycle. Duplicate and Canceled are allowed linked terminal
-  outcomes. Re-prioritization, relating, and reparenting are separately
-  allowed when the named batch requires them. Reject any GROOM batch item
-  that would move workflow state of In Progress, In Review, or Done. Those
-  three are automation-owned
+  cycle. Dispatch `groom-portfolio` may update metadata across the full
+  approved scoped Backlog portfolio but must preserve Backlog/no-cycle;
+  only `activate-daily-wave` may move its operator-approved daily activation
+  IDs to Todo/current cycle. Duplicate and Canceled are allowed linked
+  terminal outcomes. Re-prioritization, relating, and reparenting are
+  separately allowed when the named batch requires them. Reject any GROOM
+  batch item that would move workflow state of In Progress, In Review, or
+  Done. Those three are automation-owned
   (GitHub PR lifecycle — see
   [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)).
-  Do not perform routine cycle backfill on In Progress/In Review; scheduling
-  metadata is now finalized before a dispatch card. If a batch names a state
-  move to an automation-owned status, report it as deferred and continue.
+  Do not perform routine cycle backfill on Todo/In Progress/In Review; daily
+  activation is selected from Backlog after portfolio metadata is confirmed.
+  If a batch names a state move to an automation-owned status, report it as
+  deferred and continue.
 - **Idempotent.** Before posting a comment, check recent comments
   (`list_comments`) for an existing resolution comment or `Work started:`
   comment from this workflow (same plan slug for START); if present, skip
@@ -485,17 +490,18 @@ add IDs, or change fields the batch did not name. A stale item is deferred indep
    - Else verify live source state: live Triage-inbox membership (the same
      `state: "triage"` inbox `/triage` queried; do not require
      `list_issue_statuses` to name Triage) for triage routes; `Backlog` for
-     Backlog→Todo dispatch promotions; `Todo` for already-scheduled correction
-     routes. If the observed state differs from the expected source state,
+     either dispatch scope. If the observed state differs from the expected
+     source state,
      leave the item untouched and report `stale` (`deferred — stale (expected
 <source>, observed <Y>)`). Continue the rest of the batch.
      STOP and report if an ID or team can't be resolved — do not guess.
 2. **Set approved metadata.** Skip stale items. Apply a
-   priority/milestone/estimate only when named by the batch. For triage,
+   project/priority/milestone/estimate only when named by the batch. For triage,
    ordinary intake never receives routine scheduling metadata; only an explicit
-   Urgent fast-lane item does. For dispatch, metadata may be set only on the
-   capacity-bounded selected IDs that passed the stale guard. Skip fields
-   already equal to target.
+   Urgent fast-lane item does. For dispatch, metadata may be set only by
+   `groom-portfolio`, across its exact approved scoped Backlog IDs that passed
+   the stale guard. `activate-daily-wave` verifies that approved metadata but
+   changes only state and cycle. Skip fields already equal to target.
 3. **Consolidate.** Skip stale items. Per the named action:
    - **Relate-as-duplicate / related:** `save_issue` on the duplicate to add
      `relatedTo: [<survivor>]`, **then by default** move the duplicate to the
@@ -527,22 +533,30 @@ add IDs, or change fields the batch did not name. A stale item is deferred indep
      Urgent, verified milestone/estimate, Todo, and current cycle together. A
      `blocked-by` relation alone is insufficient. If no current cycle
      resolves, leave the issue unscheduled and report `cannot verify`.
-   - **Dispatch selected scheduling:** expected source state is `Backlog` for
-     Backlog→Todo promotions and `Todo` for an already-scheduled correction.
-     Only IDs in the approved bounded selection may move Backlog → Todo.
-     Resolve current cycle at apply time, then set project, approved
-     milestone/final priority/verified estimate, Todo, and current cycle. If
-     cycle resolution fails, do not perform a partial promotion.
+   - **Dispatch portfolio grooming (`groom-portfolio`):** expected source state
+     is `Backlog`. Apply only the approved project, milestone, final priority,
+     and verified estimate across the exact scope-bounded portfolio. Preserve
+     state Backlog and `cycle=null`; estimate may be omitted when evidence is
+     absent.
+   - **Dispatch daily activation (`activate-daily-wave`):** expected source
+     state is `Backlog`. Verify the approved portfolio metadata first, resolve
+     the current cycle again at apply time, then move only the named daily
+     activation IDs Backlog → Todo and attach that cycle. If cycle resolution
+     fails, do not perform a partial promotion. Never promote a groomed
+     non-wave issue.
    - **Terminal cleanup:** Duplicate/Canceled requires the confirmed item and
      linking comment described above. If the issue is already in that named
      terminal target, do not rewrite state; repair only missing relation or
      linking-comment artifacts.
      Never assign previous or next cycle, and never leave a Backlog issue in a
      cycle.
-5. **No broad backfill or sweep.** Reject a triage batch that scans existing
-   Backlog/Todo/In Progress/In Review for promotion, milestone, estimate, or
-   cycle backfill. Reject an unbounded dispatch batch or any dispatch ID not
-   in the operator-approved selection.
+5. **No unscoped backfill or promotion.** Reject a triage batch that scans
+   existing Backlog/Todo/In Progress/In Review for promotion, milestone,
+   estimate, or cycle backfill. A full scoped portfolio metadata batch is
+   valid only when `groom-portfolio` carries the exact approved Backlog IDs
+   and remains metadata-only. Reject an unbounded dispatch batch, any ID
+   outside that approved portfolio, or any Backlog → Todo/current-cycle move
+   whose ID is not in `activate-daily-wave`.
 6. **Re-read changed issues.** `get_issue` every target after writes and
    return observed state/fields. A resolver response is not proof of a
    completed promotion; `/dispatch` uses this re-read and performs its own
@@ -625,9 +639,9 @@ Mapping for orchestrator to prune+archive: <source path/entry mapping → issue 
 ## Grooming applied   (omit this block unless GROOM/MAINTAIN batch)
 Source: /triage | /dispatch
 Scope: <team / project>
-Metadata: <issue ID> expected source <triage|Backlog|Todo> · priority/milestone/estimate <from> → <to> (applied) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred
+Metadata: <issue ID> expected source <triage|Backlog> · priority/milestone/estimate <from> → <to> (`groom-portfolio` metadata-only) (applied) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred
 Consolidated: <issue ID> related-as-duplicate of <ID>, moved to Duplicate (linked) | related-only, kept open (batch said so) | parent <new ID> "<title>" ← <child IDs reparented> | replacement <new ID>, originals <IDs> canceled (linked) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred — cancellation unconfirmed
-Intake/scheduling moves: <issue ID> expected source <triage|Backlog|Todo> · <Triage|Backlog|Todo> → <Backlog/no cycle|Todo/current cycle> (+ project/milestone/priority/estimate) (applied) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred
+Intake/scheduling moves: <issue ID> expected source <triage|Backlog> · <Triage|Backlog> → <Backlog/no cycle|Todo/current cycle> (`groom-portfolio` metadata-only | `activate-daily-wave` selected-only state/cycle) (applied) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred
 Post-write re-read: <issue ID> state=<value> project=<value> priority=<value> milestone=<value> estimate=<value> cycle=<value> | skipped — stale | skipped — already set (fully verified)
 New issues created: <ID/URL> — "<title>" | none
 Deferred / not confirmed: <items left unchanged and why, including stale source-state mismatch, or "none">

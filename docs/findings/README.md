@@ -59,8 +59,9 @@ A second sighting, or a first stamp **>60 days** old → archive as
 **Prunable class** (batch cancel under one operator confirmation): Backlog +
 Medium-or-lower + no `security` + no update in **45+ days**.
 
-**Milestone.** `/dispatch` finalizes the milestone for ordinary accepted
-Backlog work. `/triage` assigns one only for its explicit Urgent fast lane.
+**Milestone.** `/dispatch` finalizes the milestone for every approved scoped
+Backlog issue during portfolio grooming, whether or not that issue enters the
+daily wave. `/triage` assigns one only for its explicit Urgent fast lane.
 Use an **existing milestone owned by the allocated `V-X.X` project** (the RES
 project whose canonical version key is `V-X.X`) by exact
 Linear name (em dash `—`). Never reuse a same-named milestone across projects,
@@ -106,11 +107,19 @@ member issues; that is acceptable.
   Linear Triage issue.
 - A `blocked-by` relation affects dependency order; it does not by itself
   make an issue Urgent.
-- `/dispatch` selects a capacity-bounded Backlog batch, finalizes its
-  milestone/priority/estimate, and moves only the approved selection to
-  **Todo + current cycle**.
-- A dispatch card may include an issue only after a post-apply re-read
-  confirms **Todo** in the current cycle.
+- `/dispatch` metadata-plans every scoped Backlog issue. Its approved
+  `groom-portfolio` batch sets unambiguous project/milestone/final-priority
+  metadata (and estimate only when effort evidence exists) while preserving
+  **Backlog + no cycle** for non-wave work.
+- Daily activation is separate: count existing in-scope **Todo + current
+  cycle** issues first, then fill ready Backlog slots up to a hard total of
+  10 (preferred minimum 5). Report a shortfall below 5; when already over 10,
+  promote none and do not demote automatically.
+- Only approved `activate-daily-wave` IDs may move **Backlog → Todo + current
+  cycle**. Resolve the live current cycle again at apply time.
+- A dispatch card may include an existing or newly activated queue issue only
+  after a post-apply re-read confirms **Todo** in the current cycle, the
+  required metadata, and its `/design` or `/sdd-to-tdd` route.
 - Backlog and ordinary new REGISTER FINDINGS issues remain unscheduled.
 - In Progress / In Review / Done are automation-owned; intake/scheduling
   commands do not perform routine metadata backfill on them.

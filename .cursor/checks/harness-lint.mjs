@@ -18,9 +18,10 @@
  *   findings-format  prettier --check on the five docs/findings/*.md bus files
  *                    via Corepack-independent local prettier (Linux Cloud Agents
  *                    and Windows; PATH Corepack shims are not portable)
- *   dispatch         includeRelations + verified-negative vs cannot-verify
- *   pm-workflow      triage intake, bounded dispatch scheduling, audit project
- *                    update, and single-writer/spawn-guard ownership
+ *   dispatch         full portfolio metadata, total-active 5–10 queue,
+ *                    selected-only activation, post-apply cards, Cloud advice
+ *   pm-workflow      triage intake, split dispatch scopes, audit project update,
+ *                    and single-writer/spawn-guard ownership
  *   groom-stale      expected-source-state GROOM handoff and pre-write stale guard
  *   groom-artifacts  complete GROOM already-set artifact verification
  *   audit-scope-key  scope-bearing audit run key in every mirror
@@ -36,6 +37,11 @@ import {
   extractProjectSlug,
   extractVersionKey,
 } from "../hooks/lib/linear-project-routing-policy.mjs"
+import {
+  DAILY_QUEUE_MAXIMUM,
+  DAILY_QUEUE_MINIMUM,
+  calculateDailyQueueCapacity,
+} from "../hooks/lib/dispatch-capacity-policy.mjs"
 import { runPnpm } from "./run-pnpm.mjs"
 
 const FINDINGS_LEDGER = [
@@ -166,7 +172,8 @@ export const GROOM_STALE_NEEDLES = {
     "expected source state",
     "freshly re-read before any metadata, relation, comment, or state write",
     "live Triage-inbox membership",
-    "already-scheduled correction",
+    "`groom-portfolio`",
+    "`activate-daily-wave`",
     "report `stale`",
     "complete target state already matches",
     "stale item is deferred independently",
@@ -177,8 +184,9 @@ export const GROOM_STALE_NEEDLES = {
   ],
   ".cursor/commands/dispatch.md": [
     "expected source state",
-    "already-scheduled correction",
-    "stale item is deferred independently",
+    "`groom-portfolio`",
+    "`activate-daily-wave`",
+    "stale item is deferred",
   ],
 }
 
@@ -268,6 +276,104 @@ export const CLARIFY_STATE_FORBIDDEN = [
   "current Triage/Backlog state",
   "leaves it in Triage/Backlog",
 ]
+
+export const DISPATCH_PORTFOLIO_NEEDLES = {
+  ".cursor/commands/dispatch.md": [
+    "Every scoped Backlog issue must appear exactly once",
+    "`groom-portfolio` — metadata-only changes",
+    "`activate-daily-wave` — Backlog → Todo/current-cycle changes only",
+    "First count the existing daily queue from PHASE 1.",
+    "preferred minimum total active = **5**",
+    "hard maximum total active = **10**",
+    "`min(eligibleCount, max(0, 10 - activeCount))`",
+    "more than 10 already active means zero promotion",
+    "No non-wave ID may receive a state or cycle",
+    "union of the pre-existing Todo/current-cycle set",
+    "Recommendations are advisory evidence, never permission to launch anything.",
+    "The command must not assign or delegate an issue to the Cursor integration",
+    "`cursor/<slug>-<4 hex>` PR goes through",
+  ],
+  ".cursor/agents/linear-resolver.md": [
+    "one exact, scope-bounded portfolio metadata batch",
+    "`groom-portfolio` may finalize",
+    "`activate-daily-wave` may move only",
+    "full scoped portfolio metadata batch",
+    "current cycle again at apply time",
+    "Never promote a groomed",
+  ],
+  ".cursor/rules/linear-automation.mdc": [
+    "`groom-portfolio` batch",
+    "`activate-daily-wave` batch",
+    "hard maximum of 10",
+    "promotes a non-wave issue",
+  ],
+  ".cursor/rules/staging-accumulator.mdc": [
+    "full approved",
+    "Backlog scope",
+    "Preferred minimum is 5 total active and hard maximum is 10",
+    "`activate-daily-wave` is the only dispatch scope",
+    "Cloud recommendations",
+    "recommendation evidence only",
+  ],
+  "docs/findings/README.md": [
+    "`groom-portfolio` batch",
+    "hard total of",
+    "Only approved `activate-daily-wave` IDs",
+    "post-apply re-read confirms **Todo**",
+  ],
+  ".cursor/commands/triage.md": [
+    "full scoped Backlog portfolio",
+    "`activate-daily-wave`",
+  ],
+  ".cursor/commands/capture.md": [
+    "full scoped Backlog metadata grooming",
+    "5–10 total-active daily wave",
+  ],
+  ".cursor/commands/sdd-to-tdd.md": [
+    "full scoped Backlog metadata finalization",
+    "selected daily activation wave",
+  ],
+  ".cursor/README.md": [
+    "metadata-plans the full scoped Backlog",
+    "5–10 total-active",
+    "optional Cloud advice",
+  ],
+}
+
+export const DISPATCH_REGRESSION_PATTERNS = [
+  {
+    id: "legacy-four-item-cap",
+    pattern:
+      /at most \*\*one local\*\*|at most four issues|maximum 4|one local plus three background|schedule-selected|Background Lane|Background worktree recipe/i,
+  },
+  {
+    id: "non-wave-promotion",
+    pattern:
+      /promote non-wave issues|activate every groomed Backlog issue|move non-wave issues to Todo/i,
+  },
+  {
+    id: "cloud-spawn-authorization",
+    pattern:
+      /Cloud recommendation authorizes (?:assignment|delegation|a worktree|agent spawn)|recommendation is launch authorization|@Cursor|git worktree add/i,
+  },
+  {
+    id: "pre-confirmation-card",
+    pattern:
+      /emit cards before Todo\/current-cycle confirmation|emit cards from planned state without a post-apply re-read/i,
+  },
+]
+
+export function detectDispatchPortfolioViolations(rel, text) {
+  const needles = DISPATCH_PORTFOLIO_NEEDLES[rel]
+  const found = needles ? missingNeedles(rel, text, needles) : []
+  if (rel !== ".cursor/commands/dispatch.md") return found
+  for (const { id, pattern } of DISPATCH_REGRESSION_PATTERNS) {
+    if (pattern.test(text)) {
+      found.push(`${rel} contains forbidden dispatch regression: ${id}`)
+    }
+  }
+  return found
+}
 
 export function detectGroomStaleGuardViolations(rel, text) {
   const needles = GROOM_STALE_NEEDLES[rel]
@@ -458,7 +564,9 @@ function checkRoutingContracts() {
         "multiline Markdown issue list preserves ordered first occurrences",
         "duplicates malformed and mixed-team entries fail closed",
         "project plus list is an intersection boundary",
-        "dispatch list larger than lane capacity remains bounded",
+        "dispatch explicit list receives full portfolio outcomes",
+        "daily activation counts current-cycle Todo toward maximum",
+        "repeated daily activation at maximum promotes nothing",
         "targeted audit derives scope from listed issue hubs",
         "decorated overview URL resolves by exact slug then versionKey",
       ]) {
@@ -493,6 +601,90 @@ function checkRoutingContracts() {
           fail(
             "routing",
             `${fixtureRel} must not infer versionKey from the human-readable slug`,
+          )
+        }
+      }
+      const portfolio = fixtures.find(
+        (fixture) =>
+          fixture.name ===
+          "dispatch explicit list receives full portfolio outcomes",
+      )
+      const portfolioCapacity = portfolio
+        ? calculateDailyQueueCapacity(
+            portfolio.existingActiveCount,
+            portfolio.eligibleReadyIds.length,
+          )
+        : null
+      if (
+        portfolio &&
+        (JSON.stringify(portfolio.expectedPortfolioOutcomeIds) !==
+          JSON.stringify(portfolio.expectedIssueIds) ||
+          JSON.stringify(portfolio.expectedMetadataScopeIds) !==
+            JSON.stringify(portfolio.expectedIssueIds) ||
+          portfolioCapacity.activationCount !==
+            portfolio.expectedActivationSlots ||
+          JSON.stringify(portfolio.expectedActivationIds) !==
+            JSON.stringify(
+              portfolio.eligibleReadyIds.slice(
+                0,
+                portfolio.expectedActivationSlots,
+              ),
+            ) ||
+          JSON.stringify(portfolio.expectedNonWaveIds) !==
+            JSON.stringify(
+              portfolio.eligibleReadyIds.slice(
+                portfolio.expectedActivationSlots,
+              ),
+            ) ||
+          portfolio.expectedNonWaveState !== "Backlog" ||
+          portfolio.expectedNonWaveCycle !== null ||
+          !/optional advice only/.test(portfolio.expectedCloudBehavior || "") ||
+          !/post-apply/.test(portfolio.expectedCardGate || ""))
+      ) {
+        fail(
+          "routing",
+          `${fixtureRel} portfolio fixture must cover all IDs, preserve non-wave Backlog/no-cycle, keep Cloud advisory, and gate cards post-apply`,
+        )
+      }
+      const capacity = fixtures.find(
+        (fixture) =>
+          fixture.name ===
+          "daily activation counts current-cycle Todo toward maximum",
+      )
+      if (capacity) {
+        const result = calculateDailyQueueCapacity(
+          capacity.existingActiveCount,
+          capacity.eligibleReadyCount,
+        )
+        if (
+          DAILY_QUEUE_MINIMUM !== capacity.expectedMinimum ||
+          DAILY_QUEUE_MAXIMUM !== capacity.expectedMaximum ||
+          result.activationCount !== capacity.expectedActivationSlots ||
+          result.projectedActiveCount !== capacity.expectedProjectedActiveCount
+        ) {
+          fail(
+            "routing",
+            `${fixtureRel} daily capacity fixture does not match policy`,
+          )
+        }
+      }
+      const repeated = fixtures.find(
+        (fixture) =>
+          fixture.name ===
+          "repeated daily activation at maximum promotes nothing",
+      )
+      if (repeated) {
+        const result = calculateDailyQueueCapacity(
+          repeated.existingActiveCount,
+          repeated.eligibleReadyCount,
+        )
+        if (
+          result.activationCount !== repeated.expectedActivationSlots ||
+          result.projectedActiveCount !== repeated.expectedProjectedActiveCount
+        ) {
+          fail(
+            "routing",
+            `${fixtureRel} repeated-run fixture does not match policy`,
           )
         }
       }
@@ -593,6 +785,18 @@ function checkDispatchNeedles() {
     if (!text.includes("cannot verify` is for tool/MCP failure"))
       fail("dispatch", `${rel} must pin cannot verify is for tool/MCP failure`)
   }
+  for (const [rel] of Object.entries(DISPATCH_PORTFOLIO_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    for (const message of detectDispatchPortfolioViolations(rel, text)) {
+      fail("dispatch", message)
+    }
+  }
+  if (DAILY_QUEUE_MINIMUM !== 5 || DAILY_QUEUE_MAXIMUM !== 10) {
+    fail(
+      "dispatch",
+      "dispatch capacity policy must pin minimum 5 and maximum 10",
+    )
+  }
 }
 
 function checkPmWorkflowContracts() {
@@ -613,7 +817,7 @@ function checkPmWorkflowContracts() {
     "Backlog",
     "Urgent fast lane",
     "`blocked-by` relation is dependency evidence",
-    "leaves scheduling metadata for `/dispatch`",
+    "leaves portfolio metadata and daily-wave activation for `/dispatch`",
   ])
   for (const stale of [
     'There is **no "Triage" state',
@@ -631,12 +835,15 @@ function checkPmWorkflowContracts() {
   const dispatchRel = ".cursor/commands/dispatch.md"
   const dispatch = read(dispatchRel)
   requireAll(dispatchRel, dispatch, [
-    "schedule-selected",
-    "emit-post-apply-card",
-    "one local",
-    "three background",
+    "groom-portfolio",
+    "activate-daily-wave",
+    "emit-daily-plan",
+    "Every scoped Backlog issue",
+    "existing daily queue",
+    "preferred minimum total active = **5**",
+    "hard maximum total active = **10**",
     "Backlog → Todo",
-    "one explicit GROOM batch",
+    "Cloud parallelization recommendations",
     "post-apply re-read",
     "linear-resolver",
   ])
@@ -778,14 +985,20 @@ function checkClarificationLoop() {
 
 function checkResIdentity() {
   const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
-  for (const rel of [
-    ".cursor/commands/dispatch.md",
-    ".cursor/rules/staging-accumulator.mdc",
-  ]) {
-    if (!read(rel).includes("sdd/RES-")) {
-      fail("identity", `${rel} must name sdd/RES-`)
-    }
+  const stagingRel = ".cursor/rules/staging-accumulator.mdc"
+  if (!read(stagingRel).includes("sdd/RES-")) {
+    fail("identity", `${stagingRel} must name sdd/RES-`)
   }
+  requireAll(
+    "identity",
+    ".cursor/commands/dispatch.md",
+    read(".cursor/commands/dispatch.md"),
+    [
+      "cursor/<slug>-<4 hex>",
+      "must not assign or delegate",
+      "create a worktree",
+    ],
+  )
   for (const rel of [
     ".cursor/commands/commit.md",
     ".cursor/commands/push.md",

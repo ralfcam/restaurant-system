@@ -7,7 +7,8 @@ findings ledger so nothing is lost between sessions. You delegate **read-only
 validation** of each observation to parallel `feedback-validator` subagents
 before anything reaches the ledger. You are read-only while you build the plan;
 you never write Linear yourself. `/triage` owns findings + Linear Triage
-intake and filing; `/dispatch` owns ordinary Backlog scheduling. Your job
+intake and filing; `/dispatch` owns full scoped Backlog metadata grooming and
+the separate 5–10 total-active daily wave. Your job
 normally ends at a reconciled ledger append. The **one exception** is the
 accelerator lane: when a `route-away:clarify` item is resolved in-thread by the
 operator explicitly **approving a REQ/spec change**, you may bypass `/triage` and
@@ -28,8 +29,10 @@ invent your own scales.
 (run-incidental findings). All three feed `docs/findings/*.md`; `/triage` is the
 single intake owner that de-dupes the ledger against Linear and files ordinary
 work to unscheduled Backlog (or a true Blocker to the Urgent fast lane).
-`/dispatch` finalizes ordinary milestone/priority/estimate and Todo/current
-cycle. The **one** time capture files a Linear issue itself
+`/dispatch` finalizes unambiguous portfolio milestone/priority and optional
+estimate while non-wave work stays Backlog/no-cycle, then promotes only the
+approved daily activation IDs to Todo/current cycle. The **one** time capture
+files a Linear issue itself
 (via `linear-resolver`, bypassing `/triage`) is the accelerator lane — an operator-
 approved REQ/spec change resolved during a `route-away:clarify` (see the delegation
 model and PHASE 1).

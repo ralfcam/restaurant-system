@@ -28,11 +28,46 @@
     "expectedBehavior": "only listed issues compatible with the pinned project"
   },
   {
-    "name": "dispatch list larger than lane capacity remains bounded",
+    "name": "dispatch explicit list receives full portfolio outcomes",
     "command": "dispatch",
     "input": "RES-1\nRES-2\nRES-3\nRES-4\nRES-5",
     "expectedIssueIds": ["RES-1", "RES-2", "RES-3", "RES-4", "RES-5"],
-    "expectedMaximumSelected": 4
+    "expectedPortfolioOutcomeIds": [
+      "RES-1",
+      "RES-2",
+      "RES-3",
+      "RES-4",
+      "RES-5"
+    ],
+    "expectedMetadataScopeIds": ["RES-1", "RES-2", "RES-3", "RES-4", "RES-5"],
+    "existingActiveCount": 8,
+    "eligibleReadyIds": ["RES-1", "RES-2", "RES-3", "RES-4", "RES-5"],
+    "expectedActivationSlots": 2,
+    "expectedActivationIds": ["RES-1", "RES-2"],
+    "expectedNonWaveIds": ["RES-3", "RES-4", "RES-5"],
+    "expectedNonWaveState": "Backlog",
+    "expectedNonWaveCycle": null,
+    "expectedCloudBehavior": "optional advice only; no assignment, delegation, worktree, or spawn",
+    "expectedCardGate": "post-apply Todo/current-cycle re-read"
+  },
+  {
+    "name": "daily activation counts current-cycle Todo toward maximum",
+    "command": "dispatch",
+    "existingActiveCount": 8,
+    "eligibleReadyCount": 5,
+    "expectedActivationSlots": 2,
+    "expectedProjectedActiveCount": 10,
+    "expectedMinimum": 5,
+    "expectedMaximum": 10
+  },
+  {
+    "name": "repeated daily activation at maximum promotes nothing",
+    "command": "dispatch",
+    "existingActiveCount": 10,
+    "eligibleReadyCount": 4,
+    "expectedActivationSlots": 0,
+    "expectedProjectedActiveCount": 10,
+    "expectedBehavior": "do not demote and do not re-promote prior wave"
   },
   {
     "name": "targeted audit derives scope from listed issue hubs",

@@ -824,8 +824,9 @@ shortfall.
 
 **Scope — this step files only THIS run's incidental findings.** `/triage`
 owns findings + Linear Triage intake, de-duplication, and terminal cleanup;
-`/dispatch` owns ordinary milestone/priority/estimate finalization and bounded
-Backlog scheduling. This loop owns neither. Both registration routes use
+`/dispatch` owns full scoped Backlog metadata finalization and the separate
+selected daily activation wave. This loop owns neither. Both registration
+routes use
 `linear-resolver`, which applies the filing floor, attach-over-create ladder,
 per-run cap, and de-duplication. Preserve source severity/effort and the shared
 label taxonomy from `docs/findings/README.md` so dispatch can schedule without
@@ -842,9 +843,11 @@ guessing.
   left-on-ledger outcomes do not need a new-issue yes.
 - New ordinary issues are filed in **Backlog without a cycle**, linked to the
   source issue, and never auto-assigned or marked done. Their source
-  severity/effort remains in the description; `/dispatch` later confirms the
-  bounded selection and finalizes milestone/priority/estimate plus
-  Todo/current cycle. The `/triage` Urgent fast lane is not inferred here.
+  severity/effort remains in the description; `/dispatch` later finalizes
+  project/milestone/priority and an evidence-backed optional estimate across
+  the scoped Backlog portfolio, then counts existing active work and promotes
+  only approved daily-wave IDs to Todo/current cycle. The `/triage` Urgent
+  fast lane is not inferred here.
 - **Team/issue resolution:** FIX mode reuses the source issue's team; FEATURE
   mode uses the team the operator names (ask if ambiguous).
 - **Fallback when Linear is unavailable** (no team/issue context, MCP down, or
@@ -1438,8 +1441,9 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   (+ the table above) and apply the **Issue-filing policy** from
   `docs/findings/README.md` — filing floor, attach-over-create ladder, per-run cap
   of 3 — proposing only the entries that clear it as new/sub/umbrella issues
-  (with milestone + priority), attaching to existing issues where the ladder
-  matches, and leaving the rest on the ledger, after your confirmation
+  (with source severity/effort preserved for later portfolio grooming),
+  attaching to existing issues where the ladder matches, and leaving the rest
+  on the ledger, after your confirmation
   (managed Cloud: persist to the ledger and STOP for that confirmation — do
   not auto-confirm net-new finding issues);
   `linear-resolver` returns the finding→outcome mapping (filed / attached /

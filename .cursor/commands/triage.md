@@ -43,8 +43,9 @@ returned.
 Intake routing is deliberately narrow:
 
 - **Ordinary accepted work** → **Backlog**, target project, **no cycle**.
-  Milestone, final priority, estimate, cycle, and Backlog → Todo scheduling
-  belong to `/dispatch`.
+  `/dispatch` later metadata-grooms the full scoped Backlog portfolio.
+  Estimate remains optional without evidence; only dispatch's selected daily
+  wave receives a cycle and Backlog → Todo activation.
 - **Urgent fast lane** → **Todo + current cycle**, with enough verified
   metadata to be dispatchable. Only a ledger **Blocker** (which maps to Linear
   **Urgent**) or an already explicitly **Urgent** Linear issue qualifies.
@@ -103,7 +104,7 @@ This command runs in **Plan Mode only**.
    `list_issue_labels`, `list_cycles({ teamId, type: "current" })`, and
    `list_milestones` per candidate project. These properties are used only for
    allocation evidence and an approved Urgent fast-lane item; ordinary intake
-   leaves scheduling metadata for `/dispatch`.
+   leaves portfolio metadata and daily-wave activation for `/dispatch`.
 5. Grep ledger before MCP: Grep `docs/findings/archive.md` and open `docs/findings/*.md` for `RES-###` before the first `list_issues` / `get_issue`.
 6. Read only the normalized intake scope:
    - no argument: paginate `list_issues({ team, state: "triage",
@@ -192,7 +193,8 @@ Apply these checks in order:
 - New ledger issue: use the attach-over-create ladder. A new issue starts in
   Backlog in the allocated project with no cycle and the category/provenance
   labels. Record its source severity and effort in the description, but leave
-  ordinary milestone, final priority, and estimate assignment to `/dispatch`.
+  ordinary milestone, final priority, and optional estimate assignment to
+  `/dispatch` portfolio grooming.
 - Never promote an issue that was already in Backlog. Never scan Backlog for
   promotion candidates.
 
@@ -212,8 +214,9 @@ item in Triage/Backlog rather than creating an unscheduled Todo. Do not use a
 previous or next cycle.
 
 Routine milestone, priority, estimate, and cycle backfill across existing
-Backlog/Todo/In Progress/In Review is forbidden here; `/dispatch` owns
-ordinary scheduling.
+Backlog/Todo/In Progress/In Review is forbidden here. `/dispatch` owns exact
+scope-bounded Backlog portfolio metadata and its separate selected daily
+activation; triage owns neither.
 
 ## PHASE 3 — Emit the read-only plan
 
@@ -305,7 +308,9 @@ directly.
 - Explicit issue lists and combined scopes are hard inclusion boundaries. Do
   not mutate an unlisted issue or process an unnamed ledger entry.
 - Do not promote ordinary intake to Todo or attach a cycle. Ordinary
-  Backlog → Todo scheduling belongs exclusively to `/dispatch`.
+  Backlog → Todo scheduling belongs exclusively to `/dispatch`'s approved
+  `activate-daily-wave`; metadata-only `groom-portfolio` keeps non-wave work
+  in Backlog with no cycle.
 - Do not treat `blocked-by` as Urgent. Only ledger Blocker or explicit Linear
   Urgent enters the fast lane.
 - Do not write In Progress, In Review, or Done in any mode.
@@ -357,8 +362,9 @@ Per item:
 
 Per entry: source path (bus or named run file), floor result, attach-over-create
 result, labels, and route. Ordinary entries show `Backlog · cycle none ·
-scheduling metadata deferred to /dispatch`; Blocker entries show the verified
-fast-lane fields. Run/bus duplicates are reconciled once.
+portfolio metadata and daily activation deferred to /dispatch`; Blocker
+entries show the verified fast-lane fields. Run/bus duplicates are reconciled
+once.
 
 ## Plan — Ledger TTL
 
@@ -376,6 +382,8 @@ Execution only: resolver mapping plus the post-apply Linear re-read.
 
 ## Operator Next
 
-Run `/dispatch` in a new turn to rank Backlog, confirm a bounded scheduling
-batch, and emit cards from post-apply Todo state.
+Run `/dispatch` in a new turn to route and metadata-plan every scoped Backlog
+issue, count the existing Todo/current-cycle queue, confirm only the available
+daily activation slots (preferred 5, maximum 10 total), and emit cards from
+post-apply Todo/current-cycle state.
 </output_format>
