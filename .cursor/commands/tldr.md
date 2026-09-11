@@ -45,9 +45,9 @@ named `CreatePlan`; that block's `input.name` is the plan's name and is how you
 find the plan file. A conversation with no such block is still a valid target —
 recap the conversation itself.
 
-**Issues** belong to the fixed **Realized** team (`RES`, IDs `RES-###`).
-There is no default Linear project. For an Issue recap, discover the team's
-live nonterminal `V-X.X` projects and validate the issue's current project
+**Issues** belong to the team whose key is **RES** (`RES-###` IDs). The live
+team display name is informational. There is no default Linear project. For an
+Issue recap, discover the team's live nonterminal RES projects with canonical version key `V-X.X` and validate the issue's current project
 using
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
 This command remains read-only: it reports an unallocated/ambiguous project
@@ -238,10 +238,12 @@ Mode.
   truncated before the query text, derive the ask from those closing turns and say
   it is inferred, rather than paying for a full line-1 read. If the chat ended
   unresolved, say so instead of implying completion.
-- **Issue:** resolve the Realized team once, then call `list_projects` for that
-  team and paginate fully. Keep only nonterminal projects whose normalized name
-  matches `V-X.X`, classified ongoing/available from live status. Call Linear
-  MCP `get_issue` with the parsed id and require its team key to be `RES`.
+- **Issue:** resolve the team once and require key `RES`. Call `list_projects`
+  for that team and paginate fully. Keep only nonterminal projects whose display
+  name yields exactly one canonical `versionKey` `V-X.X`, classified
+  ongoing/available from live status. Call Linear
+  MCP `get_issue` with the parsed id and require its team key to be `RES`
+  even when the live team display name differs.
   Validate its returned project against that discovered set; if it is missing,
   terminal, incompatible, or tied under the shared allocation evidence, say
   `project cannot verify` in the status line rather than inventing or writing

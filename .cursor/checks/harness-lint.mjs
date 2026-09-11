@@ -8,8 +8,9 @@
  * Checks:
  *   links            repo-root-relative markdown links in .cursor/{rules,commands,agents}
  *   fanout           TASK_FANOUT_INFLIGHT_CAP matches the number in task-fanout.mdc
- *   routing          fixed RES identity; dynamic nonterminal V-X.X discovery;
- *                    exact scopes; fail-closed allocation; milestone routes
+ *   routing          fixed RES-key identity; display-name versionKey
+ *                    extraction; exact slug resolution; fail-closed allocation;
+ *                    milestone routes
  *   clarify          resolver-only bounded/idempotent comment feedback loop
  *   gates            commit.md names lint, typecheck, test:unit, gate open, harness-lint
  *   capture          capture.md pins Validation Summary row count = PHASE 5 slug count
@@ -24,6 +25,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import {
+  extractProjectSlug,
+  extractVersionKey,
+} from "../hooks/lib/linear-project-routing-policy.mjs"
 import { runPnpm } from "./run-pnpm.mjs"
 
 const FINDINGS_LEDGER = [
@@ -160,12 +165,22 @@ function checkRoutingContracts() {
 
   const routingRel = ".cursor/rules/linear-project-routing.mdc"
   const routing = read(routingRel)
+  if (routing.includes("`^V-\\d+\\.\\d+$`")) {
+    fail(
+      "routing",
+      `${routingRel} still uses the obsolete whole-name V-X.X gate`,
+    )
+  }
   requireAll("routing", routingRel, routing, [
-    "team **Realized**",
     "prefix **`RES`**",
+    "owning team key/UUID is RES",
+    "`versionKey`",
+    "standalone",
     "`list_projects`",
     "paginate until exhausted",
-    "`^V-\\d+\\.\\d+$`",
+    "Never infer identity from the human-readable slug",
+    "multiple distinct tokens",
+    "duplicate canonical keys",
     "**ongoing**",
     "**available**",
     "Fail closed",
@@ -184,11 +199,13 @@ function checkRoutingContracts() {
     ".cursor/commands/dispatch.md",
     ".cursor/commands/audit.md",
     ".cursor/commands/tldr.md",
+    ".cursor/commands/sdd-to-tdd.md",
   ]) {
     const text = read(rel)
     requireAll("routing", rel, text, [
       "linear-project-routing.mdc",
       "list_projects",
+      "canonical version key",
       "V-X.X",
       "RES",
     ])
@@ -206,6 +223,8 @@ function checkRoutingContracts() {
       "multiline Markdown",
       "get_issue",
       "non-RES",
+      "exact slug",
+      "versionKey",
     ])
   }
 
@@ -248,9 +267,13 @@ function checkRoutingContracts() {
 
   const findingsRel = "docs/findings/README.md"
   requireAll("routing", findingsRel, read(findingsRel), [
-    "Fixed team: **Realized**",
-    "nonterminal `V-X.X`",
+    "Fixed team key: **RES**",
+    "canonical version key `V-X.X`",
     "allocated `V-X.X` project",
+  ])
+  requireAll("routing", ".cursor/README.md", read(".cursor/README.md"), [
+    "canonical version key",
+    "team whose key is **`RES`**",
   ])
 
   const fixtureRel = ".cursor/checks/fixtures/routing-scopes.json"
@@ -266,9 +289,40 @@ function checkRoutingContracts() {
         "project plus list is an intersection boundary",
         "dispatch list larger than lane capacity remains bounded",
         "targeted audit derives scope from listed issue hubs",
+        "decorated overview URL resolves by exact slug then versionKey",
       ]) {
         if (!fixtures.some((fixture) => fixture.name === name)) {
           fail("routing", `${fixtureRel} must include fixture: ${name}`)
+        }
+      }
+      const decorated = fixtures.find(
+        (fixture) =>
+          fixture.name ===
+          "decorated overview URL resolves by exact slug then versionKey",
+      )
+      if (decorated) {
+        if (
+          extractProjectSlug(decorated.input) !== decorated.expectedProjectSlug
+        ) {
+          fail(
+            "routing",
+            `${fixtureRel} decorated URL must extract expectedProjectSlug`,
+          )
+        }
+        if (
+          extractVersionKey(decorated.expectedDisplayName) !==
+          decorated.expectedVersionKey
+        ) {
+          fail(
+            "routing",
+            `${fixtureRel} decorated display name must extract expectedVersionKey`,
+          )
+        }
+        if (extractVersionKey(decorated.expectedProjectSlug) !== null) {
+          fail(
+            "routing",
+            `${fixtureRel} must not infer versionKey from the human-readable slug`,
+          )
         }
       }
     } catch (error) {

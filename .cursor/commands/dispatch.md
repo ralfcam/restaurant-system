@@ -12,15 +12,18 @@ ranking signal behind every selection.
 
 <context>
 Linear workspace: https://linear.app/realized
-Fixed team: **Realized** (`RES`, issues `RES-###`). Version projects are
-discovered live; there is no hardcoded Linear project default. Shared discovery,
-scope parsing, allocation precedence, and fail-closed behavior:
+Fixed team key: **RES** (issues `RES-###`). The live team display name is
+informational. Version projects are discovered live as RES projects with
+canonical version key `V-X.X`; there is no hardcoded Linear project default.
+Shared discovery, scope parsing, allocation precedence, and fail-closed
+behavior:
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
 
 Invocation: `/dispatch [project-url|project-name] [issue-list]`. No argument
-inventories the live nonterminal RES `V-X.X` projects. A project URL/name pins
-one exact project; issue IDs/URLs or a multiline Markdown list form the
-complete ordered candidate pool; supplying both applies both boundaries.
+inventories the live nonterminal RES projects with canonical version key
+`V-X.X`. A project URL/name pins one exact project; issue IDs/URLs or a
+multiline Markdown list form the complete ordered candidate pool; supplying
+both applies both boundaries.
 Explicit inclusion never forces selection or waives capacity/safety gates.
 
 `/triage` owns intake. Ordinary accepted work arrives in **Backlog without a
@@ -72,15 +75,18 @@ before selecting any issue.
 
 ## PHASE 1 — Inventory Backlog and scheduled work
 
-1. Resolve the Realized team once and require key `RES`. Call `list_projects`
-   for that team, paginate fully, normalize names to `V-X.X`, exclude terminal
-   projects, and classify the remainder as ongoing or available from live
+1. Resolve the team once and require key `RES`. Call `list_projects`
+   for that team, paginate fully, extract each display-name canonical
+   `versionKey` `V-X.X`, exclude terminal projects, reject duplicate canonical
+   keys, and classify the remainder as ongoing or available from live
    status. Stop if any page/status is unavailable.
 2. Normalize the optional scope per
    [linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
    Canonicalize project URLs by `/project/<slug>/...`, ignoring layout/query
-   parameters. De-duplicate issue inputs in supplied order, resolve every one
-   with `get_issue`, and report malformed, unresolved, or non-RES entries
+   parameters. Resolve that exact slug against live projects, then derive
+   `versionKey` from the resolved display name. Never infer identity from the
+   slug text itself. De-duplicate issue inputs in supplied order, resolve every
+   one with `get_issue`, and report malformed, unresolved, or non-RES entries
    without broadening the pool.
 3. In one parallel read block, call:
    - `list_issue_statuses`;

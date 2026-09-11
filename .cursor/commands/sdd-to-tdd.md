@@ -33,8 +33,9 @@ Repo rules that govern this loop:
 
 - `.cursor/rules/supabase-migrations.mdc` — DB changes extend canonical baselines.
 - `.cursor/rules/powershell.mdc` — shell commands use PowerShell syntax.
-- `.cursor/rules/linear-project-routing.mdc` — fixed RES team, dynamic `V-X.X`
-  projects, fail-closed allocation, and work-type M1–M9 routing.
+- `.cursor/rules/linear-project-routing.mdc` — fixed RES team key, dynamic RES
+  projects with canonical version key `V-X.X`, fail-closed allocation, and
+  work-type M1–M9 routing.
 
 Fix-mode data source: the **Linear MCP** server (`get_issue`, `list_comments`,
 `get_diff`) for issue/bug input.
@@ -206,8 +207,9 @@ Route by the work being performed, not by command name:
   M9 respectively.
 
 Do not impose a blanket M4+ rule on `/sdd-to-tdd`. When a tracked `RES-###`
-issue is supplied, resolve the Realized team once, paginate `list_projects`,
-retain nonterminal `V-X.X` projects, and validate its current/target project
+issue is supplied, resolve the team once, paginate `list_projects`,
+retain nonterminal RES projects with canonical version key `V-X.X`, and
+validate its current/target project
 and existing milestone against this work type. Apply the allocation precedence
 from
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
@@ -1204,8 +1206,9 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 
 ## Project & Milestone Route
 
-- Team: Realized (`RES`)
-- Project: existing/allocated `V-X.X` + precedence evidence | untracked hint |
+- Team: key `RES` (display name informational)
+- Project: existing/allocated RES project with canonical version key `V-X.X` +
+  precedence evidence | untracked hint |
   cannot verify
 - Work type: contract clarification | implementation | test/audit | beta |
   UAT/RC | launch-critical/security/money | maintenance

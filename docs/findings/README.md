@@ -25,8 +25,9 @@ Entry format (one line per open item):
 ## Issue-filing policy (throttle creation, prefer re-use)
 
 Cited by `linear-resolver`, `/sdd-to-tdd` STEP 4C, `/triage`, and `/audit`
-PART 8. Fixed team: **Realized** (`RES`, issue IDs **`RES-###`**). There is no
-default Linear project: discover nonterminal `V-X.X` version projects and
+PART 8. Fixed team key: **RES** (issue IDs **`RES-###`**). The live team
+display name is informational. There is no
+default Linear project: discover nonterminal RES projects with canonical version key `V-X.X` and
 allocate fail-closed per
 [.cursor/rules/linear-project-routing.mdc](../../.cursor/rules/linear-project-routing.mdc).
 
@@ -60,7 +61,8 @@ Medium-or-lower + no `security` + no update in **45+ days**.
 
 **Milestone.** `/dispatch` finalizes the milestone for ordinary accepted
 Backlog work. `/triage` assigns one only for its explicit Urgent fast lane.
-Use an **existing milestone owned by the allocated `V-X.X` project** by exact
+Use an **existing milestone owned by the allocated `V-X.X` project** (the RES
+project whose canonical version key is `V-X.X`) by exact
 Linear name (em dash `—`). Never reuse a same-named milestone across projects,
 invent `Launch-blocking`, or hardcode a project; call `list_milestones` for
 the owning project and use the map below.

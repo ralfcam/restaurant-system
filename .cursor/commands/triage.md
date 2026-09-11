@@ -11,16 +11,19 @@ ledger entry behind every proposal.
 
 <context>
 Linear workspace: https://linear.app/realized
-Fixed team: **Realized** (`RES`, issues `RES-###`). Version projects are
-discovered live; there is no hardcoded Linear project default. Shared discovery,
-scope parsing, allocation precedence, and fail-closed behavior:
+Fixed team key: **RES** (issues `RES-###`). The live team display name is
+informational. Version projects are discovered live as RES projects with
+canonical version key `V-X.X`; there is no hardcoded Linear project default.
+Shared discovery, scope parsing, allocation precedence, and fail-closed
+behavior:
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
 
 Invocation: `/triage [project-url|project-name] [issue-list]`. No argument
-discovers the live nonterminal RES `V-X.X` set. A project URL/name pins one
-exact project; issue IDs/URLs or a multiline Markdown list form an exact
-ordered inclusion set; supplying both makes the project the target boundary
-and the list the complete candidate set. `/triage` also accepts explicitly
+discovers the live nonterminal RES set of projects with canonical version key
+`V-X.X`. A project URL/name pins one exact project; issue IDs/URLs or a
+multiline Markdown list form an exact ordered inclusion set; supplying both
+makes the project the target boundary and the list the complete candidate
+set. `/triage` also accepts explicitly
 pasted ledger lines in an issue-list invocation. Unlisted Linear issues and
 unnamed ledger entries are outside scope.
 
@@ -80,16 +83,19 @@ This command runs in **Plan Mode only**.
 
 ## PHASE 0 — Resolve the live intake surface
 
-1. Resolve the Realized team once and require key `RES`. Call `list_projects`
-   for that team, paginate fully, normalize names to `V-X.X`, exclude terminal
-   projects, and classify the remainder as ongoing or available from live
+1. Resolve the team once and require key `RES`. Call `list_projects`
+   for that team, paginate fully, extract each display-name canonical
+   `versionKey` `V-X.X`, exclude terminal projects, reject duplicate canonical
+   keys, and classify the remainder as ongoing or available from live
    project status. Stop if discovery is incomplete.
 2. Normalize the optional scope exactly as
    [linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc)
    requires. Canonicalize a project URL from `/project/<slug>/...` while
-   ignoring layout/query parameters. De-duplicate supplied issues in order,
-   resolve each with `get_issue`, and reject malformed, unresolved, or non-RES
-   entries without broadening scope.
+   ignoring layout/query parameters. Resolve that exact slug against live
+   projects, then derive `versionKey` from the resolved display name. Never
+   infer identity from the slug text itself. De-duplicate supplied issues in
+   order, resolve each with `get_issue`, and reject malformed, unresolved,
+   or non-RES entries without broadening scope.
 3. Call `list_issue_statuses` to resolve the team's ordinary workflow states
    (including Backlog, Todo, Duplicate, and Canceled). This call does **not**
    determine whether the special Triage inbox exists.

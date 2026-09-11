@@ -22,8 +22,8 @@ Testing (target convention): Vitest (unit + integration) · Playwright e2e
 Lint: `pnpm lint` (eslint)
 
 Linear workspace: https://linear.app/realized
-Team: Realized (team key and issue prefix `RES`)
-Version projects: discovered live as nonterminal `V-X.X` projects per
+Team key: `RES` (issue prefix `RES`). The live team display name is informational.
+Version projects: discovered live as nonterminal RES projects with canonical version key `V-X.X` per
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc);
 there is no hardcoded Linear project default.
 Linear issues are operational/release-gate tracking only and are OUT OF SCOPE
@@ -81,9 +81,10 @@ standard or mandatory Blocker controls.
 
 Invocation: `/audit [project-url|project-name] [issue-list]`.
 
-1. Resolve the Realized team once and require key `RES`. Call `list_projects`
-   for that team, paginate fully, normalize names to `V-X.X`, exclude terminal
-   projects, and classify the rest as ongoing or available from live status.
+1. Resolve the team once and require key `RES`. Call `list_projects`
+   for that team, paginate fully, extract each display-name canonical
+   `versionKey` `V-X.X`, exclude terminal projects, reject duplicate canonical
+   keys, and classify the rest as ongoing or available from live status.
 2. Normalize the optional argument with
    [linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc):
    - no argument → complete repository audit;
@@ -95,7 +96,9 @@ Invocation: `/audit [project-url|project-name] [issue-list]`.
    - project plus list → audit only listed issues that validate against the
      pinned project.
 3. Canonicalize project URLs by `/project/<slug>/...`, ignoring layout/query
-   parameters. De-duplicate issues in supplied order. Reject malformed,
+   parameters. Resolve that exact slug against live projects, then derive
+   `versionKey` from the resolved display name. Never infer identity from the
+   slug text itself. De-duplicate issues in supplied order. Reject malformed,
    unresolved, non-RES, terminal-project, or project-incompatible entries
    without broadening scope. No unlisted issue may add an audited surface.
 4. Linear fields choose scope only. Findings still require evidence against
@@ -435,8 +438,9 @@ check. Run it after PART 8 completes, or after PART 8 is explicitly skipped
 with `ledger=off`.
 
 1. Resolve the target project from live Linear data. Default to the exact
-   project selected during AUDIT SCOPE: an explicit valid RES `V-X.X` project
-   first; otherwise the uniquely best ongoing project by audited scope match,
+   project selected during AUDIT SCOPE: an explicit valid RES project with
+   canonical version key `V-X.X` first; otherwise the uniquely best ongoing
+   project by audited scope match,
    earliest target date, then current-version ordering. Never target the
    `/projects/all` collection, an available/terminal project, or infer a
    project from a repository/collection URL. If no ongoing project exists or

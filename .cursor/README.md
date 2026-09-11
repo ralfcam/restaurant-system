@@ -8,9 +8,9 @@ then promotion = `staging →` default branch). Agents never merge. You merge
 in the GitHub UI. Linear **In Progress** / **In Review** / **Done** are
 automation-owned (draft/open PR, review/ready-for-merge, closing-linked merge).
 
-Linear IDs are **`RES-###`** on the fixed **Realized** team. Linear projects
-are discovered dynamically: active work routes only to live nonterminal
-**`V-X.X`** projects, classified ongoing/available from their Linear status
+Linear IDs are **`RES-###`** on the team whose key is **`RES`**. The live
+team display name is informational. Linear projects are discovered dynamically:
+active work routes only to live nonterminal RES projects with canonical version key **`V-X.X`**, classified ongoing/available from their Linear status
 and allocated fail-closed by
 [`rules/linear-project-routing.mdc`](rules/linear-project-routing.mdc).
 Specs live in [`docs/specs/`](../docs/specs/).

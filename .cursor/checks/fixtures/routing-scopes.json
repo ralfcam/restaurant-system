@@ -41,5 +41,15 @@
     "expectedProjectName": "V-1.3",
     "expectedIssueIds": ["RES-31", "RES-32"],
     "expectedBehavior": "derive owning specs and implementation surfaces only; omitted specs are out of scope"
+  },
+  {
+    "name": "decorated overview URL resolves by exact slug then versionKey",
+    "command": "triage",
+    "input": "https://linear.app/realized/project/restaurant-system-v-02-features-enhancing-4b49445c1129/overview",
+    "expectedProjectSlug": "restaurant-system-v-02-features-enhancing-4b49445c1129",
+    "expectedDisplayName": "restaurant-system V-0.2 (Features Enhancing)",
+    "expectedVersionKey": "V-0.2",
+    "expectedTeamKey": "RES",
+    "expectedIssueIds": []
   }
 ]

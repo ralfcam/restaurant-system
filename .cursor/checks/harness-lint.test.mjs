@@ -102,25 +102,39 @@ test("routing scope fixtures cover every normalized invocation edge", () => {
       "project plus list is an intersection boundary",
       "dispatch list larger than lane capacity remains bounded",
       "targeted audit derives scope from listed issue hubs",
+      "decorated overview URL resolves by exact slug then versionKey",
     ],
   )
   assert.deepEqual(fixtures[1].expectedIssueIds, ["RES-42", "RES-7"])
   assert.deepEqual(fixtures[2].expectedRejected, ["OPS-9", "RES-nope"])
   assert.equal(fixtures[4].expectedMaximumSelected, 4)
   assert.match(fixtures[5].expectedBehavior, /omitted specs are out of scope/)
+  assert.equal(
+    fixtures[6].expectedProjectSlug,
+    "restaurant-system-v-02-features-enhancing-4b49445c1129",
+  )
+  assert.equal(fixtures[6].expectedVersionKey, "V-0.2")
+  assert.equal(
+    fixtures[6].expectedDisplayName,
+    "restaurant-system V-0.2 (Features Enhancing)",
+  )
 })
 
-test("shared routing rule pins RES V-X.X discovery and fail-closed allocation", () => {
+test("shared routing rule pins RES-key authority and versionKey extraction", () => {
   const rule = readFileSync(
     join(ROOT, ".cursor", "rules", "linear-project-routing.mdc"),
     "utf8",
   )
+  assert.ok(!rule.includes("`^V-\\d+\\.\\d+$`"))
   for (const needle of [
-    "team **Realized**",
-    "issue prefix **`RES`**",
+    "owning team key/UUID is RES",
+    "`versionKey`",
+    "standalone",
     "`list_projects`",
     "paginate until exhausted",
-    "`^V-\\d+\\.\\d+$`",
+    "Never infer identity from the human-readable slug",
+    "multiple distinct tokens",
+    "duplicate canonical keys",
     "**ongoing**",
     "**available**",
     "Fail closed",
@@ -152,6 +166,9 @@ test("PM commands normalize exact scopes and preserve hard boundaries", () => {
     assert.ok(text.includes("multiline Markdown"))
     assert.ok(text.includes("get_issue"))
     assert.ok(text.includes("non-RES"))
+    assert.ok(text.includes("canonical version key"))
+    assert.ok(text.includes("exact slug"))
+    assert.ok(text.includes("versionKey"))
   }
   assert.ok(triage.includes("explicit issues: read exactly"))
   assert.match(dispatch, /explicit list is the complete\s+candidate pool/)

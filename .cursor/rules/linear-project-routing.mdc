@@ -1,46 +1,67 @@
 ---
-description: Shared RES team, V-X.X project discovery, exact command scopes, fail-closed allocation, audit targeting, and command-to-milestone routing.
+description: Shared RES team key, versionKey V-X.X discovery, exact command scopes, fail-closed allocation, audit targeting, and command-to-milestone routing.
 alwaysApply: false
 ---
 
 # Linear project routing
 
 This is the shared routing contract for `/triage`, `/dispatch`, `/audit`,
-`/tldr`, `/design`, `/sdd-to-tdd`, and `linear-resolver`. Linear workspace
-identity is fixed: team **Realized**, team key and issue prefix **`RES`**, issue
-IDs **`RES-###`**. Linear project identity is dynamic; never default to a
-repository, Vercel project, legacy project URL, or `/projects/all`.
+`/tldr`, `/design`, `/sdd-to-tdd`, and `linear-resolver`. Linear identity has
+three layers that must not be collapsed:
+
+1. **Team** — key and issue prefix **`RES`**, issue IDs **`RES-###`**. The
+   live team display name (`Restaurant Link`, `Realized`, or another label)
+   is informational and must not fail the scope when the project’s owning team key/UUID is RES.
+2. **Project record** — the exact Linear project, identified by its live
+   record and `/project/<slug>/...` path identity. Never infer identity from the human-readable slug itself.
+3. **`versionKey`** — a derived canonical `V-X.X` extracted from the
+   project’s display name. A RES project with canonical version key `V-X.X`
+   is in the version-project set even when that name is decorated.
+
+Linear project identity is dynamic; never default to a repository, Vercel
+project, legacy project URL, or `/projects/all`.
 
 ## Discover the version-project set
 
-1. Resolve the Realized team once and require key `RES`.
+1. Resolve the team once and require key `RES` (the resolved team UUID is
+   also sufficient). Do not require the live display name to equal Realized
+   or Restaurant Link.
 2. Call `list_projects` for that team and paginate until exhausted.
-3. Normalize each project name by trimming whitespace and uppercasing the `V`;
-   accept only names matching `^V-\d+\.\d+$` (**`V-X.X`**).
+3. From each project’s display name, extract exactly one case-insensitive
+   standalone `V-<major>.<minor>` token and canonicalize it to `versionKey`
+   `V-X.X`. Reject a project with no token or with multiple distinct tokens.
+   Reject the whole discovery set when two nonterminal RES candidates share
+   the same canonical key.
 4. Exclude terminal projects. Classify every remaining version project as
    **ongoing** or **available** from its live Linear project status; never infer
    either class from the name, repository, or a hardcoded list.
-5. A failed page, unresolved status, malformed version, or unresolved tie is
-   `cannot verify`. Fail closed: do not schedule, move, mutate, emit a dispatch
-   card, or publish an audit update for the affected item.
+5. A failed page, unresolved status, missing/malformed `versionKey`,
+   duplicate canonical keys, or unresolved tie is `cannot verify`. Fail closed:
+   do not schedule, move, mutate, emit a dispatch card, or publish
+   an audit update for the affected item.
 
 ## Normalize optional command scopes
 
 The PM commands share one grammar:
 
-- no argument: use the live nonterminal RES `V-X.X` set;
-- one project URL or exact project name: pin that exact version project;
+- no argument: use the live nonterminal RES set of projects with canonical
+  version key `V-X.X`;
+- one project URL or name: pin that exact version project (URL by slug
+  first; a supplied `V-X.X` or decorated display name pins by unique
+  `versionKey` / exact record);
 - issue IDs, issue URLs, or a multiline Markdown issue list: de-duplicate into
   an exact ordered inclusion set;
 - project plus issue list: pin the project as the target boundary and use the
   issue list as the complete candidate set.
 
 For project URLs, canonicalize only the `/project/<slug>/...` path identity;
-ignore `/overview`, other layout suffixes, and query parameters. Resolve the
-slug/name against live projects and reject terminal, non-RES, or non-`V-X.X`
-projects. Resolve every supplied issue with `get_issue`. Report malformed,
-unresolved, or non-RES entries and exclude them; never broaden the scope to
-compensate.
+ignore `/overview`, other layout suffixes, and query parameters. Resolve
+the slug against live projects first, then derive `versionKey` from the
+resolved project’s display name. Never infer identity from the human-readable
+slug itself. Resolve a supplied exact display name against live projects and
+reject terminal, non-RES, or non-`versionKey` projects. Resolve every supplied
+issue with `get_issue`. Report malformed, unresolved, or non-RES entries and
+exclude them; never broaden the scope to compensate.
 
 An explicit issue list is a hard inclusion boundary, not approval or forced
 selection. Reads needed for team/project validation, milestones, cycle,
