@@ -143,7 +143,8 @@ Read open `- [ ]` entries from:
 - `docs/findings/tech-debt.md`
 - `docs/findings/test-debt.md`
 - `docs/findings/product-gaps.md`
-- `docs/findings/runs/*.md` (orphaned run entries only)
+- `docs/findings/runs/*.md` (orphaned run entries only: open `- [ ]` lines
+  with no equivalent open bus line in the matching `## <category>` file)
 
 Skip `archive.md` as an active source and skip lines already carrying a
 `RES-###` outcome. Preserve each entry's category, location, severity,
@@ -160,8 +161,9 @@ Apply these checks in order:
 1. **Spec contradiction gate.** Resolve the governing `docs/specs/**` rule.
    Contradictory implementation intent is not accepted as buildable work.
    For a tracked issue, prepare the stable `CLARIFY` comment from
-   `linear-resolver`; leave it in Triage/Backlog and exclude it. For an
-   untracked ledger item, keep the same question local and unscheduled.
+   `linear-resolver`; leave current workflow state unchanged and exclude it
+   from scheduling. For an untracked ledger item, keep the same question
+   local and unscheduled.
 2. **De-duplicate and consolidate.** Attach to an existing issue before
    creating one. Confirm true duplicates for a linked move to **Duplicate**;
    rejected or superseded intake may move to **Canceled** only with a linking
@@ -246,22 +248,33 @@ Execute only operator-approved batches, after leaving Plan Mode:
 
 - **Clarification (`clarify-*`).** Delegate:
   "Use the linear-resolver subagent to request the approved clarification on
-  <RES-ID>, using this exact bounded comment: <body>." The issue remains
-  Triage/Backlog. A re-run may resume it only after `list_comments` shows an
-  unambiguous human answer.
+  <RES-ID>, using this exact bounded comment: <body>." Leave current
+  workflow state unchanged (comment-only; excluded from scheduling). A
+  re-run may resume it only after `list_comments` shows an unambiguous
+  human answer.
 - **Linear Triage routing / cleanup (`groom-intake-*`).** Delegate:
   "Use the linear-resolver subagent to apply the confirmed grooming batch:
-  <exact Triage issue IDs and allocated projects, ordinary Backlog/no-cycle routes, Urgent
-  Todo/current-cycle routes, and linked Duplicate/Canceled outcomes>."
-  The resolver may act only on named Triage intake IDs.
+  <per ID: expected source state = live Triage inbox; allocated project;
+  ordinary Backlog/no-cycle route | Urgent Todo/current-cycle route |
+  linked Duplicate/Canceled outcome>."
+  The resolver freshly re-reads each ID before any write. A stale item is
+  deferred independently rather than aborting unrelated batch items.
 - **Ledger findings (`register-*`).** Delegate:
   "Use the linear-resolver subagent to register the confirmed ledger findings
-  for triage, preserving the ordinary Backlog/no-cycle route and applying the
-  Blocker → Urgent fast lane only to the named findings."
-- **Ledger prune (`prune-ledger`).** Using the resolver's returned mapping,
-  move filed/attached entries to `docs/findings/archive.md`. Stamp first-sight
-  below-floor lines, and archive second-sight/60-day lines as
-  `wont-file (stale)`.
+  for triage from the four category files and these exact orphaned `docs/findings/runs/*.md` paths
+  and entry identities: <path · entry …>, preserving the ordinary
+  Backlog/no-cycle route and applying the Blocker → Urgent fast lane only to
+  the named findings. Reconcile run/bus duplicates once."
+- **Ledger prune (`prune-ledger`).** Using the resolver's returned source
+  path/entry mapping, apply filed, attached, first-sighting, and TTL outcomes
+  to the original source line (bus file or named run file). Move
+  filed/attached bus entries to `docs/findings/archive.md`. Archive and
+  remove processed run-source lines while preserving unrelated run content.
+  Stamp first-sight below-floor lines, and archive second-sight/60-day lines
+  as `wont-file (stale)`. Validate touched run entries and archive outcomes structurally (`## <category>` headings, checkbox lines, outcome tokens).
+  Then run `pnpm exec prettier --check` on the five active/archive ledger
+  bus files only (`docs/findings/runs` is prettierignored); if red,
+  `pnpm exec prettier --write` those bus paths only and re-check.
 - **Summary (`intake-summary`).** Re-read every changed Linear issue. Report
   applied versus deferred from the returned state. Point to `/dispatch` as
   the separate next command; do not start it.
@@ -271,13 +284,13 @@ directly.
 
 **Execution todos are a closed whitelist:**
 
-| Todo id pattern  | Delegation / action                                                                                                                                                                                                         |
-| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `clarify-*`      | `linear-resolver` CLARIFY on one named tracked issue; exact approved bounded comment; comment-only, issue left unscheduled                                                                                                  |
-| `groom-intake-*` | `linear-resolver` GROOM on named Linear Triage intake: ordinary → Backlog/no cycle; Urgent → Todo/current cycle; linked Duplicate/Canceled cleanup                                                                          |
-| `register-*`     | `linear-resolver` REGISTER FINDINGS for approved ledger entries; ordinary → Backlog/no cycle; Blocker fast lane → Urgent Todo/current cycle                                                                                 |
-| `prune-ledger`   | Archive filed/attached or TTL-expired entries, stamp first sightings, then run `pnpm exec prettier --check` on the five active/archive ledger bus files; if red, `pnpm exec prettier --write` those paths only and re-check |
-| `intake-summary` | Re-read applied state and emit the final intake report; no downstream command execution                                                                                                                                     |
+| Todo id pattern  | Delegation / action                                                                                                                                                                                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `clarify-*`      | `linear-resolver` CLARIFY on one named tracked issue; exact approved bounded comment; comment-only, issue left unscheduled                                                                                                                           |
+| `groom-intake-*` | `linear-resolver` GROOM on named Linear Triage intake: expected source state = live Triage inbox; ordinary → Backlog/no cycle; Urgent → Todo/current cycle; linked Duplicate/Canceled cleanup; stale item is deferred independently                  |
+| `register-*`     | `linear-resolver` REGISTER FINDINGS for approved bus entries plus exact orphaned `docs/findings/runs/*.md` paths and entry identities; reconcile run/bus duplicates once; ordinary → Backlog/no cycle; Blocker fast lane → Urgent Todo/current cycle |
+| `prune-ledger`   | Archive filed/attached or TTL-expired entries, stamp first sightings, then run `pnpm exec prettier --check` on the five active/archive ledger bus files; if red, `pnpm exec prettier --write` those paths only and re-check                          |
+| `intake-summary` | Re-read applied state and emit the final intake report; no downstream command execution                                                                                                                                                              |
 
 `/triage` never creates execution todos for `/dispatch`, `/sdd-to-tdd`,
 `/commit`, `/push`, `/audit`, or `/capture`.
@@ -337,17 +350,21 @@ Per item:
 - Project: current → allocated `V-X.X` · precedence evidence
 - Signal: explicit priority / ledger mapping; state explicitly when
   `blockedBy` was present but did not change priority
-- Delegation: exact `linear-resolver` GROOM fields
+- Delegation: exact `linear-resolver` GROOM fields, including expected
+  source state
 
 ## Plan — Findings Registration
 
-Per entry: source, floor result, attach-over-create result, labels, and route.
-Ordinary entries show `Backlog · cycle none · scheduling metadata deferred to
-/dispatch`; Blocker entries show the verified fast-lane fields.
+Per entry: source path (bus or named run file), floor result, attach-over-create
+result, labels, and route. Ordinary entries show `Backlog · cycle none ·
+scheduling metadata deferred to /dispatch`; Blocker entries show the verified
+fast-lane fields. Run/bus duplicates are reconciled once.
 
 ## Plan — Ledger TTL
 
-First-sighting stamps and stale archive moves, or `none`.
+First-sighting stamps and stale archive moves applied to the original source
+line (bus or run file), or `none`. Processed run-source lines are removed
+while preserving unrelated run content.
 
 ## Cannot Verify
 

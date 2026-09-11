@@ -266,14 +266,16 @@ resolution, and milestone hint. No local comment is posted before approval. A
 managed Cloud task launched from that tracked issue preauthorizes the bounded
 visibility comment only, never scheduling or scope changes.
 
-For `schedule-selected`, show every exact target field. A selected Backlog
-issue must receive the recommended milestone, final priority, estimate when
-verified, `state=Todo`, and the live current cycle in the same approved batch.
-An already-Todo issue receives only its selected metadata/current-cycle
-corrections.
+For `schedule-selected`, show every exact target field and the per-item
+expected source state (`Backlog` for a Backlog→Todo promotion, `Todo` for
+an already-scheduled correction). A selected Backlog issue must receive the
+recommended milestone, final priority, estimate when verified, `state=Todo`,
+and the live current cycle in the same approved batch. An already-Todo issue
+receives only its selected metadata/current-cycle corrections.
 
 Do not include unselected Backlog issues in the GROOM batch. Plan approval is
-the operator's confirmation for this bounded batch.
+the operator's confirmation for this bounded batch. A stale item is deferred
+independently rather than aborting unrelated batch items.
 
 ## PHASE 5 — Approved execution and post-apply card
 
@@ -284,9 +286,13 @@ After plan approval and after leaving Plan Mode:
    separate re-run after an unambiguous human comment may reconsider it.
 2. Delegate **one explicit GROOM batch**:
    "Use the linear-resolver subagent to apply the confirmed grooming batch
-   from dispatch: set <selected IDs, exact allocated projects, and milestone/priority/estimate
-   fields>; move <selected Backlog IDs> Backlog → Todo; set every selected
-   issue to the live current cycle <name/id>."
+   from dispatch: for each selected ID, expected source state <Backlog | Todo>;
+   set <exact allocated projects and milestone/priority/estimate fields>;
+   move IDs whose expected source is Backlog from Backlog → Todo; apply
+   already-scheduled correction routes only to IDs whose expected source is
+   Todo; set every selected issue to the live current cycle <name/id>."
+   A stale item is deferred independently rather than aborting unrelated
+   batch items.
 3. Never call `save_issue` or `save_comment` from the parent. Never ask the
    resolver to set In Progress, In Review, or Done.
 4. After the resolver returns, re-read **every selected issue** with
@@ -387,7 +393,7 @@ Per selected issue:
 - Rank: dependency · milestone · priority · risk
 - Owning criterion: exact spec path + criterion
 - Write-set: exact files and derivation
-- GROOM fields: exact mutation, or `none — already scheduled`
+- GROOM fields: expected source state · exact mutation, or `none — already scheduled`
 
 Then:
 

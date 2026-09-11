@@ -4,7 +4,23 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { devNull } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
-import { detectActiveRoutingTextViolations } from "./harness-lint.mjs"
+import {
+  CLARIFY_ONLY_CAPTURE_FORBIDDEN,
+  CLARIFY_ONLY_CAPTURE_NEEDLES,
+  CLARIFY_STATE_FORBIDDEN,
+  CLARIFY_STATE_UNCHANGED_NEEDLE,
+  CLARIFY_STATE_UNCHANGED_RELS,
+  DESIGN_WRITE_WHITELIST_FORBIDDEN,
+  DESIGN_WRITE_WHITELIST_NEEDLES,
+  GROOM_STALE_NEEDLES,
+  RUN_FILE_LIFECYCLE_NEEDLES,
+  detectActiveRoutingTextViolations,
+  detectClarifyOnlyCaptureViolations,
+  detectClarifyStateWordingViolations,
+  detectDesignWriteWhitelistViolations,
+  detectGroomStaleGuardViolations,
+  detectRunFileLifecycleViolations,
+} from "./harness-lint.mjs"
 import { runPnpm } from "./run-pnpm.mjs"
 
 const ROOT = process.cwd()
@@ -61,6 +77,11 @@ test("harness-lint source pins findings-format and prettier --check", () => {
   assert.ok(src.includes("pm-workflow"))
   assert.ok(src.includes("milestone-routing"))
   assert.ok(src.includes("clarify"))
+  assert.ok(src.includes("groom-stale"))
+  assert.ok(src.includes("clarify-only"))
+  assert.ok(src.includes("design-writes"))
+  assert.ok(src.includes("run-ledger"))
+  assert.ok(src.includes("clarify-state"))
   assert.ok(src.includes("prettier --check"))
   assert.ok(src.includes("runPnpm"))
   assert.ok(!src.includes('? "pnpm.cmd"'))
@@ -457,5 +478,139 @@ test("active commands/rules/agents do not describe START as an In Progress write
         `${file} still describes forbidden execution-status ownership: ${m?.[0]}`,
       )
     }
+  }
+})
+
+function assertMissingClauseNegatives(rel, text, needles, detect) {
+  assert.deepEqual(detect(rel, text), [])
+  for (const needle of needles) {
+    const mutated = text.replaceAll(needle, "")
+    const violations = detect(rel, mutated)
+    assert.notEqual(
+      violations.length,
+      0,
+      `expected a violation after removing ${needle} from ${rel}`,
+    )
+    assert.ok(
+      violations.some((v) => v.includes(needle)),
+      `violation for ${needle} was ${violations.join(" | ")}`,
+    )
+  }
+}
+
+function assertForbiddenClauseNegatives(rel, text, needles, detect) {
+  assert.deepEqual(detect(rel, text), [])
+  for (const needle of needles) {
+    const mutated = `${text}\n${needle}\n`
+    const violations = detect(rel, mutated)
+    assert.notEqual(
+      violations.length,
+      0,
+      `expected a violation after inserting ${needle} into ${rel}`,
+    )
+    assert.ok(
+      violations.some((v) => v.includes(needle)),
+      `violation for ${needle} was ${violations.join(" | ")}`,
+    )
+  }
+}
+
+test("GROOM stale-guard contracts pass live files and fail each missing clause", () => {
+  for (const [rel, needles] of Object.entries(GROOM_STALE_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertMissingClauseNegatives(
+      rel,
+      text,
+      needles,
+      detectGroomStaleGuardViolations,
+    )
+  }
+})
+
+test("clarify-only capture contracts pass live file and fail each missing or restored-forbidden clause", () => {
+  const rel = ".cursor/commands/capture.md"
+  const text = readFileSync(join(ROOT, rel), "utf8")
+  assert.deepEqual(detectClarifyOnlyCaptureViolations(text), [])
+  for (const needle of CLARIFY_ONLY_CAPTURE_NEEDLES) {
+    const mutated = text.replaceAll(needle, "")
+    const violations = detectClarifyOnlyCaptureViolations(mutated)
+    assert.notEqual(
+      violations.length,
+      0,
+      `expected a violation after removing ${needle}`,
+    )
+    assert.ok(
+      violations.some((v) => v.includes(needle)),
+      `violation for ${needle} was ${violations.join(" | ")}`,
+    )
+  }
+  for (const needle of CLARIFY_ONLY_CAPTURE_FORBIDDEN) {
+    const mutated = `${text}\n${needle}\n`
+    const violations = detectClarifyOnlyCaptureViolations(mutated)
+    assert.notEqual(
+      violations.length,
+      0,
+      `expected a violation after inserting ${needle}`,
+    )
+    assert.ok(violations.some((v) => v.includes(needle)))
+  }
+})
+
+test("design write-whitelist contracts pass live file and fail each missing or restored-forbidden clause", () => {
+  const rel = ".cursor/commands/design.md"
+  const text = readFileSync(join(ROOT, rel), "utf8")
+  assert.deepEqual(detectDesignWriteWhitelistViolations(text), [])
+  for (const needle of DESIGN_WRITE_WHITELIST_NEEDLES) {
+    const mutated = text.replaceAll(needle, "")
+    const violations = detectDesignWriteWhitelistViolations(mutated)
+    assert.notEqual(
+      violations.length,
+      0,
+      `expected a violation after removing ${needle}`,
+    )
+    assert.ok(
+      violations.some((v) => v.includes(needle)),
+      `violation for ${needle} was ${violations.join(" | ")}`,
+    )
+  }
+  for (const needle of DESIGN_WRITE_WHITELIST_FORBIDDEN) {
+    const mutated = `${text}\n${needle}\n`
+    const violations = detectDesignWriteWhitelistViolations(mutated)
+    assert.notEqual(
+      violations.length,
+      0,
+      `expected a violation after inserting ${needle}`,
+    )
+    assert.ok(violations.some((v) => v.includes(needle)))
+  }
+})
+
+test("run-file lifecycle contracts pass live files and fail each missing clause", () => {
+  for (const [rel, needles] of Object.entries(RUN_FILE_LIFECYCLE_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertMissingClauseNegatives(
+      rel,
+      text,
+      needles,
+      detectRunFileLifecycleViolations,
+    )
+  }
+})
+
+test("CLARIFY current-state-unchanged wording passes live files and fails each missing or restored-forbidden clause", () => {
+  for (const rel of CLARIFY_STATE_UNCHANGED_RELS) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertMissingClauseNegatives(
+      rel,
+      text,
+      [CLARIFY_STATE_UNCHANGED_NEEDLE],
+      detectClarifyStateWordingViolations,
+    )
+    assertForbiddenClauseNegatives(
+      rel,
+      text,
+      CLARIFY_STATE_FORBIDDEN,
+      detectClarifyStateWordingViolations,
+    )
   }
 })

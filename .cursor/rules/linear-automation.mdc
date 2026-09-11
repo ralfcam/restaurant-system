@@ -112,7 +112,7 @@ headers. Do **not** add a comment automation that matches the digest or the
 
 `Clarification required` comments are Slack visibility triggers only. They
 must never match an automation that moves an issue to In Progress, In Review,
-or Done; they never trigger In Review/Done. The source command leaves the issue in Triage/Backlog and resumes only
+or Done; they never trigger In Review/Done. The source command leaves current workflow state unchanged (comment-only; no field, scope, or scheduling promotion) and resumes only
 after a re-run finds an unambiguous human answer in later Linear comments.
 
 ## The accumulator-branch gap

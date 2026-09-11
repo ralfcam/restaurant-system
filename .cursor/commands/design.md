@@ -71,9 +71,9 @@ First, determine whether you are in Plan Mode.
   exactly: "/design runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or
   the mode picker) and re-run `/design [idea]`." Then end the turn.
 - If you ARE in Plan Mode: proceed. Producing the spec proposal must not write
-  any file — the dialogue, drafting, and presentation are all read-only. The
-  one write (the new spec file) happens later, in PHASE 5, after explicit
-  approval.
+  any file — the dialogue, drafting, and presentation are all read-only. The PHASE 5 writes (the approved spec write, optional `docs-updater`
+  delegation, and single approved comment-only CLARIFY) happen later, after
+  explicit approval.
 
 ## STEP 1 — HUB WALK (does this already have an owner?)
 
@@ -138,9 +138,9 @@ answer unambiguously resolves the question. Otherwise render the exact stable
 `Clarification required` body and key
 `clarify:<RES-id>:<spec-basename>:<rule-or-ac>` in the plan. A local run
 requires approval before delegating the comment; a managed Cloud task launched
-from that tracked issue preauthorizes this bounded visibility comment. The
-issue stays in Triage/Backlog and no spec is drafted while the decision is
-open.
+from that tracked issue preauthorizes this bounded visibility comment. Leave
+current workflow state unchanged and draft no spec while the decision is
+open. The issue remains excluded from scheduling.
 
 ## STEP 3 — DRAFT THE SPEC (in the plan only — not written to disk yet)
 
@@ -169,12 +169,13 @@ content shown — not a vague "looks good" on an earlier partial draft.
 You are a **design orchestrator**, not `/sdd-to-tdd`. When this plan is
 executed:
 
-- Your **only** writes are: (1) the **one** approved new spec file under
-  `docs/specs/**` (design owns spec authorship for this genuinely-new
-  case directly — no `tdd-*` subagent, no TDD loop; that begins only once
-  `/sdd-to-tdd` picks up the file), and (2) — only if the dialogue surfaced
-  out-of-scope deferrals — one `docs-updater` Task delegation appending them
-  to `docs/findings/product-gaps.md`; and (3), only for an unresolved tracked
+- Your **only** writes are: (1) the approved spec write — the **one** new spec
+  file under `docs/specs/**` (design owns spec authorship for this
+  genuinely-new case directly — no `tdd-*` subagent, no TDD loop; that begins
+  only once `/sdd-to-tdd` picks up the file); (2) the optional
+  `docs-updater` delegation — only if the dialogue surfaced out-of-scope
+  deferrals — appending them to `docs/findings/product-gaps.md`; and (3) the
+  single approved comment-only CLARIFY — only for an unresolved tracked
   blocker whose exact comment was approved, one `linear-resolver` CLARIFY
   delegation.
 - You MUST NOT edit `app/**`, `components/**`, `hooks/**`, `lib/**`,
@@ -197,8 +198,9 @@ executed:
 docs/findings/product-gaps.md: append '<full ledger line>'; … ; cite
 docs/findings/README.md entry format."` Each line stamped
   `(found: design/<plan-slug>/<item-slug>)`.
-- When the spec file is written (and the ledger delegation, if any, is done),
-  the run is **complete** — point to `/sdd-to-tdd @docs/specs/<file>`
+- When the spec file is written, the optional `docs-updater` delegation (if
+  any) is done, and the single approved comment-only CLARIFY (if any) is
+  done, the run is **complete** — point to `/sdd-to-tdd @docs/specs/<file>`
   FEATURE and stop. Do not continue into decomposition or code.
   </instructions>
 
@@ -221,10 +223,10 @@ docs/findings/README.md entry format."` Each line stamped
   only, a separate operator-initiated turn.
 - DO NOT write application or test code, and DO NOT edit an existing spec —
   `/design` writes at most one brand-new spec file.
-- DO NOT call Linear MCP directly, or delegate anything to `linear-resolver`
-  except one operator-approved CLARIFY comment on a named tracked issue. The
-  only other write besides the spec file is the gated `docs-updater` ledger
-  delegation for out-of-scope deferrals.
+- DO NOT call Linear MCP directly. The PHASE 5 write whitelist is exactly:
+  (1) the approved spec write under `docs/specs/**`, (2) the optional `docs-updater` delegation appending out-of-scope deferrals to
+  `docs/findings/product-gaps.md`, and (3) the single approved comment-only CLARIFY
+  delegation on a named tracked issue (no issue-field mutation). No other writes.
 - DO NOT write `docs/findings/*.md` yourself — delegate `docs-updater`, same
   as `/capture`.
 </constraints>

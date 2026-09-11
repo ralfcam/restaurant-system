@@ -98,8 +98,9 @@ already tied to a `RES-###`, use read-only `get_issue`/`list_comments` to
 confirm the issue and detect an unambiguous human answer. If unresolved, show
 the exact bounded `Clarification required` comment in the Plan and, only after
 local approval (or a managed Cloud launch from that issue), delegate
-`linear-resolver` CLARIFY. The issue stays in Triage/Backlog; no state,
-project, scope, or assignment changes.
+`linear-resolver` CLARIFY. Leave current workflow state unchanged; no state,
+project, scope, or assignment changes. The issue remains excluded from
+capture and dispatch.
 </context>
 
 <instructions>
@@ -149,8 +150,9 @@ subagent to apply capture ledger writes to docs/findings/<category>.md: …"`.
   de-dupe outcome** (`created new <RES-###>` vs. `related to existing <RES-###>`) and
   record the returned issue ID **plus that outcome** under **Tracked in Linear**, so a
   relate-instead-of-create (or a missed near-duplicate) is visible in the run output.
-  This is the _only_ Linear write capture ever makes, and it files the approved spec
-  change — never "build the contradicting behavior."
+  This is the only REGISTER-FINDINGS write capture ever makes, and it files the approved spec
+  change — never "build the contradicting behavior." The tracked clarification
+  lane below is a separate comment-only Linear write.
 - **Tracked clarification lane.** A named tracked blocker may receive one
   operator-approved `linear-resolver` CLARIFY comment. The exact body and
   stable `clarify:<RES-id>:<spec-basename>:<rule-or-ac>` key must be in the
@@ -160,10 +162,14 @@ subagent to apply capture ledger writes to docs/findings/<category>.md: …"`.
   per target ledger file, plus — only when the accelerator lane fired — one
   `linear-register` todo, and one `clarify-*` todo per approved tracked
   blocker (see output format). During execution, satisfy **one
-  todo at a time** — one `docs-updater` Task per ledger file, and (if present) one
-  `linear-resolver` Task for the approved tracking issue; never satisfy a todo with
-  an inline edit, and never split one target across multiple Tasks. Skip a ledger
-  file's todo only if every item for it was opted out or reconciled `skip`.
+  todo at a time** — one `docs-updater` Task per ledger file, (if present) one
+  `linear-resolver` Task for the approved tracking issue, and (if present) one
+  `linear-resolver` CLARIFY Task per approved `clarify-*` todo; never satisfy a
+  todo with an inline edit, and never split one target across multiple Tasks.
+  Skip a ledger file's todo only if every item for it was opted out or
+  reconciled `skip`. An approved clarification-only plan must invoke
+  `linear-resolver` and then stop. An untracked or unapproved clarification
+  remains non-executable.
 
 ## PHASE 0 — Parse input
 
@@ -280,7 +286,7 @@ they differ from the operator's guess):
   pointing at the next command.
 - When the item names a tracked `RES-###`, resolve it and inspect
   `list_comments`. A later unambiguous human answer resumes classification.
-  Otherwise leave the issue in Triage/Backlog, exclude it from capture and
+  Otherwise leave current workflow state unchanged, exclude it from capture and
   dispatch, and prepare the stable bounded CLARIFY body. Local Plan Mode shows
   the exact comment and requires approval; a managed Cloud task launched from
   that issue preauthorizes this visibility comment only.
@@ -397,7 +403,8 @@ only the items they decline; drop those lines from their file's delegation).
 
 Execute **PHASE 5 Execution Todos in order**, one todo per turn — the
 `<category>-phase5` ledger todos first, then the gated `linear-register` todo (if
-present). For each todo `<category>-phase5`:
+present), then each approved `clarify-*` todo. A clarification-only plan
+executes only those `clarify-*` todos. For each todo `<category>-phase5`:
 
 1. Mark the todo **in_progress**, then invoke the **`docs-updater`** subagent in
    the **background** with the brief from the Capture Plan's per-file delegation:
@@ -429,9 +436,10 @@ Report the de-dupe outcome explicitly: created new <RES-###> vs. related to exis
    created/updated/skipped/resolved from its report. Never substitute a parent
    `save_comment` call.
 
-Default ON: approving the plan authorizes all listed todos (`<category>-phase5` and
-any `linear-register`) unless the operator explicitly opts out of specific items
+Default ON: approving the plan authorizes all listed todos (`<category>-phase5`, any `linear-register`, and any `clarify-*`) unless the operator explicitly opts out of specific items
 (drop those lines, or remove a file's todo if it ends up empty).
+An approved clarification-only plan must invoke `linear-resolver` and then stop.
+An untracked or unapproved clarification remains non-executable.
 
 If an approved item lacked a validator return (e.g. fan-out failure), re-dispatch
 one validator for that item before including its line in any `docs-updater` call —
@@ -489,7 +497,7 @@ do not append unvalidated lines.
   `/sdd-to-tdd` FIX — never "build the contradicting behavior"), bypassing `/triage`.
   You still never edit the spec or code yourself.
 - DO NOT surface the Next-in-the-Cycle `/triage` pointer before all approved
-  PHASE 5 `docs-updater` (and any `linear-register`) delegations complete (or items
+  PHASE 5 `docs-updater` (and any `linear-register` and `clarify-*`) delegations complete (or items
   are explicitly opted out).
 - DO NOT append process/meta notes ("nice session", "consider refactoring later"
   with no concrete gap) — those stay in chat, not the ledger.
@@ -532,7 +540,7 @@ do not append unvalidated lines.
 - DO NOT self-implement a capture plan at execution time. Even when the execution
   turn says "implement the plan as specified", capture's only executable work is
   the listed PHASE 5 todos (`<category>-phase5` `docs-updater` delegations + the
-  one gated `linear-register` delegation). Never read the plan's **Approved
+  one gated `linear-register` delegation + any approved `clarify-*` delegations). Never read the plan's **Approved
   reconciliation scope** as a checklist to run — it is advisory hand-off text owned
   by `/sdd-to-tdd` FIX. Never edit `docs/specs/**`, `app/**`, `components/**`,
   `hooks/**`, `lib/**`, `src/**`, `supabase/**`, or `tests/**` (nor delegate a
@@ -560,8 +568,9 @@ You are a **capture orchestrator, not an implementer**. When this plan is execut
   a subagent to do so. Capture never authors the spec, code, or tests — that is
   `/sdd-to-tdd` FIX's job. If you are about to touch any of those paths, STOP.
 - **"Implement the plan" means only the PHASE 5 Execution Todos listed below** —
-  the `<category>-phase5` `docs-updater` delegations and, if present, the one
-  `linear-register` delegation. It does NOT authorize executing the **Approved
+  the `<category>-phase5` `docs-updater` delegations, the one
+  `linear-register` delegation when present, and any approved `clarify-*`
+  `linear-resolver` delegations. It does NOT authorize executing the **Approved
   reconciliation scope**: that section is advisory hand-off text for `/sdd-to-tdd`
   FIX, not a checklist to run here.
 - Execute the listed todos **one at a time**, each via its subagent Task call;
@@ -569,9 +578,10 @@ You are a **capture orchestrator, not an implementer**. When this plan is execut
   already satisfied in a prior turn), the run is **complete** — do NOT continue into
   spec/code/test work. STOP and surface the Next-in-the-Cycle pointer (`→ /triage`,
   or `→ /sdd-to-tdd <RES-###>` FIX when a `linear-register` issue was filed).
-- If a run has **no** ledger todos and **no** `linear-register` todo (a pure
-  spec-contradiction clarify case), there is nothing to execute — report the
-  clarification and STOP.
+- An approved clarification-only plan must invoke `linear-resolver` and then stop.
+  An untracked or unapproved clarification remains non-executable. If the plan
+  lists no ledger, `linear-register`, or `clarify-*` todos, report the
+  clarification and STOP with no Linear write.
 - If you cannot delegate (the Task tool is unavailable) or a required subagent is
   missing, STOP and report — never self-implement in its place.
 
@@ -631,7 +641,7 @@ Operator approves this list with the Capture Plan.
 | `linear-register`   | Invoke `linear-resolver` (REGISTER-FINDINGS): file 1 tracking issue for the operator-approved REQ/spec change, routed to `/sdd-to-tdd` FIX; report de-dupe outcome (created new vs. related) (gated; omit when no approval) |
 | `clarify-<RES-id>`  | Invoke `linear-resolver` (CLARIFY): upsert the exact approved bounded clarification comment on the named tracked issue; no issue-field write                                                                                |
 
-(or "none — no ledger items and no approved spec-change" for a pure clarification run)
+(or "none — no ledger items, no approved spec-change, and no approved `clarify-*` todo")
 
 ## Clarifications Needed
 
@@ -659,7 +669,7 @@ but it MUST be fenced as advisory and non-executable. Lead it exactly with:
 > implementation/test outline for the tracked issue.
 > Keep it prose, not a numbered "steps to take" checklist, and never promote any of
 > its lines into PHASE 5 todos — the only executable work is the `linear-register`
-> delegation. (This is the section that, left unfenced, invites the executor to
+> delegation and any approved `clarify-*` comment. (This is the section that, left unfenced, invites the executor to
 > implement the spec/code/tests inline instead of handing them to `/sdd-to-tdd`.)
 
 (or "none")

@@ -21,6 +21,11 @@
  *   dispatch         includeRelations + verified-negative vs cannot-verify
  *   pm-workflow      triage intake, bounded dispatch scheduling, audit project
  *                    update, and single-writer/spawn-guard ownership
+ *   groom-stale      expected-source-state GROOM handoff and pre-write stale guard
+ *   clarify-only     executable clarify-* capture plans (authorization/order/no-work)
+ *   design-writes    design PHASE 5 write whitelist (spec, docs-updater, CLARIFY)
+ *   run-ledger       named run-file registration, source mapping, and pruning
+ *   clarify-state    CLARIFY leaves current workflow state unchanged
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
@@ -140,6 +145,127 @@ function requireAll(id, rel, text, needles) {
   for (const needle of needles) {
     if (!text.includes(needle)) fail(id, `${rel} must contain ${needle}`)
   }
+}
+
+function missingNeedles(rel, text, needles) {
+  return needles
+    .filter((needle) => !text.includes(needle))
+    .map((needle) => `${rel} must contain ${needle}`)
+}
+
+function forbiddenNeedles(rel, text, needles) {
+  return needles
+    .filter((needle) => text.includes(needle))
+    .map((needle) => `${rel} must not contain ${needle}`)
+}
+
+export const GROOM_STALE_NEEDLES = {
+  ".cursor/agents/linear-resolver.md": [
+    "expected source state",
+    "freshly re-read before any metadata, relation, comment, or state write",
+    "live Triage-inbox membership",
+    "already-scheduled correction",
+    "report `stale`",
+    "complete target state already matches",
+    "stale item is deferred independently",
+  ],
+  ".cursor/commands/triage.md": [
+    "expected source state",
+    "stale item is deferred independently",
+  ],
+  ".cursor/commands/dispatch.md": [
+    "expected source state",
+    "already-scheduled correction",
+    "stale item is deferred independently",
+  ],
+}
+
+export const CLARIFY_ONLY_CAPTURE_NEEDLES = [
+  "An approved clarification-only plan must invoke `linear-resolver` and then stop",
+  "untracked or unapproved clarification remains non-executable",
+  "then each approved `clarify-*` todo",
+  "any `linear-register`, and any `clarify-*`",
+  "and any approved `clarify-*`",
+]
+
+export const CLARIFY_ONLY_CAPTURE_FORBIDDEN = [
+  "there is nothing to execute — report the",
+]
+
+export const DESIGN_WRITE_WHITELIST_NEEDLES = [
+  "approved spec write",
+  "optional `docs-updater` delegation",
+  "single approved comment-only CLARIFY",
+]
+
+export const DESIGN_WRITE_WHITELIST_FORBIDDEN = [
+  "The only other write besides the spec file is the gated",
+]
+
+export const RUN_FILE_LIFECYCLE_NEEDLES = {
+  ".cursor/agents/linear-resolver.md": [
+    "named run files",
+    "derive category from the run section",
+    "source path/entry mapping",
+  ],
+  ".cursor/commands/triage.md": [
+    "exact orphaned `docs/findings/runs/*.md` paths",
+    "reconcile run/bus duplicates once",
+    "original source line",
+    "preserving unrelated run content",
+    "Validate touched run entries and archive outcomes structurally",
+  ],
+}
+
+export const CLARIFY_STATE_UNCHANGED_RELS = [
+  ".cursor/rules/linear-automation.mdc",
+  ".cursor/commands/capture.md",
+  ".cursor/commands/design.md",
+  ".cursor/commands/sdd-to-tdd.md",
+  ".cursor/rules/linear-project-routing.mdc",
+]
+
+export const CLARIFY_STATE_UNCHANGED_NEEDLE = "current workflow state unchanged"
+
+export const CLARIFY_STATE_FORBIDDEN = [
+  "stays in Triage/Backlog",
+  "leaves the issue in Triage/Backlog",
+  "current Triage/Backlog state",
+  "leaves it in Triage/Backlog",
+]
+
+export function detectGroomStaleGuardViolations(rel, text) {
+  const needles = GROOM_STALE_NEEDLES[rel]
+  return needles ? missingNeedles(rel, text, needles) : []
+}
+
+export function detectClarifyOnlyCaptureViolations(text) {
+  const rel = ".cursor/commands/capture.md"
+  return [
+    ...missingNeedles(rel, text, CLARIFY_ONLY_CAPTURE_NEEDLES),
+    ...forbiddenNeedles(rel, text, CLARIFY_ONLY_CAPTURE_FORBIDDEN),
+  ]
+}
+
+export function detectDesignWriteWhitelistViolations(text) {
+  const rel = ".cursor/commands/design.md"
+  return [
+    ...missingNeedles(rel, text, DESIGN_WRITE_WHITELIST_NEEDLES),
+    ...forbiddenNeedles(rel, text, DESIGN_WRITE_WHITELIST_FORBIDDEN),
+  ]
+}
+
+export function detectRunFileLifecycleViolations(rel, text) {
+  const needles = RUN_FILE_LIFECYCLE_NEEDLES[rel]
+  return needles ? missingNeedles(rel, text, needles) : []
+}
+
+export function detectClarifyStateWordingViolations(rel, text) {
+  if (!CLARIFY_STATE_UNCHANGED_RELS.includes(rel)) return []
+  return [
+    ...missingNeedles(rel, text, [CLARIFY_STATE_UNCHANGED_NEEDLE]),
+    ...forbiddenNeedles(rel, text, CLARIFY_STATE_FORBIDDEN),
+  ]
 }
 
 function checkRoutingContracts() {
@@ -630,6 +756,35 @@ function checkResIdentity() {
   )
 }
 
+function checkReviewFixContracts() {
+  const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
+  for (const rel of Object.keys(GROOM_STALE_NEEDLES)) {
+    for (const message of detectGroomStaleGuardViolations(rel, read(rel))) {
+      fail("groom-stale", message)
+    }
+  }
+  for (const message of detectClarifyOnlyCaptureViolations(
+    read(".cursor/commands/capture.md"),
+  )) {
+    fail("clarify-only", message)
+  }
+  for (const message of detectDesignWriteWhitelistViolations(
+    read(".cursor/commands/design.md"),
+  )) {
+    fail("design-writes", message)
+  }
+  for (const rel of Object.keys(RUN_FILE_LIFECYCLE_NEEDLES)) {
+    for (const message of detectRunFileLifecycleViolations(rel, read(rel))) {
+      fail("run-ledger", message)
+    }
+  }
+  for (const rel of CLARIFY_STATE_UNCHANGED_RELS) {
+    for (const message of detectClarifyStateWordingViolations(rel, read(rel))) {
+      fail("clarify-state", message)
+    }
+  }
+}
+
 export function runHarnessLint() {
   checkLinks()
   checkFanout()
@@ -643,6 +798,7 @@ export function runHarnessLint() {
   checkPmWorkflowContracts()
   checkMilestoneRouting()
   checkClarificationLoop()
+  checkReviewFixContracts()
 
   if (violations.length) {
     for (const v of violations) console.error(v)

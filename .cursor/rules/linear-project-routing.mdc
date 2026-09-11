@@ -87,8 +87,9 @@ Use the first unambiguous compatible signal:
 
 Every selected project must come from this run's discovered set. Conflicting
 signals or a tie posts/updates the stable clarification for a tracked issue and
-leaves it in Triage/Backlog; an untracked ledger item stays unscheduled with
-the same question in the local plan.
+leaves current workflow state unchanged (excluded from scheduling/dispatch);
+an untracked ledger item stays unscheduled with the same question in the local
+plan.
 
 ## Select one audit project
 

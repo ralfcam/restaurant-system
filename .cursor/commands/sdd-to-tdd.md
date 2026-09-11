@@ -231,7 +231,7 @@ authorizes a spec, scope, state, or assignment change.
 The comment uses the resolver's fixed schema: source command, exact spec
 evidence, one conflict/missing fact, one decision question, bounded options,
 recommended default, route after resolution, and milestone hint. The tracked
-issue remains in its current Triage/Backlog state and is not dispatchable.
+issue remains with its current workflow state unchanged and is not dispatchable.
 An unresolved run emits only a `clarify-<RES-id>` execution todo:
 "Invoke the `linear-resolver` subagent to request the approved clarification
 on <RES-ID>, using this exact bounded comment: <body>." It emits no spec/TDD,
