@@ -160,6 +160,11 @@ the same pin. Unit glob-scan:
   then guest `GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`;
   no table-wide `GRANT INSERT`; no authenticated `FOR ALL`; hostile insert
   of server-owned columns denied).
+- Confirmation-code uniqueness (AC-4 CONF-CODE-UNIQUE / RES-ISO):
+  `tests/integration/reservations/confirmation-code-uniqueness.integ.test.ts`
+  (second guest insert of the same `TVL-####` is SQLSTATE `23505`; exactly one
+  row remains; baseline pin of
+  `CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`).
 - Sibling role matrix (RES-42):
   `tests/integration/security/sibling-privileges.integ.test.ts`
   `describe.skipIf(!authEnvReady)` `"sibling RLS/ACL matrix after local reset"`

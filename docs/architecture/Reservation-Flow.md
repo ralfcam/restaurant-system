@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-11
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-14 for the segmented homepage widget, occupancy window,
@@ -36,7 +36,11 @@ Step 2 requires guest name and a valid email; phone is optional (BW-7 / BW-13).
 After INSERT succeeds, `createReservation` calls `sendBookingConfirmation` from
 the in-memory payload (no `.select()` of the inserted row). A throwing mailer
 is caught; `conf_code` is still returned (AC-4 / BW-14). Live provider stays
-manual-UAT.
+manual-UAT. `conf_code` uniqueness is database-enforced:
+`CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`
+immediately after the `reservations` table create in
+`supabase/migrations/00000000000000_baseline.sql`. Guest INSERT still includes
+`conf_code`; `createReservation` 23505 retry is unchanged.
 
 **Occupancy window.** `confirmed` and `seated` occupy covers on
 `[start, nextBookableTime(start))` (occupancy + staff-manageable buffer,

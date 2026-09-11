@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-11
 
 ## Auth flow
 
@@ -135,7 +135,10 @@ and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`
 then `GRANT SELECT` only).
 `reservations` is insert-only (`REVOKE ALL` then
 `GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`);
-guest INSERT is not table-wide. Server-owned `id`, `status`, `table_label`,
+guest INSERT is not table-wide. Identity is still unique:
+`CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`
+immediately after the `reservations` table create, even though guests can set
+`conf_code`. Server-owned `id`, `status`, `table_label`,
 `created_at`, and `completed_at` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.

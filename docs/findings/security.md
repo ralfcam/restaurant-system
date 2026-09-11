@@ -1,6 +1,5 @@
 # Security findings (open)
 
-- [ ] `conf_code` is guest-insertable and has no UNIQUE constraint · `supabase/migrations/00000000000000_baseline.sql:81-98` (`conf_code TEXT NOT NULL`, no UNIQUE) · AC-5 puts `conf_code` on the guest INSERT allowlist; two guests can persist the same code and confirmation lookup is then ambiguous · high · (found: tdd/guest-reservation-insert-privileges_587ea4c9/RES-PRIV-COLS/green)
 - [ ] Staff-path startsWith is segment-unaware · `lib/supabase/proxy.ts:35-36` (`STAFF_PATHS`) · `/administrator` would be treated as `/admin` and redirected by the staff gate; same class as AC-19, different owner (`staff-authorization.md` SA-2) · med · (found: tdd/res-50_locale_mw_session_cookies_a3f1c8e2/planning)
 - [ ] Hidden review-email `enabled` field is not a gated control · `app/admin/marketing/review-email-settings-form.tsx` · SA-10 chrome lists Switch/Textarea/Input/Save; the hidden `enabled` field can still post if someone bypasses disabled widgets (server SA-7/SA-8 still blocks) · low · (found: tdd/ux_staffchrome_pos_batch_9c4a1b/C332-4/red)
 - [ ] Review-email `handleSubmit` does not bail when `!isSuperAdmin` · `app/admin/marketing/review-email-settings-form.tsx` · Disabled chrome can be re-enabled in the DOM and still POST; server `requireSuperAdminUser` still rejects · low · (found: tdd/ux_staffchrome_pos_batch_9c4a1b/C332-4/green)

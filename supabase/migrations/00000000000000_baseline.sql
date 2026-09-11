@@ -97,6 +97,8 @@ CREATE TABLE IF NOT EXISTS reservations (
   completed_at TIMESTAMPTZ
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code);
+
 -- PV-9: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations without
 -- email; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;

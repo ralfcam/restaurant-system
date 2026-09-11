@@ -504,3 +504,11 @@ REGISTER: 0 filed · 0 attached · 2 left on ledger (below floor). Cap 3 unused.
 ### Resolved in-run
 
 - [x] FIX-mode broader unit timeout · `tests/unit/dev-toolchain/lint-toolchain.test.ts:35` · 5s timeout spinning ESLint over gitignored supabase temp trees; `pnpm lint` itself passed; isolated re-run also timed out after C1 · med · (seen: /triage 2026-09-02) (found: tdd/seed_users_email_f5f7f0e6.plan.md/C2/refactor) (found: tdd/res-42_sibling_privilege_lock_6f2a8c1d/RES42-C1/refactor) → resolved 2026-09-10 plan `eslint_timeout_hardening_f994f816` (G-L1 C4: `vitest.unit.config.ts` `test.testTimeout: 15_000`)
+
+## reservation-code-uniqueness_c4d50986 close-out 2026-09-11
+
+REGISTER: 0 filed · 0 attached · 1 left on ledger (this run's test-debt `createReservation` 23505 retry coverage is med, below high-only floor). Cap 3 unused. No tracked Linear issue. Standing backlog not swept. Hostile-test lookup-by-conf_code left on `test-debt.md` (database uniqueness does not resolve a random-code collision with a pre-existing row).
+
+### Resolved in-run
+
+- [x] `conf_code` is guest-insertable and has no UNIQUE constraint · `supabase/migrations/00000000000000_baseline.sql:81-98` (`conf_code TEXT NOT NULL`, no UNIQUE) · AC-5 puts `conf_code` on the guest INSERT allowlist; two guests can persist the same code and confirmation lookup is then ambiguous · high · (found: tdd/guest-reservation-insert-privileges_587ea4c9/RES-PRIV-COLS/green) (in-scope: tdd/reservation-code-uniqueness_c4d50986) → resolved 2026-09-11 plan `reservation-code-uniqueness_c4d50986`: `CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)` in baseline; regression `confirmation-code-uniqueness.integ.test.ts`
