@@ -44,7 +44,7 @@ const SAVE_STATUS_UPDATE =
     tool_input: JSON.stringify({
       type: "project",
       project: "V-1.2",
-      body: "Audit run key: audit:2026-09-11:abc123",
+      body: "Audit run key: audit:2026-09-11:abc123:scope=complete:project=none:issues=none",
       health: "onTrack",
     }),
     mcp_server_name: LINEAR,

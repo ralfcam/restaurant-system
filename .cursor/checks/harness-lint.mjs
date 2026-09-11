@@ -22,6 +22,8 @@
  *   pm-workflow      triage intake, bounded dispatch scheduling, audit project
  *                    update, and single-writer/spawn-guard ownership
  *   groom-stale      expected-source-state GROOM handoff and pre-write stale guard
+ *   groom-artifacts  complete GROOM already-set artifact verification
+ *   audit-scope-key  scope-bearing audit run key in every mirror
  *   clarify-only     executable clarify-* capture plans (authorization/order/no-work)
  *   design-writes    design PHASE 5 write whitelist (spec, docs-updater, CLARIFY)
  *   run-ledger       named run-file registration, source mapping, and pruning
@@ -180,6 +182,39 @@ export const GROOM_STALE_NEEDLES = {
   ],
 }
 
+export const GROOM_ARTIFACT_NEEDLES = {
+  ".cursor/agents/linear-resolver.md": [
+    "get_issue({ id, includeRelations: true })",
+    "`list_comments` before treating Duplicate/Canceled cleanup as complete",
+    "every batch-named artifact",
+    "required survivor/replacement linking comment",
+    "repair only those missing terminal-cleanup artifacts",
+    "repaired missing artifact(s)",
+  ],
+}
+
+export const AUDIT_SCOPE_KEY_CANONICAL =
+  "audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>"
+
+export const AUDIT_SCOPE_KEY_COMPONENTS = [
+  "scope=<complete|project|issues|project-issues>",
+  "project=<Linear project UUID|none>",
+  "issues=<ordered de-duplicated RES IDs|none>",
+]
+
+export const AUDIT_SCOPE_KEY_RELS = [
+  ".cursor/commands/audit.md",
+  ".cursor/agents/linear-resolver.md",
+  ".cursor/rules/linear-automation.mdc",
+]
+
+export const AUDIT_SCOPE_KEY_NEEDLES = Object.fromEntries(
+  AUDIT_SCOPE_KEY_RELS.map((rel) => [
+    rel,
+    [AUDIT_SCOPE_KEY_CANONICAL, ...AUDIT_SCOPE_KEY_COMPONENTS],
+  ]),
+)
+
 export const CLARIFY_ONLY_CAPTURE_NEEDLES = [
   "An approved clarification-only plan must invoke `linear-resolver` and then stop",
   "untracked or unapproved clarification remains non-executable",
@@ -236,6 +271,16 @@ export const CLARIFY_STATE_FORBIDDEN = [
 
 export function detectGroomStaleGuardViolations(rel, text) {
   const needles = GROOM_STALE_NEEDLES[rel]
+  return needles ? missingNeedles(rel, text, needles) : []
+}
+
+export function detectGroomArtifactViolations(rel, text) {
+  const needles = GROOM_ARTIFACT_NEEDLES[rel]
+  return needles ? missingNeedles(rel, text, needles) : []
+}
+
+export function detectAuditScopeKeyViolations(rel, text) {
+  const needles = AUDIT_SCOPE_KEY_NEEDLES[rel]
   return needles ? missingNeedles(rel, text, needles) : []
 }
 
@@ -761,6 +806,16 @@ function checkReviewFixContracts() {
   for (const rel of Object.keys(GROOM_STALE_NEEDLES)) {
     for (const message of detectGroomStaleGuardViolations(rel, read(rel))) {
       fail("groom-stale", message)
+    }
+  }
+  for (const rel of Object.keys(GROOM_ARTIFACT_NEEDLES)) {
+    for (const message of detectGroomArtifactViolations(rel, read(rel))) {
+      fail("groom-artifacts", message)
+    }
+  }
+  for (const rel of Object.keys(AUDIT_SCOPE_KEY_NEEDLES)) {
+    for (const message of detectAuditScopeKeyViolations(rel, read(rel))) {
+      fail("audit-scope-key", message)
     }
   }
   for (const message of detectClarifyOnlyCaptureViolations(

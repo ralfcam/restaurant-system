@@ -105,9 +105,9 @@ are narrow standalone duties and are never combined with another mode.
   is deferred independently.
 - **Project update:** after `/audit` completes PART 8 (or explicitly skips it).
   Handoff: an already-resolved exact project, stable
-  `audit:<YYYY-MM-DD>:<full HEAD SHA>` run key, `onTrack`/`atRisk`/`offTrack`
-  health, and the bounded digest. No issue ID or issue mutation is valid in
-  this mode.
+  `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`
+  run key, `onTrack`/`atRisk`/`offTrack` health, and the bounded digest. No
+  issue ID or issue mutation is valid in this mode.
 - **Clarify:** when the orchestrator hands you one exact `RES-###`, source
   command, stable key, and operator-approved bounded comment. A local Plan
   Mode run must show and obtain approval for the exact comment first. A
@@ -125,8 +125,9 @@ are narrow standalone duties and are never combined with another mode.
   archives them with the issue IDs you return.
 - Grep ledger before MCP: Grep `docs/findings/archive.md` and open `docs/findings/*.md` for `RES-###` before the first `list_issues` / `get_issue`.
 - **Pin flat MCP args.** Call `list_issues` with `{ project, state, query, limit, fields }`
-  and `get_issue` with `{ id }`. Do not walk `GetDynamicTools` unless the tool is
-  missing from the namespace.
+  and `get_issue` with `{ id }` (add `includeRelations: true` only when GROOM
+  must verify a named relation, parent, or Duplicate/Canceled cleanup). Do not
+  walk `GetDynamicTools` unless the tool is missing from the namespace.
 - **Never spawn a Cloud Agent.** Do not set `save_issue.assignee` (any
   value, including `null`) or `save_issue.delegate`, and do not write
   `@Cursor` in `save_comment.body`, `save_status_update.body`, issue
@@ -470,9 +471,17 @@ add IDs, or change fields the batch did not name. A stale item is deferred indep
 1. **Resolve, re-read, then stale-guard before any write.** `get_team` (or
    reuse the team the batch named) and `list_issue_statuses` for valid ordinary
    state names/types. Every GROOM item must carry its expected source state.
-   `get_issue` each target ID to confirm it exists and freshly re-read before any metadata, relation, comment, or state write. Then, per item:
-   - If the complete target state already matches, skip all writes and report
-     "already set" (safe idempotent no-op).
+   `get_issue` each target ID to confirm it exists and freshly re-read before any metadata, relation, comment, or state write. When the batch names a relation, parent, Duplicate, or Canceled cleanup, re-read with `get_issue({ id, includeRelations: true })`. For Duplicate/Canceled cleanup, also call `list_comments` before treating Duplicate/Canceled cleanup as complete. Then, per item:
+   - A no-op is equality across every batch-named artifact: target workflow
+     state, project/cycle/priority/milestone/estimate fields, required
+     relations or parent, and the required survivor/replacement linking comment.
+     If the complete target state already matches every named artifact, skip
+     all writes and report "already set" (fully verified).
+   - If any named artifact is missing and the expected source still matches,
+     apply only the missing artifacts and report `repaired missing artifact(s)`.
+   - If the issue is already in the named terminal target but its
+     relation/comment is missing, repair only those missing terminal-cleanup artifacts
+     instead of rewriting state or reporting `already set`.
    - Else verify live source state: live Triage-inbox membership (the same
      `state: "triage"` inbox `/triage` queried; do not require
      `list_issue_statuses` to name Triage) for triage routes; `Backlog` for
@@ -525,7 +534,9 @@ add IDs, or change fields the batch did not name. A stale item is deferred indep
      milestone/final priority/verified estimate, Todo, and current cycle. If
      cycle resolution fails, do not perform a partial promotion.
    - **Terminal cleanup:** Duplicate/Canceled requires the confirmed item and
-     linking comment described above.
+     linking comment described above. If the issue is already in that named
+     terminal target, do not rewrite state; repair only missing relation or
+     linking-comment artifacts.
      Never assign previous or next cycle, and never leave a Backlog issue in a
      cycle.
 5. **No broad backfill or sweep.** Reject a triage batch that scans existing
@@ -551,7 +562,7 @@ This mode is intentionally isolated from issue management.
 
 1. **Validate the handoff without extra MCP reads.** Require:
    - one exact, already-resolved project (never `/projects/all`);
-   - run key `audit:<YYYY-MM-DD>:<full HEAD SHA>`;
+   - run key `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`;
    - health exactly `onTrack`, `atRisk`, or `offTrack`; and
    - one bounded body containing `Audit run key: <same key>`,
      shippability/conformance verdicts, severity counts, top risks, and
@@ -560,8 +571,9 @@ This mode is intentionally isolated from issue management.
      mention. Do not reinterpret the audit or recalculate health.
 2. **Read existing updates.** Call only
    `get_status_updates({ type: "project", project: <exact project> })`,
-   paginating when needed. Match the exact `Audit run key: <key>` marker in
-   the body, not date/title similarity.
+   paginating when needed. Match the complete `Audit run key: <key>` marker in
+   the body within the already-resolved target project, not date/title
+   similarity or a date+HEAD prefix.
 3. **Upsert idempotently.**
    - No match: call `save_status_update` once with `type: "project"`, the
      exact project, handed body, and handed health.
@@ -613,16 +625,16 @@ Mapping for orchestrator to prune+archive: <source path/entry mapping → issue 
 ## Grooming applied   (omit this block unless GROOM/MAINTAIN batch)
 Source: /triage | /dispatch
 Scope: <team / project>
-Metadata: <issue ID> expected source <triage|Backlog|Todo> · priority/milestone/estimate <from> → <to> (applied) | already set | deferred — stale | deferred
-Consolidated: <issue ID> related-as-duplicate of <ID>, moved to Duplicate (linked) | related-only, kept open (batch said so) | parent <new ID> "<title>" ← <child IDs reparented> | replacement <new ID>, originals <IDs> canceled (linked) | deferred — stale | deferred — cancellation unconfirmed
-Intake/scheduling moves: <issue ID> expected source <triage|Backlog|Todo> · <Triage|Backlog|Todo> → <Backlog/no cycle|Todo/current cycle> (+ project/milestone/priority/estimate) (applied) | already set | deferred — stale | deferred
-Post-write re-read: <issue ID> state=<value> project=<value> priority=<value> milestone=<value> estimate=<value> cycle=<value> | skipped — stale | skipped — already set
+Metadata: <issue ID> expected source <triage|Backlog|Todo> · priority/milestone/estimate <from> → <to> (applied) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred
+Consolidated: <issue ID> related-as-duplicate of <ID>, moved to Duplicate (linked) | related-only, kept open (batch said so) | parent <new ID> "<title>" ← <child IDs reparented> | replacement <new ID>, originals <IDs> canceled (linked) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred — cancellation unconfirmed
+Intake/scheduling moves: <issue ID> expected source <triage|Backlog|Todo> · <Triage|Backlog|Todo> → <Backlog/no cycle|Todo/current cycle> (+ project/milestone/priority/estimate) (applied) | already set (fully verified) | repaired missing artifact(s) | deferred — stale | deferred
+Post-write re-read: <issue ID> state=<value> project=<value> priority=<value> milestone=<value> estimate=<value> cycle=<value> | skipped — stale | skipped — already set (fully verified)
 New issues created: <ID/URL> — "<title>" | none
 Deferred / not confirmed: <items left unchanged and why, including stale source-state mismatch, or "none">
 
 ## Project update   (omit this block unless PROJECT-UPDATE)
 Project: <exact project, never /projects/all>
-Audit run key: audit:<YYYY-MM-DD>:<full HEAD SHA>
+Audit run key: audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>
 Health: onTrack | atRisk | offTrack
 Status update: created | updated | blocked
 Update: <ID/URL> | none

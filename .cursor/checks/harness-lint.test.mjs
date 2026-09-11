@@ -5,6 +5,8 @@ import { devNull } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 import {
+  AUDIT_SCOPE_KEY_COMPONENTS,
+  AUDIT_SCOPE_KEY_NEEDLES,
   CLARIFY_ONLY_CAPTURE_FORBIDDEN,
   CLARIFY_ONLY_CAPTURE_NEEDLES,
   CLARIFY_STATE_FORBIDDEN,
@@ -12,12 +14,15 @@ import {
   CLARIFY_STATE_UNCHANGED_RELS,
   DESIGN_WRITE_WHITELIST_FORBIDDEN,
   DESIGN_WRITE_WHITELIST_NEEDLES,
+  GROOM_ARTIFACT_NEEDLES,
   GROOM_STALE_NEEDLES,
   RUN_FILE_LIFECYCLE_NEEDLES,
   detectActiveRoutingTextViolations,
+  detectAuditScopeKeyViolations,
   detectClarifyOnlyCaptureViolations,
   detectClarifyStateWordingViolations,
   detectDesignWriteWhitelistViolations,
+  detectGroomArtifactViolations,
   detectGroomStaleGuardViolations,
   detectRunFileLifecycleViolations,
 } from "./harness-lint.mjs"
@@ -78,6 +83,8 @@ test("harness-lint source pins findings-format and prettier --check", () => {
   assert.ok(src.includes("milestone-routing"))
   assert.ok(src.includes("clarify"))
   assert.ok(src.includes("groom-stale"))
+  assert.ok(src.includes("groom-artifacts"))
+  assert.ok(src.includes("audit-scope-key"))
   assert.ok(src.includes("clarify-only"))
   assert.ok(src.includes("design-writes"))
   assert.ok(src.includes("run-ledger"))
@@ -524,6 +531,46 @@ test("GROOM stale-guard contracts pass live files and fail each missing clause",
       needles,
       detectGroomStaleGuardViolations,
     )
+  }
+})
+
+test("GROOM artifact contracts pass live files and fail without relation or comment verification", () => {
+  for (const [rel, needles] of Object.entries(GROOM_ARTIFACT_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertMissingClauseNegatives(
+      rel,
+      text,
+      needles,
+      detectGroomArtifactViolations,
+    )
+  }
+})
+
+test("audit scope-key contracts pass live mirrors and fail each missing scope component", () => {
+  for (const [rel, needles] of Object.entries(AUDIT_SCOPE_KEY_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertMissingClauseNegatives(
+      rel,
+      text,
+      needles,
+      detectAuditScopeKeyViolations,
+    )
+  }
+  for (const rel of Object.keys(AUDIT_SCOPE_KEY_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    for (const component of AUDIT_SCOPE_KEY_COMPONENTS) {
+      const mutated = text.replaceAll(component, "")
+      const violations = detectAuditScopeKeyViolations(rel, mutated)
+      assert.notEqual(
+        violations.length,
+        0,
+        `expected a violation after removing ${component} from ${rel}`,
+      )
+      assert.ok(
+        violations.some((v) => v.includes(component)),
+        `violation for ${component} was ${violations.join(" | ")}`,
+      )
+    }
   }
 })
 

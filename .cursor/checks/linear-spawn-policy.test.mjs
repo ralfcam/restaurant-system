@@ -123,7 +123,7 @@ test("detectLinearSpawn allows a clean project status update", () => {
     detectLinearSpawn(LINEAR, "save_status_update", {
       type: "project",
       project: "V-1.2",
-      body: "Audit run key: audit:2026-09-11:abc123",
+      body: "Audit run key: audit:2026-09-11:abc123:scope=complete:project=none:issues=none",
       health: "onTrack",
     }),
     null,

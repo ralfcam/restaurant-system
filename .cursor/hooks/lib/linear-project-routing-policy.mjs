@@ -92,6 +92,10 @@ export function resolvePinnedProject(input, projects, resTeamId = null) {
   if (typeof input !== "string" || !Array.isArray(projects)) {
     return { ok: false, reason: "cannot-verify" }
   }
+  // Gate slug, exact display name, and version-key pins on one discovery pass.
+  const selected = selectVersionProjects(projects, resTeamId)
+  if (!selected.ok) return selected
+
   const trimmed = input.trim()
   const slug = extractProjectSlug(trimmed)
   if (slug) {
@@ -114,17 +118,20 @@ export function resolvePinnedProject(input, projects, resTeamId = null) {
 
   const versionKey = extractVersionKey(trimmed)
   if (!versionKey) return { ok: false, reason: "unresolved" }
-  const selected = selectVersionProjects(projects, resTeamId)
-  if (!selected.ok) return selected
   const keyed = selected.projects.filter(
     (project) => project.versionKey === versionKey,
   )
   if (keyed.length === 1) {
+    const original = projects.find((project) => {
+      const identity = pinnedIdentity(project, resTeamId)
+      return identity.ok && identity.versionKey === versionKey
+    })
+    if (!original) return { ok: false, reason: "unresolved" }
     return {
       ok: true,
-      project: keyed[0],
+      project: original,
       versionKey,
-      slug: typeof keyed[0].slug === "string" ? keyed[0].slug : null,
+      slug: typeof original.slug === "string" ? original.slug : null,
     }
   }
   return {

@@ -111,6 +111,13 @@ Invocation: `/audit [project-url|project-name] [issue-list]`.
    the uniquely best ongoing project by scope match, then earliest target date
    and current-version order. No ongoing project or a remaining tie fails
    closed for the visibility update without changing the audit verdict.
+7. Record the normalized scope for the later health-update key, and derive
+   that key only after scope normalization: mode `complete` (no argument),
+   `project` (pinned project only), `issues` (issue list only), or
+   `project-issues` (project plus list); the pinned scope project's Linear
+   UUID or `none` (complete and issue-only audits use `none`, never a display
+   name or URL slug); and the ordered de-duplicated RES IDs in first-occurrence
+   order or `none`.
 
 Execution strategy (wave-ordered — dependencies flow downward):
 
@@ -407,7 +414,7 @@ Each agent writes docs/verifier-reports/<basename>.md with:
 ## Project Health Update (after PART 8)
 
 - Project: <resolved project, never `/projects/all`>
-- Audit run key: `audit:<YYYY-MM-DD>:<full HEAD SHA>`
+- Audit run key: `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`
 - Health: onTrack | atRisk | offTrack
 - Status update: created | updated (same run key) | blocked
 
@@ -446,9 +453,15 @@ with `ledger=off`.
    project from a repository/collection URL. If no ongoing project exists or
    selection remains tied, report the update as blocked without changing the
    audit verdict.
-2. Read `git rev-parse HEAD` and construct the stable run key
-   `audit:<YYYY-MM-DD>:<full HEAD SHA>`. A rerun on the same date and HEAD has
-   the same key.
+2. After AUDIT SCOPE is already normalized, read `git rev-parse HEAD` and
+   construct the stable run key
+   `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`.
+   Use the pinned scope project's Linear UUID (never display name or URL slug);
+   complete and issue-only audits use `project=none`. Preserve first-occurrence
+   issue ordering after de-duplication (`issues=RES-###,...` or `issues=none`).
+   Identical normalized scopes on the same date and HEAD share a key; a
+   different mode, project UUID, issue set, or issue order is a different key
+   and must not overwrite another run.
 3. Build one bounded Markdown digest containing only:
    - `Audit run key: <key>`;
    - shippability and spec-conformance verdicts;
@@ -469,7 +482,8 @@ with `ledger=off`.
    The resolver's `PROJECT-UPDATE` duty is the only writer. The parent audit
    command never calls `save_status_update`.
 6. The resolver must use `get_status_updates({ type: "project", project })`
-   to find `Audit run key: <key>`. It updates the matching status update by
+   to find the complete `Audit run key: <key>` marker within the
+   already-resolved target project. It updates the matching status update by
    ID or creates one when absent, using `save_status_update`. It must not
    create an additional update for the same key.
 7. Report `created`, `updated`, or `blocked` with the resolved project and run

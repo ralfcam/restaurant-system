@@ -158,6 +158,60 @@ test("resolvePinnedProject rejects terminal, non-RES, and ambiguous pins", () =>
   )
 })
 
+test("resolvePinnedProject fails closed on duplicate keys before exact URL or name", () => {
+  const projects = [
+    RES(DECORATED_NAME, { slug: DECORATED_SLUG, id: "decorated" }),
+    RES("V-0.2", { slug: "v-0-2-aaaa", id: "bare" }),
+  ]
+  for (const input of [OVERVIEW_URL, ISSUES_URL, DECORATED_NAME]) {
+    const result = resolvePinnedProject(input, projects)
+    assert.equal(result.ok, false, input)
+    assert.equal(result.reason, "duplicate-canonical-key", input)
+    assert.equal(result.versionKey, "V-0.2", input)
+    assert.deepEqual(result.projects, [])
+  }
+})
+
+test("resolvePinnedProject preserves terminal and non-RES rejection beside a valid set", () => {
+  const ongoing = RES("V-0.3", { slug: "v-03", id: "ongoing" })
+  assert.equal(
+    resolvePinnedProject(OVERVIEW_URL, [
+      ongoing,
+      RES(DECORATED_NAME, { slug: DECORATED_SLUG, terminal: true }),
+    ]).reason,
+    "terminal-project",
+  )
+  assert.equal(
+    resolvePinnedProject(OVERVIEW_URL, [
+      ongoing,
+      {
+        name: DECORATED_NAME,
+        slug: DECORATED_SLUG,
+        team: { key: "OPS", name: "Restaurant Link" },
+      },
+    ]).reason,
+    "non-res-ownership",
+  )
+})
+
+test("resolvePinnedProject returns a project from the supplied discovery array", () => {
+  const pinned = RES(DECORATED_NAME, { slug: DECORATED_SLUG, id: "from-run" })
+  const other = RES("V-0.3", { slug: "v-03", id: "other" })
+  const projects = [pinned, other]
+  const fromUrl = resolvePinnedProject(OVERVIEW_URL, projects)
+  assert.equal(fromUrl.ok, true)
+  assert.equal(fromUrl.project, pinned)
+  const fromIssues = resolvePinnedProject(ISSUES_URL, projects)
+  assert.equal(fromIssues.ok, true)
+  assert.equal(fromIssues.project, pinned)
+  const fromName = resolvePinnedProject(DECORATED_NAME, projects)
+  assert.equal(fromName.ok, true)
+  assert.equal(fromName.project, pinned)
+  const fromKey = resolvePinnedProject("V-0.2", projects)
+  assert.equal(fromKey.ok, true)
+  assert.equal(fromKey.project, pinned)
+})
+
 test("routing-scopes decorated fixture matches live overview identity", () => {
   const fixtures = JSON.parse(
     readFileSync(

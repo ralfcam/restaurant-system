@@ -248,7 +248,9 @@ conventions change.
 After `/audit` finishes synthesis and the findings-ledger handoff,
 `linear-resolver` PROJECT-UPDATE may publish one bounded project status
 update. It uses only `get_status_updates` plus `save_status_update` and
-upserts by `audit:<date>:<HEAD>` run key. The deterministic health mapping is
+upserts by the complete `Audit run key:` marker
+`audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`
+within the already-resolved target project. The deterministic health mapping is
 `onTrack` for clean/spec-conformant, `atRisk` for gaps/High findings, and
 `offTrack` for a Blocker or NON-CONFORMANT verdict. Project health is not an
 issue workflow state and Linear remains outside the audit acceptance bar.
