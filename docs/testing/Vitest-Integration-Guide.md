@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-12
 
 ## Prerequisites
 
@@ -173,6 +173,11 @@ the same pin. Unit glob-scan:
   INSERT true only for those eight guest columns). The named RES-TRIGGER-EXEC
   catalog `it()` is **not** in that skipIf describe — see Authless local-catalog
   coverage below.
+- Analytics read-only (RA-2 / RA-9):
+  `tests/integration/analytics/read-only.integ.test.ts`
+  (`describe.skipIf(!authEnvReady)`; `assertIsolatedHoursMutationTarget()`;
+  SHA-256 of `reservations`/`tables`/`status_events`; anon SELECT denied).
+  There is no isolation glob-scan for `tests/integration/analytics/` yet.
 
 ## Authless local-catalog coverage (RES-TRIGGER-EXEC)
 

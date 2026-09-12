@@ -12,6 +12,7 @@ import {
   UtensilsCrossed,
   ImageIcon,
   Megaphone,
+  ChartColumn,
   ExternalLink,
   Menu,
   LogOut,
@@ -63,6 +64,12 @@ const NAV = [
     icon: Megaphone,
     role: "Admin",
   },
+  {
+    href: "/admin/analytics",
+    label: "Analytics",
+    icon: ChartColumn,
+    role: "Admin",
+  },
   { href: "/pos", label: "Point of Sale", icon: Receipt, role: "Cashier" },
   { href: "/kds", label: "Kitchen Display", icon: ChefHat, role: "Kitchen" },
 ]
@@ -71,7 +78,12 @@ const NAV_GROUPS = [
   {
     label: "Service",
     items: NAV.filter((item) =>
-      ["/admin", "/admin/reservations", "/admin/floor"].includes(item.href),
+      [
+        "/admin",
+        "/admin/reservations",
+        "/admin/floor",
+        "/admin/analytics",
+      ].includes(item.href),
     ),
   },
   {

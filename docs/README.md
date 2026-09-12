@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-12
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -14,6 +14,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Auth & RLS                                     | [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md)                                                                  |
 | Staff authorization                            | [specs/staff-authorization.md](./specs/staff-authorization.md) · [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md) |
 | Reservations / booking                         | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
+| Reservation analytics                          | [specs/reservation-analytics.md](./specs/reservation-analytics.md)                                                              |
 | Menu / 86 / POS / KDS                          | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
 | Guest site chrome (header / logo)              | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
 | Guest site localization                        | [specs/site-localization.md](./specs/site-localization.md)                                                                      |
@@ -39,6 +40,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | -------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
 | Acceptance criteria                          | `docs/specs/*`                     | Architecture docs summarize; they do not define criteria                                 |
 | Reservation booking rules                    | `specs/booking-rules.md`           | `architecture/Reservation-Flow.md`                                                       |
+| Reservation / occupancy analytics            | `specs/reservation-analytics.md`   | `architecture/Platform-Overview.md`; `architecture/Auth-And-RLS.md`                      |
 | Menu availability / 86                       | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                                                             |
 | Staff scheduling / tables                    | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                                                             |
 | Guest header / brand logo                    | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                                                |
@@ -105,6 +107,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-49 fail-closed blocked dates (`res_49_fail_closed_8d0cc815`)                                  | 2026-09-10 | `specs/booking-rules.md` (BD-READ-FAIL, by orchestrator), `architecture/Reservation-Flow.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                          |
 | RES-TRIGGER-EXEC AUTHLESS (`res_trigger_authless_2132ecb2`)                                       | 2026-09-11 | `specs/booking-rules.md` (RES-TRIGGER-EXEC-AUTHLESS, by orchestrator), `testing/Vitest-Integration-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
 | Reservation code uniqueness (`reservation-code-uniqueness_c4d50986`)                              | 2026-09-11 | `specs/booking-rules.md` (AC-4 CONF-CODE-UNIQUE, by orchestrator), `architecture/Reservation-Flow.md`, `architecture/Auth-And-RLS.md`, `testing/Vitest-Integration-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                          |
+| FEATURE reservation analytics (`analytics_tdd_wave_44867fc0`)                                     | 2026-09-12 | `specs/reservation-analytics.md` (RA-1–RA-10), `specs/staff-authorization.md` (SA-8), `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `architecture/Reservation-Flow.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `dev-journal.md`                                                                                  |
 
 ## Seed path
 

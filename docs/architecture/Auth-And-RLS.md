@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-12
 
 ## Auth flow
 
@@ -129,6 +129,11 @@ Staff list and mutation for those siblings (including `getReservations`,
 stay on the anon client (`lib/supabase/client-server.ts`). Spec:
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
+Staff analytics (`getReservationAnalytics`) uses the same
+`requireStaffUser` + `createServiceClient` path with SELECT-only queries;
+guest `SELECT` on `reservations` and `status_events` stays denied (RA-9).
+No new GRANT. Spec:
+[../specs/reservation-analytics.md](../specs/reservation-analytics.md).
 
 Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
 and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`

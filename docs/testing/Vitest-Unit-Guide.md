@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-12
 
 ## Layout
 
@@ -52,6 +52,8 @@
 - POS order isolation (ORD-ISO):
   `tests/unit/pos/orders-persistence-isolation.test.ts` (AST glob-scan of
   `tests/integration/pos/*.integ.test.ts`; requires `beforeAll`)
+- Reservation analytics: `tests/unit/analytics/` (staff gate, fail-closed
+  reader, period, duration, patterns, staff-page PII)
 
 ## Conventions
 

@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-11
+**Last updated:** 2026-09-12
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-14 for the segmented homepage widget, occupancy window,
@@ -72,6 +72,10 @@ nullable `reservations.email` unchanged). Staff configure send on
 `review-email`, which GETs `/api/cron/review-email` with
 `createReviewEmailMailer()`. Spec:
 [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md).
+
+**Staff analytics.** `/admin/analytics` is a read-only aggregator
+(`getReservationAnalytics`). Criteria:
+[../specs/reservation-analytics.md](../specs/reservation-analytics.md).
 
 Key modules: `components/site/reservation-widget.tsx`,
 `lib/reservations/operating-hours.ts`, `lib/reservations/auto-assign.ts`,
