@@ -59,6 +59,15 @@ test("detectOversizedComment allows an ordinary short comment", () => {
   )
 })
 
+test("CLARIFY comments use the shared save_comment budget", () => {
+  const prefix =
+    "Clarification required\nKey: clarify:RES-42:booking-rules:BW-9\n"
+  const body = `${prefix}${"a".repeat(START_SUMMARY_MAX_CHARS)}`
+  const hit = detectOversizedComment(LINEAR, "save_comment", { body })
+  assert.equal(hit.length, body.length)
+  assert.equal(hit.max, START_SUMMARY_MAX_CHARS)
+})
+
 test("detectOversizedComment is scoped to save_comment (save_issue is out of scope)", () => {
   const body = "a".repeat(START_SUMMARY_MAX_CHARS + 1)
   assert.equal(
@@ -107,7 +116,7 @@ test("linear-comment-size-guard denies an oversized body from a BOM-prefixed bef
     JSON.stringify({
       tool_name: "save_comment",
       tool_input: JSON.stringify({
-        id: "REAZED-1386",
+        id: "RES-1386",
         body: "a".repeat(START_SUMMARY_MAX_CHARS + 1),
       }),
       mcp_server_name: "linear",
@@ -127,7 +136,7 @@ test("linear-comment-size-guard allows an in-budget body from a BOM-prefixed bef
     JSON.stringify({
       tool_name: "save_comment",
       tool_input: JSON.stringify({
-        id: "REAZED-1386",
+        id: "RES-1386",
         body: "Work started: plan foo",
       }),
       mcp_server_name: "linear",

@@ -33,7 +33,35 @@ const LIST_ISSUES =
   "\uFEFF" +
   JSON.stringify({
     tool_name: "list_issues",
-    tool_input: JSON.stringify({ project: "restaurant-system", limit: 10 }),
+    tool_input: JSON.stringify({ project: "V-1.2", limit: 10 }),
+    mcp_server_name: LINEAR,
+    hook_event_name: "beforeMCPExecution",
+  })
+const SAVE_STATUS_UPDATE =
+  "\uFEFF" +
+  JSON.stringify({
+    tool_name: "save_status_update",
+    tool_input: JSON.stringify({
+      type: "project",
+      project: "V-1.2",
+      body: "Audit run key: audit:2026-09-11:abc123:scope=complete:project=none:issues=none",
+      health: "onTrack",
+    }),
+    mcp_server_name: LINEAR,
+    hook_event_name: "beforeMCPExecution",
+  })
+const SAVE_CLARIFICATION =
+  "\uFEFF" +
+  JSON.stringify({
+    tool_name: "save_comment",
+    tool_input: JSON.stringify({
+      issue: "RES-42",
+      body: [
+        "Clarification required",
+        "Key: clarify:RES-42:booking-rules:BW-9",
+        "Decision question: Keep the existing contract?",
+      ].join("\n"),
+    }),
     mcp_server_name: LINEAR,
     hook_event_name: "beforeMCPExecution",
   })
@@ -90,10 +118,12 @@ test("linear-write-guard is fail-open beforeMCPExecution; linear-resolver start/
   }
 })
 
-test("isLinearWriteTool is save_issue and save_comment only", () => {
+test("isLinearWriteTool guards issue, comment, and project-status writers", () => {
   assert.equal(isLinearWriteTool("save_issue"), true)
   assert.equal(isLinearWriteTool("save_comment"), true)
+  assert.equal(isLinearWriteTool("save_status_update"), true)
   assert.equal(isLinearWriteTool("list_issues"), false)
+  assert.equal(isLinearWriteTool("get_status_updates"), false)
   assert.equal(isLinearWriteTool("get_issue"), false)
   assert.equal(isLinearWriteTool("save_document"), false)
 })
@@ -101,7 +131,12 @@ test("isLinearWriteTool is save_issue and save_comment only", () => {
 test("checkLinearWrite denies Linear writes unless allowed", () => {
   assert.equal(checkLinearWrite(LINEAR, "save_issue", false)?.deny, true)
   assert.equal(checkLinearWrite(LINEAR, "save_comment", false)?.deny, true)
+  assert.equal(
+    checkLinearWrite(LINEAR, "save_status_update", false)?.deny,
+    true,
+  )
   assert.equal(checkLinearWrite(LINEAR, "save_issue", true), null)
+  assert.equal(checkLinearWrite(LINEAR, "save_status_update", true), null)
   assert.equal(checkLinearWrite(LINEAR, "list_issues", false), null)
   assert.equal(
     checkLinearWrite("plugin-vercel-vercel", "save_issue", false),
@@ -134,6 +169,32 @@ describe("linear-write spawn-level", { concurrency: 1 }, () => {
     const { code, out } = await runGuard(SAVE_ISSUE)
     assert.equal(code, 0)
     assert.deepEqual(JSON.parse(out), {})
+  })
+
+  test("BOM save_status_update denies when flag is off", async () => {
+    setAllowed(false)
+    const { code, out } = await runGuard(SAVE_STATUS_UPDATE)
+    assert.equal(code, 0)
+    assert.equal(JSON.parse(out).permission, "deny")
+  })
+
+  test("BOM save_status_update allows only while resolver flag is on", async () => {
+    setAllowed(true)
+    const { code, out } = await runGuard(SAVE_STATUS_UPDATE)
+    assert.equal(code, 0)
+    assert.deepEqual(JSON.parse(out), {})
+  })
+
+  test("BOM CLARIFY save_comment is resolver-only", async () => {
+    setAllowed(false)
+    const denied = await runGuard(SAVE_CLARIFICATION)
+    assert.equal(denied.code, 0)
+    assert.equal(JSON.parse(denied.out).permission, "deny")
+
+    setAllowed(true)
+    const allowed = await runGuard(SAVE_CLARIFICATION)
+    assert.equal(allowed.code, 0)
+    assert.deepEqual(JSON.parse(allowed.out), {})
   })
 
   test("BOM list_issues allows when flag is off", async () => {

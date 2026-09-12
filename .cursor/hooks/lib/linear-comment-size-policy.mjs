@@ -7,7 +7,7 @@
  * moves in one place if the measured ceiling changes.
  *
  * The number comes from a live measurement, not inference: probing a
- * scratch Linear issue (REAZED-1386) with save_comment at 8,000 / 12,000 /
+ * scratch Linear issue (RES-1386) with save_comment at 8,000 / 12,000 /
  * 16,000 characters and reading each back with list_comments showed no
  * truncation at any of those sizes — existing comments on that issue run
  * to 54,226 characters intact. There is no observed single-call ceiling

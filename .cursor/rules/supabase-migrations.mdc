@@ -32,7 +32,7 @@ owns the affected objects:
   not re-declare it in a new file.
 
 When you extend a migration, prefer comments that tag the originating Linear
-issue (e.g. `-- REAZED-12: blocked-date service policy`) for traceability.
+issue (e.g. `-- RES-12: blocked-date service policy`) for traceability.
 
 ## When a new dated migration is acceptable
 

@@ -5,7 +5,8 @@
  *   - save_issue.assignee — any value including null
  *   - save_issue.delegate — "Agent name or ID" in the Linear MCP schema
  *   - @Cursor in save_comment.body, save_issue.title / description,
- *     save_document.title / content, or a patch[] op's new_string / text
+ *     save_document.title / content, save_status_update.body, or a patch[]
+ *     op's new_string / text
  *
  * Two deliberate choices:
  *   1. Scan patch ops. They inject text into a description without the
@@ -19,9 +20,9 @@
  * Server identification is the same Linear matcher as runtime-guard-policy
  * (isLinearServer) — do not invent a second one.
  *
- * Tool scope is deliberate: save_issue, save_comment, and save_document.
- * Mentions in a document body spawn the same way as comments. save_project /
- * save_status_update are knowingly out of scope.
+ * Tool scope is deliberate: save_issue, save_comment, save_document, and
+ * save_status_update. Mentions in those text bodies spawn the same way as
+ * comments. save_project is knowingly out of scope.
  *
  * Returns null (no spawn) or { kind, field }.
  */
@@ -71,6 +72,10 @@ export function detectLinearSpawn(server, toolName, args) {
   }
 
   if (toolName === "save_comment") {
+    return mentionHit(a.body, "body")
+  }
+
+  if (toolName === "save_status_update") {
     return mentionHit(a.body, "body")
   }
 

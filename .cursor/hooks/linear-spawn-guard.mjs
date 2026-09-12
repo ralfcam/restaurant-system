@@ -4,7 +4,7 @@
  *
  * Denies Linear MCP calls that open any of the three spawn doors
  * (save_issue.assignee including null, save_issue.delegate, or an @Cursor
- * mention in a comment / title / description / patch op). See
+ * mention in a comment / title / description / status update / patch op). See
  * .cursor/hooks/lib/linear-spawn-policy.mjs and
  * .cursor/rules/linear-automation.mdc.
  *
@@ -52,8 +52,8 @@ function main() {
         agent_message:
           `linear-spawn guard: ${extracted.toolName} ${hit.field} is a Cloud Agent spawn door (${hit.kind}). ` +
           "Do not set save_issue.assignee (including null) or save_issue.delegate, and do not write " +
-          "@Cursor in comments, titles, descriptions, or patch ops — Linear parses the mention " +
-          'regardless of surrounding prose. Rephrase to "the Cursor integration". See ' +
+          "@Cursor in comments, titles, descriptions, status updates, or patch ops — Linear parses " +
+          'the mention regardless of surrounding prose. Rephrase to "the Cursor integration". See ' +
           ".cursor/rules/linear-automation.mdc.",
       })
       return

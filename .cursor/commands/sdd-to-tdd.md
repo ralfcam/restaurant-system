@@ -33,6 +33,9 @@ Repo rules that govern this loop:
 
 - `.cursor/rules/supabase-migrations.mdc` — DB changes extend canonical baselines.
 - `.cursor/rules/powershell.mdc` — shell commands use PowerShell syntax.
+- `.cursor/rules/linear-project-routing.mdc` — fixed RES team key, dynamic RES
+  projects with canonical version key `V-X.X`, fail-closed allocation, and
+  work-type M1–M9 routing.
 
 Fix-mode data source: the **Linear MCP** server (`get_issue`, `list_comments`,
 `get_diff`) for issue/bug input.
@@ -41,11 +44,11 @@ Invocation forms:
 
 - `/sdd-to-tdd @path/to/SPEC.md` → FEATURE mode: decompose an existing spec document.
 - `/sdd-to-tdd "new spec details…"` → FEATURE mode: draft a new spec from the inline details.
-- `/sdd-to-tdd <Linear issue URL or ID>` (e.g. `REAZED-320` or a `linear.app/.../issue/...` URL)
+- `/sdd-to-tdd <Linear issue URL or ID>` (e.g. `RES-320` or a `linear.app/.../issue/...` URL)
   → FIX mode: triage a bug/missing edge case, update the spec first, then write a regression test.
 - `/sdd-to-tdd "bug: <symptom / repro>"` → FIX mode from a free-text defect when there is no issue.
   A `/push` whole-suite red is a valid FIX trigger **only** in this form
-  (`bug: <classified failure>`) or as `REAZED-###` — never an empty `/sdd-to-tdd`.
+  (`bug: <classified failure>`) or as `RES-###` — never an empty `/sdd-to-tdd`.
   The trailing input after the command name is the argument.
 
 ## GOLDEN RULE (applies to every mode, fixes especially)
@@ -87,7 +90,7 @@ code/test/product/security issue**. Do **NOT** record TDD-process/meta notes
 ("Green pre-empted Red", "fake timers hang", "criterion X covers this") and do
 **NOT** record anything you resolve within the run — those belong in your prose,
 not the durable files. Each entry: `[category]` · one-line title · file:line/area
-· why it matters · severity · `(found: <REAZED-###>/<criterion>/<phase>)`.
+· why it matters · severity · `(found: <RES-###>/<criterion>/<phase>)`.
 
 **Curate continuously, merge + prune at close-out (active ledger = open only).**
 Every phase subagent ends its report with a mandatory `## Residual findings`
@@ -186,10 +189,54 @@ Never `gh pr ready`. Never `gh pr merge`.
 
 **Classify the input first:**
 
-- **FIX mode** — a Linear issue URL/ID (`REAZED-###`, `linear.app/.../issue/...`) or
+- **FIX mode** — a Linear issue URL/ID (`RES-###`, `linear.app/.../issue/...`) or
   text starting with `bug:`/describing a defect → do **Step 1B** first, then
   continue.
 - **FEATURE mode** — a spec file or new requirement details → continue here.
+
+## STEP 1A — VALIDATE PROJECT AND MILESTONE ROUTE
+
+Route by the work being performed, not by command name:
+
+- clarification/correction of an existing spec contract may remain
+  **M2 — Requirements Sign-Off**;
+- FEATURE/FIX implementation maps to
+  **M4 — Code Complete (Feature Freeze)**;
+- test/audit, real-user beta validation, UAT/RC,
+  launch-critical/security/money, and maintenance map to M5, M6, M7, M8, and
+  M9 respectively.
+
+Do not impose a blanket M4+ rule on `/sdd-to-tdd`. When a tracked `RES-###`
+issue is supplied, resolve the team once, paginate `list_projects`,
+retain nonterminal RES projects with canonical version key `V-X.X`, and
+validate its current/target project
+and existing milestone against this work type. Apply the allocation precedence
+from
+[.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
+For untracked input, record the milestone route as a planning hint only.
+
+If one issue mixes unresolved M1–M3 design with implementation, require two
+linked issues: the decision/design issue blocks the implementation issue.
+Stop before decomposition until the governing spec is testable; dispatch must
+not schedule the implementation issue early.
+
+For a tracked issue with a route conflict, missing decision, or unresolved
+allocation tie, read `list_comments`. Resume only after an unambiguous human
+answer. Otherwise render a stable `Clarification required` comment keyed
+`clarify:<RES-id>:<spec-basename>:<rule-or-ac>` and stop. Local Plan Mode
+requires approval before delegating `linear-resolver` CLARIFY; a managed Cloud
+task launched from that issue preauthorizes only this bounded comment. It never
+authorizes a spec, scope, state, or assignment change.
+
+The comment uses the resolver's fixed schema: source command, exact spec
+evidence, one conflict/missing fact, one decision question, bounded options,
+recommended default, route after resolution, and milestone hint. The tracked
+issue remains with its current workflow state unchanged and is not dispatchable.
+An unresolved run emits only a `clarify-<RES-id>` execution todo:
+"Invoke the `linear-resolver` subagent to request the approved clarification
+on <RES-ID>, using this exact bounded comment: <body>." It emits no spec/TDD,
+START, commit, or push todos. Re-run `/sdd-to-tdd <RES-ID>` after the human
+answer; do not continue in the comment-posting turn.
 
 **Prefer existing specs (progressive disclosure).** Before treating input as new,
 resolve ownership via the OKF hub walk — do not open every REQ body first:
@@ -218,7 +265,7 @@ Read the trailing argument:
 - **Nothing given** → stop and ask the operator for a spec file, Linear ID,
   or inline details. Empty remains invalid. A `/push` whole-suite red is a
   valid FIX trigger **only** as `/sdd-to-tdd "bug: <classified failure>"`
-  (or `REAZED-###`); do not treat a bare `/sdd-to-tdd` after lint + typecheck + test:unit red as
+  (or `RES-###`); do not treat a bare `/sdd-to-tdd` after lint + typecheck + test:unit red as
   input.
 
 **Spec writes require explicit permission.** Creating a new spec file or editing
@@ -293,7 +340,7 @@ tests before code.**
    case, a missing invariant, an incorrect state transition. Name the owning
    spec via the STEP 1 hub walk (`docs/specs/domains/<domain>/index.md` →
    concept → `req_ids:` / folded→`canonical:`; e.g. billing → payments-billing
-   hub then `REAZED-174`/`ADR-REAZED-177`; job FSM → jobs-requests hub). Do **not**
+   hub then `RES-174`/`ADR-RES-177`; job FSM → jobs-requests hub). Do **not**
    describe the fix as "change line X"; describe it as "the spec must require
    Y". A **pre-mortem** ("assume the bug already shipped and caused harm —
    which spec rule, had it existed, would have stopped it?") is the structured
@@ -428,10 +475,10 @@ write. Do not call `save_issue` / `save_comment` / `save_document` while
 producing the plan.
 
 When FIX mode was invoked with a Linear ID/URL, **or** FEATURE mode's plan has
-`linear_issue: REAZED-###` (not `none`): as the **first execution action**, before
+`linear_issue: RES-###` (not `none`): as the **first execution action**, before
 the approved spec edit (FIX) or Criterion 1 Red (FEATURE), delegate:
 
-"Use the `linear-resolver` subagent to start work on <REAZED-###> (plan: <plan-slug>), posting this bounded summary as the `Work started:` comment:" + the plan's `## Linear Plan Digest` block. Invoke that Task with `run_in_background: true`. Do **not** wait, poll, or `AwaitShell` for its report before the approved spec edit or Criterion 1 Red. In the _emitted_ plan, replace `<plan-slug>` with this plan file's basename; this command file keeps the placeholder.
+"Use the `linear-resolver` subagent to start work on <RES-###> (plan: <plan-slug>), posting this bounded summary as the `Work started:` comment:" + the plan's `## Linear Plan Digest` block. Invoke that Task with `run_in_background: true`. Do **not** wait, poll, or `AwaitShell` for its report before the approved spec edit or Criterion 1 Red. In the _emitted_ plan, replace `<plan-slug>` with this plan file's basename; this command file keeps the placeholder.
 
 **One payload (`linear-resolver` posts it verbatim; never the plan file itself):**
 
@@ -661,7 +708,7 @@ Before docs sync, capture what's reusable and durable:
 ```markdown
 ## Traceability (final)
 
-Run: <YYYY-MM-DD> · plan: <plan-slug> · issue: REAZED-### | none
+Run: <YYYY-MM-DD> · plan: <plan-slug> · issue: RES-### | none
 
 | Criterion | Spec ref     | Test file::name                          | Source file(s) | Risk | Status     |
 | --------- | ------------ | ---------------------------------------- | -------------- | ---- | ---------- |
@@ -710,14 +757,14 @@ After 4E, paste this block in the thread and pass it to `docs-updater`:
 - plan_slug: <plan-basename>
 - spec: docs/specs/<file>.md
 - mode: FEATURE | FIX
-- linear_issue: REAZED-### | none
+- linear_issue: RES-### | none
 - criteria_shipped: [AC-605-1, AC-605-2]
 - criteria_manual_uat: [C10-light-theme] | none
 - req_ids: [REQ-051.2]
 - source_paths: [lib/admin/apply-admin-job-board-filters.ts, app/portal/admin/page.tsx]
 - test_paths: [tests/unit/lib/admin/apply-admin-job-board-filters.test.ts]
 - architecture_touch: [Job-Lifecycle] | none
-- uat_flows_to_stamp: [REAZED-84-Admin-Console-UAT-Flow (Design-And-Patterns map row)] | none
+- uat_flows_to_stamp: [RES-84-Admin-Console-UAT-Flow (Design-And-Patterns map row)] | none
 - patterns_to_promote: ["Wire admin page to applyAdminJobBoardFilters…"] | none
 - traceability_log: docs/verifier-reports/tdd/<plan-slug>.md
 - drift_flagged: none | ["REQ-051.2 rule X vs lib/foo.ts:42"]
@@ -775,15 +822,15 @@ issue ID/URL (if any) to link back to. Expect most entries to come back
 **"left on ledger"** rather than filed — that is the intended outcome, not a
 shortfall.
 
-**Scope — this step files only THIS run's incidental findings.** Backlog-level
-intake, consolidation, and re-prioritization across the whole project is
-`/triage`'s job (the single grooming owner), not this loop's. Both routes file
-through `linear-resolver`, which applies the **Issue-filing policy** (floor,
-attach-over-create ladder, per-run cap) and de-dupes against existing issues, so
-the two never produce duplicate issues — but keep this step narrow: register what
-this run surfaced and let `/triage` own the rest. Apply the shared priority
-crosswalk, milestone/estimate conventions, and label taxonomy from
-`docs/findings/README.md` when handing findings to `linear-resolver`.
+**Scope — this step files only THIS run's incidental findings.** `/triage`
+owns findings + Linear Triage intake, de-duplication, and terminal cleanup;
+`/dispatch` owns full scoped Backlog metadata finalization and the separate
+selected daily activation wave. This loop owns neither. Both registration
+routes use
+`linear-resolver`, which applies the filing floor, attach-over-create ladder,
+per-run cap, and de-duplication. Preserve source severity/effort and the shared
+label taxonomy from `docs/findings/README.md` so dispatch can schedule without
+guessing.
 
 - It **proposes the new issues for your confirmation** before creating them
   (creating issues adds tracked work), applies the filing floor and
@@ -794,12 +841,13 @@ crosswalk, milestone/estimate conventions, and label taxonomy from
   finding issues: persist them on the durable ledger and STOP for operator
   confirmation before creating net-new work. Attach-over-create and
   left-on-ledger outcomes do not need a new-issue yes.
-- New issues (rung 4 of the ladder only) are filed in the team's
-  **backlog/triage** state with a **milestone** set per the README convention
-  (`docs/findings/README.md` M1–M9 filing map — `list_milestones` then assign;
-  never invent `Launch-blocking`) and **without** a cycle (unscheduled
-  Backlog — `/triage` assigns current cycle on Backlog → Todo) and linked to
-  the source issue (`relatedTo`) — never auto-assigned, never marked done.
+- New ordinary issues are filed in **Backlog without a cycle**, linked to the
+  source issue, and never auto-assigned or marked done. Their source
+  severity/effort remains in the description; `/dispatch` later finalizes
+  project/milestone/priority and an evidence-backed optional estimate across
+  the scoped Backlog portfolio, then counts existing active work and promotes
+  only approved daily-wave IDs to Todo/current cycle. The `/triage` Urgent
+  fast lane is not inferred here.
 - **Team/issue resolution:** FIX mode reuses the source issue's team; FEATURE
   mode uses the team the operator names (ask if ambiguous).
 - **Fallback when Linear is unavailable** (no team/issue context, MCP down, or
@@ -811,13 +859,14 @@ crosswalk, milestone/estimate conventions, and label taxonomy from
   no local file writes). After it reports, **you** (the orchestrator) **prune**:
   move each **filed or attached** entry out of its active
   `docs/findings/<category>.md` into `docs/findings/archive.md`, appending the
-  outcome (`→ REAZED-### (filed)` or `→ REAZED-### (attached)`), then **truncate/delete
+  outcome (`→ RES-### (filed)` or `→ RES-### (attached)`), then **truncate/delete
   `docs/findings/runs/<plan-slug>.md`** (its open lines are now on the bus,
   archived, or intentionally left on the bus below the filing floor). Entries
   reported "left on ledger" (below floor or cap overflow) stay in the category
   file untouched — do not archive them; `/triage` owns their eventual fate
-  (batch, backfill, or TTL expiry). Category files must end the run holding only
-  still-open findings (filed/attached ones removed), and `runs/` must not retain
+  (intake, de-duplication, or TTL expiry). Category files must end the run
+  holding only still-open findings (filed/attached ones removed), and `runs/`
+  must not retain
   this plan's scratch — this is what keeps both from growing without bound.
 
 Skip the register step only if the run file, all active `docs/findings/*.md`
@@ -852,7 +901,7 @@ it** — not a state write by any agent. The sequence: `/commit` re-verifies
 the gates ran green-and-executed, reviews the shipped diff against the
 criteria, emits a `PASS`/`CHANGES-REQUESTED`/`FAIL` verdict, and on `PASS`
 **commits the run's work locally** with a Linear **closing magic word**
-(`Fixes` / `Closes` / `Resolves REAZED-###`) in the message. `/push` then
+(`Fixes` / `Closes` / `Resolves RES-###`) in the message. `/push` then
 publishes that commit: if it lands directly on a PR to the default branch,
 the automation fires once the operator merges it, with no further prep. If
 it lands on an accumulator branch (e.g. `staging`) that gets promoted later
@@ -915,7 +964,7 @@ todos** (`<crit>-red`, `<crit>-green`, `<crit>-refactor`) plus `start-linear`
 Linear/review-trail/retrospective todos — one todo per phase, _every_ criterion,
 no matter how many there are or how alike they look. `start-linear` MUST be the
 **first** execution todo when FIX has a Linear ID/URL or FEATURE `linear_issue`
-is set: "Invoke the `linear-resolver` subagent to start work on <REAZED-###> (plan:
+is set: "Invoke the `linear-resolver` subagent to start work on <RES-###> (plan:
 <plan-slug>), handing the executing session's plan-file path (do not inline
 the body; do not bake the path into this todo text) and posting this digest;
 Task `run_in_background: true`; do not wait for its report before spec/C1"
@@ -975,6 +1024,10 @@ enumerate all three phases of **every** criterion as explicit
 - DO NOT proceed past a phase whose exit condition is unmet.
 - DO NOT invent acceptance criteria, edge cases, or requirements not in the spec;
   ask instead.
+- DO NOT apply a blanket M4+ milestone rule. Validate contract clarification
+  (M2), implementation (M4), and M5–M9 work from its actual work type.
+- DO NOT decompose a mixed unresolved design/implementation issue. Split it
+  into linked work with the M1–M3 decision issue blocking implementation.
 - Keep the spec authoritative: if code and spec disagree during execution, the
   spec wins (or the spec is revised first, deliberately).
 - FIX MODE GOLDEN RULE: never patch code or tests to make a bug go away before
@@ -1067,6 +1120,13 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   Criterion 1 Red. A later `## Linear — BLOCKED` is visibility-only. Non-blocking
   does not make the summary comment optional. A solo `start-linear` todo
   launches only START (nothing else to continue).
+- **Clarification is a separate stop path.** Before START/spec/Red, an
+  unresolved tracked route/spec decision emits and executes only the approved
+  `clarify-<RES-id>` `linear-resolver` CLARIFY todo. The resolver may use only
+  `list_comments` and `save_comment`; no state/scope write is allowed. Stop
+  after the comment result and wait for a later human answer plus command
+  re-run. A clarification comment is a Slack visibility trigger only, never an
+  In Review/Done trigger.
 - **START before the loop (launch, do not wait).** When STEP 2B applies (FIX
   Linear ID/URL, or FEATURE `linear_issue` set), the first Task call on
   execution is `linear-resolver` START (`run_in_background: true`) on the
@@ -1147,9 +1207,23 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 - Work-order: `.cursor/plans/<plan-slug>.plan.md` (managed Cloud) | n/a (Plan Mode — native plan)
 - Workflow mode: FEATURE | FIX
 
+## Project & Milestone Route
+
+- Team: key `RES` (display name informational)
+- Project: existing/allocated RES project with canonical version key `V-X.X` +
+  precedence evidence | untracked hint |
+  cannot verify
+- Work type: contract clarification | implementation | test/audit | beta |
+  UAT/RC | launch-critical/security/money | maintenance
+- Milestone: M2 | M4 | M5 | M6 | M7 | M8 | M9
+- Mixed design + implementation: no | split required (decision issue blocks
+  implementation)
+- Clarification: resolved by human comment | exact CLARIFY preview awaiting
+  approval/preauthorized managed-Cloud visibility | none
+
 ## Issue & Root Cause (FIX mode only — omit for FEATURE)
 
-- Issue: `<REAZED-### / URL>` or free-text defect — observed vs. expected (1–2 lines).
+- Issue: `<RES-### / URL>` or free-text defect — observed vs. expected (1–2 lines).
 - Missing constraint (root cause): the spec rule that was absent/wrong.
 - Spec update proposed: `docs/specs/<file>` → the new rule/edge case/criterion
   to add (the FIRST execution action; local: pending permission; managed Cloud:
@@ -1305,7 +1379,7 @@ delegate `docs-updater` (background) with that packet, or state explicit
 - plan_slug: <plan-basename>
 - spec: docs/specs/<file>.md
 - mode: FEATURE | FIX
-- linear_issue: REAZED-### | none
+- linear_issue: RES-### | none
 - criteria_shipped: [AC-605-1, AC-605-2]
 - criteria_manual_uat: [C10-light-theme] | none
 - req_ids: [REQ-051.2]
@@ -1367,8 +1441,9 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   (+ the table above) and apply the **Issue-filing policy** from
   `docs/findings/README.md` — filing floor, attach-over-create ladder, per-run cap
   of 3 — proposing only the entries that clear it as new/sub/umbrella issues
-  (with milestone + priority), attaching to existing issues where the ladder
-  matches, and leaving the rest on the ledger, after your confirmation
+  (with source severity/effort preserved for later portfolio grooming),
+  attaching to existing issues where the ladder matches, and leaving the rest
+  on the ledger, after your confirmation
   (managed Cloud: persist to the ledger and STOP for that confirmation — do
   not auto-confirm net-new finding issues);
   `linear-resolver` returns the finding→outcome mapping (filed / attached /
@@ -1401,7 +1476,7 @@ Collated into **`## Suggested Review Order (collated)`** in
 
 - **Local Plan Mode:** the single concrete action to take on approval. When
   STEP 2B applies, a **local** session resolves the plan file and delegates:
-  "Invoke the `linear-resolver` subagent to start work on <REAZED-###> (plan:
+  "Invoke the `linear-resolver` subagent to start work on <RES-###> (plan:
   <plan-slug>), posting this digest." Task `run_in_background: true`. Do
   **not** wait for that report before spec/C1. Fill `<plan-slug>` with this
   plan file's basename in the emitted todo. A reader who only has this Linear

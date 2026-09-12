@@ -57,7 +57,7 @@ test("detectLinearSpawn denies @Cursor in a comment body", () => {
 
 test("detectLinearSpawn denies @Cursor injected only via a patch op", () => {
   const hit = detectLinearSpawn(LINEAR, "save_issue", {
-    id: "REAZED-1",
+    id: "RES-1",
     patch: [{ op: "append", text: "@Cursor please look" }],
   })
   assert.equal(hit.kind, "mention")
@@ -76,7 +76,7 @@ test("detectLinearSpawn denies @Cursor even when surrounding prose negates it", 
 test("detectLinearSpawn allows a state-only save_issue", () => {
   assert.equal(
     detectLinearSpawn(LINEAR, "save_issue", {
-      id: "REAZED-1",
+      id: "RES-1",
       state: "In Progress",
     }),
     null,
@@ -87,6 +87,44 @@ test("detectLinearSpawn allows an ordinary comment", () => {
   assert.equal(
     detectLinearSpawn(LINEAR, "save_comment", {
       body: "Work started: plan foo",
+    }),
+    null,
+  )
+})
+
+test("CLARIFY comments remain subject to the Cursor-mention spawn guard", () => {
+  const unsafe = [
+    "Clarification required",
+    "Key: clarify:RES-42:booking-rules:BW-9",
+    "Decision question: Should @Cursor choose option A?",
+  ].join("\n")
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_comment", { body: unsafe }).kind,
+    "mention",
+  )
+
+  const safe = unsafe.replace("@Cursor", "the Cursor integration")
+  assert.equal(detectLinearSpawn(LINEAR, "save_comment", { body: safe }), null)
+})
+
+test("detectLinearSpawn denies @Cursor in a project status-update body", () => {
+  const hit = detectLinearSpawn(LINEAR, "save_status_update", {
+    type: "project",
+    project: "V-1.2",
+    body: "Audit result for @Cursor",
+    health: "atRisk",
+  })
+  assert.equal(hit.kind, "mention")
+  assert.equal(hit.field, "body")
+})
+
+test("detectLinearSpawn allows a clean project status update", () => {
+  assert.equal(
+    detectLinearSpawn(LINEAR, "save_status_update", {
+      type: "project",
+      project: "V-1.2",
+      body: "Audit run key: audit:2026-09-11:abc123:scope=complete:project=none:issues=none",
+      health: "onTrack",
     }),
     null,
   )
@@ -124,7 +162,7 @@ test("detectLinearSpawn allows a clean save_document", () => {
     detectLinearSpawn(LINEAR, "save_document", {
       title: "Plan — sg-1",
       content: "Mode: FIX\nOwning spec: docs/specs/foo.md",
-      issue: "REAZED-1",
+      issue: "RES-1",
     }),
     null,
   )
@@ -133,7 +171,7 @@ test("detectLinearSpawn allows a clean save_document", () => {
 test("detectLinearSpawn does not scan save_project (knowingly out of scope)", () => {
   assert.equal(
     detectLinearSpawn(LINEAR, "save_project", {
-      name: "Platform",
+      name: "V-1.2",
       description: "@Cursor please look",
     }),
     null,
@@ -141,7 +179,7 @@ test("detectLinearSpawn does not scan save_project (knowingly out of scope)", ()
 })
 
 test("detectLinearSpawn allows get_issue (read-only; not a spawn door)", () => {
-  assert.equal(detectLinearSpawn(LINEAR, "get_issue", { id: "REAZED-1" }), null)
+  assert.equal(detectLinearSpawn(LINEAR, "get_issue", { id: "RES-1" }), null)
 })
 
 test("detectLinearSpawn does not scan save_comment.patch (schema has no patch)", () => {
@@ -191,7 +229,7 @@ test("linear-spawn-guard denies assignee from a BOM-prefixed beforeMCPExecution 
     "\uFEFF" +
     JSON.stringify({
       tool_name: "save_issue",
-      tool_input: JSON.stringify({ id: "REAZED-1", assignee: "Cursor" }),
+      tool_input: JSON.stringify({ id: "RES-1", assignee: "Cursor" }),
       mcp_server_name: "linear",
       command: "linear",
       hook_event_name: "beforeMCPExecution",
@@ -206,7 +244,7 @@ test("linear-spawn-guard allows get_issue from a BOM-prefixed beforeMCPExecution
     "\uFEFF" +
     JSON.stringify({
       tool_name: "get_issue",
-      tool_input: JSON.stringify({ id: "REAZED-360" }),
+      tool_input: JSON.stringify({ id: "RES-360" }),
       mcp_server_name: "linear",
       command: "linear",
       hook_event_name: "beforeMCPExecution",
@@ -214,4 +252,24 @@ test("linear-spawn-guard allows get_issue from a BOM-prefixed beforeMCPExecution
   const { code, out } = await runSpawnGuard(payload)
   assert.equal(code, 0)
   assert.deepEqual(JSON.parse(out), {})
+})
+
+test("linear-spawn-guard denies @Cursor in a BOM-prefixed status update payload", async () => {
+  const payload =
+    "\uFEFF" +
+    JSON.stringify({
+      tool_name: "save_status_update",
+      tool_input: JSON.stringify({
+        type: "project",
+        project: "V-1.2",
+        body: "Audit asks @Cursor to follow up",
+        health: "atRisk",
+      }),
+      mcp_server_name: "linear",
+      command: "linear",
+      hook_event_name: "beforeMCPExecution",
+    })
+  const { code, out } = await runSpawnGuard(payload)
+  assert.equal(code, 0)
+  assert.equal(JSON.parse(out).permission, "deny")
 })
