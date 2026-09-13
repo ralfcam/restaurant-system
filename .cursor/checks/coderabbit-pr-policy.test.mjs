@@ -78,7 +78,8 @@ test("main-gate workflow is read-only, staging→main, and named US latest-head"
   assert.match(yml, /pull_request:/)
   assert.match(yml, /ready_for_review/)
   assert.match(yml, /pull_request_review:/)
-  assert.match(yml, /pull_request_review_thread:/)
+  assert.match(yml, /pull_request_review_comment:/)
+  assert.doesNotMatch(yml, /^  pull_request_review_thread:/m)
   assert.match(
     yml,
     /github\.event\.pull_request\.base\.ref == 'main' && github\.event\.pull_request\.head\.ref == 'staging'/,

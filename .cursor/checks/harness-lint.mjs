@@ -471,11 +471,13 @@ export const CODERABBIT_WORKFLOW_NEEDLES = [
   "contents: read",
   "pull-requests: read",
   "coderabbit-pr-gate.mjs --promotion-only",
+  "pull_request_review_comment:",
 ]
 
 export const CODERABBIT_WORKFLOW_FORBIDDEN = [
   "contents: write",
   "pull-requests: write",
+  "pull_request_review_thread:",
 ]
 
 export const CODERABBIT_SHADOW_COMMANDS = [

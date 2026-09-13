@@ -296,8 +296,11 @@ Do not write the receipt into `docs/verifier-reports/tdd/**`.
 
 Ready PRs: `/coderabbit-gate` then the operator merges. `staging → main`
 additionally requires the GitHub check `CodeRabbit US latest-head gate`.
-In-scope findings return to `/sdd-to-tdd`. Residuals go through `/capture`
-with provenance `coderabbit/<local|PR>/<head>/<finding-id>`, then `/triage`.
+The workflow re-runs on PR sync, review submit/dismiss, and review comments.
+GitHub Actions does not accept `pull_request_review_thread` (webhook-only);
+after resolving threads with no other event, re-run that check. In-scope
+findings return to `/sdd-to-tdd`. Residuals go through `/capture` with
+provenance `coderabbit/<local|PR>/<head>/<finding-id>`, then `/triage`.
 Never `@coderabbitai approve`, `resolve`, or `ignore pre-merge checks`.
 
 ## Canary and GitHub ruleset
@@ -316,9 +319,50 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
    PR required; one approval; stale approvals dismissed; latest push
    approval required; conversations resolved; required `CodeRabbit`
    context pinned to US App ID `347564`; required check
-   `CodeRabbit US latest-head gate`; no App/admin bypass. Keep direct
-   `staging` pushes intact. Do not require the intentionally passing
-   **Review rate limited** check.
+   `CodeRabbit US latest-head gate` (GitHub Actions app `15368`); no
+   App/admin bypass. Keep direct `staging` pushes intact. Do not require
+   the intentionally passing **Review rate limited** check.
+
+   ```powershell
+   $payload = @{
+     name = "main US CodeRabbit promotion"
+     target = "branch"
+     enforcement = "active"
+     bypass_actors = @()
+     conditions = @{
+       ref_name = @{
+         include = @("refs/heads/main")
+         exclude = @()
+       }
+     }
+     rules = @(
+       @{
+         type = "pull_request"
+         parameters = @{
+           required_approving_review_count = 1
+           dismiss_stale_reviews_on_push = $true
+           require_code_owner_review = $false
+           require_last_push_approval = $true
+           required_review_thread_resolution = $true
+           allowed_merge_methods = @("merge", "squash", "rebase")
+         }
+       }
+       @{
+         type = "required_status_checks"
+         parameters = @{
+           strict_required_status_checks_policy = $true
+           do_not_enforce_on_create = $false
+           required_status_checks = @(
+             @{ context = "CodeRabbit"; integration_id = 347564 }
+             @{ context = "CodeRabbit US latest-head gate"; integration_id = 15368 }
+           )
+         }
+       }
+       @{ type = "non_fast_forward" }
+     )
+   }
+   $payload | ConvertTo-Json -Depth 8 | gh api --method POST repos/ralfcam/restaurant-system/rulesets --input -
+   ```
 4. Promote only accurate pre-merge checks from `warning` to `error`, then
    use that config change as the protected second promotion canary. The
    custom gate must be pending before review, fail stale/wrong-region

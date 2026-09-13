@@ -18,6 +18,9 @@ Handoff is **ready PR → `/coderabbit-gate` → operator merge**. Feature PRs
 into `staging` are command-enforced. `staging → main` promotions additionally
 require the GitHub check `CodeRabbit US latest-head gate` from
 [`.github/workflows/coderabbit-main-gate.yml`](.github/workflows/coderabbit-main-gate.yml).
+That workflow cannot subscribe to thread resolve (`pull_request_review_thread`
+is webhook-only). After resolving threads with no PR sync/review/comment,
+re-run the check.
 
 Remote review never substitutes for the deterministic local gate in
 [`.cursor/checks/coderabbit-gate.mjs`](.cursor/checks/coderabbit-gate.mjs).

@@ -172,7 +172,8 @@ Cloud helper, local JSONL receipt gate (G-CR2), and US latest-head PR gate
    `resolve` / `ignore pre-merge checks` override. `staging → main`
    additionally requires the GitHub check `CodeRabbit US latest-head gate`
    from `.github/workflows/coderabbit-main-gate.yml` (read-only,
-   `--promotion-only`). Remote review never substitutes for G-CR2.
+   `--promotion-only`; `pull_request_review_thread` is not an Actions
+   trigger). Remote review never substitutes for G-CR2.
    - Regression guard: `.cursor/checks/coderabbit-pr-policy.test.mjs` plus
      the adapter snapshot cases in `coderabbit-gate.test.mjs`.
 

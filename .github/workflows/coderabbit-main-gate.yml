@@ -1,13 +1,18 @@
 name: CodeRabbit US latest-head gate
 
+# pull_request_review_thread is a webhook event, not an Actions trigger.
+# Including it fails workflow validation (Unexpected value) so no job
+# ever runs. Thread state is re-checked on PR sync, review
+# submit/dismiss, and review-comment; re-run the check after resolving
+# threads if none of those events fired.
 on:
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, dismissed]
-  pull_request_review_thread:
-    types: [resolved, unresolved]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
 
 permissions:
   contents: read
