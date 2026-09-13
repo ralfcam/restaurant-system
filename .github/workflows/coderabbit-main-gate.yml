@@ -1,0 +1,37 @@
+name: CodeRabbit US latest-head gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted, dismissed]
+  pull_request_review_thread:
+    types: [resolved, unresolved]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: coderabbit-us-latest-head-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coderabbit-us-latest-head-gate:
+    name: CodeRabbit US latest-head gate
+    if: github.event.pull_request.base.ref == 'main' && github.event.pull_request.head.ref == 'staging'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: CodeRabbit US latest-head gate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: node .cursor/checks/coderabbit-pr-gate.mjs --promotion-only

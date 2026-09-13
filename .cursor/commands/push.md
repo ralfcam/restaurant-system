@@ -164,10 +164,15 @@ do not invent a classifier agent.
        (Step 1) is unaffected and remains the hard gate.
        - If `<current-branch>` is `staging`: `--base <default-branch>`;
          derive title and body from `git log origin/<default-branch>...HEAD`
-         (Summary + Test plan).
+         (Summary + Test plan). Include Linear issue URL(s), owning spec path
+         and criterion IDs, fresh executed-test evidence from this turn's
+         whole-suite gate, and the ignored CodeRabbit receipt's HEAD/commit
+         SHA binding when present.
        - If `<current-branch>` is any other non-default head: `--base staging`;
          derive title and body from `git log origin/staging...HEAD` (never
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
+         Include the same Linear URL, owning spec/criteria, executed-test
+         evidence, and receipt/commit binding.
        - `gh pr create --draft --base <that-base> --head <current-branch> --title "..." --body "..."`
        - Do **not** pre-inject `## Linear close-out` or any `Fixes RES-###`
          line — Step 4 owns trailer aggregation/injection when base is the
@@ -240,10 +245,14 @@ do not invent a classifier agent.
   linked (or "none"/"n/a"), review-request status, and checks status.
 - **When the PR is a draft**, the operator's next step is `gh pr ready <n>`
   (or the GitHub UI) — that single event starts the gated Actions jobs and
-  fires In Review. Then merge in the GitHub UI once required checks are
-  green. Never ready the PR on the operator's behalf.
-- When the PR is already ready, instruct the operator to merge in the GitHub
-  UI once required checks are green.
+  fires In Review. Then **`/coderabbit-gate`** then merge in the GitHub UI
+  once required checks are green. Never ready the PR on the operator's
+  behalf.
+- When the PR is already ready, instruct the operator to run
+  **`/coderabbit-gate`** then merge in the GitHub UI once required checks are
+  green. `staging → main` additionally requires the GitHub check
+  `CodeRabbit US latest-head gate`. Remote review never substitutes for the
+  local JSONL receipt.
 
 ### Reasoning protocol
 
@@ -329,7 +338,7 @@ Exactly these sections:
 5. **Review request** — "deferred — PR is draft; `gh pr ready <n>` starts CI and fires In Review" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the close-out comment automation".
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; checks start at `gh pr ready <n>`" (expected, not a warning) | each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — run `gh pr ready <n>` to start CI and fire In Review, then merge once green" | "PR open — awaiting review/merge" | "merge `<PR-URL>` in the GitHub UI once required checks are green — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push`.
+8. **Operator next** — "draft PR open — run `gh pr ready <n>` to start CI and fire In Review, then `/coderabbit-gate`, then merge once green" | "PR open — awaiting `/coderabbit-gate` then review/merge" | "merge `<PR-URL>` in the GitHub UI once `/coderabbit-gate` and required checks are green — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push`.
    </output_format>
    </instructions>
    </output>

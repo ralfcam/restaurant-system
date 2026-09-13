@@ -21,8 +21,17 @@ import {
   detectBlanketGitStage,
   detectGhPrMerge,
   detectGitCommit,
+  getCommitExempt,
   isLoopRan,
 } from "./lib/tdd-guard-policy.mjs"
+import {
+  configHashes,
+  currentHead,
+  evaluateGitCommitPermission,
+  hashStagedContents,
+  loadReceipt,
+  stagedPathsFromGit,
+} from "./lib/coderabbit-review-policy.mjs"
 
 function main() {
   try {
@@ -61,18 +70,43 @@ function main() {
       return
     }
     const commitHit = detectGitCommit(command)
-    if (commitHit && isLoopRan()) {
-      writeStdoutJson({
-        permission: "deny",
-        user_message:
-          "Blocked `git commit` after a TDD loop — run /commit to review and open the gate.",
-        agent_message:
-          `git-stage guard: "${commitHit.segment}" is a git commit after the TDD loop ran ` +
-          "(loopRan). The plan-execution turn must not self-serve a commit. " +
-          "`.cursor/commands/commit.md` opens the gate on PASS with " +
-          "`node .cursor/hooks/tdd-guard.mjs gate open`; then retry the commit.",
+    if (commitHit) {
+      if (isLoopRan()) {
+        writeStdoutJson({
+          permission: "deny",
+          user_message:
+            "Blocked `git commit` after a TDD loop — run /commit to review and open the gate.",
+          agent_message:
+            `git-stage guard: "${commitHit.segment}" is a git commit after the TDD loop ran ` +
+            "(loopRan). The plan-execution turn must not self-serve a commit. " +
+            "`.cursor/commands/commit.md` opens the gate on PASS with " +
+            "`node .cursor/hooks/tdd-guard.mjs gate open`; then retry the commit.",
+        })
+        return
+      }
+      const cwd = process.cwd()
+      const staged = stagedPathsFromGit(cwd)
+      const verdict = evaluateGitCommitPermission({
+        loopRan: false,
+        exemption: getCommitExempt(),
+        stagedPaths: staged,
+        stagedManifest: hashStagedContents(cwd, staged),
+        receipt: loadReceipt(),
+        configHashes: configHashes(cwd),
+        head: currentHead(cwd),
       })
-      return
+      if (!verdict.ok) {
+        writeStdoutJson({
+          permission: "deny",
+          user_message:
+            "Blocked `git commit` — the staged tree does not match the CodeRabbit receipt.",
+          agent_message:
+            `git-stage guard: "${commitHit.segment}" does not match the current CodeRabbit ` +
+            `receipt (${verdict.reason}). Re-run node .cursor/checks/coderabbit-gate.mjs ` +
+            "after /sdd-to-tdd close-out, or use a documented exempt /commit lane.",
+        })
+        return
+      }
     }
     writeStdoutJson({})
   } catch (err) {

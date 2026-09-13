@@ -1,14 +1,16 @@
 # Dev toolchain
 
 **Status:** Draft  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-13
 
 ## Scope
 
 Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 [`docs/testing/Pyramid-Overview.md`](../testing/Pyramid-Overview.md):
 `pnpm lint`, `pnpm typecheck`, `pnpm exec prettier` / `pnpm format`, plus the
-pnpm override / Cloud Agent install pin.
+pnpm override / Cloud Agent install pin and the fail-closed US CodeRabbit
+Cloud helper, local JSONL receipt gate (G-CR2), and US latest-head PR gate
+(G-CR3).
 
 ## Acceptance criteria
 
@@ -119,7 +121,9 @@ pnpm override / Cloud Agent install pin.
    `pnpm-workspace.yaml` `allowBuilds` MUST be `true` for `@parcel/watcher`,
    `@swc/core`, `esbuild`, `msw`, `sharp`, and `unrs-resolver`.
    `.cursor/environment.json` `install` MUST include `corepack prepare --activate`
-   and `pnpm install --frozen-lockfile`, and MUST NOT use `--no-frozen-lockfile`.
+   and `pnpm install --frozen-lockfile`, MUST include
+   `sh .cursor/cloud-install-coderabbit.sh`, and MUST NOT use
+   `--no-frozen-lockfile`.
    - Regression guard: `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`
      asserts `package.json` `packageManager` equals `pnpm@12.3.4` exactly
      (not merely `/^pnpm@\d+\.\d+\.\d+$/`), absent `package.json` `pnpm` field,
@@ -127,28 +131,78 @@ pnpm override / Cloud Agent install pin.
      `allowBuilds` keys, and the environment `install` substrings. A
      `packageManager` of `pnpm@9.0.0` MUST fail this guard.
 
+7. **G-CR1 — Cloud CodeRabbit is pinned, US, fail-closed** —
+   `.cursor/environment.json` `install` MUST equal
+   `corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh`.
+   `.cursor/cloud-install-coderabbit.sh` MUST pin `CODERABBIT_VERSION=0.7.6`
+   (CodeRabbit CLI v0.7.6; `coderabbit --version` prints `0.7.6`; the
+   installer folder `v0.7.6` 404s), reinstall when the installed binary is
+   missing or is not `0.7.6`, require `CODERABBIT_API_KEY`, run
+   `coderabbit auth login --region us --api-key "${CODERABBIT_API_KEY}"`,
+   and fail unless `coderabbit auth status --agent` reports
+   `"authenticated":true` and `"region":"us"`. Missing-key skip and
+   `coderabbit auth status --agent || true` are forbidden.
+   - Regression guard: `tests/unit/dev-toolchain/coderabbit-cloud-install.test.ts`
+     asserts the exact environment `install` string, the `0.7.6` pin,
+     reinstall-on-mismatch, required US login, and the fail-closed auth
+     checks. A tree whose helper still skips login when the key is absent,
+     or that pins `CODERABBIT_VERSION=v0.7.6`, MUST fail this guard.
+
+8. **G-CR2 — Local JSONL final-surface gate** —
+   After `/sdd-to-tdd` close-out and before `/commit`,
+   `node .cursor/checks/coderabbit-gate.mjs` MUST review the work-order dirty
+   tree with pinned US CLI `0.7.6`, persist an ignored receipt under
+   `.cursor/hooks/state/`, and fail closed on `critical`/`major`/`minor`
+   findings, unrelated dirt, secrets, timeout, rate limit, billing, skipped
+   review, malformed JSONL, scope mismatch, changed bytes, or missing
+   `complete.reviewedFiles` equality. `gate open` and `git commit` MUST match
+   that receipt unless the lane is `docs-artifact` or `gate-remediation`.
+   Receipt fingerprints MUST NOT be written into
+   `docs/verifier-reports/tdd/**`. `codegenInstructions` MUST NOT be executed
+   and `--use-credits` is forbidden. There is no manual-review fallback.
+   - Regression guard: `.cursor/checks/coderabbit-review-policy.test.mjs`
+     and `.cursor/checks/coderabbit-gate.test.mjs` replay clean, blocking,
+     malformed, waiver, spawn, and receipt-match fixtures.
+
+9. **G-CR3 — US latest-head ready-PR gate** —
+   Ready PRs MUST pass `/coderabbit-gate` (`coderabbit-pr-gate.mjs`) with
+   `coderabbitai[bot]` (App ID `347564`) approval of current HEAD, no EU
+   `coderabbiteu` activity (App ID `3307191`), no unresolved CodeRabbit
+   threads, and no rate-limit, billing, or `@coderabbitai approve` /
+   `resolve` / `ignore pre-merge checks` override. `staging → main`
+   additionally requires the GitHub check `CodeRabbit US latest-head gate`
+   from `.github/workflows/coderabbit-main-gate.yml` (read-only,
+   `--promotion-only`). Remote review never substitutes for G-CR2.
+   - Regression guard: `.cursor/checks/coderabbit-pr-policy.test.mjs` plus
+     the adapter snapshot cases in `coderabbit-gate.test.mjs`.
+
 ## Implementation trace (non-normative)
 
-| Criterion | Shipped in                                                                                                                                                                                                                                                                                                            | Tests                                                                                                                                                                                       |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| G-T1 C1   | `package.json` / `pnpm-lock.yaml` declare `swr@2.5.1`; `node_modules/swr` on disk (no app source)                                                                                                                                                                                                                     | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "swr is installed so TypeScript can resolve the module"                                                                            |
-| G-T1 C2   | `hooks/use-chefs-picks.ts` (`items: MenuItemRow[]`); `app/[locale]/page.tsx` (`featured.map((item: MenuItemRow)`)                                                                                                                                                                                                     | `tests/unit/site/chefs-picks-types.test.ts` → "homepage chefs picks map callback is MenuItemRow"                                                                                            |
-| G-T1 C3   | `lib/reservations/auto-assign.ts` — `FloorTableView` includes `id: string`, `x: number`, `y: number`; `AssignableTable` stays x/y-free                                                                                                                                                                                | `tests/unit/floor/layout.test.ts` → "floor table view type includes id x y for spreadOverlappingTables"                                                                                     |
-| G-T1 C4   | `next.config.mjs` (`typescript` key omitted; Next default fail-closed)                                                                                                                                                                                                                                                | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "next config does not ignore TypeScript build errors"                                                                              |
-| G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                                                                                                                                                                                                    | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"                                                                               |
-| G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                                                                                                                                                           | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                                                                                         |
-| G-L1 C3   | `eslint.config.mjs` `linterOptions.reportUnusedDisableDirectives: "error"`                                                                                                                                                                                                                                            | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "errors (not warns) on an unused eslint-disable directive"                                                                              |
-| G-L1 C4   | `vitest.unit.config.ts` (`test.testTimeout: 15_000`)                                                                                                                                                                                                                                                                  | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "gives dependency-heavy ESLint probes a 15-second unit timeout budget"                                                                  |
-| G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`)                                                                                                                                          | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts"                                                                          |
-| G-W1      | `next.config.mjs` (`projectRoot` from `fileURLToPath(import.meta.url)`; `turbopack.root` + `outputFileTracingRoot`)                                                                                                                                                                                                   | `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`                                                                                                                                 |
-| G-P1      | root `proxy.ts` (`export async function proxy`); `app/admin/layout.tsx` comment; `lib/supabase/proxy.ts` unchanged                                                                                                                                                                                                    | `tests/unit/dev-toolchain/proxy-convention.test.ts`; `tests/unit/i18n/middleware-scope.test.ts`                                                                                             |
-| G-O1      | `package.json` `packageManager` `pnpm@12.3.4`; `pnpm-workspace.yaml` `overrides.hono` `4.12.25` + `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`, `unrs-resolver`); `.cursor/environment.json` `install` `corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile` | `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts` → "pins packageManager and keeps the hono override in pnpm-workspace.yaml"; "packageManager equals the shipped pnpm@12.3.4 pin" |
+| Criterion | Shipped in                                                                                                                                                                                                                                                                                                                                                      | Tests                                                                                                                                                                                       |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G-T1 C1   | `package.json` / `pnpm-lock.yaml` declare `swr@2.5.1`; `node_modules/swr` on disk (no app source)                                                                                                                                                                                                                                                               | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "swr is installed so TypeScript can resolve the module"                                                                            |
+| G-T1 C2   | `hooks/use-chefs-picks.ts` (`items: MenuItemRow[]`); `app/[locale]/page.tsx` (`featured.map((item: MenuItemRow)`)                                                                                                                                                                                                                                               | `tests/unit/site/chefs-picks-types.test.ts` → "homepage chefs picks map callback is MenuItemRow"                                                                                            |
+| G-T1 C3   | `lib/reservations/auto-assign.ts` — `FloorTableView` includes `id: string`, `x: number`, `y: number`; `AssignableTable` stays x/y-free                                                                                                                                                                                                                          | `tests/unit/floor/layout.test.ts` → "floor table view type includes id x y for spreadOverlappingTables"                                                                                     |
+| G-T1 C4   | `next.config.mjs` (`typescript` key omitted; Next default fail-closed)                                                                                                                                                                                                                                                                                          | `tests/unit/dev-toolchain/typecheck-toolchain.test.ts` → "next config does not ignore TypeScript build errors"                                                                              |
+| G-L1 C1   | `eslint.config.mjs` `globalIgnores` (`supabase/.temp/**`, `supabase/.branches/**`)                                                                                                                                                                                                                                                                              | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "ignores gitignored supabase CLI temp and branches trees"                                                                               |
+| G-L1 C2   | `package.json` `scripts.lint` (`eslint . --max-warnings 0`)                                                                                                                                                                                                                                                                                                     | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "lint script passes --max-warnings 0 to eslint"                                                                                         |
+| G-L1 C3   | `eslint.config.mjs` `linterOptions.reportUnusedDisableDirectives: "error"`                                                                                                                                                                                                                                                                                      | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "errors (not warns) on an unused eslint-disable directive"                                                                              |
+| G-L1 C4   | `vitest.unit.config.ts` (`test.testTimeout: 15_000`)                                                                                                                                                                                                                                                                                                            | `tests/unit/dev-toolchain/lint-toolchain.test.ts` → "gives dependency-heavy ESLint probes a 15-second unit timeout budget"                                                                  |
+| G-F1      | `package.json` `prettier` + `scripts.format` / `scripts.format:check`; `.prettierrc.json` (`semi: false`); `.prettierignore` (`docs/verifier-reports`, `docs/findings/runs`)                                                                                                                                                                                    | `tests/unit/dev-toolchain/format-toolchain.test.ts` → "prettier is installed with format and format:check scripts"                                                                          |
+| G-W1      | `next.config.mjs` (`projectRoot` from `fileURLToPath(import.meta.url)`; `turbopack.root` + `outputFileTracingRoot`)                                                                                                                                                                                                                                             | `tests/unit/dev-toolchain/workspace-root-toolchain.test.ts`                                                                                                                                 |
+| G-P1      | root `proxy.ts` (`export async function proxy`); `app/admin/layout.tsx` comment; `lib/supabase/proxy.ts` unchanged                                                                                                                                                                                                                                              | `tests/unit/dev-toolchain/proxy-convention.test.ts`; `tests/unit/i18n/middleware-scope.test.ts`                                                                                             |
+| G-O1      | `package.json` `packageManager` `pnpm@12.3.4`; `pnpm-workspace.yaml` `overrides.hono` `4.12.25` + `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`, `unrs-resolver`); `.cursor/environment.json` `install` `corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh` | `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts` → "pins packageManager and keeps the hono override in pnpm-workspace.yaml"; "packageManager equals the shipped pnpm@12.3.4 pin" |
+| G-CR1     | `.cursor/environment.json` `install` equals that Cloud command; `.cursor/cloud-install-coderabbit.sh` pins `CODERABBIT_VERSION=0.7.6`, reinstalls on mismatch, requires `CODERABBIT_API_KEY`, US `auth login --api-key`, fail-closed `auth status --agent`                                                                                                      | `tests/unit/dev-toolchain/coderabbit-cloud-install.test.ts`                                                                                                                                 |
+| G-CR2     | `.cursor/checks/coderabbit-gate.mjs` + `.cursor/hooks/lib/coderabbit-review-policy.mjs`; ignored receipt; `tdd-guard.mjs gate open` and `git-stage-guard.mjs` match the receipt; docs-artifact / gate-remediation exempt                                                                                                                           | `.cursor/checks/coderabbit-review-policy.test.mjs`; `.cursor/checks/coderabbit-gate.test.mjs`                                                                                             |
+| G-CR3     | `.cursor/commands/coderabbit-gate.md`; `.cursor/checks/coderabbit-pr-gate.mjs`; `.github/workflows/coderabbit-main-gate.yml` job `CodeRabbit US latest-head gate` for `staging → main`                                                                                                                                                            | `.cursor/checks/coderabbit-pr-policy.test.mjs`; `.cursor/checks/coderabbit-gate.test.mjs`                                                                                                  |
 
 ## References
 
 - [`package.json`](../../package.json) — `packageManager` `pnpm@12.3.4`
 - [`pnpm-workspace.yaml`](../../pnpm-workspace.yaml) — `overrides.hono` `4.12.25`; `allowBuilds` for six native-script packages
 - [`.cursor/environment.json`](../../.cursor/environment.json) — Cloud Agent `install`
+- [`.cursor/cloud-install-coderabbit.sh`](../../.cursor/cloud-install-coderabbit.sh) — US CodeRabbit CLI for Cloud
+- [`docs/runbooks/coderabbit.md`](../runbooks/coderabbit.md)
 - [`next.config.mjs`](../../next.config.mjs)
 - [`proxy.ts`](../../proxy.ts) — Next 16 request boundary (`export async function proxy`); distinct from [`lib/supabase/proxy.ts`](../../lib/supabase/proxy.ts)
 - [`components/ui/dialog.tsx`](../../components/ui/dialog.tsx) — Base UI `render` pattern

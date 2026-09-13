@@ -28,6 +28,13 @@ import {
   detectGroomArtifactViolations,
   detectGroomStaleGuardViolations,
   detectRunFileLifecycleViolations,
+  CODERABBIT_MIRROR_NEEDLES,
+  CODERABBIT_YAML_FORBIDDEN,
+  CODERABBIT_WORKFLOW_NEEDLES,
+  CODERABBIT_WORKFLOW_FORBIDDEN,
+  detectCoderabbitMirrorViolations,
+  detectCoderabbitYamlViolations,
+  detectCoderabbitWorkflowViolations,
 } from "./harness-lint.mjs"
 import {
   DAILY_QUEUE_MAXIMUM,
@@ -97,6 +104,7 @@ test("harness-lint source pins findings-format and prettier --check", () => {
   assert.ok(src.includes("design-writes"))
   assert.ok(src.includes("run-ledger"))
   assert.ok(src.includes("clarify-state"))
+  assert.ok(src.includes("coderabbit"))
   assert.ok(src.includes("prettier --check"))
   assert.ok(src.includes("runPnpm"))
   assert.ok(!src.includes('? "pnpm.cmd"'))
@@ -771,5 +779,43 @@ test("CLARIFY current-state-unchanged wording passes live files and fails each m
       CLARIFY_STATE_FORBIDDEN,
       detectClarifyStateWordingViolations,
     )
+  }
+})
+
+test("CodeRabbit factory mirrors pass live files and fail each missing clause", () => {
+  for (const [rel, needles] of Object.entries(CODERABBIT_MIRROR_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertMissingClauseNegatives(
+      rel,
+      text,
+      needles,
+      detectCoderabbitMirrorViolations,
+    )
+  }
+})
+
+test("CodeRabbit YAML and workflow reject auto_approve and write permissions", () => {
+  const yaml = readFileSync(join(ROOT, ".coderabbit.yaml"), "utf8")
+  assert.deepEqual(detectCoderabbitYamlViolations(yaml), [])
+  for (const needle of CODERABBIT_YAML_FORBIDDEN) {
+    const violations = detectCoderabbitYamlViolations(`${yaml}\n${needle}\n`)
+    assert.notEqual(violations.length, 0, needle)
+  }
+
+  const workflow = readFileSync(
+    join(ROOT, ".github", "workflows", "coderabbit-main-gate.yml"),
+    "utf8",
+  )
+  assert.deepEqual(detectCoderabbitWorkflowViolations(workflow), [])
+  for (const needle of CODERABBIT_WORKFLOW_NEEDLES) {
+    const mutated = workflow.replaceAll(needle, "")
+    const violations = detectCoderabbitWorkflowViolations(mutated)
+    assert.notEqual(violations.length, 0, needle)
+  }
+  for (const needle of CODERABBIT_WORKFLOW_FORBIDDEN) {
+    const violations = detectCoderabbitWorkflowViolations(
+      `${workflow}\n${needle}\n`,
+    )
+    assert.notEqual(violations.length, 0, needle)
   }
 })

@@ -43,8 +43,10 @@ need the promotion PR to carry the aggregated closing line — see
 ## No agent `gh pr merge`
 
 Merging is the operator’s job in the GitHub UI. Commands (`/push`, `/intake`, `/commit`,
-`/triage`, `/dispatch`) forbid `gh pr merge`; the git-stage guard blocks it
+`/triage`, `/dispatch`, `/coderabbit-gate`) forbid `gh pr merge`; the git-stage guard blocks it
 in Shell. Never compensate a missed Done transition with `save_issue`.
+Ready PRs go through `/coderabbit-gate` before merge. CodeRabbit chat/Plan/Triage
+do not write Linear.
 
 ## Dispatch portfolio and daily queue
 

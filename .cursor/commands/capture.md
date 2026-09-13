@@ -266,6 +266,7 @@ they differ from the operator's guess):
 
 - Clear **spec-implemented bug** with repro → `/sdd-to-tdd <RES-###>` or
   `/sdd-to-tdd "bug: <symptom / repro>"` (FIX mode owns spec update + TDD).
+  In-scope CodeRabbit findings from `/coderabbit-gate` take this route.
 - **Spec deviation** the operator wants verified against code → `/audit` (not
   capture).
 - **Feature request naming no owning REQ/spec at all** — not a gap in
@@ -314,10 +315,15 @@ ad-hoc threads:
 ```
 - [ ] <title> · <route/screen/component> · <why it matters> · <severity> · (found: capture/<plan-slug>/<item-slug>)
 - [ ] <title> · … · (found: feedback/<YYYY-MM-DD>/<item-slug>)   # fallback — no saved plan
+- [ ] <title> · … · (found: coderabbit/<local|PR>/<head>/<finding-id>)
 ```
 
 `<plan-slug>` = this Capture Plan's saved basename; `<item-slug>` = short kebab-case
-disambiguator (e.g. `admin-billing-copy`, `mobile-sidebar`).
+disambiguator (e.g. `admin-billing-copy`, `mobile-sidebar`). CodeRabbit residuals
+from the local JSONL gate or `/coderabbit-gate` use the stable provenance
+`coderabbit/<local|PR>/<head>/<finding-id>` — do not write Linear from
+CodeRabbit chat. In-scope CodeRabbit findings belong on `/sdd-to-tdd`, not this
+ledger.
 
 ## PHASE 3 — Reconcile (read-only)
 
