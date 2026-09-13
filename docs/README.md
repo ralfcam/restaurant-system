@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-13
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -15,6 +15,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Staff authorization                            | [specs/staff-authorization.md](./specs/staff-authorization.md) · [architecture/Auth-And-RLS.md](./architecture/Auth-And-RLS.md) |
 | Reservations / booking                         | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
 | Reservation analytics                          | [specs/reservation-analytics.md](./specs/reservation-analytics.md)                                                              |
+| Event inquiries                                | [specs/event-inquiries.md](./specs/event-inquiries.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md) |
 | Menu / 86 / POS / KDS                          | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
 | Guest site chrome (header / logo)              | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
 | Guest site localization                        | [specs/site-localization.md](./specs/site-localization.md)                                                                      |
@@ -30,28 +31,31 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Dev toolchain                                  | [specs/dev-toolchain.md](./specs/dev-toolchain.md)                                                                              |
 | Seeds & fixtures                               | [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md)                                                              |
 | Deploy                                         | [runbooks/deploy.md](./runbooks/deploy.md)                                                                                      |
+| CodeRabbit (US Team)                           | [runbooks/coderabbit.md](./runbooks/coderabbit.md)                                                                              |
 | Product scope                                  | [PRD/restaurant-system-PRD.md](./PRD/restaurant-system-PRD.md)                                                                  |
 | Open findings (TDD ledger)                     | [findings/README.md](./findings/README.md)                                                                                      |
 | Audit verifier reports                         | [verifier-reports/README.md](./verifier-reports/README.md)                                                                      |
 
 ## Ownership (anti-duplication)
 
-| Topic                                        | Canonical owner                    | Siblings (summary / links only)                                                          |
-| -------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
-| Acceptance criteria                          | `docs/specs/*`                     | Architecture docs summarize; they do not define criteria                                 |
-| Reservation booking rules                    | `specs/booking-rules.md`           | `architecture/Reservation-Flow.md`                                                       |
-| Reservation / occupancy analytics            | `specs/reservation-analytics.md`   | `architecture/Platform-Overview.md`; `architecture/Auth-And-RLS.md`                      |
-| Menu availability / 86                       | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                                                             |
-| Staff scheduling / tables                    | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                                                             |
-| Guest header / brand logo                    | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                                                |
-| Guest site localization (FR/EN)              | `specs/site-localization.md`       | `specs/site-chrome.md` (header chrome)                                                   |
-| Guest homepage hero / reserve / Chef's picks | `specs/homepage.md`                | `specs/site-chrome.md` (header); `booking-rules.md`; `menu-availability.md` (picks rows) |
-| Admin-managed logo / branding CMS            | `specs/branding-cms.md`            | `specs/site-chrome.md` (empty-by-default mark)                                           |
-| Post-visit review email                      | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)                                    |
-| Staff authorization (JWT claim)              | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                                                           |
-| Dev toolchain                                | `specs/dev-toolchain.md`           | `runbooks/deploy.md` (Cloud Agent install)                                               |
-| Scheduled jobs (timers)                      | `.cursor/rules/scheduled-jobs.mdc` | `runbooks/deploy.md`; `testing/Design-And-Patterns.md`                                   |
-| Test how-to                                  | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes                                            |
+| Topic                                        | Canonical owner                    | Siblings (summary / links only)                                                               |
+| -------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| Acceptance criteria                          | `docs/specs/*`                     | Architecture docs summarize; they do not define criteria                                      |
+| Reservation booking rules                    | `specs/booking-rules.md`           | `architecture/Reservation-Flow.md`                                                            |
+| Reservation / occupancy analytics            | `specs/reservation-analytics.md`   | `architecture/Platform-Overview.md`; `architecture/Auth-And-RLS.md`                           |
+| Event inquiries (not occupancy)              | `specs/event-inquiries.md`         | `architecture/Reservation-Flow.md`; `architecture/Auth-And-RLS.md`                            |
+| Menu availability / 86                       | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                                                                  |
+| Staff scheduling / tables                    | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                                                                  |
+| Guest header / brand logo                    | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                                                     |
+| Guest site localization (FR/EN)              | `specs/site-localization.md`       | `specs/site-chrome.md` (header chrome)                                                        |
+| Guest homepage hero / reserve / Chef's picks | `specs/homepage.md`                | `specs/site-chrome.md` (header); `booking-rules.md`; `menu-availability.md` (picks rows)      |
+| Admin-managed logo / branding CMS            | `specs/branding-cms.md`            | `specs/site-chrome.md` (empty-by-default mark)                                                |
+| Post-visit review email                      | `specs/post-visit-review-email.md` | `architecture/Reservation-Flow.md` (complete enqueue)                                         |
+| Staff authorization (JWT claim)              | `specs/staff-authorization.md`     | `architecture/Auth-And-RLS.md`                                                                |
+| Dev toolchain                                | `specs/dev-toolchain.md`           | `runbooks/deploy.md` (Cloud Agent install)                                                    |
+| CodeRabbit (US Team)                         | `runbooks/coderabbit.md`           | `.coderabbit.yaml`; `.cursor/environment.json`; G-CR1/G-CR2/G-CR3 in `specs/dev-toolchain.md` |
+| Scheduled jobs (timers)                      | `.cursor/rules/scheduled-jobs.mdc` | `runbooks/deploy.md`; `testing/Design-And-Patterns.md`                                        |
+| Test how-to                                  | `testing/*-Guide.md`               | `Design-And-Patterns.md` for promoted recipes                                                 |
 
 ## Plan → doc traceability
 
@@ -108,6 +112,8 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-TRIGGER-EXEC AUTHLESS (`res_trigger_authless_2132ecb2`)                                       | 2026-09-11 | `specs/booking-rules.md` (RES-TRIGGER-EXEC-AUTHLESS, by orchestrator), `testing/Vitest-Integration-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
 | Reservation code uniqueness (`reservation-code-uniqueness_c4d50986`)                              | 2026-09-11 | `specs/booking-rules.md` (AC-4 CONF-CODE-UNIQUE, by orchestrator), `architecture/Reservation-Flow.md`, `architecture/Auth-And-RLS.md`, `testing/Vitest-Integration-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                          |
 | FEATURE reservation analytics (`analytics_tdd_wave_44867fc0`)                                     | 2026-09-12 | `specs/reservation-analytics.md` (RA-1–RA-10), `specs/staff-authorization.md` (SA-8), `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `architecture/Reservation-Flow.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `dev-journal.md`                                                                                  |
+| FEATURE event inquiries (`res-91_event_inquiries_b25c4399`)                                       | 2026-09-13 | `specs/event-inquiries.md` (EI-1–EI-9), `specs/staff-authorization.md` (SA-8), `specs/scheduling.md` (§19), `architecture/Reservation-Flow.md`, `architecture/Platform-Overview.md`, `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `dev-journal.md`                                                            |
+| CodeRabbit US Team config (`coderabbit-factory-integration`)                                      | 2026-09-13 | `runbooks/coderabbit.md`, `.coderabbit.yaml`, `.cursor/environment.json`, `.cursor/cloud-install-coderabbit.sh`, `specs/dev-toolchain.md` (G-O1 Cloud install, G-CR1 fail-closed US pin, G-CR2 local JSONL gate, G-CR3 US latest-head PR gate), `runbooks/deploy.md`                                                                                                                                      |
 
 ## Seed path
 
