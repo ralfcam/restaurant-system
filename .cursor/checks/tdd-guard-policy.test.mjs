@@ -3,6 +3,7 @@ import { spawn } from "node:child_process"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { after, describe, test } from "node:test"
+import { tmpdir } from "node:os"
 import {
   arm,
   checkTddWrite,
@@ -11,6 +12,7 @@ import {
   detectGhPrMerge,
   detectGitCommit,
   disarm,
+  getCommitExempt,
   isLoopRan,
   openCommitGate,
   setPhase,
@@ -62,10 +64,16 @@ function hookByCommand(event, needle) {
 
 function runGuard(scriptName, payload, extraArgs = []) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [
-      join(process.cwd(), ".cursor", "hooks", scriptName),
-      ...extraArgs,
-    ])
+    const child = spawn(
+      process.execPath,
+      [join(process.cwd(), ".cursor", "hooks", scriptName), ...extraArgs],
+      {
+        env: {
+          ...process.env,
+          CODERABBIT_STATE_DIR: join(tmpdir(), `cr-idle-${process.pid}`),
+        },
+      },
+    )
     let out = ""
     let err = ""
     child.stdout.on("data", (d) => {
@@ -306,12 +314,19 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
     assert.equal(isLoopRan(), false)
   })
 
-  test("openCommitGate clears loopRan", () => {
+  test("openCommitGate clears loopRan and records a valid exemption", () => {
     arm()
     setPhase("green")
     assert.equal(isLoopRan(), true)
     openCommitGate()
     assert.equal(isLoopRan(), false)
+    assert.equal(getCommitExempt(), null)
+    openCommitGate("docs-artifact")
+    assert.equal(getCommitExempt(), "docs-artifact")
+    openCommitGate("gate-remediation")
+    assert.equal(getCommitExempt(), "gate-remediation")
+    openCommitGate("not-a-lane")
+    assert.equal(getCommitExempt(), null)
   })
 
   test("git-stage-guard denies a BOM-prefixed git commit when loopRan", async () => {

@@ -29,6 +29,7 @@
  *   design-writes    design PHASE 5 write whitelist (spec, docs-updater, CLARIFY)
  *   run-ledger       named run-file registration, source mapping, and pruning
  *   clarify-state    CLARIFY leaves current workflow state unchanged
+ *   coderabbit        local JSONL gate, US latest-head PR gate, no auto_approve
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
@@ -411,6 +412,100 @@ export function detectRunFileLifecycleViolations(rel, text) {
   return needles ? missingNeedles(rel, text, needles) : []
 }
 
+export const CODERABBIT_REQUIRED_FILES = [
+  ".cursor/rules/coderabbit-integration.mdc",
+  ".cursor/checks/coderabbit-gate.mjs",
+  ".cursor/hooks/lib/coderabbit-review-policy.mjs",
+  ".cursor/hooks/lib/coderabbit-pr-policy.mjs",
+  ".cursor/checks/coderabbit-pr-gate.mjs",
+  ".cursor/commands/coderabbit-gate.md",
+  ".github/workflows/coderabbit-main-gate.yml",
+]
+
+export const CODERABBIT_MIRROR_NEEDLES = {
+  ".cursor/commands/sdd-to-tdd.md": [
+    "STEP 4G",
+    "coderabbit-gate.mjs",
+    "Do **not** write the receipt",
+  ],
+  ".cursor/commands/commit.md": [
+    "gate open",
+    "CodeRabbit receipt",
+    "--exempt docs-artifact",
+    "--exempt gate-remediation",
+  ],
+  ".cursor/commands/push.md": [
+    "/coderabbit-gate",
+    "receipt/commit binding",
+    "CodeRabbit US latest-head gate",
+  ],
+  ".cursor/commands/intake.md": [
+    "/coderabbit-gate",
+    "receipt/commit SHA binding",
+  ],
+  ".cursor/commands/capture.md": [
+    "coderabbit/<local|PR>/<head>/<finding-id>",
+  ],
+  ".cursor/commands/coderabbit-gate.md": [
+    "coderabbitai[bot]",
+    "347564",
+    "`gh pr ready`",
+    "`gh pr merge`",
+  ],
+  ".cursor/rules/coderabbit-integration.mdc": [
+    "0.7.6",
+    "347564",
+    "no manual-review fallback",
+  ],
+  ".cursor/rules/linear-automation.mdc": [
+    "CodeRabbit chat, CodeRabbit Plan, and CodeRabbit Triage",
+  ],
+  ".cursor/rules/staging-accumulator.mdc": ["CodeRabbit chat/Plan/Triage"],
+  ".cursor/README.md": ["/coderabbit-gate"],
+}
+
+export const CODERABBIT_YAML_FORBIDDEN = ["auto_approve"]
+
+export const CODERABBIT_WORKFLOW_NEEDLES = [
+  "name: CodeRabbit US latest-head gate",
+  "contents: read",
+  "pull-requests: read",
+  "coderabbit-pr-gate.mjs --promotion-only",
+  "pull_request_review_comment:",
+]
+
+export const CODERABBIT_WORKFLOW_FORBIDDEN = [
+  "contents: write",
+  "pull-requests: write",
+  "pull_request_review_thread:",
+]
+
+export const CODERABBIT_SHADOW_COMMANDS = [
+  ".cursor/commands/coderabbit.md",
+  ".cursor/commands/cr.md",
+]
+
+export function detectCoderabbitMirrorViolations(rel, text) {
+  const needles = CODERABBIT_MIRROR_NEEDLES[rel]
+  return needles ? missingNeedles(rel, text, needles) : []
+}
+
+export function detectCoderabbitYamlViolations(text) {
+  return forbiddenNeedles(
+    ".coderabbit.yaml",
+    text,
+    CODERABBIT_YAML_FORBIDDEN,
+  )
+}
+
+export function detectCoderabbitWorkflowViolations(text) {
+  const rel = ".github/workflows/coderabbit-main-gate.yml"
+  return [
+    ...missingNeedles(rel, text, CODERABBIT_WORKFLOW_NEEDLES),
+    ...forbiddenNeedles(rel, text, CODERABBIT_WORKFLOW_FORBIDDEN),
+  ]
+}
+
 export function detectClarifyStateWordingViolations(rel, text) {
   if (!CLARIFY_STATE_UNCHANGED_RELS.includes(rel)) return []
   return [
@@ -733,6 +828,7 @@ function checkGates() {
     "pnpm test:unit",
     "gate open",
     "harness-lint.mjs",
+    "CodeRabbit receipt",
   ]) {
     if (!commit.includes(needle)) fail("gates", `commit.md must name ${needle}`)
   }
@@ -1014,6 +1110,36 @@ function checkResIdentity() {
   )
 }
 
+function checkCoderabbitContracts() {
+  for (const rel of CODERABBIT_REQUIRED_FILES) {
+    if (!existsSync(join(ROOT, rel))) fail("coderabbit", `${rel} is missing`)
+  }
+  for (const rel of CODERABBIT_SHADOW_COMMANDS) {
+    if (existsSync(join(ROOT, rel))) {
+      fail("coderabbit", `${rel} would shadow a CodeRabbit plugin command`)
+    }
+  }
+  for (const [rel] of Object.entries(CODERABBIT_MIRROR_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    for (const message of detectCoderabbitMirrorViolations(rel, text)) {
+      fail("coderabbit", message)
+    }
+  }
+  for (const message of detectCoderabbitYamlViolations(
+    readFileSync(join(ROOT, ".coderabbit.yaml"), "utf8"),
+  )) {
+    fail("coderabbit", message)
+  }
+  for (const message of detectCoderabbitWorkflowViolations(
+    readFileSync(
+      join(ROOT, ".github", "workflows", "coderabbit-main-gate.yml"),
+      "utf8",
+    ),
+  )) {
+    fail("coderabbit", message)
+  }
+}
+
 function checkReviewFixContracts() {
   const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
   for (const rel of Object.keys(GROOM_STALE_NEEDLES)) {
@@ -1067,6 +1193,7 @@ export function runHarnessLint() {
   checkMilestoneRouting()
   checkClarificationLoop()
   checkReviewFixContracts()
+  checkCoderabbitContracts()
 
   if (violations.length) {
     for (const v of violations) console.error(v)

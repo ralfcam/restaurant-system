@@ -63,8 +63,16 @@ export function writeStdoutJson(obj) {
 
 const VALID_PHASES = ["red", "green", "refactor"]
 
+const VALID_EXEMPTIONS = ["docs-artifact", "gate-remediation"]
+
 function defaultState() {
-  return { armed: false, depth: 0, phase: null, loopRan: false }
+  return {
+    armed: false,
+    depth: 0,
+    phase: null,
+    loopRan: false,
+    commitExempt: null,
+  }
 }
 
 function loadState() {
@@ -76,6 +84,9 @@ function loadState() {
       depth: Number(s.depth) || 0,
       phase: VALID_PHASES.includes(s.phase) ? s.phase : null,
       loopRan: Boolean(s.loopRan),
+      commitExempt: VALID_EXEMPTIONS.includes(s.commitExempt)
+        ? s.commitExempt
+        : null,
     }
   } catch {
     return defaultState()
@@ -88,12 +99,24 @@ function saveState(state) {
 }
 
 export function arm() {
-  saveState({ armed: true, depth: 0, phase: null, loopRan: false })
+  saveState({
+    armed: true,
+    depth: 0,
+    phase: null,
+    loopRan: false,
+    commitExempt: null,
+  })
 }
 
 export function disarm() {
   const s = loadState()
-  saveState({ armed: false, depth: 0, phase: null, loopRan: s.loopRan })
+  saveState({
+    armed: false,
+    depth: 0,
+    phase: null,
+    loopRan: s.loopRan,
+    commitExempt: s.commitExempt,
+  })
 }
 
 export function isArmed() {
@@ -140,9 +163,17 @@ export function status() {
 }
 
 /** Clear loopRan so /commit can proceed after the TDD loop. */
-export function openCommitGate() {
+export function openCommitGate(exempt = null) {
   const s = loadState()
-  saveState({ ...s, loopRan: false })
+  saveState({
+    ...s,
+    loopRan: false,
+    commitExempt: VALID_EXEMPTIONS.includes(exempt) ? exempt : null,
+  })
+}
+
+export function getCommitExempt() {
+  return loadState().commitExempt
 }
 
 export function isLoopRan() {
