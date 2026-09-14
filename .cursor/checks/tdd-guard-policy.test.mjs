@@ -3,6 +3,7 @@ import { spawn } from "node:child_process"
 import { existsSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { after, describe, test } from "node:test"
+import { tmpdir } from "node:os"
 import {
   arm,
   checkTddWrite,
@@ -11,6 +12,7 @@ import {
   detectGhPrMerge,
   detectGitCommit,
   disarm,
+  getCommitExempt,
   isLoopRan,
   openCommitGate,
   setPhase,
@@ -62,10 +64,16 @@ function hookByCommand(event, needle) {
 
 function runGuard(scriptName, payload, extraArgs = []) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [
-      join(process.cwd(), ".cursor", "hooks", scriptName),
-      ...extraArgs,
-    ])
+    const child = spawn(
+      process.execPath,
+      [join(process.cwd(), ".cursor", "hooks", scriptName), ...extraArgs],
+      {
+        env: {
+          ...process.env,
+          CODERABBIT_STATE_DIR: join(tmpdir(), `cr-idle-${process.pid}`),
+        },
+      },
+    )
     let out = ""
     let err = ""
     child.stdout.on("data", (d) => {
@@ -107,6 +115,27 @@ test("git-stage-guard.mjs wires both blanket-stage and gh pr merge detectors", (
   )
   assert.match(src, /detectGhPrMerge/)
   assert.match(src, /detectBlanketGitStage/)
+})
+
+test("commit authorization hooks do not read or mutate CodeRabbit receipts", () => {
+  const hookDir = join(process.cwd(), ".cursor", "hooks")
+  const tddGuard = readFileSync(join(hookDir, "tdd-guard.mjs"), "utf8")
+  const gitStageGuard = readFileSync(
+    join(hookDir, "git-stage-guard.mjs"),
+    "utf8",
+  )
+  const afterCommit = readFileSync(
+    join(hookDir, "after-git-commit.mjs"),
+    "utf8",
+  )
+  for (const [name, source] of [
+    ["tdd-guard", tddGuard],
+    ["git-stage-guard", gitStageGuard],
+    ["after-git-commit", afterCommit],
+  ]) {
+    assert.doesNotMatch(source, /coderabbit-review-policy/, name)
+    assert.doesNotMatch(source, /loadReceipt|saveReceipt/, name)
+  }
 })
 
 test("detectBlanketGitStage denies git add -A, git add ., git commit -a", () => {
@@ -306,12 +335,19 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
     assert.equal(isLoopRan(), false)
   })
 
-  test("openCommitGate clears loopRan", () => {
+  test("openCommitGate clears loopRan and records a valid exemption", () => {
     arm()
     setPhase("green")
     assert.equal(isLoopRan(), true)
     openCommitGate()
     assert.equal(isLoopRan(), false)
+    assert.equal(getCommitExempt(), null)
+    openCommitGate("docs-artifact")
+    assert.equal(getCommitExempt(), "docs-artifact")
+    openCommitGate("gate-remediation")
+    assert.equal(getCommitExempt(), "gate-remediation")
+    openCommitGate("not-a-lane")
+    assert.equal(getCommitExempt(), null)
   })
 
   test("git-stage-guard denies a BOM-prefixed git commit when loopRan", async () => {

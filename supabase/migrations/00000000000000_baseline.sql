@@ -519,6 +519,44 @@ CREATE POLICY "Allow service_role full access to servers"
 REVOKE ALL ON TABLE servers FROM PUBLIC, anon, authenticated;
 GRANT ALL ON TABLE servers TO service_role;
 
+-- ── event_inquiries (staff event/group ledger) ──────────────────────────────
+-- RES-91: staff-only event/group inquiry ledger (SIB-PRIV; not reservations).
+CREATE TABLE IF NOT EXISTS event_inquiries (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  guest_name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  requested_date DATE NOT NULL,
+  party_size INT NOT NULL CHECK (party_size >= 1),
+  kind TEXT CHECK (kind IN ('group', 'private_event')),
+  notes TEXT,
+  status TEXT NOT NULL DEFAULT 'open'
+    CHECK (status IN ('open', 'contacted', 'declined', 'closed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  -- EI-2: at least one of email or phone must be non-blank after trim.
+  CHECK (
+    NULLIF(BTRIM(email), '') IS NOT NULL
+    OR NULLIF(BTRIM(phone), '') IS NOT NULL
+  )
+);
+
+ALTER TABLE event_inquiries ENABLE ROW LEVEL SECURITY;
+
+-- RES-91 / SIB-PRIV: event_inquiries is service_role-only (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to event_inquiries" ON event_inquiries;
+
+DROP POLICY IF EXISTS "Allow service_role full access to event_inquiries" ON event_inquiries;
+CREATE POLICY "Allow service_role full access to event_inquiries"
+  ON event_inquiries FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+-- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
+REVOKE ALL ON TABLE event_inquiries FROM PUBLIC, anon, authenticated;
+GRANT ALL ON TABLE event_inquiries TO service_role;
+
 -- FP-8: temporary table arrangements (combined seat capacity + expected time).
 CREATE TABLE IF NOT EXISTS table_merges (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

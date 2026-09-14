@@ -29,6 +29,7 @@
  *   design-writes    design PHASE 5 write whitelist (spec, docs-updater, CLARIFY)
  *   run-ledger       named run-file registration, source mapping, and pruning
  *   clarify-state    CLARIFY leaves current workflow state unchanged
+ *   coderabbit        local JSONL gate, US latest-head PR gate, no auto_approve
  */
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
@@ -411,6 +412,200 @@ export function detectRunFileLifecycleViolations(rel, text) {
   return needles ? missingNeedles(rel, text, needles) : []
 }
 
+export const CODERABBIT_REQUIRED_FILES = [
+  ".cursor/rules/coderabbit-integration.mdc",
+  ".cursor/checks/coderabbit-gate.mjs",
+  ".cursor/hooks/lib/coderabbit-review-policy.mjs",
+  ".cursor/hooks/lib/coderabbit-pr-policy.mjs",
+  ".cursor/checks/coderabbit-pr-gate.mjs",
+  ".cursor/commands/ready-merge-release.md",
+  ".github/workflows/coderabbit-main-gate.yml",
+]
+
+export const CODERABBIT_MIRROR_NEEDLES = {
+  ".cursor/commands/sdd-to-tdd.md": [
+    "STEP 4G",
+    "coderabbit-gate.mjs",
+    "Do **not** write the receipt",
+    "mandatory advisory local CodeRabbit attempt",
+    "continue to STEP 4F",
+  ],
+  ".cursor/commands/commit.md": [
+    "gate open",
+    "CodeRabbit receipts are audit-only",
+    "A missing receipt is non-blocking",
+    "--exempt docs-artifact",
+    "--exempt gate-remediation",
+  ],
+  ".cursor/commands/push.md": [
+    "/ready-merge-release",
+    "A missing receipt is",
+    "non-blocking",
+    "CodeRabbit US latest-head gate",
+  ],
+  ".cursor/commands/intake.md": [
+    "/ready-merge-release",
+    "audit-only CodeRabbit 4G",
+  ],
+  ".cursor/commands/capture.md": ["coderabbit/<local|PR>/<head>/<finding-id>"],
+  ".cursor/commands/ready-merge-release.md": [
+    "coderabbitai[bot]",
+    "347564",
+    "Critical",
+    "Major",
+    "Minor",
+    "Trivial",
+    "/sdd-to-tdd",
+    "/capture",
+    "APPROVED FOR OPERATOR MERGE",
+    "`gh pr ready`",
+    "`gh pr merge`",
+  ],
+  ".cursor/rules/coderabbit-integration.mdc": [
+    "0.7.6",
+    "347564",
+    "mandatory advisory local attempts",
+    "Remote G-CR3 enforcement below remains fail-closed and unchanged",
+  ],
+  ".cursor/rules/linear-automation.mdc": [
+    "CodeRabbit chat, CodeRabbit Plan, and CodeRabbit Triage",
+  ],
+  ".cursor/rules/staging-accumulator.mdc": ["CodeRabbit chat/Plan/Triage"],
+  ".cursor/README.md": ["/ready-merge-release"],
+}
+
+export const CODERABBIT_MIRROR_FORBIDDEN = {
+  ".cursor/commands/sdd-to-tdd.md": ["unresolved findings all fail the gate"],
+  ".cursor/commands/commit.md": [
+    "git commit must match the current receipt",
+    "receipt/commit binding",
+  ],
+  ".cursor/commands/push.md": ["receipt/commit binding"],
+  ".cursor/rules/coderabbit-integration.mdc": [
+    "/commit and `git commit` must match the current receipt",
+  ],
+}
+
+// minimality: substring export kept for harness-lint.test.mjs mutation probes
+export const CODERABBIT_YAML_REQUIRED = ["drafts: true"]
+export const CODERABBIT_YAML_FORBIDDEN = ["auto_approve", "drafts: false"]
+
+export const CODERABBIT_WORKFLOW_NEEDLES = [
+  "name: CodeRabbit US latest-head gate",
+  "converted_to_draft",
+  "github.event.pull_request.base.sha",
+  "contents: read",
+  "pull-requests: read",
+  "coderabbit-pr-gate.mjs --promotion-only",
+  "pull_request_review_comment:",
+]
+
+export const CODERABBIT_WORKFLOW_FORBIDDEN = [
+  "contents: write",
+  "pull-requests: write",
+  "pull_request_review_thread:",
+]
+
+export const CODERABBIT_SHADOW_COMMANDS = [
+  ".cursor/commands/coderabbit.md",
+  ".cursor/commands/cr.md",
+]
+export const CODERABBIT_RETIRED_COMMANDS = [
+  ".cursor/commands/coderabbit-gate.md",
+]
+
+export function detectCoderabbitMirrorViolations(rel, text) {
+  const needles = CODERABBIT_MIRROR_NEEDLES[rel]
+  const forbidden = CODERABBIT_MIRROR_FORBIDDEN[rel] || []
+  return [
+    ...(needles ? missingNeedles(rel, text, needles) : []),
+    ...forbiddenNeedles(rel, text, forbidden),
+  ]
+}
+
+function stripYamlInlineComment(line) {
+  let quote = ""
+  for (let i = 0; i < line.length; i += 1) {
+    const ch = line[i]
+    if (quote) {
+      if (ch === quote) quote = ""
+      continue
+    }
+    if (ch === "'" || ch === '"') quote = ch
+    else if (ch === "#") return line.slice(0, i)
+  }
+  return line
+}
+
+function parseYamlScalar(raw) {
+  if (raw === "true") return true
+  if (raw === "false") return false
+  const quote = raw[0]
+  if (
+    (quote === '"' || quote === "'") &&
+    raw.length >= 2 &&
+    raw.endsWith(quote)
+  ) {
+    return raw.slice(1, -1)
+  }
+  return raw
+}
+
+function yamlMappingValue(text, path) {
+  const root = Object.create(null)
+  const stack = [{ indent: -1, node: root }]
+  for (const raw of text.split(/\r?\n/)) {
+    const line = stripYamlInlineComment(raw).replace(/\s+$/, "")
+    if (!line.trim()) continue
+    const indent = /^[ \t]*/.exec(line)[0].length
+    const body = line.slice(indent)
+    if (body.startsWith("-")) continue
+    const colonAt = body.indexOf(":")
+    if (colonAt < 1) continue
+    const key = body.slice(0, colonAt).trim()
+    if (!/^[A-Za-z_][\w-]*$/.test(key)) continue
+    const rawValue = body.slice(colonAt + 1).trim()
+    while (stack.length > 1 && indent <= stack[stack.length - 1].indent) {
+      stack.pop()
+    }
+    const parent = stack[stack.length - 1].node
+    if (!rawValue || /^[|>][+-]?$/.test(rawValue)) {
+      const child = Object.create(null)
+      parent[key] = child
+      stack.push({ indent, node: child })
+    } else {
+      parent[key] = parseYamlScalar(rawValue)
+    }
+  }
+  let cur = root
+  for (const key of path) {
+    if (cur == null || typeof cur !== "object") return undefined
+    cur = cur[key]
+  }
+  return cur
+}
+
+export function detectCoderabbitYamlViolations(text) {
+  const found = []
+  if (yamlMappingValue(text, ["reviews", "auto_review", "drafts"]) !== true) {
+    found.push(
+      ".coderabbit.yaml must set reviews.auto_review.drafts to boolean true",
+    )
+  }
+  found.push(
+    ...forbiddenNeedles(".coderabbit.yaml", text, CODERABBIT_YAML_FORBIDDEN),
+  )
+  return found
+}
+
+export function detectCoderabbitWorkflowViolations(text) {
+  const rel = ".github/workflows/coderabbit-main-gate.yml"
+  return [
+    ...missingNeedles(rel, text, CODERABBIT_WORKFLOW_NEEDLES),
+    ...forbiddenNeedles(rel, text, CODERABBIT_WORKFLOW_FORBIDDEN),
+  ]
+}
+
 export function detectClarifyStateWordingViolations(rel, text) {
   if (!CLARIFY_STATE_UNCHANGED_RELS.includes(rel)) return []
   return [
@@ -733,6 +928,8 @@ function checkGates() {
     "pnpm test:unit",
     "gate open",
     "harness-lint.mjs",
+    "CodeRabbit receipts are audit-only",
+    "A missing receipt is non-blocking",
   ]) {
     if (!commit.includes(needle)) fail("gates", `commit.md must name ${needle}`)
   }
@@ -1014,6 +1211,41 @@ function checkResIdentity() {
   )
 }
 
+function checkCoderabbitContracts() {
+  for (const rel of CODERABBIT_REQUIRED_FILES) {
+    if (!existsSync(join(ROOT, rel))) fail("coderabbit", `${rel} is missing`)
+  }
+  for (const rel of CODERABBIT_SHADOW_COMMANDS) {
+    if (existsSync(join(ROOT, rel))) {
+      fail("coderabbit", `${rel} would shadow a CodeRabbit plugin command`)
+    }
+  }
+  for (const rel of CODERABBIT_RETIRED_COMMANDS) {
+    if (existsSync(join(ROOT, rel))) {
+      fail("coderabbit", `${rel} is retired; use /ready-merge-release`)
+    }
+  }
+  for (const [rel] of Object.entries(CODERABBIT_MIRROR_NEEDLES)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    for (const message of detectCoderabbitMirrorViolations(rel, text)) {
+      fail("coderabbit", message)
+    }
+  }
+  for (const message of detectCoderabbitYamlViolations(
+    readFileSync(join(ROOT, ".coderabbit.yaml"), "utf8"),
+  )) {
+    fail("coderabbit", message)
+  }
+  for (const message of detectCoderabbitWorkflowViolations(
+    readFileSync(
+      join(ROOT, ".github", "workflows", "coderabbit-main-gate.yml"),
+      "utf8",
+    ),
+  )) {
+    fail("coderabbit", message)
+  }
+}
+
 function checkReviewFixContracts() {
   const read = (rel) => readFileSync(join(ROOT, rel), "utf8")
   for (const rel of Object.keys(GROOM_STALE_NEEDLES)) {
@@ -1067,6 +1299,7 @@ export function runHarnessLint() {
   checkMilestoneRouting()
   checkClarificationLoop()
   checkReviewFixContracts()
+  checkCoderabbitContracts()
 
   if (violations.length) {
     for (const v of violations) console.error(v)

@@ -21,7 +21,10 @@ import {
   detectBlanketGitStage,
   detectGhPrMerge,
   detectGitCommit,
+  evaluateGitCommitPermission,
+  getCommitExempt,
   isLoopRan,
+  stagedPathsFromGit,
 } from "./lib/tdd-guard-policy.mjs"
 
 function main() {
@@ -61,18 +64,39 @@ function main() {
       return
     }
     const commitHit = detectGitCommit(command)
-    if (commitHit && isLoopRan()) {
-      writeStdoutJson({
-        permission: "deny",
-        user_message:
-          "Blocked `git commit` after a TDD loop — run /commit to review and open the gate.",
-        agent_message:
-          `git-stage guard: "${commitHit.segment}" is a git commit after the TDD loop ran ` +
-          "(loopRan). The plan-execution turn must not self-serve a commit. " +
-          "`.cursor/commands/commit.md` opens the gate on PASS with " +
-          "`node .cursor/hooks/tdd-guard.mjs gate open`; then retry the commit.",
+    if (commitHit) {
+      if (isLoopRan()) {
+        writeStdoutJson({
+          permission: "deny",
+          user_message:
+            "Blocked `git commit` after a TDD loop — run /commit to review and open the gate.",
+          agent_message:
+            `git-stage guard: "${commitHit.segment}" is a git commit after the TDD loop ran ` +
+            "(loopRan). The plan-execution turn must not self-serve a commit. " +
+            "`.cursor/commands/commit.md` opens the gate on PASS with " +
+            "`node .cursor/hooks/tdd-guard.mjs gate open`; then retry the commit.",
+        })
+        return
+      }
+      const cwd = process.cwd()
+      const staged = stagedPathsFromGit(cwd)
+      const verdict = evaluateGitCommitPermission({
+        loopRan: false,
+        exemption: getCommitExempt(),
+        stagedPaths: staged,
       })
-      return
+      if (!verdict.ok) {
+        writeStdoutJson({
+          permission: "deny",
+          user_message:
+            "Blocked `git commit` — staged paths do not match the active commit exemption.",
+          agent_message:
+            `git-stage guard: "${commitHit.segment}" does not match the active ` +
+            `commit exemption (${verdict.reason}). Stage only paths allowed by the ` +
+            "documented /commit lane.",
+        })
+        return
+      }
     }
     writeStdoutJson({})
   } catch (err) {

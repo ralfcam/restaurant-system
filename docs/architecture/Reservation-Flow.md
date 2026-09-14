@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-13
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-14 for the segmented homepage widget, occupancy window,
@@ -76,6 +76,15 @@ nullable `reservations.email` unchanged). Staff configure send on
 **Staff analytics.** `/admin/analytics` is a read-only aggregator
 (`getReservationAnalytics`). Criteria:
 [../specs/reservation-analytics.md](../specs/reservation-analytics.md).
+
+**Staff inquiries.** `/admin/inquiries` is a sibling ledger under Service
+next to `/admin/reservations` (`StaffShell` NAV `href` and Service
+`NAV_GROUPS`). Rows persist on `event_inquiries`, never occupy covers,
+never mint `conf_code`, and never appear in RA-7 analytics. There is no
+convert/confirm action. Chrome is list-only (name / requested date /
+party / status); create and status-update are staff server actions
+without forms. Default list is `open`+`contacted`. Spec:
+[../specs/event-inquiries.md](../specs/event-inquiries.md).
 
 Key modules: `components/site/reservation-widget.tsx`,
 `lib/reservations/operating-hours.ts`, `lib/reservations/auto-assign.ts`,

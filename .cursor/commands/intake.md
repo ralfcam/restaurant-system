@@ -39,10 +39,20 @@ carries no signal. Never invent a `cursor/RES-###` identity.
 
 **Re-check `.cursor/environment.json` on the default branch:**
 [.cursor/environment.json](.cursor/environment.json) pins the cloud
-install command (`corepack enable && pnpm install --frozen-lockfile`).
-Cloud builds clone the **default branch**, so the file only takes effect
-once it is on `main`. Re-check rather than trusting this line — the state
-moves. Use `git ls-tree -r origin/main -- .cursor/environment.json`;
+install command:
+
+```
+corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+```
+
+The helper pins `CODERABBIT_VERSION=0.7.6` and fail-closed US auth
+(`coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"` then
+`coderabbit auth status --agent`). Missing `CODERABBIT_API_KEY`, failed
+login, or non-US status fails Cloud setup. Recovery is that same install
+command after the US Agentic secret exists. Cloud builds clone the
+**default branch**, so the file only takes effect once it is on `main`.
+Re-check rather than trusting this line — the state moves. Use
+`git ls-tree -r origin/main -- .cursor/environment.json`;
 without `-r` and `--` the nested path resolves to nothing and the file
 looks absent from every branch. State the result; do not silently assume
 the pin is in effect.
@@ -253,11 +263,19 @@ A cloud PR was not produced by `/commit`, so it usually has no
 
 No Linear MCP. Do not invent an ID.
 
+When the title/body is missing owning spec/criteria, fresh executed-test
+evidence from this worktree gate, or optional audit-only CodeRabbit 4G
+`attemptStatus`/`reason` metadata, append those facts in the same edit (never
+overwrite). Handoff is draft CodeRabbit review →
+`/ready-merge-release <PR#>` → operator merge.
+
 ### 6. Request review
 
-- If `reviewRequests` is empty: `gh pr edit <n> --add-reviewer <operator>`
-  to fire Linear's `PR review request → In Review` automation; if the
-  PR is a draft, also `gh pr ready <n>`.
+- If the PR is a draft, do not request human review or ready it. CodeRabbit
+  reviews drafts automatically; `/ready-merge-release <n>` owns readiness.
+- If the PR is ready and `reviewRequests` is empty:
+  `gh pr edit <n> --add-reviewer <operator>` to fire Linear's
+  `PR review request → In Review` automation.
 - **Idempotent** — skip if a reviewer is already assigned; report
   "already requested."
 - **Caveat:** GitHub rejects a review request naming the PR author. On
@@ -272,8 +290,10 @@ No Linear MCP. Do not invent an ID.
   mechanically. Present one summary: PR number/title, `<head> → <base>`,
   firewall outcome (already on staging | retargeted | stopped —
   rebase), worktree lint + typecheck + test:unit status, trailer status, review-request
-  status, and advisory checks. Instruct the operator to merge in the
-  GitHub UI once required checks are green.
+  status, and advisory checks. Instruct the operator to run
+  **`/ready-merge-release <n>`** after the draft review and merge in the
+  GitHub UI only on `APPROVED FOR OPERATOR MERGE`. Remote review never
+  substitutes for the mandatory advisory local JSONL attempt.
 
 `gh pr checks <n>` is **advisory** — it does not block this command.
 Local worktree `pnpm lint; pnpm typecheck; pnpm test:unit` (Step 4) is the hard gate. If the PR
@@ -293,7 +313,8 @@ note that rather than treating it as a gap.
    ancestry — never naive-retarget.
 4. Isolated worktree `pnpm lint; pnpm typecheck; pnpm test:unit`. On red: tear down, classify, STOP.
 5. Append `Fixes RES-###` when identifiable; `cannot verify` skips.
-6. Request review if none requested (single-operator caveat).
+6. Request review if none requested on an already-ready PR; leave draft
+   readiness to `/ready-merge-release`.
 7. Never merge, never call Linear MCP, never check out the cloud head
    in the operator's tree.
 
@@ -303,7 +324,9 @@ note that rather than treating it as a gap.
 - Be concrete and specific.
 - **No `gh pr merge`, ever.** Merging is the operator's job in the GitHub UI.
 - **No Linear MCP calls, ever.** Review requests go through `gh`
-  (`gh pr edit --add-reviewer`, `gh pr ready`), never `save_comment`/`save_issue`.
+  (`gh pr edit --add-reviewer`), never `save_comment`/`save_issue`.
+- **No `gh pr ready`.** Readiness belongs exclusively to
+  `/ready-merge-release <PR#>` after a clean CodeRabbit draft review.
 - **DO NOT operate on a PR that is not OPEN.**
 - **DO NOT touch a non-`cursor/<slug>-<4 hex>` head.** Point at `/push`.
 - **DO NOT identify a cloud PR by author.**
@@ -343,8 +366,8 @@ Exactly these sections:
 3. **Base firewall** — "already on staging — ancestry held; no edit" | "retargeted — `<old-base>` → staging; descendant + drag-in checks held" | "stopped — head is not a descendant of `origin/staging`; rebase onto staging, then `/intake`" | "stopped — retarget would drag `origin/staging..origin/main` (<N> commits); rebase onto staging, then `/intake`" | "stopped — cannot verify ancestry".
 4. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed, isolated worktree intake-<n>)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run. On stop, remaining sections are `n/a — stopped at whole-suite gate`. Tear-down: `removed` | `failed — <why>`.
 5. **Linear trailer** — "already linked — <IDs>" | "injected — `Fixes RES-###[, …]`" | "skipped — cannot verify source issue" | "n/a — stopped earlier".
-6. **Review request** — "fired — requested `<reviewer>`" | "already present — skipped" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the close-out comment automation" | "n/a — no PR / stopped earlier".
+6. **Review request** — "deferred — draft CodeRabbit review; `/ready-merge-release <n>` owns readiness" | "fired — requested `<reviewer>`" | "already present — skipped" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the ready-for-merge event" | "n/a — no PR / stopped earlier".
 7. **Checks** (advisory; omit if no PR) — each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local worktree lint + typecheck + test:unit is Step 4, not this section.
 8. **Linear expectations** — In Progress fires from a linked draft/open PR (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command. Report the `.cursor/environment.json` state on the default branch as observed this run.
-9. **Operator next** — "merge `<PR-URL>` in the GitHub UI once required checks are green — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | "no open cloud PR" (zero discovery; if Step 1 listed orphans: open a PR from the Dashboard/operator then `/intake`, or delete a plan-only stub — this command never `gh pr create`) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
+9. **Operator next** — "wait for the draft CodeRabbit review, then run `/ready-merge-release <n>`; merge `<PR-URL>` in the GitHub UI only on `APPROVED FOR OPERATOR MERGE` — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | "no open cloud PR" (zero discovery; if Step 1 listed orphans: open a PR from the Dashboard/operator then `/intake`, or delete a plan-only stub — this command never `gh pr create`) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
    </output_format>

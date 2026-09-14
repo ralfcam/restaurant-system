@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-13
 
 ## Prerequisites
 
@@ -114,6 +114,21 @@ guard in `createServiceClient`. A new file matching that glob MUST include
 the same pin. Unit glob-scan:
 `tests/unit/pos/orders-persistence-isolation.test.ts`.
 
+## Local-only mutating coverage (EI-9)
+
+Mutating coverage under `tests/integration/inquiries/*.integ.test.ts`
+(CHECK probes, occupancy-isolation inserts, close-path cleanup) is
+**local** Supabase only. Per
+[../specs/event-inquiries.md](../specs/event-inquiries.md)
+EI-9, each suite imports `assertIsolatedHoursMutationTarget` from
+`lib/scheduling/hours-mutation-target.ts` and calls it as the **first
+statement** of `beforeAll` and of every write-cleanup hook (`afterEach` /
+`afterAll`). The call is zero-argument. The unit scan rejects an explicit
+URL. The guard fails closed on a non-local host — it does not skip. Do
+not put the guard in `createServiceClient`. A new file matching that glob
+MUST include the same pin. Unit glob-scan:
+`tests/unit/inquiries/inquiry-integ-isolation.test.ts`.
+
 ## Layout
 
 - Config: `vitest.integration.config.ts`
@@ -178,6 +193,15 @@ the same pin. Unit glob-scan:
   (`describe.skipIf(!authEnvReady)`; `assertIsolatedHoursMutationTarget()`;
   SHA-256 of `reservations`/`tables`/`status_events`; anon SELECT denied).
   There is no isolation glob-scan for `tests/integration/analytics/` yet.
+- Event inquiries (EI-2 / EI-7 / EI-8 / EI-9):
+  `tests/integration/inquiries/event-inquiries.integ.test.ts` (live `23514`
+  CHECKs; SHA-256 of `reservations` around create/close). Every
+  `tests/integration/inquiries/*.integ.test.ts` pins
+  `assertIsolatedHoursMutationTarget()` (zero-arg) as the first statement
+  of `beforeAll` and write-cleanup hooks (see Local-only mutating coverage
+  above). `event_inquiries` is on both `IN_SCOPE_TABLES` and
+  `PRIVATE_TABLES` in
+  `tests/integration/security/sibling-privileges.integ.test.ts`.
 
 ## Authless local-catalog coverage (RES-TRIGGER-EXEC)
 

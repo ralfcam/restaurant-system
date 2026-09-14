@@ -13,6 +13,7 @@ import {
   ImageIcon,
   Megaphone,
   ChartColumn,
+  Inbox,
   ExternalLink,
   Menu,
   LogOut,
@@ -37,6 +38,12 @@ const NAV = [
     href: "/admin/reservations",
     label: "Reservations",
     icon: CalendarClock,
+    role: "Admin",
+  },
+  {
+    href: "/admin/inquiries",
+    label: "Inquiries",
+    icon: Inbox,
     role: "Admin",
   },
   {
@@ -81,6 +88,7 @@ const NAV_GROUPS = [
       [
         "/admin",
         "/admin/reservations",
+        "/admin/inquiries",
         "/admin/floor",
         "/admin/analytics",
       ].includes(item.href),

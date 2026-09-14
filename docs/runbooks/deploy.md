@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-13
 
 ## Vercel
 
@@ -495,13 +495,34 @@ Use `--local` instead of `--linked` when testing against the local stack.
 
 ## Cloud Agent install
 
-`.cursor/environment.json` `install` is
-`corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile`.
+`.cursor/environment.json` `install` is exactly:
+
+```
+corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+```
+
 `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
 and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 `unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`
 `pnpm.overrides` (pnpm 12 ignores that field). Spec: [../specs/dev-toolchain.md](../specs/dev-toolchain.md)
-G-O1.
+G-O1 / G-CR1 / G-CR2 / G-CR3. The helper pins `CODERABBIT_VERSION=0.7.6`, requires the Cursor
+Cloud secret `CODERABBIT_API_KEY`, and always runs:
+
+```sh
+coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth status --agent
+```
+
+Missing key, failed login, or non-US `"region"` fails setup. Recovery (same
+command as install):
+
+```
+corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+```
+
+US CodeRabbit CLI (Agentic key as Cursor Cloud secret `CODERABBIT_API_KEY`
+at [https://cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents),
+never committed): [coderabbit.md](./coderabbit.md).
 
 ## Pre-deploy checks
 

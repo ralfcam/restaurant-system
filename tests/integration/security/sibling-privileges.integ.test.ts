@@ -14,6 +14,7 @@ const IN_SCOPE_TABLES = [
   "reservations",
   "tables",
   "servers",
+  "event_inquiries",
   "table_merges",
   "table_merge_members",
   "status_events",
@@ -24,6 +25,7 @@ const IN_SCOPE_TABLES = [
 const PRIVATE_TABLES = new Set([
   "tables",
   "servers",
+  "event_inquiries",
   "table_merges",
   "table_merge_members",
   "status_events",

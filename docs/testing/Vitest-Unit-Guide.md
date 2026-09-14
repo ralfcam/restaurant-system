@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-14
 
 ## Layout
 
@@ -31,8 +31,15 @@
   `tests/unit/scheduling/super-admin-chrome.test.ts`,
   `tests/unit/floor/super-admin-chrome.test.ts`,
   `tests/unit/marketing/super-admin-chrome.test.ts`
-- Dev toolchain: `tests/unit/dev-toolchain/` (G-T1/G-L1/G-F1/G-W1/G-P1/G-O1,
-  including `pnpm-overrides-toolchain.test.ts`)
+- Dev toolchain: `tests/unit/dev-toolchain/` (G-T1/G-L1/G-F1/G-W1/G-P1/G-O1/G-CR1,
+  including `pnpm-overrides-toolchain.test.ts` and
+  `coderabbit-cloud-install.test.ts`; advisory local G-CR2 in
+  `.cursor/checks/coderabbit-gate.test.mjs`,
+  `.cursor/checks/coderabbit-review-policy.test.mjs`,
+  `.cursor/checks/tdd-guard-policy.test.mjs`, and
+  `tests/unit/dev-toolchain/coderabbit-gcr2-empty-reviewed-files.test.ts`;
+  fail-closed remote G-CR3 in `.cursor/checks/coderabbit-pr-policy.test.mjs` and
+  `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
@@ -54,6 +61,9 @@
   `tests/integration/pos/*.integ.test.ts`; requires `beforeAll`)
 - Reservation analytics: `tests/unit/analytics/` (staff gate, fail-closed
   reader, period, duration, patterns, staff-page PII)
+- Event inquiries: `tests/unit/inquiries/` (staff gate + Service `NAV_GROUPS`,
+  schema CHECKs, create allowlist, STAFF-LIST, status-only update, no
+  convert/confirm export, EI-9 isolation scan)
 
 ## Conventions
 

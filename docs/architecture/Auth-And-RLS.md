@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-13
 
 ## Auth flow
 
@@ -60,15 +60,15 @@ Every guest-facing table must have RLS **enabled** and **forced** where specs re
 Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (single
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
-`menu_items`, `restaurant_settings`, `tables`, `servers`, `orders`,
-`order_items`, `review_email_sends`. `servers` mirrors
+`menu_items`, `restaurant_settings`, `tables`, `servers`, `event_inquiries`,
+`orders`, `order_items`, `review_email_sends`. `servers` mirrors
 `tables` (`REVOKE ALL` from `PUBLIC`, `anon`, `authenticated`;
 `GRANT ALL` to `service_role`; `-- REAZED-329` / RES-42). `servers`,
-`table_merges`, `table_merge_members`, `status_events`, `orders`, and
-`order_items` use the same private sibling recipe: `DROP POLICY IF EXISTS`
-the authenticated `FOR ALL` (never `CREATE`), service-role `FOR ALL`,
-`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`, then
-`GRANT ALL TO service_role` only. Sequence `orders_order_number_seq` is
+`event_inquiries`, `table_merges`, `table_merge_members`, `status_events`,
+`orders`, and `order_items` use the same private sibling recipe:
+`DROP POLICY IF EXISTS` the authenticated `FOR ALL` (never `CREATE`),
+service-role `FOR ALL`, `REVOKE ALL ON TABLE <t> FROM PUBLIC, anon,
+authenticated`, then `GRANT ALL TO service_role` only. Sequence `orders_order_number_seq` is
 `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` then
 `GRANT USAGE, SELECT` to `service_role` only (`USAGE` is `nextval`; do not
 leave default sequence `UPDATE` on `service_role`). They are not added to
@@ -134,6 +134,13 @@ Staff analytics (`getReservationAnalytics`) uses the same
 guest `SELECT` on `reservations` and `status_events` stays denied (RA-9).
 No new GRANT. Spec:
 [../specs/reservation-analytics.md](../specs/reservation-analytics.md).
+Staff inquiries (`getEventInquiries`, `createInquiry`,
+`updateInquiryStatus` in `app/actions/inquiries.ts`) use the same
+`requireStaffUser` + `createServiceClient` path. `event_inquiries` is
+private SIB-PRIV (RLS on; drop authenticated `FOR ALL`, never `CREATE`;
+service_role `FOR ALL`; `REVOKE ALL` from `PUBLIC`/`anon`/`authenticated`;
+`GRANT ALL` to `service_role`). Guest Data API has no SELECT. Spec:
+[../specs/event-inquiries.md](../specs/event-inquiries.md).
 
 Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
 and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`

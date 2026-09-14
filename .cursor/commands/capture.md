@@ -266,6 +266,8 @@ they differ from the operator's guess):
 
 - Clear **spec-implemented bug** with repro → `/sdd-to-tdd <RES-###>` or
   `/sdd-to-tdd "bug: <symptom / repro>"` (FIX mode owns spec update + TDD).
+  CodeRabbit Critical/Major findings and findings with unknown severity from
+  `/ready-merge-release` take this route regardless of path scope.
 - **Spec deviation** the operator wants verified against code → `/audit` (not
   capture).
 - **Feature request naming no owning REQ/spec at all** — not a gap in
@@ -314,10 +316,17 @@ ad-hoc threads:
 ```
 - [ ] <title> · <route/screen/component> · <why it matters> · <severity> · (found: capture/<plan-slug>/<item-slug>)
 - [ ] <title> · … · (found: feedback/<YYYY-MM-DD>/<item-slug>)   # fallback — no saved plan
+- [ ] <title> · … · (found: coderabbit/<local|PR>/<head>/<finding-id>)
 ```
 
 `<plan-slug>` = this Capture Plan's saved basename; `<item-slug>` = short kebab-case
-disambiguator (e.g. `admin-billing-copy`, `mobile-sidebar`).
+disambiguator (e.g. `admin-billing-copy`, `mobile-sidebar`). CodeRabbit
+Minor/Trivial findings routed by `/ready-merge-release` use the stable
+provenance `coderabbit/PR/<head>/<finding-id>` and remain capturable regardless
+of path scope. Local JSONL residuals use
+`coderabbit/local/<head>/<finding-id>`. Do not write Linear from CodeRabbit
+chat. Critical/Major/unknown CodeRabbit findings belong on `/sdd-to-tdd`, not
+this ledger.
 
 ## PHASE 3 — Reconcile (read-only)
 
