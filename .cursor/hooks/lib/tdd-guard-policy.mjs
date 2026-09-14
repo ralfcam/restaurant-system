@@ -11,6 +11,7 @@
  * subagent depth tracker, and the preToolUse guard all share it.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
+import { spawnSync } from "node:child_process"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -43,6 +44,11 @@ export const ADR_PREFIX = "docs/ADR/"
 
 /** The Red phase's exclusive write scope. */
 export const TESTS_PREFIX = "tests/"
+export const DOCS_ARTIFACT_PREFIXES = [
+  "docs/findings/",
+  "docs/verifier-reports/",
+]
+export const TDD_VERIFIER_PREFIX = "docs/verifier-reports/tdd/"
 
 /** Tools that write to disk (best-effort; tighten once real names are confirmed). */
 const WRITE_TOOL_RE = /(write|edit|replace|patch|create|apply)/i
@@ -178,6 +184,53 @@ export function getCommitExempt() {
 
 export function isLoopRan() {
   return loadState().loopRan
+}
+
+export function isDocsArtifactPath(relPath) {
+  const path = normalize(relPath)
+  if (path.startsWith(TDD_VERIFIER_PREFIX)) return false
+  return DOCS_ARTIFACT_PREFIXES.some((prefix) => path.startsWith(prefix))
+}
+
+export function stagedPathsFromGit(cwd = process.cwd()) {
+  const result = spawnSync("git", ["diff", "--cached", "--name-only", "-z"], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  })
+  if (result.status !== 0 || !result.stdout) return []
+  return result.stdout.split("\0").map(normalize).filter(Boolean)
+}
+
+export function evaluateGateOpen({ exemption, dirtyPaths }) {
+  if (exemption === "docs-artifact") {
+    if (dirtyPaths?.length && dirtyPaths.every(isDocsArtifactPath)) {
+      return { ok: true, exempt: "docs-artifact" }
+    }
+    return { ok: false, reason: "exempt_path_mismatch" }
+  }
+  if (exemption === "gate-remediation") {
+    return { ok: true, exempt: "gate-remediation" }
+  }
+  return { ok: true, exempt: null, receiptIndependent: true }
+}
+
+export function evaluateGitCommitPermission({
+  loopRan,
+  exemption,
+  stagedPaths,
+}) {
+  if (loopRan) return { ok: false, reason: "loopRan", deny: "tdd" }
+  if (exemption === "docs-artifact") {
+    if (!stagedPaths?.length || !stagedPaths.every(isDocsArtifactPath)) {
+      return { ok: false, reason: "exempt_path_mismatch", deny: "tdd" }
+    }
+    return { ok: true, exempt: "docs-artifact" }
+  }
+  if (exemption === "gate-remediation") {
+    return { ok: true, exempt: "gate-remediation" }
+  }
+  return { ok: true, exempt: null }
 }
 
 export function isWriteTool(toolName) {

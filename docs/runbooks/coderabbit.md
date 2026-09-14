@@ -1,13 +1,13 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-14
 
-This repository uses **one** CodeRabbit installation: **US Team**. The EU
-GitHub App, EU CLI region, and EU Agentic API keys are out of scope. Local
+This repository uses **one** CodeRabbit installation: **US Team**. Local
 CLI review and Cloud Agent reviews must authenticate against
-[app.coderabbit.ai](https://app.coderabbit.ai). Pull request reviews come
-from **`coderabbitai`**, not the EU `coderabbiteu` bot.
+[app.coderabbit.ai](https://app.coderabbit.ai) with `"region":"us"`. Pull
+request reviews come from **`coderabbitai`** (App ID `347564`). CLI pin is
+`0.7.6`.
 
 Repository YAML: [`.coderabbit.yaml`](../../.coderabbit.yaml). Cloud CLI
 install: [`.cursor/environment.json`](../../.cursor/environment.json) plus
@@ -19,33 +19,32 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 
 ## Keep only the US installation
 
-1. In GitHub **Settings → Applications → Installed GitHub Apps**, remove
-   the **EU** CodeRabbit app (`coderabbiteu`) from
-   `ralfcam/restaurant-system` if it is still connected. Keep the **US**
-   CodeRabbit GitHub App (`coderabbitai`).
+1. In GitHub **Settings → Applications → Installed GitHub Apps**, confirm
+   the US CodeRabbit GitHub App (`coderabbitai`, App ID `347564`) is
+   installed on `ralfcam/restaurant-system`.
 2. In the US dashboard
    ([app.coderabbit.ai](https://app.coderabbit.ai)), confirm this
    repository is connected and billed on the **Team** plan with a seat.
 3. Local CLI: `cr --version` must print `0.7.6`. `cr auth status --agent`
-   must report `"region":"us"`. If it reports `eu`, re-authenticate (do not
-   keep an EU login “just in case”).
-4. GitHub App IDs on this repository: keep US `coderabbitai` (`347564`);
-   remove EU `coderabbiteu` (`3307191`). YAML does not prove removal. Check
-   a recent commit:
+   must report `"region":"us"`. If it does not, re-authenticate to US.
+4. GitHub App identity on this repository is US `coderabbitai`
+   (`347564`). YAML does not prove the live App. Check a recent commit:
 
 ```powershell
 gh api repos/ralfcam/restaurant-system/commits/<sha>/check-suites --jq '.check_suites[] | {app_id: .app.id, app_slug: .app.slug}'
 ```
 
-EU `3307191` must be absent from **new** check-suites after uninstall.
-Historical commits may still list both.
+The G-CR3 release gate is that US allow-list. Non-US CodeRabbit-shaped
+identity on reviews, check runs/suites, review threads, issue comments,
+or inline review comments is `wrong_bot` before unresolved-thread
+routing. `eu_bot_activity` is retired.
 
 Dashboard steps that still need the canary PR (ruleset, draft skip,
 latest-head approval) are listed under
 [Canary and GitHub ruleset](#canary-and-github-ruleset). Connect **US Linear**
 team `RES` (display name Restaurant Link) to **Review Base Scope** in the US
-dashboard. Do not treat YAML alone as proof the EU app is gone or that
-Linear Review Base Scope is connected.
+dashboard. Do not treat YAML alone as proof Linear Review Base Scope is
+connected.
 
 ## Windows (operator laptop)
 
@@ -79,7 +78,7 @@ If this session still cannot resolve `cr`, call the executable directly:
 
 If the installer offers browser sign-in **without** asking for a region,
 that is the US default. Confirm `cr auth status --agent` still reports
-`"region":"us"`. Do not run `cr auth login --region eu`.
+`"region":"us"`. Always sign in with `cr auth login --region us`.
 
 Validate repository YAML (needs outbound HTTPS to the schema host):
 
@@ -146,7 +145,7 @@ Configure these in the **US** org/repository UI so they match
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Review profile                         | Quiet                                                                                                                                                                                 |
 | Automatic reviews                      | On for the default branch and `staging`                                                                                                                                               |
-| Draft PRs                              | Skip (`drafts: false`)                                                                                                                                                                |
+| Draft PRs                              | Review (parsed `drafts: true` boolean); comment-only `# drafts: true` does not; `/ready-merge-release PR#` owns the clean-pass readiness transition                                   |
 | Incremental reviews                    | On, pause after **2** reviewed commits                                                                                                                                                |
 | Request changes workflow               | On (approve when comments are resolved, latest head is reviewed, and pre-merge checks are not failing)                                                                                |
 | Linear knowledge                       | Enabled for team key **`RES`** (display name is informational)                                                                                                                        |
@@ -173,8 +172,7 @@ US CLI needs outbound HTTPS/WSS on TCP 443 to:
 - `ide.coderabbit.ai` (hosted review)
 - `www.coderabbit.ai` (`cr config validate` schema)
 
-Do not allow-list only the EU hosts (`app.eu.coderabbit.ai`,
-`ide.eu.coderabbit.ai`) and expect US reviews to work.
+Require those US hosts. A firewall that omits them will fail US review.
 
 ## Recovery
 
@@ -182,7 +180,7 @@ Missing `CODERABBIT_API_KEY`, failed login, or non-US status:
 
 1. Create a US Agentic key at
    [https://app.coderabbit.ai/settings/api-keys](https://app.coderabbit.ai/settings/api-keys)
-   (not a user API key, and not an EU-org key).
+   (a US-org Agentic key, not a user API key).
 2. Store it as the Cursor Cloud secret named **`CODERABBIT_API_KEY`** at
    [https://cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents)
    (Secrets tab).
@@ -201,8 +199,8 @@ coderabbit auth status --agent
 
 ### Auth / wrong region
 
-`cr auth status --agent` shows `region`. If it is `eu` or authentication
-fails with a wrong-region recovery command, run:
+`cr auth status --agent` shows `region`. If it is not `"us"` or
+authentication fails with a wrong-region recovery command, run:
 
 ```powershell
 cr auth login --region us
@@ -212,21 +210,22 @@ cr auth status --agent
 On Cloud / headless Linux, use
 `coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"`
 then `coderabbit auth status --agent`. Confirm the Agentic key was created
-under the US org, not the EU org. User API keys are rejected by the CLI.
+under the US org. User API keys are rejected by the CLI.
 
 ### Rate limit
 
 Team allowance is metered per developer, and incremental reviews count.
 `.coderabbit.yaml` pauses incremental review after two reviewed commits to
 conserve quota. If CodeRabbit reports a rate limit, wait for the reset time
-in that message and re-run. Do **not** substitute a manual review, and do
-**not** treat a passing **Review rate limited** GitHub check as approval.
+before relying on another review. Local 4G records `unavailable` and
+continues; G-CR3 remains blocked. Do **not** substitute a manual review, and
+do **not** treat a passing **Review rate limited** GitHub check as approval.
 
 ### Billing confirmation
 
-If the CLI or GitHub check asks for a billing/usage confirmation, stop.
-Resolve billing in the US dashboard, then re-run. Do not ignore a billing
-gate as a clean review.
+If the CLI or GitHub check asks for a billing/usage confirmation, resolve
+billing in the US dashboard, then re-run. Local 4G records `unavailable` and
+continues; G-CR3 remains blocked. Do not report billing as a clean review.
 
 ### Missing `cr` on Windows
 
@@ -254,8 +253,8 @@ CODERABBIT_VERSION=0.7.6 curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 
 ### Cloud Build has CLI but reviews fail with 401
 
-The secret was missing at install time, or the key is EU-region. Set
-`CODERABBIT_API_KEY` and re-run:
+The secret was missing at install time, or the key is not a US Agentic
+key. Set `CODERABBIT_API_KEY` and re-run:
 
 ```
 corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
@@ -268,8 +267,9 @@ coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-in the agent VM. `cr doctor` is a connectivity smoke test only; a pass on
-EU hosts (`app.eu.coderabbit.ai`) does not prove an authenticated US review.
+in the agent VM. `cr doctor` is a connectivity smoke test only; a pass
+must show `app.coderabbit.ai` / `ide.coderabbit.ai` and does not by itself
+prove an authenticated US review.
 
 ## Live verification
 
@@ -283,35 +283,78 @@ Do not infer these from YAML. Re-run the commands.
 | US hosts                 | `cr doctor`                                                              | `app.coderabbit.ai` / `ide.coderabbit.ai`                                          |
 | Team billing             | US dashboard + `cr auth status`                                          | billed plan with assigned seat (live CLI: Advanced trial, seat assigned; not Free) |
 | Cloud secret             | [Cursor Cloud Agents secrets](https://cursor.com/dashboard/cloud-agents) | `CODERABBIT_API_KEY` present (never print it)                                      |
-| EU App gone              | GitHub Settings → Installed GitHub Apps                                  | `coderabbitai` present; no `coderabbiteu`                                          |
+| US GitHub App            | GitHub Settings → Installed GitHub Apps                                  | `coderabbitai` App `347564`                                                        |
 | Linear Review Base Scope | US dashboard → Linear → Review Base Scope                                | team key `RES`                                                                     |
 
 ## Factory gates
 
-Local close-out (`/sdd-to-tdd` STEP 4G) runs
-`node .cursor/checks/coderabbit-gate.mjs` and writes an ignored receipt under
-`.cursor/hooks/state/`. `/commit` `gate open` and `git commit` must match that
-receipt (`docs-artifact` and `gate-remediation` are the only exempt lanes).
-Do not write the receipt into `docs/verifier-reports/tdd/**`.
+Local close-out (`/sdd-to-tdd` STEP 4G) must run
+`node .cursor/checks/coderabbit-gate.mjs` and write an ignored audit receipt
+under `.cursor/hooks/state/`. The attempt records `attemptStatus` as `clean`,
+`findings`, or `unavailable` with a stable `reason`. Findings at every severity
+and authentication/setup failure, rate limit, billing, timeout, skipped
+review, malformed/partial JSONL, and reviewed-file/scope mismatch are advisory:
+the attempt exits zero and close-out continues. File-list aliases
+(`reviewedFiles`, `files`, `filesToReview`) are still inspected independently
+so parsing failures remain visible in the receipt.
 
-Ready PRs: `/coderabbit-gate` then the operator merges. `staging → main`
-additionally requires the GitHub check `CodeRabbit US latest-head gate`.
-The workflow re-runs on PR sync, review submit/dismiss, and review comments.
-GitHub Actions does not accept `pull_request_review_thread` (webhook-only);
-after resolving threads with no other event, re-run that check. In-scope
-findings return to `/sdd-to-tdd`. Residuals go through `/capture` with
-provenance `coderabbit/<local|PR>/<head>/<finding-id>`, then `/triage`.
-Never `@coderabbitai approve`, `resolve`, or `ignore pre-merge checks`.
+Missing/malformed work orders, secret paths, unrelated dirty paths, no
+reviewable paths, and changed bytes are hard failures. The command re-hashes
+the scoped dirty set after every attempt and exits non-zero on byte drift.
+Receipts never authorize `gate open`, `git commit`, `/commit`, or `/push`; a
+missing or stale receipt is non-blocking, and a successful commit does not
+mutate or rebind it. Do not write the receipt into
+`docs/verifier-reports/tdd/**`. G-CR2 defers the CLI pin to G-CR1.
+
+CodeRabbit reviews draft PRs. G-CR3 is a US allow-list:
+`coderabbitai[bot]` (App `347564`) on current HEAD. Non-US
+CodeRabbit-shaped identity on reviews, check runs/suites, review
+threads, issue comments, or inline review comments is `wrong_bot`
+before unresolved-thread routing. `eu_bot_activity` is retired. Pin
+the exact `wrong_bot` reason, not only `ok: false`. Run
+`/ready-merge-release PR#`; Critical/Major and unknown-severity findings
+route to `/sdd-to-tdd`, while Minor/Trivial findings route to `/capture`
+with provenance `coderabbit/PR/<head>/<finding-id>`, then `/triage`.
+Step 2 executable `/sdd-to-tdd` and `/capture` lines use opaque
+`<local-ref>` only; remote finding-id, path, title, and severity stay
+inert prose after those fences.
+Immediately before `gh pr ready`, the command re-reads `headRefOid`
+and MUST NOT mutate when it differs from `preReadyHead`. On a clean
+latest-head preflight it then runs `gh pr ready`. If post-ready
+`headRefOid` differs from `preReadyHead` AND this invocation executed
+`gh pr ready`, it runs `gh pr ready --undo` then STOP. If Step 3
+performed no mutation (already-ready), HEAD drift MUST STOP with no
+`--undo`. It re-checks the unchanged ready HEAD and required checks, and
+returns `APPROVED FOR OPERATOR MERGE`; the operator still merges. `staging → main` additionally requires the GitHub check
+`CodeRabbit US latest-head gate`. The workflow re-runs on PR sync, `pull_request` `edited` (title/body or
+base retarget), review submit/dismiss, and review comments, and executes the
+checker from the base
+branch SHA rather than PR-controlled code. The adapter exhausts paginated
+reviews, comments, checks, and review threads, then re-GETs the PR and fails
+closed with `head_changed` if `head.sha` moved. If SHA matches but `head.ref`,
+`base.ref`, or `draft` differ from the initial pull, it fails closed with
+`pull_changed`. The CLI maps `pull_changed` like `head_changed`. Allowed shapes are a feature PR
+into `staging` (`head` is neither `staging` nor `main`) or the promotion PR
+(`staging → main`). Missing, empty, or whitespace `base` or `head` is
+`wrong_base_head` (including `base=staging` with empty head). Any other shape,
+including `main → staging`, fails `wrong_base_head`. Parsed
+`.coderabbit.yaml` `reviews.auto_review.drafts`
+must be boolean `true`; a comment-only `# drafts: true` does not enable draft
+review. GitHub Actions does not accept
+`pull_request_review_thread` (webhook-only); after resolving threads with no
+other event, re-run that check. Never `@coderabbitai approve`, `resolve`, or
+`ignore pre-merge checks`.
 
 ## Canary and GitHub ruleset
 
 Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
 `staging` stay intact.
 
-1. Draft feature PR into `staging`: prove only `coderabbitai` responds,
-   drafts skip, readying reviews once, org-wide Linear Base Scope supplies
-   knowledge while repo YAML limits context to team `RES`, and warning
-   checks are accurate.
+1. Draft feature PR into `staging` (`head` is neither `staging` nor `main`):
+   prove only `coderabbitai` responds,
+   `drafts: true` reviews the draft HEAD, org-wide Linear Base Scope supplies
+   knowledge while repo YAML limits context to team `RES`, severity routing
+   is accurate, and `/ready-merge-release PR#` alone readies a clean PR.
 2. Bootstrap-promote `.github/workflows/coderabbit-main-gate.yml` and
    `.coderabbit.yaml` onto `main` under the current unprotected state with
    operator review.
@@ -363,10 +406,14 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
    }
    $payload | ConvertTo-Json -Depth 8 | gh api --method POST repos/ralfcam/restaurant-system/rulesets --input -
    ```
+
 4. Promote only accurate pre-merge checks from `warning` to `error`, then
    use that config change as the protected second promotion canary. The
-   custom gate must be pending before review, fail stale/wrong-region
-   state, and pass only on clean US approval of current HEAD. Prove
-   rate-limit enforcement with fixtures, not by exhausting quota.
+   custom gate must be pending before review, fail-close `wrong_bot` on
+   non-US CodeRabbit-shaped identity, fail stale HEAD or unresolved US
+   threads, and pass only on clean US approval of current HEAD. Prove
+   `/ready-merge-release` withholds its operator-merge verdict until the
+   post-ready check is green. Prove rate-limit enforcement with fixtures,
+   not by exhausting quota.
 5. Before the Advanced trial expires, select Team and repeat the
    plan/seat/feature-access smoke checks.

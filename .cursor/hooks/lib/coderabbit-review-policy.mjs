@@ -1,6 +1,6 @@
 /**
  * Pure CodeRabbit local-review policy: JSONL stream, scoped dirty-tree
- * manifest, ignored receipt, and TDD commit-gate matching.
+ * manifest and ignored audit receipt.
  *
  * Never executes finding.codegenInstructions. Never passes --use-credits.
  */
@@ -15,9 +15,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export const PINNED_CLI_VERSION = "0.7.6"
 export const REQUIRED_REGION = "us"
 export const US_APP_ID = 347564
-export const EU_APP_ID = 3307191
-export const US_BOT_LOGINS = Object.freeze(["coderabbitai[bot]", "coderabbitai"])
-export const EU_BOT_LOGINS = Object.freeze(["coderabbiteu[bot]", "coderabbiteu"])
+export const US_BOT_LOGINS = Object.freeze([
+  "coderabbitai[bot]",
+  "coderabbitai",
+])
 export const BLOCKING_SEVERITIES = Object.freeze(["critical", "major", "minor"])
 export const KNOWN_EVENT_TYPES = Object.freeze([
   "finding",
@@ -32,17 +33,13 @@ export const YAML_REL = ".coderabbit.yaml"
 export const RECEIPT_FILENAME = "coderabbit-receipt.json"
 export const WAIVERS_FILENAME = "coderabbit-waivers.json"
 export const DEFAULT_REVIEW_TIMEOUT_MS = 480_000
-export const DOCS_ARTIFACT_PREFIXES = Object.freeze([
-  "docs/findings/",
-  "docs/verifier-reports/",
-])
-export const TDD_VERIFIER_PREFIX = "docs/verifier-reports/tdd/"
 
 const SECRET_PATH_RE =
   /(?:^|\/)(?:\.env(?:\..*)?|.*credentials.*|.*secret.*|id_rsa|id_ed25519)(?:$)|(?:^|\/)[^/]+\.(?:pem|key|p12|pfx)$/i
 
 const RATE_LIMIT_RE = /rate[\s_-]*limit/i
-const BILLING_RE = /billing|usage[-\s]?credit|confirm(?:ation)?[^\n]{0,40}usage/i
+const BILLING_RE =
+  /billing|usage[-\s]?credit|confirm(?:ation)?[^\n]{0,40}usage/i
 const OVERRIDE_RE =
   /@coderabbitai\s+(?:approve|resolve)\b|ignore pre-merge checks/i
 
@@ -76,22 +73,12 @@ export function isSecretPath(relPath) {
   return SECRET_PATH_RE.test(p)
 }
 
-export function isDocsArtifactPath(relPath) {
-  const p = posixPath(relPath)
-  if (p.startsWith(TDD_VERIFIER_PREFIX)) return false
-  return DOCS_ARTIFACT_PREFIXES.some((prefix) => p.startsWith(prefix))
-}
-
 export function isBlockingSeverity(severity) {
   return BLOCKING_SEVERITIES.includes(String(severity || "").toLowerCase())
 }
 
 export function isUsBotLogin(login) {
   return US_BOT_LOGINS.includes(String(login || "").toLowerCase())
-}
-
-export function isEuBotLogin(login) {
-  return EU_BOT_LOGINS.includes(String(login || "").toLowerCase())
 }
 
 export function parseGitPorcelain(text) {
@@ -115,18 +102,23 @@ export function parseGitPorcelain(text) {
 
 export function unrelatedDirtyPaths(dirtyPaths, expectedPaths) {
   const expected = new Set((expectedPaths || []).map(posixPath))
-  return (dirtyPaths || [])
-    .map(posixPath)
-    .filter((p) => p && !expected.has(p))
+  return (dirtyPaths || []).map(posixPath).filter((p) => p && !expected.has(p))
+}
+
+function findingRelPath(finding) {
+  return posixPath(finding.fileName || finding.file || "")
+}
+
+function findingBody(finding) {
+  return String(
+    finding.comment || finding.codegenInstructions || finding.body || "",
+  )
 }
 
 export function findingFingerprint(finding) {
-  const file = posixPath(finding.fileName || finding.file || "")
+  const file = findingRelPath(finding)
   const severity = String(finding.severity || "")
-  const body = String(
-    finding.comment || finding.codegenInstructions || finding.body || "",
-  )
-  return sha256Hex(`${file}|${severity}|${body}`)
+  return sha256Hex(`${file}|${severity}|${findingBody(finding)}`)
 }
 
 export function findingId(finding) {
@@ -137,7 +129,12 @@ export function findingId(finding) {
 }
 
 export function parseAuthStatus(raw) {
-  const obj = typeof raw === "string" ? JSON.parse(raw) : raw
+  let obj
+  try {
+    obj = typeof raw === "string" ? JSON.parse(raw) : raw
+  } catch {
+    return { ok: false, reason: "malformed_auth" }
+  }
   if (!obj || typeof obj !== "object") {
     return { ok: false, reason: "malformed_auth" }
   }
@@ -214,6 +211,10 @@ export function eventLooksSkipped(event) {
 
 function sortedPaths(paths) {
   return [...new Set((paths || []).map(posixPath).filter(Boolean))].sort()
+}
+
+function isOmittedOrEmptyFileList(files) {
+  return files === undefined || (Array.isArray(files) && files.length === 0)
 }
 
 export function pathsEqual(a, b) {
@@ -294,17 +295,25 @@ export function evaluateAgentStream(events, expected = {}) {
   }
 
   const expectedPaths = sortedPaths(expected.reviewablePaths)
-  const contextFiles =
-    reviewContext.reviewedFiles ||
-    reviewContext.files ||
-    reviewContext.filesToReview
-  if (!Array.isArray(contextFiles) || !pathsEqual(contextFiles, expectedPaths)) {
-    return {
-      ok: false,
-      reason: "scope_mismatch",
-      findings,
-      expected: expectedPaths,
-      actual: sortedPaths(contextFiles),
+  const contextAliases = [
+    reviewContext.reviewedFiles,
+    reviewContext.files,
+    reviewContext.filesToReview,
+  ]
+  const completeFiles = complete.reviewedFiles
+  const dualOmission =
+    contextAliases.every(isOmittedOrEmptyFileList) &&
+    isOmittedOrEmptyFileList(completeFiles)
+  for (const aliasFiles of contextAliases) {
+    if (isOmittedOrEmptyFileList(aliasFiles)) continue
+    if (!Array.isArray(aliasFiles) || !pathsEqual(aliasFiles, expectedPaths)) {
+      return {
+        ok: false,
+        reason: "scope_mismatch",
+        findings,
+        expected: expectedPaths,
+        actual: Array.isArray(aliasFiles) ? sortedPaths(aliasFiles) : [],
+      }
     }
   }
   if (expected.base && reviewContext.base) {
@@ -319,17 +328,24 @@ export function evaluateAgentStream(events, expected = {}) {
     }
   }
 
-  const reviewedFiles = complete.reviewedFiles
-  if (!Array.isArray(reviewedFiles)) {
-    return { ok: false, reason: "reviewed_files_mismatch", findings, complete }
-  }
-  if (!pathsEqual(reviewedFiles, expectedPaths)) {
-    return {
-      ok: false,
-      reason: "reviewed_files_mismatch",
-      findings,
-      expected: expectedPaths,
-      actual: sortedPaths(reviewedFiles),
+  const reviewedFiles = dualOmission ? expectedPaths : completeFiles
+  if (!dualOmission) {
+    if (!Array.isArray(reviewedFiles)) {
+      return {
+        ok: false,
+        reason: "reviewed_files_mismatch",
+        findings,
+        complete,
+      }
+    }
+    if (!pathsEqual(reviewedFiles, expectedPaths)) {
+      return {
+        ok: false,
+        reason: "reviewed_files_mismatch",
+        findings,
+        expected: expectedPaths,
+        actual: sortedPaths(reviewedFiles),
+      }
     }
   }
 
@@ -349,6 +365,18 @@ export function evaluateAgentStream(events, expected = {}) {
     }
   }
 
+  const reviewableSet = new Set(expectedPaths)
+  const findingPaths = findings.map(findingRelPath)
+  if (!findingPaths.every((file) => reviewableSet.has(file))) {
+    return {
+      ok: false,
+      reason: "scope_mismatch",
+      findings,
+      expected: expectedPaths,
+      actual: findingPaths,
+    }
+  }
+
   const waived = applyWaivers(findings, expected.waivers)
   if (waived.blocking.length) {
     return {
@@ -357,6 +385,7 @@ export function evaluateAgentStream(events, expected = {}) {
       findings,
       blocking: waived.blocking,
       waived: waived.waived,
+      nonBlocking: waived.nonBlocking,
       reviewedFiles: sortedPaths(reviewedFiles),
     }
   }
@@ -413,13 +442,11 @@ export function configHashes(cwd, readFile = readFileSync) {
   return hashes
 }
 
-export function manifestsEqual(a, b) {
-  return JSON.stringify(a || {}) === JSON.stringify(b || {})
-}
-
 export function buildReceipt({
   cliVersion = PINNED_CLI_VERSION,
   region = REQUIRED_REGION,
+  attemptStatus = "clean",
+  reason = "clean",
   branch,
   base,
   head,
@@ -427,36 +454,38 @@ export function buildReceipt({
   configHashes: hashes,
   reviewedFiles,
   findings = [],
+  blocking = [],
   waived = [],
   nonBlocking = [],
   owningSpec,
 }) {
   const findingIds = (findings || []).map(findingId)
+  const disposition = (finding) => ({
+    id: findingId(finding),
+    fingerprint: findingFingerprint(finding),
+    severity: String(finding.severity || "").toLowerCase() || null,
+    file: findingRelPath(finding) || null,
+  })
   return {
-    schema: 1,
+    schema: 2,
     cliVersion,
     region,
+    attemptStatus,
+    reason,
     branch,
     base,
     head,
     manifest,
+    attemptedFiles: sortedPaths(Object.keys(manifest || {})),
     configHashes: hashes,
     reviewedFiles: sortedPaths(reviewedFiles),
     findingIds,
     dispositions: {
-      blocking: [],
-      waived: (waived || []).map((f) => ({
-        id: findingId(f),
-        fingerprint: findingFingerprint(f),
-      })),
-      nonBlocking: (nonBlocking || []).map((f) => ({
-        id: findingId(f),
-        fingerprint: findingFingerprint(f),
-      })),
+      blocking: (blocking || []).map(disposition),
+      waived: (waived || []).map(disposition),
+      nonBlocking: (nonBlocking || []).map(disposition),
     },
     owningSpec: owningSpec || null,
-    gateOpened: false,
-    commitSha: null,
     createdAt: new Date().toISOString(),
   }
 }
@@ -489,112 +518,6 @@ export function loadWaivers(stateDir) {
   return Array.isArray(raw) ? raw : []
 }
 
-export function receiptMatchesCurrent({ receipt, manifest, configHashes: hashes, head }) {
-  if (!receipt || typeof receipt !== "object") {
-    return { ok: false, reason: "missing_receipt" }
-  }
-  if (receipt.cliVersion !== PINNED_CLI_VERSION) {
-    return { ok: false, reason: "version_mismatch" }
-  }
-  if (receipt.region !== REQUIRED_REGION) {
-    return { ok: false, reason: "region_mismatch" }
-  }
-  if (head && receipt.head !== head) {
-    return { ok: false, reason: "stale_fingerprint" }
-  }
-  if (!manifestsEqual(receipt.manifest, manifest)) {
-    return { ok: false, reason: "stale_fingerprint" }
-  }
-  if (hashes && !manifestsEqual(receipt.configHashes, hashes)) {
-    return { ok: false, reason: "stale_fingerprint" }
-  }
-  return { ok: true }
-}
-
-export function evaluateGateOpen({
-  exemption,
-  receipt,
-  dirtyPaths,
-  dirtyManifest,
-  configHashes: hashes,
-  head,
-}) {
-  if (exemption === "docs-artifact") {
-    if ((dirtyPaths || []).every(isDocsArtifactPath) && dirtyPaths?.length) {
-      return { ok: true, exempt: "docs-artifact" }
-    }
-    return { ok: false, reason: "exempt_path_mismatch" }
-  }
-  if (exemption === "gate-remediation") {
-    return { ok: true, exempt: "gate-remediation" }
-  }
-  const match = receiptMatchesCurrent({
-    receipt,
-    manifest: dirtyManifest,
-    configHashes: hashes,
-    head,
-  })
-  if (!match.ok) return match
-  return { ok: true, exempt: null }
-}
-
-export function evaluateGitCommitPermission({
-  loopRan,
-  exemption,
-  stagedPaths,
-  stagedManifest,
-  receipt,
-  configHashes: hashes,
-  head,
-}) {
-  if (loopRan) {
-    return { ok: false, reason: "loopRan", deny: "tdd" }
-  }
-  const staged = sortedPaths(stagedPaths)
-  if (exemption === "docs-artifact") {
-    if (!staged.length || !staged.every(isDocsArtifactPath)) {
-      return { ok: false, reason: "exempt_path_mismatch", deny: "coderabbit" }
-    }
-    return { ok: true, exempt: "docs-artifact" }
-  }
-  if (exemption === "gate-remediation") {
-    return { ok: true, exempt: "gate-remediation" }
-  }
-  if (!receipt || receipt.gateOpened !== true) {
-    if (staged.length && staged.every(isDocsArtifactPath)) {
-      return { ok: true, exempt: "docs-artifact" }
-    }
-    return { ok: true, exempt: "no_open_receipt" }
-  }
-  if (!pathsEqual(staged, receipt.reviewedFiles)) {
-    return { ok: false, reason: "stale_fingerprint", deny: "coderabbit" }
-  }
-  const match = receiptMatchesCurrent({
-    receipt,
-    manifest: stagedManifest,
-    configHashes: hashes,
-    head,
-  })
-  if (!match.ok) return { ...match, deny: "coderabbit" }
-  return { ok: true }
-}
-
-export function markReceiptGateOpened(receipt) {
-  return {
-    ...receipt,
-    gateOpened: true,
-    gateOpenedAt: new Date().toISOString(),
-  }
-}
-
-export function recordReceiptCommitSha(receipt, sha) {
-  return {
-    ...receipt,
-    commitSha: sha,
-    committedAt: new Date().toISOString(),
-  }
-}
-
 export function gitCapture(args, cwd = process.cwd()) {
   const r = spawnSync("git", args, {
     cwd,
@@ -614,13 +537,11 @@ export function currentBranch(cwd = process.cwd()) {
 }
 
 export function dirtyPathsFromGit(cwd = process.cwd()) {
-  return parseGitPorcelain(
-    gitCapture(["status", "--porcelain", "-uall"], cwd),
-  )
+  return parseGitPorcelain(gitCapture(["status", "--porcelain", "-uall"], cwd))
 }
 
 export function resolveDirtyPaths(cwd = process.cwd(), env = process.env) {
-  if (env.CODERABBIT_STUB_DIRTY) {
+  if (Object.hasOwn(env, "CODERABBIT_STUB_DIRTY")) {
     return env.CODERABBIT_STUB_DIRTY.split(",")
       .map((s) => posixPath(s.trim()))
       .filter(Boolean)
@@ -638,36 +559,6 @@ export function resolveManifest(cwd, relPaths, env = process.env) {
     return JSON.parse(env.CODERABBIT_STUB_MANIFEST)
   }
   return hashPathContents(cwd, relPaths)
-}
-
-export function stagedPathsFromGit(cwd = process.cwd()) {
-  const out = gitCapture(
-    ["diff", "--cached", "--name-only", "-z"],
-    cwd,
-  )
-  if (!out) return []
-  return out
-    .split("\0")
-    .map(posixPath)
-    .filter(Boolean)
-}
-
-export function hashStagedContents(cwd, relPaths) {
-  const manifest = {}
-  for (const rel of sortedPaths(relPaths)) {
-    const shown = spawnSync("git", ["show", `:${rel}`], {
-      cwd,
-      encoding: "buffer",
-      shell: process.platform === "win32",
-    })
-    if (shown.status === 0 && shown.stdout) {
-      manifest[rel] = sha256Hex(shown.stdout)
-      continue
-    }
-    const abs = join(cwd, rel)
-    manifest[rel] = existsSync(abs) ? sha256Hex(readFileSync(abs)) : null
-  }
-  return manifest
 }
 
 export function resolveCrBinary(
@@ -696,12 +587,7 @@ export function resolveCrBinary(
 
 export function reviewCommandArgs({ owningSpec, base, extraConfig = [] }) {
   const configs = [owningSpec, POLICY_REL, ...extraConfig].filter(Boolean)
-  const args = [
-    "review",
-    "--agent",
-    "--uncommitted",
-    "--include-untracked",
-  ]
+  const args = ["review", "--agent", "--uncommitted", "--include-untracked"]
   for (const file of configs) {
     args.push("-c", file)
   }

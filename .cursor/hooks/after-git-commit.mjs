@@ -11,14 +11,7 @@ import {
   headChangedFiles,
   needsDocsSync,
   DELEGATE_INSTRUCTION,
-  git,
 } from "./lib/docs-sync-policy.mjs"
-import {
-  defaultStateDir,
-  loadReceipt,
-  recordReceiptCommitSha,
-  saveReceipt,
-} from "./lib/coderabbit-review-policy.mjs"
 
 function main() {
   try {
@@ -34,14 +27,6 @@ function main() {
     if (!shellSucceeded(input.tool_output)) {
       writeStdoutJson({})
       return
-    }
-
-    const receipt = loadReceipt()
-    if (receipt?.gateOpened) {
-      const sha = git(["rev-parse", "HEAD"])
-      if (sha) {
-        saveReceipt(defaultStateDir(), recordReceiptCommitSha(receipt, sha))
-      }
     }
 
     const files = headChangedFiles()

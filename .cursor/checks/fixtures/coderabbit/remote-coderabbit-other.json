@@ -1,10 +1,16 @@
 {
   "isDraft": false,
   "headSha": "abc123",
-  "pull": { "number": 12, "isDraft": false, "base": "main", "head": "staging", "headSha": "abc123" },
+  "pull": {
+    "number": 12,
+    "isDraft": false,
+    "base": "main",
+    "head": "staging",
+    "headSha": "abc123"
+  },
   "reviews": [
     {
-      "user": { "login": "coderabbiteu[bot]" },
+      "user": { "login": "coderabbit-other[bot]" },
       "state": "APPROVED",
       "commit_id": "abc123"
     }
@@ -16,7 +22,7 @@
     {
       "name": "CodeRabbit",
       "conclusion": "success",
-      "app": { "id": 3307191, "slug": "coderabbiteu" }
+      "app": { "slug": "coderabbit-other" }
     }
   ]
 }

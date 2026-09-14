@@ -7,8 +7,8 @@ correctly closing-linked — so Linear's own GitHub automations, not you, move
 the tracked issue(s) through **In Progress**, **In Review**, and **Done**.
 **In Progress** fires from the draft/open PR this command creates or
 updates; until that PR exists the issue may remain Todo. You never ready a
-PR and never merge; the operator readies (`gh pr ready`) and merges in
-GitHub once checks are green.
+PR and never merge; `/ready-merge-release <PR#>` readies only a clean PR and
+the operator merges in GitHub once that command approves the merge.
 Communication style: direct, concise, precise.
 </persona>
 
@@ -19,9 +19,9 @@ promotion-prep applicability, review request) is auto-derived from that PR's
 own state. With no argument, you auto-discover the open PR for the current
 branch, or **create** a draft PR when none exists — base `staging` for a
 feature head, base the default branch when head is `staging`. Draft is
-deliberate: `qa.yml` and `prettier.yml` skip every job while
-`pull_request.draft` is true, so the operator's `gh pr ready <n>` is what
-spends Actions minutes. See
+deliberate: CodeRabbit reviews the draft HEAD, while `qa.yml` and
+`prettier.yml` skip jobs gated on `pull_request.draft == false` until
+`/ready-merge-release <n>` marks a clean PR ready. See
 [.cursor/rules/staging-accumulator.mdc](.cursor/rules/staging-accumulator.mdc).
 Typically invoked right after a `/commit` PASS, and again later to prep a
 promotion PR once a batch is ready.
@@ -46,8 +46,8 @@ commits already merged into an accumulator branch (e.g. `staging`) do not, by
 themselves, link a PR targeting the default branch. Whenever the resolved PR's
 base is the default branch, this command's entire value-add is closing that
 gap: aggregate every closing trailer the PR's commits carry, make sure the PR
-itself is linked and has a review requested, then stop — the operator merges
-it separately.
+itself is linked and eligible for CodeRabbit's draft review, then stop — the
+release command gates readiness and the operator merges separately.
 
 You perform **no Linear write** — you only interact with GitHub via `gh`
 (push, PR create when needed, PR edit, review request). Linear's automations
@@ -157,22 +157,24 @@ do not invent a classifier agent.
     2. Default branch and `origin/staging` were already resolved/probed above.
     3. If `<current-branch>` **equals** the default branch → STOP and report
        ("cannot open a PR — head is the default branch"); do not create.
-    4. Otherwise create a **draft** PR. Draft is what keeps GitHub Actions
-       idle: `qa.yml` and `prettier.yml` gate every PR job on
-       `github.event.pull_request.draft == false`, so a draft PR costs no
-       Actions minutes until the operator readies it. Local `pnpm lint; pnpm typecheck; pnpm test:unit`
-       (Step 1) is unaffected and remains the hard gate.
+    4. Otherwise create a **draft** PR. CodeRabbit reviews that draft, while
+       `qa.yml` and `prettier.yml` jobs gated on
+       `github.event.pull_request.draft == false` wait until
+       `/ready-merge-release <n>` marks it ready. Local
+       `pnpm lint; pnpm typecheck; pnpm test:unit` (Step 1) is unaffected and
+       remains the hard gate.
        - If `<current-branch>` is `staging`: `--base <default-branch>`;
          derive title and body from `git log origin/<default-branch>...HEAD`
          (Summary + Test plan). Include Linear issue URL(s), owning spec path
          and criterion IDs, fresh executed-test evidence from this turn's
-         whole-suite gate, and the ignored CodeRabbit receipt's HEAD/commit
-         SHA binding when present.
+         whole-suite gate, and optional audit-only CodeRabbit 4G
+         `attemptStatus`/`reason` metadata when present. A missing receipt is
+         non-blocking.
        - If `<current-branch>` is any other non-default head: `--base staging`;
          derive title and body from `git log origin/staging...HEAD` (never
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
          Include the same Linear URL, owning spec/criteria, executed-test
-         evidence, and receipt/commit binding.
+         evidence, and optional audit-only 4G attempt metadata.
        - `gh pr create --draft --base <that-base> --head <current-branch> --title "..." --body "..."`
        - Do **not** pre-inject `## Linear close-out` or any `Fixes RES-###`
          line — Step 4 owns trailer aggregation/injection when base is the
@@ -209,10 +211,9 @@ do not invent a classifier agent.
 ### 5. Request review if none requested yet
 
 - **If `isDraft` is true: skip this step entirely.** Do **not** request a
-  review and do **not** run `gh pr ready <n>` — readying the PR is what
-  starts the gated Actions jobs, and that spend is the operator's decision,
-  not this command's. Report the deferral and hand the operator
-  `gh pr ready <n>` as the step that fires both CI and In Review.
+  human review and do **not** run `gh pr ready <n>`. CodeRabbit reviews the
+  draft automatically; `/ready-merge-release <n>` owns the clean-pass
+  readiness transition and final check re-read.
 - If the PR is **not** a draft and `reviewRequests` is empty:
   `gh pr edit <n> --add-reviewer <operator>` to fire Linear's
   `PR review request → In Review` automation.
@@ -226,9 +227,10 @@ do not invent a classifier agent.
 
 ### 6. Report checks (advisory)
 
-- **If the PR is a draft:** `gh pr checks <n>` reports no checks and exits
-  non-zero. That is the **expected** draft state, not a failure — report it
-  as "none — draft PR; checks start at `gh pr ready <n>`" and do not warn.
+- **If the PR is a draft:** run `gh pr checks <n>` and report what exists.
+  CodeRabbit is draft-eligible; other jobs may remain gated until
+  `/ready-merge-release <n>` runs `gh pr ready`. An empty/non-zero result is
+  allowed here and means "none — draft PR; final checks run after readiness."
 - Otherwise `gh pr checks <n>` — report status. This is **advisory** — it
   does not block this command, but warn plainly if checks are red or pending
   before the operator merges. Local `pnpm lint; pnpm typecheck; pnpm test:unit` (Step 1) is the hard gate;
@@ -243,16 +245,15 @@ do not invent a classifier agent.
 - Do **not** merge, ever. Present one summary: PR number/title, draft state,
   `<head> → <base>`, whether promotion prep ran, the aggregated issue IDs now
   linked (or "none"/"n/a"), review-request status, and checks status.
-- **When the PR is a draft**, the operator's next step is `gh pr ready <n>`
-  (or the GitHub UI) — that single event starts the gated Actions jobs and
-  fires In Review. Then **`/coderabbit-gate`** then merge in the GitHub UI
-  once required checks are green. Never ready the PR on the operator's
-  behalf.
+- **When the PR is a draft**, the operator's next step is
+  **`/ready-merge-release <n>`** after CodeRabbit reviews the draft. That
+  command routes findings or readies and re-verifies a clean PR before
+  returning the operator-merge verdict.
 - When the PR is already ready, instruct the operator to run
-  **`/coderabbit-gate`** then merge in the GitHub UI once required checks are
-  green. `staging → main` additionally requires the GitHub check
-  `CodeRabbit US latest-head gate`. Remote review never substitutes for the
-  local JSONL receipt.
+  **`/ready-merge-release <n>`** and merge in the GitHub UI only on
+  `APPROVED FOR OPERATOR MERGE`. `staging → main` additionally requires the
+  GitHub check `CodeRabbit US latest-head gate`. Remote review never
+  substitutes for the mandatory advisory local JSONL attempt.
 
 ### Reasoning protocol
 
@@ -274,7 +275,8 @@ do not invent a classifier agent.
    aggregate closing trailers, inject the link if missing.
 5. Request review if none is requested yet (idempotent; single-operator
    caveat) — but skip it entirely on a draft PR, and never `gh pr ready`.
-6. Report checks advisorily; on a draft, "none" is the expected state.
+6. Report checks advisorily; CodeRabbit may run on drafts while other checks
+   wait for `/ready-merge-release`.
 7. Never merge, never ready a draft, never call Linear MCP, never force-push
    without explicit ask.
 
@@ -285,9 +287,8 @@ do not invent a classifier agent.
 - **No `gh pr merge`, ever.** Merging is the operator's job in the GitHub UI.
 - **No Linear MCP calls, ever.** Review requests go through `gh`
   (`gh pr edit --add-reviewer`), never `save_comment`/`save_issue`.
-- **No `gh pr ready`, ever.** Readying a draft starts the Actions jobs that
-  `qa.yml` / `prettier.yml` gate on `draft == false`; that spend is the
-  operator's call. Hand them the command; never run it.
+- **No `gh pr ready`, ever.** Readiness belongs exclusively to
+  `/ready-merge-release <PR#>` after a clean CodeRabbit draft review.
 - **DO NOT `git push`, `gh pr create`/`edit`, or instruct merge unless
   `pnpm lint; pnpm typecheck; pnpm test:unit` executed green this turn** (AC-1312-1).
 - **On lint + typecheck + test:unit red, classify-and-handoff only** (AC-1312-2). Do not run
@@ -303,10 +304,12 @@ do not invent a classifier agent.
   default branch, and Step 2 has published the remote head. Base is
   `staging` for any non-default, non-`staging` head; `staging` still bases
   to the default branch. Create **draft** PRs only — always `--draft`, so no
-  Actions job runs until the operator readies it. Never auto-create when a
-  PR was pinned by URL/number. Never
+  ready-gated Actions job runs until `/ready-merge-release` marks it ready;
+  CodeRabbit still reviews the draft. Never auto-create when a PR was pinned
+  by URL/number. Never
   open a self-PR when head equals the default branch; stop and report
-  instead. Derive feature-PR title/body from `git log origin/staging...HEAD`.
+  instead. Draft-eligible CodeRabbit review runs before ready-gated Actions
+  jobs. Derive feature-PR title/body from `git log origin/staging...HEAD`.
   STOP (do not promotion-prep) when an existing or pinned PR has
   `base=default` and `head != staging`.
 - DO NOT operate on a PR that is not OPEN. DO NOT overwrite the PR's existing
@@ -335,10 +338,10 @@ Exactly these sections:
 2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch".
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
-5. **Review request** — "deferred — PR is draft; `gh pr ready <n>` starts CI and fires In Review" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the close-out comment automation".
-6. **Checks** (advisory; omit if no PR) — "none — draft PR; checks start at `gh pr ready <n>`" (expected, not a warning) | each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
+5. **Review request** — "deferred — PR is draft; CodeRabbit reviews now and `/ready-merge-release <n>` owns readiness" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the ready-for-merge event".
+6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — run `gh pr ready <n>` to start CI and fire In Review, then `/coderabbit-gate`, then merge once green" | "PR open — awaiting `/coderabbit-gate` then review/merge" | "merge `<PR-URL>` in the GitHub UI once `/coderabbit-gate` and required checks are green — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push`.
+8. **Operator next** — "draft PR open — wait for its CodeRabbit review, then run `/ready-merge-release <n>`; merge only on `APPROVED FOR OPERATOR MERGE`" | "PR open — run `/ready-merge-release <n>`" | "merge `<PR-URL>` in the GitHub UI only after `/ready-merge-release <n>` returns `APPROVED FOR OPERATOR MERGE` — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push`.
    </output_format>
    </instructions>
    </output>

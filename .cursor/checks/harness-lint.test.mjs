@@ -28,7 +28,9 @@ import {
   detectGroomArtifactViolations,
   detectGroomStaleGuardViolations,
   detectRunFileLifecycleViolations,
+  CODERABBIT_MIRROR_FORBIDDEN,
   CODERABBIT_MIRROR_NEEDLES,
+  CODERABBIT_YAML_REQUIRED,
   CODERABBIT_YAML_FORBIDDEN,
   CODERABBIT_WORKFLOW_NEEDLES,
   CODERABBIT_WORKFLOW_FORBIDDEN,
@@ -783,6 +785,14 @@ test("CLARIFY current-state-unchanged wording passes live files and fails each m
 })
 
 test("CodeRabbit factory mirrors pass live files and fail each missing clause", () => {
+  assert.equal(
+    existsSync(join(ROOT, ".cursor", "commands", "ready-merge-release.md")),
+    true,
+  )
+  assert.equal(
+    existsSync(join(ROOT, ".cursor", "commands", "coderabbit-gate.md")),
+    false,
+  )
   for (const [rel, needles] of Object.entries(CODERABBIT_MIRROR_NEEDLES)) {
     const text = readFileSync(join(ROOT, rel), "utf8")
     assertMissingClauseNegatives(
@@ -792,11 +802,26 @@ test("CodeRabbit factory mirrors pass live files and fail each missing clause", 
       detectCoderabbitMirrorViolations,
     )
   }
+  for (const [rel, needles] of Object.entries(CODERABBIT_MIRROR_FORBIDDEN)) {
+    const text = readFileSync(join(ROOT, rel), "utf8")
+    assertForbiddenClauseNegatives(
+      rel,
+      text,
+      needles,
+      detectCoderabbitMirrorViolations,
+    )
+  }
 })
 
-test("CodeRabbit YAML and workflow reject auto_approve and write permissions", () => {
+test("CodeRabbit YAML requires draft review and workflow stays read-only", () => {
   const yaml = readFileSync(join(ROOT, ".coderabbit.yaml"), "utf8")
   assert.deepEqual(detectCoderabbitYamlViolations(yaml), [])
+  for (const needle of CODERABBIT_YAML_REQUIRED) {
+    const violations = detectCoderabbitYamlViolations(
+      yaml.replaceAll(needle, ""),
+    )
+    assert.notEqual(violations.length, 0, needle)
+  }
   for (const needle of CODERABBIT_YAML_FORBIDDEN) {
     const violations = detectCoderabbitYamlViolations(`${yaml}\n${needle}\n`)
     assert.notEqual(violations.length, 0, needle)

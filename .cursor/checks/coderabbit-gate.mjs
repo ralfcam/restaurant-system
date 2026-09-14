@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Local CodeRabbit final-surface gate. Reviews the dirty tree after a scoped
- * work-order check and writes an ignored receipt. Never executes
+ * Mandatory advisory local CodeRabbit final-surface attempt. Reviews the dirty
+ * tree after a scoped work-order check and writes an ignored audit receipt. Never executes
  * codegenInstructions. Never stashes or resets.
  *
  * Usage:
@@ -16,6 +16,7 @@ import {
   PINNED_CLI_VERSION,
   YAML_REL,
   POLICY_REL,
+  applyWaivers,
   assertPinnedUsAuth,
   buildReceipt,
   configHashes,
@@ -40,9 +41,7 @@ function argValue(name) {
 }
 
 function fail(reason, extra = {}) {
-  console.error(
-    JSON.stringify({ ok: false, reason, ...extra }, null, 2),
-  )
+  console.error(JSON.stringify({ ok: false, reason, ...extra }, null, 2))
   process.exit(1)
 }
 
@@ -52,12 +51,19 @@ function loadWorkOrder(path) {
   try {
     const raw = JSON.parse(readFileSync(path, "utf8"))
     if (!raw || typeof raw !== "object") fail("malformed_work_order")
-    const expectedPaths = Array.isArray(raw.expectedPaths)
-      ? raw.expectedPaths
-      : []
+    if (
+      !Array.isArray(raw.expectedPaths) ||
+      raw.expectedPaths.some(
+        (item) => typeof item !== "string" || item.trim() === "",
+      ) ||
+      (raw.owningSpec != null && typeof raw.owningSpec !== "string") ||
+      (raw.base != null && typeof raw.base !== "string")
+    ) {
+      fail("malformed_work_order")
+    }
     return {
       owningSpec: raw.owningSpec || null,
-      expectedPaths,
+      expectedPaths: raw.expectedPaths,
       base: raw.base || null,
     }
   } catch (err) {
@@ -146,7 +152,14 @@ function dirtyPaths(cwd) {
   return resolveDirtyPaths(cwd)
 }
 
-function manifestFor(cwd, paths) {
+function manifestFor(cwd, paths, afterAttempt = false) {
+  if (
+    afterAttempt &&
+    isTestMode() &&
+    process.env.CODERABBIT_STUB_AFTER_MANIFEST
+  ) {
+    return JSON.parse(process.env.CODERABBIT_STUB_AFTER_MANIFEST)
+  }
   return resolveManifest(cwd, paths)
 }
 
@@ -159,6 +172,47 @@ function branchFor(cwd) {
     return process.env.CODERABBIT_STUB_BRANCH
   }
   return currentBranch(cwd)
+}
+
+function dispositionFor(findings, waivers) {
+  return applyWaivers(findings, waivers)
+}
+
+function unavailable(reason, findings = [], waivers = [], extra = {}) {
+  const dispositions = dispositionFor(findings, waivers)
+  return {
+    attemptStatus: "unavailable",
+    reason,
+    findings,
+    reviewedFiles: [],
+    ...dispositions,
+    ...extra,
+  }
+}
+
+function evaluateAdvisoryJsonl(jsonl, { reviewablePaths, base, waivers }) {
+  const parsed = parseJsonl(jsonl)
+  if (!parsed.ok) {
+    const findings = parsed.events.filter((event) => event.type === "finding")
+    return unavailable(parsed.reason, findings, waivers, { line: parsed.line })
+  }
+
+  const evaluated = evaluateAgentStream(parsed.events, {
+    reviewablePaths,
+    base,
+    waivers,
+  })
+  if (!evaluated.ok) {
+    if (evaluated.reason === "unresolved_findings") {
+      return { ...evaluated, attemptStatus: "findings" }
+    }
+    return unavailable(evaluated.reason, evaluated.findings, waivers, evaluated)
+  }
+  return {
+    ...evaluated,
+    attemptStatus: evaluated.findings.length ? "findings" : "clean",
+    reason: evaluated.findings.length ? "findings" : "clean",
+  }
 }
 
 async function main() {
@@ -187,52 +241,70 @@ async function main() {
   const head = headFor(cwd)
   const branch = branchFor(cwd)
 
-  const pinned = readPinnedAuth(cwd)
-  const authCheck = assertPinnedUsAuth({
-    version: pinned.version,
-    auth: pinned.auth,
-  })
-  if (!authCheck.ok) fail(authCheck.reason, authCheck)
-
-  let jsonl = pinned.jsonl
-  if (!isTestMode()) {
-    const bin = pinned.bin || resolveCrBinary()
-    const args = reviewCommandArgs({ owningSpec, base })
-    const review = await runCr(bin, args, { timeoutMs, cwd })
-    if (review.timedOut) fail("timeout")
-    jsonl = review.stdout
-    if (!jsonl.trim() && review.code !== 0) {
-      fail("error", { stderr: review.stderr, code: review.code })
-    }
-  } else if (!jsonl) {
-    fail("missing_complete")
-  }
-
-  const parsed = parseJsonl(jsonl)
-  if (!parsed.ok) fail(parsed.reason, { line: parsed.line })
-
   const waivers = loadWaivers(defaultStateDir())
-  const evaluated = evaluateAgentStream(parsed.events, {
-    reviewablePaths: scope.reviewablePaths,
-    base,
-    waivers,
-  })
-  if (!evaluated.ok) {
-    fail(evaluated.reason, {
-      blocking: evaluated.blocking,
-      expected: evaluated.expected,
-      actual: evaluated.actual,
+  let pinned = null
+  let authCheck = null
+  let evaluated
+  try {
+    pinned = readPinnedAuth(cwd)
+    authCheck = assertPinnedUsAuth({
+      version: pinned.version,
+      auth: pinned.auth,
     })
+    if (!authCheck.ok) {
+      evaluated = unavailable(authCheck.reason, [], waivers)
+    } else {
+      let jsonl = pinned.jsonl
+      if (isTestMode()) {
+        if (process.env.CODERABBIT_STUB_REVIEW_ERROR === "1") {
+          evaluated = unavailable("error", [], waivers, {
+            code: 1,
+            stderr: "stubbed review process failure",
+          })
+        } else if (!jsonl) {
+          evaluated = unavailable("missing_complete", [], waivers)
+        }
+      } else {
+        const bin = pinned.bin || resolveCrBinary()
+        const args = reviewCommandArgs({ owningSpec, base })
+        const review = await runCr(bin, args, { timeoutMs, cwd })
+        if (review.timedOut) {
+          evaluated = unavailable("timeout", [], waivers)
+        } else if (review.code !== 0) {
+          const parsed = parseJsonl(review.stdout)
+          const findings = parsed.events.filter(
+            (event) => event.type === "finding",
+          )
+          evaluated = unavailable("error", findings, waivers, {
+            stderr: review.stderr,
+            code: review.code,
+          })
+        } else {
+          jsonl = review.stdout
+        }
+      }
+      if (!evaluated) {
+        evaluated = evaluateAdvisoryJsonl(jsonl, {
+          reviewablePaths: scope.reviewablePaths,
+          base,
+          waivers,
+        })
+      }
+    }
+  } catch (err) {
+    evaluated = unavailable("error", [], waivers, { message: err.message })
   }
 
-  const afterManifest = manifestFor(cwd, scope.reviewablePaths)
+  const afterManifest = manifestFor(cwd, scope.reviewablePaths, true)
   if (JSON.stringify(beforeManifest) !== JSON.stringify(afterManifest)) {
     fail("changed_bytes")
   }
 
   const receipt = buildReceipt({
-    cliVersion: PINNED_CLI_VERSION,
-    region: "us",
+    cliVersion: pinned?.version || PINNED_CLI_VERSION,
+    region: authCheck?.region || pinned?.auth?.region || "unknown",
+    attemptStatus: evaluated.attemptStatus,
+    reason: evaluated.reason,
     branch,
     base,
     head,
@@ -240,6 +312,7 @@ async function main() {
     configHashes: hashes,
     reviewedFiles: evaluated.reviewedFiles,
     findings: evaluated.findings,
+    blocking: evaluated.blocking,
     waived: evaluated.waived,
     nonBlocking: evaluated.nonBlocking,
     owningSpec,
@@ -249,7 +322,8 @@ async function main() {
     JSON.stringify(
       {
         ok: true,
-        reason: "clean",
+        attemptStatus: receipt.attemptStatus,
+        reason: receipt.reason,
         reviewedFiles: receipt.reviewedFiles,
         findingIds: receipt.findingIds,
         yaml: YAML_REL,

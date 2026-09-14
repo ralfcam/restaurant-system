@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-14
 
 ## Layout
 
@@ -33,8 +33,13 @@
   `tests/unit/marketing/super-admin-chrome.test.ts`
 - Dev toolchain: `tests/unit/dev-toolchain/` (G-T1/G-L1/G-F1/G-W1/G-P1/G-O1/G-CR1,
   including `pnpm-overrides-toolchain.test.ts` and
-  `coderabbit-cloud-install.test.ts`; G-CR2/G-CR3 in
-  `.cursor/checks/coderabbit-*.test.mjs`)
+  `coderabbit-cloud-install.test.ts`; advisory local G-CR2 in
+  `.cursor/checks/coderabbit-gate.test.mjs`,
+  `.cursor/checks/coderabbit-review-policy.test.mjs`,
+  `.cursor/checks/tdd-guard-policy.test.mjs`, and
+  `tests/unit/dev-toolchain/coderabbit-gcr2-empty-reviewed-files.test.ts`;
+  fail-closed remote G-CR3 in `.cursor/checks/coderabbit-pr-policy.test.mjs` and
+  `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,

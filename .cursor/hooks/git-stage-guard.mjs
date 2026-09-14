@@ -21,17 +21,11 @@ import {
   detectBlanketGitStage,
   detectGhPrMerge,
   detectGitCommit,
+  evaluateGitCommitPermission,
   getCommitExempt,
   isLoopRan,
-} from "./lib/tdd-guard-policy.mjs"
-import {
-  configHashes,
-  currentHead,
-  evaluateGitCommitPermission,
-  hashStagedContents,
-  loadReceipt,
   stagedPathsFromGit,
-} from "./lib/coderabbit-review-policy.mjs"
+} from "./lib/tdd-guard-policy.mjs"
 
 function main() {
   try {
@@ -90,20 +84,16 @@ function main() {
         loopRan: false,
         exemption: getCommitExempt(),
         stagedPaths: staged,
-        stagedManifest: hashStagedContents(cwd, staged),
-        receipt: loadReceipt(),
-        configHashes: configHashes(cwd),
-        head: currentHead(cwd),
       })
       if (!verdict.ok) {
         writeStdoutJson({
           permission: "deny",
           user_message:
-            "Blocked `git commit` — the staged tree does not match the CodeRabbit receipt.",
+            "Blocked `git commit` — staged paths do not match the active commit exemption.",
           agent_message:
-            `git-stage guard: "${commitHit.segment}" does not match the current CodeRabbit ` +
-            `receipt (${verdict.reason}). Re-run node .cursor/checks/coderabbit-gate.mjs ` +
-            "after /sdd-to-tdd close-out, or use a documented exempt /commit lane.",
+            `git-stage guard: "${commitHit.segment}" does not match the active ` +
+            `commit exemption (${verdict.reason}). Stage only paths allowed by the ` +
+            "documented /commit lane.",
         })
         return
       }

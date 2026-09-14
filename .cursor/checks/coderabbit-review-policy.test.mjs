@@ -8,27 +8,22 @@ import {
   applyWaivers,
   buildReceipt,
   evaluateAgentStream,
-  evaluateGateOpen,
-  evaluateGitCommitPermission,
   evaluateWorkOrder,
   findingFingerprint,
-  isDocsArtifactPath,
   isSecretPath,
   parseGitPorcelain,
   parseJsonl,
-  receiptMatchesCurrent,
   resolveCrBinary,
   reviewCommandArgs,
   unrelatedDirtyPaths,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
+import {
+  evaluateGateOpen,
+  evaluateGitCommitPermission,
+  isDocsArtifactPath,
+} from "../hooks/lib/tdd-guard-policy.mjs"
 
-const FIX = join(
-  process.cwd(),
-  ".cursor",
-  "checks",
-  "fixtures",
-  "coderabbit",
-)
+const FIX = join(process.cwd(), ".cursor", "checks", "fixtures", "coderabbit")
 
 function loadEvents(name) {
   const parsed = parseJsonl(readFileSync(join(FIX, name), "utf8"))
@@ -38,35 +33,47 @@ function loadEvents(name) {
 const EXPECTED = { reviewablePaths: ["lib/example.ts"], base: "staging" }
 
 test("parseGitPorcelain reads modified, untracked, and renamed paths", () => {
-  const text = [
-    " M lib/a.ts",
-    "?? lib/b.ts",
-    "R  old.ts -> lib/c.ts",
-  ].join("\n")
-  assert.deepEqual(parseGitPorcelain(text), ["lib/a.ts", "lib/b.ts", "lib/c.ts"])
+  const text = [" M lib/a.ts", "?? lib/b.ts", "R  old.ts -> lib/c.ts"].join(
+    "\n",
+  )
+  assert.deepEqual(parseGitPorcelain(text), [
+    "lib/a.ts",
+    "lib/b.ts",
+    "lib/c.ts",
+  ])
 })
 
 test("unrelatedDirtyPaths and secret paths fail the work-order", () => {
-  assert.deepEqual(unrelatedDirtyPaths(["lib/a.ts", "app/x.ts"], ["lib/a.ts"]), [
-    "app/x.ts",
-  ])
+  assert.deepEqual(
+    unrelatedDirtyPaths(["lib/a.ts", "app/x.ts"], ["lib/a.ts"]),
+    ["app/x.ts"],
+  )
   assert.equal(isSecretPath(".env"), true)
   assert.equal(isSecretPath(".env.local"), true)
   assert.equal(isSecretPath("id_rsa"), true)
   assert.equal(isSecretPath("tls.pem"), true)
   assert.equal(isSecretPath("lib/example.ts"), false)
-  assert.equal(evaluateWorkOrder({
-    dirtyPaths: [".env"],
-    expectedPaths: [".env"],
-  }).reason, "secret_path")
-  assert.equal(evaluateWorkOrder({
-    dirtyPaths: ["lib/a.ts", "notes.md"],
-    expectedPaths: ["lib/a.ts"],
-  }).reason, "unrelated_dirt")
-  assert.equal(evaluateWorkOrder({
-    dirtyPaths: ["lib/example.ts"],
-    expectedPaths: ["lib/example.ts", "docs/specs/foo.md"],
-  }).ok, true)
+  assert.equal(
+    evaluateWorkOrder({
+      dirtyPaths: [".env"],
+      expectedPaths: [".env"],
+    }).reason,
+    "secret_path",
+  )
+  assert.equal(
+    evaluateWorkOrder({
+      dirtyPaths: ["lib/a.ts", "notes.md"],
+      expectedPaths: ["lib/a.ts"],
+    }).reason,
+    "unrelated_dirt",
+  )
+  assert.equal(
+    evaluateWorkOrder({
+      dirtyPaths: ["lib/example.ts"],
+      expectedPaths: ["lib/example.ts", "docs/specs/foo.md"],
+    }).ok,
+    true,
+  )
   assert.equal(
     evaluateWorkOrder({ dirtyPaths: [], expectedPaths: ["lib/example.ts"] })
       .reason,
@@ -174,7 +181,7 @@ test("pinned US auth rejects version and region mismatch", () => {
   assert.equal(
     assertPinnedUsAuth({
       version: PINNED_CLI_VERSION,
-      auth: { authenticated: true, region: "eu" },
+      auth: { authenticated: true, region: "other" },
     }).reason,
     "region_mismatch",
   )
@@ -202,7 +209,13 @@ test("review command is uncommitted+untracked with policy config and never --use
   assert.ok(args.includes("docs/specs/dev-toolchain.md"))
   assert.ok(!args.includes("--use-credits"))
   const src = readFileSync(
-    join(process.cwd(), ".cursor", "hooks", "lib", "coderabbit-review-policy.mjs"),
+    join(
+      process.cwd(),
+      ".cursor",
+      "hooks",
+      "lib",
+      "coderabbit-review-policy.mjs",
+    ),
     "utf8",
   )
   assert.match(src, /Never executes finding\.codegenInstructions/)
@@ -222,7 +235,7 @@ test("resolveCrBinary prefers CODERABBIT_BIN then Windows install path", () => {
   assert.match(win, /cr\.exe$/)
 })
 
-test("gate open requires a matching receipt unless the lane is exempt", () => {
+test("gate open is receipt-independent while exemption paths stay bounded", () => {
   const manifest = { "lib/example.ts": "abc" }
   const receipt = buildReceipt({
     branch: "sdd/RES-1",
@@ -240,28 +253,23 @@ test("gate open requires a matching receipt unless the lane is exempt", () => {
       dirtyManifest: manifest,
       configHashes: receipt.configHashes,
       head: "deadbeef",
-    }).reason,
-    "missing_receipt",
+    }).ok,
+    true,
   )
   assert.equal(
     evaluateGateOpen({
       exemption: null,
-      receipt,
+      receipt: {
+        ...receipt,
+        manifest: { "lib/example.ts": "stale" },
+        head: "older",
+      },
       dirtyPaths: ["lib/example.ts"],
       dirtyManifest: manifest,
       configHashes: receipt.configHashes,
       head: "deadbeef",
     }).ok,
     true,
-  )
-  assert.equal(
-    receiptMatchesCurrent({
-      receipt,
-      manifest: { "lib/example.ts": "other" },
-      configHashes: receipt.configHashes,
-      head: "deadbeef",
-    }).reason,
-    "stale_fingerprint",
   )
   assert.equal(
     evaluateGateOpen({
@@ -285,7 +293,7 @@ test("gate open requires a matching receipt unless the lane is exempt", () => {
   )
 })
 
-test("git commit matches an opened receipt and allows exempt or idle lanes", () => {
+test("git commit ignores audit receipts but preserves TDD and exemption guards", () => {
   const manifest = { "lib/example.ts": "abc" }
   const receipt = {
     ...buildReceipt({
@@ -318,7 +326,7 @@ test("git commit matches an opened receipt and allows exempt or idle lanes", () 
       configHashes: receipt.configHashes,
       head: "deadbeef",
     }).ok,
-    false,
+    true,
   )
   assert.equal(
     evaluateGitCommitPermission({
@@ -337,8 +345,8 @@ test("git commit matches an opened receipt and allows exempt or idle lanes", () 
       stagedPaths: ["docs/findings/tech-debt.md"],
       stagedManifest: {},
       receipt: null,
-    }).exempt,
-    "docs-artifact",
+    }).ok,
+    true,
   )
   assert.equal(isDocsArtifactPath("docs/verifier-reports/tdd/x.md"), false)
   assert.equal(
@@ -347,8 +355,8 @@ test("git commit matches an opened receipt and allows exempt or idle lanes", () 
       stagedPaths: ["lib/example.ts"],
       stagedManifest: manifest,
       receipt: { ...receipt, gateOpened: false },
-    }).exempt,
-    "no_open_receipt",
+    }).ok,
+    true,
   )
   assert.equal(
     evaluateGitCommitPermission({
@@ -359,6 +367,6 @@ test("git commit matches an opened receipt and allows exempt or idle lanes", () 
       configHashes: receipt.configHashes,
       head: "deadbeef",
     }).ok,
-    false,
+    true,
   )
 })

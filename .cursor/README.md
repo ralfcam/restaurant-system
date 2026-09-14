@@ -48,7 +48,8 @@ There is no GitHub QA workflow in this repo. Local gates are
 ## Recommended cycle
 
 `docs/findings + Linear Triage` → `/triage` → `Backlog` → `/dispatch` →
-`Todo/current cycle` → (`/sdd-to-tdd` → `/commit` → `/push`)×N → `/coderabbit-gate` → you merge
+`Todo/current cycle` → (`/sdd-to-tdd` → `/commit` → `/push`)×N →
+`/ready-merge-release PR#` → you merge
 
 `/audit` remains spec-first and writes findings to the ledger, then publishes
 one idempotent project-health digest through `linear-resolver`. Linear is
@@ -83,30 +84,31 @@ flowchart TD
   Sdd --> Commit["/commit"]
   Sdd2 --> Commit
   Commit --> Push["/push"]
-  Push --> CR["/coderabbit-gate"]
-  CR --> Merge["You merge in GitHub"]
+  Push --> CR["CodeRabbit reviews draft"]
+  CR --> Release["/ready-merge-release PR#"]
+  Release --> Merge["You merge in GitHub"]
   CloudPR["cursor/slug-abcd PR"] --> Intake["/intake"]
-  Intake --> CR
+  Intake --> Release
 ```
 
 ---
 
 ## Command map
 
-| Command                                 | Job                                                                                                                | Typical next                               |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`/audit`](commands/audit.md)           | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update                                   | `/triage`                                  |
-| [`/triage`](commands/triage.md)         | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current                               | `/dispatch`                                |
-| [`/dispatch`](commands/dispatch.md)     | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; emit confirmed cards + optional Cloud advice | `/design RES-###` or `/sdd-to-tdd RES-###` |
-| [`/design`](commands/design.md)         | Greenfield spec — hub walk, grill, one new spec file                                                               | `/sdd-to-tdd @<file>` FEATURE              |
-| [`/sdd-to-tdd`](commands/sdd-to-tdd.md) | Plan Mode, START, then Red → Green → Refactor                                                                      | `/commit`                                  |
-| [`/commit`](commands/commit.md)         | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes                                           | `/push`                                    |
-| [`/push`](commands/push.md)             | Human heads (`sdd/RES-###` or `staging` promotion). Never merges                                                   | `/coderabbit-gate` then you merge |
-| [`/intake`](commands/intake.md)         | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                                                    | `/coderabbit-gate` then you merge |
-| [`/coderabbit-gate`](commands/coderabbit-gate.md) | Read-only US latest-head ready-PR check. Never edits, Linear-writes, readies, or merges | You merge                  |
-| [`/capture`](commands/capture.md)       | Observation → ledger                                                                                               | `/triage`                                  |
-| [`/tldr`](commands/tldr.md)             | Recap a plan, chat, or `RES-###` (Ask Mode)                                                                        | —                                          |
-| [`/reflect`](commands/reflect.md)       | Re-check a thread’s claims against the tree                                                                        | —                                          |
+| Command                                                   | Job                                                                                                                | Typical next                               |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| [`/audit`](commands/audit.md)                             | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update                                   | `/triage`                                  |
+| [`/triage`](commands/triage.md)                           | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current                               | `/dispatch`                                |
+| [`/dispatch`](commands/dispatch.md)                       | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; emit confirmed cards + optional Cloud advice | `/design RES-###` or `/sdd-to-tdd RES-###` |
+| [`/design`](commands/design.md)                           | Greenfield spec — hub walk, grill, one new spec file                                                               | `/sdd-to-tdd @<file>` FEATURE              |
+| [`/sdd-to-tdd`](commands/sdd-to-tdd.md)                   | Plan Mode, START, then Red → Green → Refactor                                                                      | `/commit`                                  |
+| [`/commit`](commands/commit.md)                           | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes                                           | `/push`                                    |
+| [`/push`](commands/push.md)                               | Human heads (`sdd/RES-###` or `staging` promotion). Never merges                                                   | `/ready-merge-release PR#` then you merge  |
+| [`/intake`](commands/intake.md)                           | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                                                    | `/ready-merge-release PR#` then you merge  |
+| [`/ready-merge-release`](commands/ready-merge-release.md) | Severity-routes CodeRabbit findings; readies and re-verifies only a clean PR. Never merges                         | You merge                                  |
+| [`/capture`](commands/capture.md)                         | Observation → ledger                                                                                               | `/triage`                                  |
+| [`/tldr`](commands/tldr.md)                               | Recap a plan, chat, or `RES-###` (Ask Mode)                                                                        | —                                          |
+| [`/reflect`](commands/reflect.md)                         | Re-check a thread’s claims against the tree                                                                        | —                                          |
 
 Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 

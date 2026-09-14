@@ -655,22 +655,22 @@ After the loop completes for the feature (all criteria green through Refactor),
 run close-out steps **in this order** — do not delegate `docs-updater` until
 Steps 4D and 4E have written to the tdd log and the Docs sync packet is assembled:
 
-| #   | Step                                         | Owner                            | Writes to                                                                            |
-| --- | -------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | **4D** — Collate review trail                | Orchestrator                     | `docs/verifier-reports/tdd/<plan-slug>.md`                                           |
-| 2   | **4E** — Traceability final + pattern list   | Orchestrator                     | Same tdd log                                                                         |
-| 3   | **Packet** — Assemble Docs sync packet       | Orchestrator                     | Thread (markdown block)                                                              |
-| 4   | **4** — Docs sync                            | `docs-updater`                   | `docs/**` + thread report                                                            |
-| 5   | **4C** — Findings merge + register           | Orchestrator + `linear-resolver` | `docs/findings/**`                                                                   |
-| 6   | **4B** — Linear close-out                    | `linear-resolver`                | Linear (FIX only)                                                                    |
-| 7   | **Format** — Prettier this run's dirty paths | Orchestrator                     | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`)    |
-| 8   | **4G** — Local CodeRabbit final-surface gate  | Orchestrator                     | Ignored receipt under `.cursor/hooks/state/` (never the tdd log)                      |
-| 9   | **4F** — Commit / push handoff               | Orchestrator                     | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
+| #   | Step                                                 | Owner                            | Writes to                                                                            |
+| --- | ---------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
+| 1   | **4D** — Collate review trail                        | Orchestrator                     | `docs/verifier-reports/tdd/<plan-slug>.md`                                           |
+| 2   | **4E** — Traceability final + pattern list           | Orchestrator                     | Same tdd log                                                                         |
+| 3   | **Packet** — Assemble Docs sync packet               | Orchestrator                     | Thread (markdown block)                                                              |
+| 4   | **4** — Docs sync                                    | `docs-updater`                   | `docs/**` + thread report                                                            |
+| 5   | **4C** — Findings merge + register                   | Orchestrator + `linear-resolver` | `docs/findings/**`                                                                   |
+| 6   | **4B** — Linear close-out                            | `linear-resolver`                | Linear (FIX only)                                                                    |
+| 7   | **Format** — Prettier this run's dirty paths         | Orchestrator                     | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`)    |
+| 8   | **4G** — Mandatory advisory local CodeRabbit attempt | Orchestrator                     | Ignored audit receipt under `.cursor/hooks/state/` (never the tdd log)               |
+| 9   | **4F** — Commit / push handoff                       | Orchestrator                     | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
 
 Keep `docs-updater` `is_background: true`, but **do not hand off to `/commit`
 (local) or execute `.cursor/commands/commit.md` (managed Cloud) until
 the docs-updater report appears in the thread** (wait/poll the Task) **and** the
-close-out format pass (step 7) **and** the local CodeRabbit gate (step 8) have
+close-out format pass (step 7) **and** the local CodeRabbit attempt (step 8) have
 run. A missing docs-updater report → `/commit`
 → CHANGES-REQUESTED.
 
@@ -789,8 +789,8 @@ subagent in the background:
 - **Do not** commit doc edits yourself; `docs-updater` leaves `docs/` dirty for
   human review.
 - **Wait** for the docs-updater report in-thread before proceeding to 4C/4B.
-  After 4C/4B, run the format pass, then STEP 4G (local CodeRabbit
-  final-surface gate), then STEP 4F (local: point to `/commit`; managed Cloud:
+  After 4C/4B, run the format pass, then STEP 4G (mandatory advisory local
+  CodeRabbit attempt), then STEP 4F (local: point to `/commit`; managed Cloud:
   execute commit then push on PASS).
 
 ## STEP 4C — MERGE + REGISTER OUT-OF-SCOPE FINDINGS (any mode)
@@ -919,7 +919,7 @@ operator to `/commit`. **Managed Cloud:** after the format pass, execute
 **Combine with finding registration.** If Step 4C already registered findings,
 reference the spun-off issue IDs in the close-out comment. Do not re-register.
 
-## STEP 4G — LOCAL CODERABBIT FINAL-SURFACE GATE
+## STEP 4G — MANDATORY ADVISORY LOCAL CODERABBIT ATTEMPT
 
 After 4C/4B and the close-out format pass, and **before** STEP 4F, run the
 scoped JSONL review:
@@ -933,18 +933,21 @@ scoped JSONL review:
    `node .cursor/checks/coderabbit-gate.mjs --owning-spec <spec> --work-order <work-order.json>`
    with additional instructions
    [`.cursor/rules/coderabbit-integration.mdc`](.cursor/rules/coderabbit-integration.mdc).
-3. Any blocking finding (`critical`/`major`/`minor`) or tracked edit after
-   review re-enters the appropriate TDD or ledger path and **repeats close-out
-   plus this review**. Out-of-scope residuals go on the run ledger for 4C.
+3. Always record the result (`clean`, `findings`, or `unavailable`) and
+   continue to STEP 4F. Findings at every severity, authentication/setup
+   failure, rate limit, billing, timeout, skipped review, malformed/partial
+   JSONL, and reviewed-file/scope mismatch are advisory metadata; they do not
+   reopen the loop or block `/commit`.
 4. Do **not** write the receipt or fingerprint into
    `docs/verifier-reports/tdd/<plan-slug>.md` after review — that
    self-invalidates the surface. The ignored receipt under
    `.cursor/hooks/state/` and later PR bodies carry the audit summary.
-5. There is no manual-review fallback. Fail on errors, timeout, rate limit,
-   billing, skipped review, malformed JSONL, scope mismatch, changed bytes, or
-   unresolved findings.
+5. Missing/malformed work order, secret paths, unrelated dirt, no reviewable
+   paths, and changed bytes remain hard safety failures. Re-hash after every
+   scoped attempt and STOP on changed bytes. Do not substitute a manual review
+   for the attempt; an unavailable attempt is represented by its audit receipt.
 
-## STEP 4F — COMMIT / PUSH HANDOFF (after format pass and CodeRabbit gate)
+## STEP 4F — COMMIT / PUSH HANDOFF (after format pass and CodeRabbit attempt)
 
 After 4C/4B, the close-out format pass, and STEP 4G:
 
@@ -1029,7 +1032,7 @@ enumerate all three phases of **every** criterion as explicit
   Task, and must **not** wait before those next todos. The `4-format` todo
   MUST specify **INPUT:** this run's dirty paths from `git status --porcelain`;
   **OUTPUT:** `pnpm exec prettier --write <path> …` (never `.`); it runs after
-  4C/4B and before STEP 4G (local CodeRabbit final-surface gate) then STEP 4F (`/commit` handoff or managed-Cloud continuation).
+  4C/4B and before STEP 4G (mandatory advisory local CodeRabbit attempt) then STEP 4F (`/commit` handoff or managed-Cloud continuation).
   </instructions>
 
 <constraints>
@@ -1169,7 +1172,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 - **Close-out sequence (mandatory):** 4D → 4E → Docs sync packet → Step 4
   (docs-updater) → 4C → 4B (FIX) → **format pass** (`pnpm exec prettier --write`
   on this run's dirty paths from `git status --porcelain`; never `.`) → **STEP 4G
-  (local CodeRabbit final-surface gate; ignored receipt; do not write the
+  (mandatory advisory local CodeRabbit attempt; ignored audit receipt; do not write the
   receipt into the tdd log)** → then
   STEP 4F (**local:** point to `/commit`; **managed Cloud:** execute
   `.cursor/commands/commit.md`, and on PASS execute
@@ -1394,7 +1397,7 @@ Close-out todos: `4d-review-trail`, `4e-traceability`, `4-docs-packet`,
 
 `4-format` is last delegated todo: after 4C/4B, `pnpm exec prettier --write`
 this run's dirty paths (`git status --porcelain`; never `.`), then STEP 4G
-(local CodeRabbit final-surface gate; ignored receipt; do not write the
+(mandatory advisory local CodeRabbit attempt; ignored audit receipt; do not write the
 receipt into the tdd log), then STEP 4F
 (local: point to `/commit`; managed Cloud: execute
 `.cursor/commands/commit.md`, and on PASS execute

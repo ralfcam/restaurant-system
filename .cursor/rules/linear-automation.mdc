@@ -48,9 +48,10 @@ flowchart LR
   PromoCheck -->|"no"| Skip["skip prep — trailers aggregate later"]
   Prep -->|"review activity or ready-for-merge"| IR2["In Review via PR"]
   Skip -->|"review activity or ready-for-merge"| IR2
-  IR2 --> Ready["PR ready to merge"]
-  Ready --> CR["/coderabbit-gate"]
-  CR --> OpMerge
+  IR2 --> DraftReview["CodeRabbit reviews draft HEAD"]
+  DraftReview --> Release["/ready-merge-release PR#"]
+  Release --> Ready["Clean PR marked ready"]
+  Ready --> OpMerge
   OpMerge --> Done["Done via PR merge automation"]
 ```
 
@@ -64,19 +65,21 @@ preps the promotion close-out whenever the PR it resolves targets the default
 branch, and may **request PR review** (`gh pr edit --add-reviewer`) so
 **In Review** can fire from review activity — it never calls `gh pr ready`,
 never calls `gh pr merge`, and never calls Linear MCP. `/push` creates PRs as
-**drafts** (GitHub Actions jobs are gated on `pull_request.draft == false`).
-On a fresh PR **In Review** fires once the **operator** readies the draft
-(ready-for-merge) or review activity exists; **In Progress** fires immediately
-via the `Draft PR open` automation. After the PR is ready, `/coderabbit-gate`
-verifies the US latest-head review. The operator is the only actor that merges
-a PR; that merge event is what Linear's `On PR merge → Done` automation reacts
-to.
+**drafts**. CodeRabbit reviews the draft HEAD; other GitHub Actions jobs may
+remain gated on `pull_request.draft == false`. On a fresh PR **In Review** fires
+from review activity or when `/ready-merge-release PR#` marks a clean draft
+ready; **In Progress** fires immediately via the `Draft PR open` automation.
+That command re-verifies the ready HEAD and checks before returning its
+operator-merge verdict. The operator is the only actor that merges a PR; that
+merge event is what Linear's `On PR merge → Done` automation reacts to.
 
 CodeRabbit chat, CodeRabbit Plan, and CodeRabbit Triage **must not write
 Linear**. Plan is opt-in advisory research. CodeRabbit Triage is a PR review
 queue, not `/triage`. Neither may authorize `/dispatch` scheduling, replace
-`docs/specs/**`, or change Linear workflow state. Remote findings go through
-`/capture` then `/triage` with provenance
+`docs/specs/**`, or change Linear workflow state.
+
+Remote findings route Critical/Major/unknown to `/sdd-to-tdd` and
+Minor/Trivial through `/capture` then `/triage` with provenance
 `coderabbit/<local|PR>/<head>/<finding-id>`.
 
 ## GitHub PR automations
@@ -151,8 +154,8 @@ review activity`, `On PR ready for merge`) will not fire for _direct_
 `staging` commits. The issue may remain **Todo until a linked PR exists**.
 START does not move In Progress. The close-out resolution comment (and any
 team comment/message automation on it) plus `/push` review-request (on a PR
-the operator has readied) provide In Review visibility until the operator
-merges.
+that `/ready-merge-release` has marked ready) provide In Review visibility
+until the operator merges.
 
 ## Workflow state writers
 
@@ -205,10 +208,10 @@ close-out.
   publishes a linked PR. Until that PR exists, the issue may remain Todo.
   Never agent-written via `save_issue`.
 - **In Review** — GitHub PR review activity when `/push` requests review on
-  an already-ready PR, when the **operator** readies `/push`'s draft
-  (`gh pr ready` → ready-for-merge), or when the operator reviews directly;
-  team comment/message automation on the close-out comment when configured.
-  Never agent-written via `save_issue`.
+  an already-ready PR, when `/ready-merge-release` marks `/push`'s clean
+  draft ready (`gh pr ready` → ready-for-merge), or when the operator reviews
+  directly; team comment/message automation on the close-out comment when
+  configured. Never agent-written via `save_issue`.
 - **Done** — `On PR merge → Done` when a closing-linked PR merges into
   **`staging` or the default branch**. A feature PR's own
   not-previously-merged commits carry `/commit`'s `Fixes RES-###` trailer,
@@ -287,9 +290,10 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
 
 1. Confirm `/push` opened the PR as `<head> → staging` and requested review
    (or reported the single-operator caveat).
-2. Confirm the operator has readied the PR and `/coderabbit-gate` is green.
-3. Confirm required checks are green (`/push` reports this advisorily; verify
-   in the GitHub UI before merging).
+2. Run `/ready-merge-release <PR#>` and require
+   `APPROVED FOR OPERATOR MERGE`; it verifies CodeRabbit, marks a clean draft
+   ready, and re-checks the unchanged HEAD.
+3. Confirm the command reports required checks green.
 4. Merge the feature PR in the GitHub UI. The PR's own `Fixes RES-###`
    trailer is what Linear sees; the issue should move to **Done** at this
    merge.
@@ -302,10 +306,10 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
    ambiguous) — confirm the `## Linear close-out` block /
    `Fixes RES-###[, RES-###, ...]` line is present on **that** PR (not
    just buried in staging commits).
-2. Confirm `/coderabbit-gate` and the GitHub check
-   `CodeRabbit US latest-head gate` are green.
-3. Confirm required checks are green (`/push` reports this advisorily; verify
-   in the GitHub UI before merging).
+2. Run `/ready-merge-release <PR#>` and require
+   `APPROVED FOR OPERATOR MERGE`, including a green
+   `CodeRabbit US latest-head gate`.
+3. Confirm the command reports all other required checks green.
 4. Merge the promotion PR in the GitHub UI.
 5. Verify the linked issue(s) that were only on direct `staging` commits move
    to **Done** in Linear (~1 minute); if not, check the closing link on the

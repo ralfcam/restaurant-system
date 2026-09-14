@@ -20,17 +20,6 @@ import {
   clearPhase,
   openCommitGate,
 } from "./lib/tdd-guard-policy.mjs"
-import {
-  configHashes,
-  defaultStateDir,
-  evaluateGateOpen,
-  loadReceipt,
-  markReceiptGateOpened,
-  resolveDirtyPaths,
-  resolveHead,
-  resolveManifest,
-  saveReceipt,
-} from "./lib/coderabbit-review-policy.mjs"
 
 const cmd = (process.argv[2] || "status").toLowerCase()
 
@@ -82,32 +71,11 @@ switch (cmd) {
         process.exitCode = 1
         break
       }
-      const cwd = process.cwd()
-      const dirty = resolveDirtyPaths(cwd)
-      const verdict = evaluateGateOpen({
-        exemption,
-        receipt: loadReceipt(),
-        dirtyPaths: dirty,
-        dirtyManifest: resolveManifest(cwd, dirty),
-        configHashes: configHashes(cwd),
-        head: resolveHead(cwd),
-      })
-      if (!verdict.ok) {
-        console.error(
-          `tdd-guard: gate open denied (${verdict.reason}) — run the local CodeRabbit gate or pass a valid --exempt docs-artifact|gate-remediation.`,
-        )
-        process.exitCode = 1
-        break
-      }
-      const receipt = loadReceipt()
-      if (receipt && !verdict.exempt) {
-        saveReceipt(defaultStateDir(), markReceiptGateOpened(receipt))
-      }
       openCommitGate(exemption)
       console.log(
-        verdict.exempt
-          ? `tdd-guard: commit gate open (exempt ${verdict.exempt}) — git commit is allowed until the next TDD loop.`
-          : "tdd-guard: commit gate open — git commit must match the CodeRabbit receipt until the next TDD loop.",
+        exemption
+          ? `tdd-guard: commit gate open (exempt ${exemption}) — git commit is allowed until the next TDD loop.`
+          : "tdd-guard: commit gate open — git commit is allowed until the next TDD loop.",
       )
     } else {
       console.error(

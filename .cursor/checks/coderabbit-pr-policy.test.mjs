@@ -3,20 +3,13 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
 import {
-  EU_APP_ID,
   US_APP_ID,
   US_LATEST_HEAD_CHECK_NAME,
   classifyFindingRouting,
   evaluateReadyPr,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
 
-const FIX = join(
-  process.cwd(),
-  ".cursor",
-  "checks",
-  "fixtures",
-  "coderabbit",
-)
+const FIX = join(process.cwd(), ".cursor", "checks", "fixtures", "coderabbit")
 const WORKFLOW = join(
   process.cwd(),
   ".github",
@@ -31,7 +24,7 @@ function load(name) {
 const CASES = [
   ["remote-clean.json", true, "clean"],
   ["remote-stale-approval.json", false, "stale_approval"],
-  ["remote-eu-bot.json", false, "eu_bot_activity"],
+  ["remote-coderabbit-other.json", false, "wrong_bot"],
   ["remote-unresolved-threads.json", false, "unresolved_threads"],
   ["remote-rate-limit.json", false, "rate_limited"],
   ["remote-billing.json", false, "billing"],
@@ -53,7 +46,6 @@ test("clean snapshot pins US app id and check name", () => {
   const result = evaluateReadyPr(load("remote-clean.json"))
   assert.equal(result.usAppId, US_APP_ID)
   assert.equal(result.checkName, US_LATEST_HEAD_CHECK_NAME)
-  assert.notEqual(US_APP_ID, EU_APP_ID)
 })
 
 test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
@@ -65,9 +57,12 @@ test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
     "/sdd-to-tdd",
   )
   assert.equal(
-    classifyFindingRouting({ fileName: "docs/findings/tech-debt.md" }, {
-      inScopePaths: ["lib/example.ts"],
-    }).command,
+    classifyFindingRouting(
+      { fileName: "docs/findings/tech-debt.md" },
+      {
+        inScopePaths: ["lib/example.ts"],
+      },
+    ).command,
     "/capture",
   )
 })
@@ -80,6 +75,24 @@ test("main-gate workflow is read-only, staging→main, and named US latest-head"
   assert.match(yml, /pull_request_review:/)
   assert.match(yml, /pull_request_review_comment:/)
   assert.doesNotMatch(yml, /^  pull_request_review_thread:/m)
+  const pullRequestStart = yml.indexOf("\n  pull_request:")
+  const pullRequestReviewStart = yml.indexOf("\n  pull_request_review:")
+  assert.ok(pullRequestStart >= 0, "pull_request mapping")
+  assert.ok(
+    pullRequestReviewStart > pullRequestStart,
+    "pull_request mapping precedes pull_request_review",
+  )
+  const pullRequestBlock = yml.slice(pullRequestStart, pullRequestReviewStart)
+  const typesMatch = pullRequestBlock.match(/^\s+types:\s*\[([^\]]*)\]/m)
+  assert.ok(typesMatch, "pull_request types list")
+  const pullRequestTypes = typesMatch[1]
+    .split(",")
+    .map((type) => type.trim())
+    .filter(Boolean)
+  assert.ok(
+    pullRequestTypes.includes("edited"),
+    "on.pull_request.types includes edited",
+  )
   assert.match(
     yml,
     /github\.event\.pull_request\.base\.ref == 'main' && github\.event\.pull_request\.head\.ref == 'staging'/,

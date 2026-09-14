@@ -117,6 +117,27 @@ test("git-stage-guard.mjs wires both blanket-stage and gh pr merge detectors", (
   assert.match(src, /detectBlanketGitStage/)
 })
 
+test("commit authorization hooks do not read or mutate CodeRabbit receipts", () => {
+  const hookDir = join(process.cwd(), ".cursor", "hooks")
+  const tddGuard = readFileSync(join(hookDir, "tdd-guard.mjs"), "utf8")
+  const gitStageGuard = readFileSync(
+    join(hookDir, "git-stage-guard.mjs"),
+    "utf8",
+  )
+  const afterCommit = readFileSync(
+    join(hookDir, "after-git-commit.mjs"),
+    "utf8",
+  )
+  for (const [name, source] of [
+    ["tdd-guard", tddGuard],
+    ["git-stage-guard", gitStageGuard],
+    ["after-git-commit", afterCommit],
+  ]) {
+    assert.doesNotMatch(source, /coderabbit-review-policy/, name)
+    assert.doesNotMatch(source, /loadReceipt|saveReceipt/, name)
+  }
+})
+
 test("detectBlanketGitStage denies git add -A, git add ., git commit -a", () => {
   assert.equal(detectBlanketGitStage("git add -A").kind, "add")
   assert.equal(detectBlanketGitStage("git add --all").kind, "add")
