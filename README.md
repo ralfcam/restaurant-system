@@ -66,11 +66,9 @@ pnpm format:check
 ```
 
 Integration tests need local Supabase **and** the env vars above exported in
-the shell — Vitest does not load `.env.local`. Strict mode:
-
-```powershell
-$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration
-```
+the shell — Vitest does not load `.env.local`.
+`vitest.integration.config.ts` sets `RESTAURANT_INTEGRATION_STRICT` to `"true"`,
+so a bare `pnpm test:integration` fail-closes when those keys are missing.
 
 Pyramid, skip-vs-strict, and E2E:
 [docs/testing/Pyramid-Overview.md](docs/testing/Pyramid-Overview.md),
