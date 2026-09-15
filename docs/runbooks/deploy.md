@@ -197,12 +197,15 @@ no `CREATE`; `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`;
 `20260825140000` is already recorded, apply
 `20260902214500_restaurant_settings_privilege.sql`. If
 `20260827160000` is already recorded, apply
-`20260915180000_menus_bootstrap.sql` for hosted `CREATE TABLE menus` plus
-`reorder_menu_tabs` (applied companions do not re-run). Spec:
+`20260915180000_menus_bootstrap.sql` for hosted `CREATE TABLE menus`, RLS,
+five MT-3 tab ids (`INSERT … ON CONFLICT (id) DO NOTHING`), plus
+`reorder_menu_tabs` (applied companions do not re-run). Remotes that
+already recorded `20260915180000` (MT-4a) must re-run the file contents
+to pick up the INSERT. Spec:
 [../specs/scheduling.md](../specs/scheduling.md)
 OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18), SIB-PRIV (§19);
 [../specs/branding-cms.md](../specs/branding-cms.md) BC-1;
-[../specs/menu-availability.md](../specs/menu-availability.md) MT-4a, MT-6a. Apply per the recipes
+[../specs/menu-availability.md](../specs/menu-availability.md) MT-4a, MT-4c, MT-6a. Apply per the recipes
 below; do not `db push`. Until `20260825140000` is applied on a forked remote
 that still has the old hours policy or DML grants, a logged-in Data API client
 can mutate hours.
@@ -352,8 +355,8 @@ replay history the remote has diverged from.
    is false for those catalog tables. Confirm policy `"Allow public read reservations"` is gone
    and no authenticated `FOR ALL` policy remains on those catalog tables.
    If this version is already recorded, apply
-   `20260915180000_menus_bootstrap.sql` (below) for hosted `CREATE TABLE menus`
-   plus `reorder_menu_tabs` instead of re-running this file.
+   `20260915180000_menus_bootstrap.sql` (below) for hosted `CREATE TABLE menus`,
+   RLS, five-id seed, plus `reorder_menu_tabs` instead of re-running this file.
 
 ### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote
 
@@ -477,9 +480,13 @@ replay history the remote has diverged from.
 
 **UAT freshness:** 2026-09-15 — apply this file when `20260827160000` is
 already recorded (applied companions do not re-run; do not `db push`).
-Then confirm `menus` exists with `id` / `title` / `title_en` / `sort_order`,
-`has_table_privilege('anon', 'menus', 'SELECT')` is true and INSERT is
-false, and `has_function_privilege('service_role', 'public.reorder_menu_tabs(jsonb)', 'EXECUTE')`
+Remotes that already recorded `20260915180000` from MT-4a still have an
+empty `menus` table until the current file contents are re-run (in-place
+edit does not re-apply). Then confirm `menus` exists with `id` / `title` /
+`title_en` / `sort_order`, the five MT-3 ids (`midi`, `soir`, `boissons`,
+`blanc`, `rouge`) are present, `has_table_privilege('anon', 'menus', 'SELECT')`
+is true and INSERT is false, and
+`has_function_privilege('service_role', 'public.reorder_menu_tabs(jsonb)', 'EXECUTE')`
 is true (anon/authenticated EXECUTE false).
 
 Do not use `db push` or `db reset --linked` for this — the file already ends
@@ -512,6 +519,8 @@ replay history the remote has diverged from.
    `has_table_privilege('anon', 'menus', 'SELECT')` and
    `has_table_privilege('authenticated', 'menus', 'SELECT')` are true, and
    INSERT is false for both. Confirm
+   `SELECT id FROM menus WHERE id IN ('midi', 'soir', 'boissons', 'blanc', 'rouge')`
+   returns those five rows. Confirm
    `has_function_privilege('service_role', 'public.reorder_menu_tabs(jsonb)', 'EXECUTE')`
    is true and the same for `anon` / `authenticated` is false. Confirm policy
    `"Allow authenticated full access to menus"` is gone.

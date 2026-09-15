@@ -50,8 +50,10 @@
   `tests/unit/menu/menu-tab-persistence.test.ts`,
   `tests/unit/menu/dish-menu-tab-options.test.ts`,
   `tests/unit/menu/guest-menu-tabs.test.ts`,
-  `tests/unit/menu/menus-bootstrap.test.ts`,
-  `tests/unit/menu/menus-integ-strict.test.ts`
+  `tests/unit/menu/menus-bootstrap.test.ts` (MT-4a CREATE-before-GRANT; MT-4c
+  hosted RLS + five-id `INSERT … ON CONFLICT (id) DO NOTHING`),
+  `tests/unit/menu/menus-integ-strict.test.ts` (MT-4b PRE-SATISFIED pin; MT-4d
+  `vitest.integration.config.ts` `test.env`)
 - Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note
   cap; BD-READ-FAIL blocked-date SELECT fail-closed)
 - Reservation isolation (RES-ISO):

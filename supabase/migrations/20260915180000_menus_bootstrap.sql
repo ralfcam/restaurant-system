@@ -11,11 +11,12 @@
 --    that still applies.
 --
 -- Same CREATE + privilege trio + reorder_menu_tabs as baseline and the
--- companions (after the in-place CREATE edit). RLS + public-read /
+-- companions (after the in-place CREATE + RLS edit). RLS + public-read /
 -- service_role policies match baseline (and the branding dated-forward
--- recipe) so a hosted CREATE is not left without RLS. Companions already
--- applied and stay privilege-only. `supabase db reset --local` stays
--- equivalent via baseline.
+-- recipe) so a hosted CREATE is not left without RLS. Companions that
+-- already applied do not re-run; this dated forward also seeds the five
+-- MT-3 tab ids so hosted apply without seed.sql is not empty.
+-- `supabase db reset --local` stays equivalent via baseline + seed.sql.
 
 CREATE TABLE IF NOT EXISTS menus (
   id TEXT PRIMARY KEY,
@@ -46,6 +47,17 @@ CREATE POLICY "Allow service_role full access to menus"
 REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menus TO anon, authenticated;
 GRANT ALL ON TABLE menus TO service_role;
+
+-- RES-70 / MT-4c: hosted apply does not re-run seed.sql; seed the five
+-- compiled catalog tab ids so guest/admin tabs are not empty.
+INSERT INTO menus (id, title, title_en, sort_order)
+VALUES
+  ('midi', 'Menu Midi', 'Lunch Menu', 0),
+  ('soir', 'Menu Soir', 'Dinner Menu', 1),
+  ('boissons', 'Boissons & Philosophie', 'Drinks & Philosophy', 2),
+  ('blanc', 'Vins Blancs', 'White Wines', 3),
+  ('rouge', 'Vins Rouges', 'Red Wines', 4)
+ON CONFLICT (id) DO NOTHING;
 
 -- C1 added reorder_menu_tabs to baseline only; already-applied hosts lack it.
 CREATE OR REPLACE FUNCTION reorder_menu_tabs(p_ordered_ids jsonb)

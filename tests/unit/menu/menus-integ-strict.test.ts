@@ -25,4 +25,14 @@ describe("menus privilege integ STRICT fail-closed (MT-4b)", () => {
     const matched = globSync(INTEG_INCLUDE, { cwd: root })
     expect(matched).toContain(MENUS_PRIVILEGE_INTEG)
   })
+
+  it("integration config sets STRICT so menus privilege integ cannot skip-green", () => {
+    const config = readFileSync(
+      path.join(root, "vitest.integration.config.ts"),
+      "utf8",
+    )
+    expect(config).toMatch(
+      /\benv\s*:\s*\{[\s\S]*?\bRESTAURANT_INTEGRATION_STRICT\s*:\s*"true"/,
+    )
+  })
 })

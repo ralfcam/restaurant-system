@@ -50,9 +50,27 @@ CREATE TABLE IF NOT EXISTS menus (
   sort_order INT NOT NULL DEFAULT 0
 );
 
+-- RES-70 / MT-4c: ENABLE RLS + public-read / service_role before GRANT so a
+-- replay of this companion cannot leave menus RLS-less.
+ALTER TABLE menus ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read menus" ON menus;
+CREATE POLICY "Allow public read menus"
+  ON menus FOR SELECT
+  TO public
+  USING (true);
+
 -- RES-70 / MT-4: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
 -- FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to menus" ON menus;
+
+DROP POLICY IF EXISTS "Allow service_role full access to menus" ON menus;
+CREATE POLICY "Allow service_role full access to menus"
+  ON menus FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
 REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menus TO anon, authenticated;
 GRANT ALL ON TABLE menus TO service_role;
