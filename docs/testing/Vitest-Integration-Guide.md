@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-15
 
 ## Prerequisites
 
@@ -175,6 +175,9 @@ MUST include the same pin. Unit glob-scan:
   then guest `GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`;
   no table-wide `GRANT INSERT`; no authenticated `FOR ALL`; hostile insert
   of server-owned columns denied).
+  `tests/integration/menu/menus-privileges.integ.test.ts` (`menus` PUBLIC-READ-PRIV:
+  guest SELECT, no authenticated `FOR ALL`, anon INSERT denied; zero-arg
+  `assertIsolatedHoursMutationTarget()` in `beforeAll` / `afterEach`).
 - Confirmation-code uniqueness (AC-4 CONF-CODE-UNIQUE / RES-ISO):
   `tests/integration/reservations/confirmation-code-uniqueness.integ.test.ts`
   (second guest insert of the same `TVL-####` is SQLSTATE `23505`; exactly one

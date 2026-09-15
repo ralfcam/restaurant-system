@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   createMenuItem,
+  createMenuTab,
   deleteMenuItem,
   getAllMenuItems,
+  getMenuTabs,
+  renameMenuTab,
+  reorderMenuTabs,
   toggleMenuItemAvailability,
   upsertMenuItem,
   type MenuItemRow,
@@ -144,6 +148,33 @@ describe("staff menu catalog client", () => {
     })
     await deleteMenuItem(catalogRow.id)
     await toggleMenuItemAvailability(catalogRow.id, false)
+
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+    expect(mocks.createCookieClient).not.toHaveBeenCalled()
+    expect(mocks.from).not.toHaveBeenCalled()
+  })
+
+  it("staff menu tab mutations use createServiceClient after requireStaffUser", async () => {
+    mocks.requireStaffUser.mockResolvedValue(staffUser)
+
+    await getMenuTabs()
+    await createMenuTab({ title: "Brunch", title_en: "Brunch" })
+    await renameMenuTab("midi", { title: "Lunch", title_en: "Lunch" })
+    await reorderMenuTabs(["soir", "midi", "boissons", "blanc", "rouge"])
+
+    expect(mocks.createServiceClient).toHaveBeenCalled()
+    expect(mocks.createCookieClient).not.toHaveBeenCalled()
+    expect(mocks.from).toHaveBeenCalledWith("menus")
+
+    mocks.createServiceClient.mockClear()
+    mocks.createCookieClient.mockClear()
+    mocks.from.mockClear()
+    mocks.requireStaffUser.mockResolvedValue(null)
+
+    await getMenuTabs()
+    await createMenuTab({ title: "Brunch", title_en: "Brunch" })
+    await renameMenuTab("midi", { title: "Lunch", title_en: "Lunch" })
+    await reorderMenuTabs(["soir", "midi", "boissons", "blanc", "rouge"])
 
     expect(mocks.createServiceClient).not.toHaveBeenCalled()
     expect(mocks.createCookieClient).not.toHaveBeenCalled()

@@ -155,6 +155,37 @@ GRANT ALL ON TABLE review_email_sends TO service_role;
 -- PV-12: strip leftover default privs too (not DML-only REVOKE — no anon/authenticated GRANT).
 REVOKE ALL ON TABLE review_email_sends FROM anon, authenticated;
 
+-- ── menus (RES-70 / MT-4: PUBLIC-READ-PRIV catalog tabs) ─────────────────────
+CREATE TABLE IF NOT EXISTS menus (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  title_en TEXT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
+ALTER TABLE menus ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read menus" ON menus;
+CREATE POLICY "Allow public read menus"
+  ON menus FOR SELECT
+  TO public
+  USING (true);
+
+-- RES-70 / MT-4: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to menus" ON menus;
+
+DROP POLICY IF EXISTS "Allow service_role full access to menus" ON menus;
+CREATE POLICY "Allow service_role full access to menus"
+  ON menus FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE menus TO anon, authenticated;
+GRANT ALL ON TABLE menus TO service_role;
+
 -- ── menu_items ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS menu_items (
   id TEXT PRIMARY KEY,

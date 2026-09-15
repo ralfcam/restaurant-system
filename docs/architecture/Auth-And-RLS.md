@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-15
 
 ## Auth flow
 
@@ -60,7 +60,7 @@ Every guest-facing table must have RLS **enabled** and **forced** where specs re
 Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (single
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
-`menu_items`, `restaurant_settings`, `tables`, `servers`, `event_inquiries`,
+`menus`, `menu_items`, `restaurant_settings`, `tables`, `servers`, `event_inquiries`,
 `orders`, `order_items`, `review_email_sends`. `servers` mirrors
 `tables` (`REVOKE ALL` from `PUBLIC`, `anon`, `authenticated`;
 `GRANT ALL` to `service_role`; `-- REAZED-329` / RES-42). `servers`,
@@ -79,7 +79,7 @@ optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
 ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
 create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can call
 `storage.createBucket` when upload returns bucket-not-found, then retry. Reference
-data (`operating_windows`, `menu_items`,
+data (`operating_windows`, `menus` five tab ids, `menu_items`,
 `restaurant_settings` singleton, `servers`) loads from `supabase/seed.sql` on `db reset`.
 
 `operating_windows` is SELECT-only for `anon` and `authenticated`
@@ -123,12 +123,14 @@ menu AC-2. Spec:
 [../specs/scheduling.md](../specs/scheduling.md) §17, §19.
 
 Staff list and mutation for those siblings (including `getReservations`,
-`getAllMenuItems`, and menu CRUD/toggle) is `requireStaffUser` plus
+`getAllMenuItems`, menu CRUD/toggle, and `getMenuTabs` / `createMenuTab` /
+`renameMenuTab` / `reorderMenuTabs`) is `requireStaffUser` plus
 `createServiceClient` (`lib/supabase/service.ts`). The cookie JWT client
 (`lib/supabase/server.ts`) is not used on those paths. Guest catalog reads
-stay on the anon client (`lib/supabase/client-server.ts`). Spec:
+(`getMenuItems`, `getPublicMenuTabs`) stay on the anon client
+(`lib/supabase/client-server.ts`). Spec:
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
-[../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-1.
 Staff analytics (`getReservationAnalytics`) uses the same
 `requireStaffUser` + `createServiceClient` path with SELECT-only queries;
 guest `SELECT` on `reservations` and `status_events` stays denied (RA-9).
@@ -142,7 +144,7 @@ service_role `FOR ALL`; `REVOKE ALL` from `PUBLIC`/`anon`/`authenticated`;
 `GRANT ALL` to `service_role`). Guest Data API has no SELECT. Spec:
 [../specs/event-inquiries.md](../specs/event-inquiries.md).
 
-Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
+Catalog guests: `blocked_dates`, `menu_items`, and `menus` are SELECT-only for `anon`
 and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`
 then `GRANT SELECT` only).
 `reservations` is insert-only (`REVOKE ALL` then
@@ -154,7 +156,7 @@ immediately after the `reservations` table create, even though guests can set
 `created_at`, and `completed_at` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
-There is no authenticated `FOR ALL` (or other write) policy on those three
+There is no authenticated `FOR ALL` (or other write) policy on those catalog
 tables.
 Nullable `reservations.email` and `reservations.completed_at` are in baseline
 (CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
@@ -171,7 +173,7 @@ that version is absent; if `20260825140000` is already recorded, apply
 instead of replaying the applied file; do not `db push`). Spec:
 [../specs/scheduling.md](../specs/scheduling.md) §18,
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
-[../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-4.
 
 `validate_reservation_availability` (`enforce_booking_rules`) is
 `SECURITY DEFINER` so that insert-only path can still cover-count and

@@ -41,6 +41,13 @@ REVOKE ALL ON TABLE menu_items FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menu_items TO anon, authenticated;
 GRANT ALL ON TABLE menu_items TO service_role;
 
+-- RES-70 / MT-4: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to menus" ON menus;
+REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE menus TO anon, authenticated;
+GRANT ALL ON TABLE menus TO service_role;
+
 -- REAZED-298: BC-1 — drop authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE);
 -- GRANT SELECT / REVOKE INSERT, UPDATE, DELETE for anon, authenticated.
 DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings" ON restaurant_settings;

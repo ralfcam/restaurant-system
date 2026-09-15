@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-15
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -125,6 +125,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | G-CR3 4G majors (`g-cr3_4g_majors_da59fa0c`)                                                      | 2026-09-14 | `specs/dev-toolchain.md` (G-CR3 Implementation trace), `testing/Design-And-Patterns.md`, `runbooks/coderabbit.md`, `dev-journal.md`                                                                                                                                                                                                                                                                       |
 | G-CR2 4G soften (`g-cr2_4g_soften_761b7912`)                                                      | 2026-09-14 | `specs/dev-toolchain.md` (G-CR2/G-CR3 Implementation trace), `testing/Design-And-Patterns.md`, `runbooks/coderabbit.md`, `dev-journal.md`                                                                                                                                                                                                                                                                 |
 | Advisory CodeRabbit 4G (`advisory_coderabbit_4g_af126342`)                                        | 2026-09-14 | `specs/dev-toolchain.md` (G-CR2 advisory contract), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/coderabbit.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
+| RES-70 admin/guest menu tabs (`res-70_admin_menu_tabs_c3a91f2b`)                                  | 2026-09-15 | `specs/menu-availability.md` (MT-1–MT-9), `architecture/Order-Flow.md`, `architecture/Auth-And-RLS.md`, `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `runbooks/deploy.md`, `dev-journal.md`                                                                            |
 
 ## Seed path
 
@@ -137,7 +138,7 @@ sql_paths = ["./seed.sql"]
 ```
 
 Reference data: `supabase/seed.sql` (`restaurant_settings`, `operating_windows`,
-`menu_items`, `servers`). Schema:
+`menus`, `menu_items`, `servers`). Schema:
 `supabase/migrations/00000000000000_baseline.sql`. Details in
 [testing/Test-Data-And-Seeds.md](./testing/Test-Data-And-Seeds.md) and
 [runbooks/deploy.md](./runbooks/deploy.md).

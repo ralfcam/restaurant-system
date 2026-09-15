@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-15
 
 ## Vercel
 
@@ -127,7 +127,8 @@ baseline only. Local `db reset` applies them. This ship has no dated forward
 for already-baselined remotes.
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
-`operating_windows` (7 rows), `menu_items` (120 rows from the sample
+`operating_windows` (7 rows), `menus` (5 tab ids: `midi`, `soir`, `boissons`,
+`blanc`, `rouge`), `menu_items` (120 rows from the sample
 `lib/menu-catalog.json` catalog), and `servers` (Maya, Jon, Priya, Dev). Kitchen
 tickets persist in `orders` / `order_items` (baseline schema; no seed rows; not
 in `supabase_realtime`). The public `branding` storage bucket is created
@@ -181,7 +182,7 @@ The same file also
 `REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated` then only the
 public capability (`GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`
 on `reservations`; `GRANT SELECT` on
-`blocked_dates` / `menu_items`) then `GRANT ALL TO service_role`.
+`blocked_dates` / `menu_items` / `menus`) then `GRANT ALL TO service_role`.
 `DROP POLICY IF EXISTS` drops authenticated `FOR ALL` (and public SELECT on
 `reservations`) and never `CREATE`s those policies — same order in every
 object-owning file, not only the latest forward. If `20260825140000` is
@@ -301,8 +302,9 @@ is true only for `guest_name`, `party_size`, `date`, `time`, `phone`, `email`,
 `completed_at` and for `PUBLIC` on every `reservations` column;
 `has_table_privilege(..., 'SELECT')` on `reservations` stays false. Confirm
 `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
-`has_table_privilege('anon', 'menu_items', 'SELECT')` are true and INSERT is
-false for both.
+`has_table_privilege('anon', 'menu_items', 'SELECT')` and
+`has_table_privilege('anon', 'menus', 'SELECT')` are true and INSERT is
+false for those catalog tables.
 
 Do not use `db push` or `db reset --linked` for this — the file already ends
 with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
@@ -339,8 +341,9 @@ replay history the remote has diverged from.
    `has_table_privilege('anon', 'reservations', 'SELECT')` is false (same for
    `authenticated`). Confirm
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
-   `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
-   is false for both. Confirm policy `"Allow public read reservations"` is gone
+   `has_table_privilege('anon', 'menu_items', 'SELECT')` and
+   `has_table_privilege('anon', 'menus', 'SELECT')` are true, and INSERT
+   is false for those catalog tables. Confirm policy `"Allow public read reservations"` is gone
    and no authenticated `FOR ALL` policy remains on those catalog tables.
 
 ### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote

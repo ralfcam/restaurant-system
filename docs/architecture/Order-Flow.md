@@ -1,7 +1,7 @@
 # Order flow (menu → POS → KDS)
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-15
 
 Summary — criteria in [../specs/menu-availability.md](../specs/menu-availability.md).
 
@@ -25,8 +25,12 @@ POS picker lines come from live `menu_items` (`available = true`), not
 `REVOKE ALL` from `PUBLIC`/`anon`/`authenticated`; no authenticated policy.
 Sequence `orders_order_number_seq` is `REVOKE ALL` from
 `PUBLIC`, `anon`, `authenticated`, and `service_role`, then
-`GRANT USAGE, SELECT` to `service_role` only. Staff catalog list/CRUD/toggle
-uses `requireStaffUser` + `createServiceClient`; guest `getMenuItems` stays
-anon. Spec: [../specs/menu-availability.md](../specs/menu-availability.md) AC-2, AC-5.
+`GRANT USAGE, SELECT` to `service_role` only. Staff catalog list/CRUD/toggle and tab
+writes (`getMenuTabs` / `createMenuTab` / `renameMenuTab` / `reorderMenuTabs`)
+use `requireStaffUser` + `createServiceClient`; guest `getMenuItems` and
+`getPublicMenuTabs` stay anon. Admin dish Select and guest tab chrome read
+live `menus` (`getDishMenuTabOptions` / `getPublicMenuTabs`); POS picker tabs
+and staff filter chips / list labels / section CMS stay compiled `MENUS`.
+Spec: [../specs/menu-availability.md](../specs/menu-availability.md) AC-2, AC-5, MT-1–MT-9.
 KDS (`kds-board.tsx`) polls `getActiveKitchenOrders` every 5s — `orders` is
 not in `supabase_realtime`.

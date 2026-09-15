@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-15
 
 ## Layout
 
@@ -46,6 +46,10 @@
   `tests/unit/floor/pos-menu-availability.test.ts`
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
+- Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,
+  `tests/unit/menu/menu-tab-persistence.test.ts`,
+  `tests/unit/menu/dish-menu-tab-options.test.ts`,
+  `tests/unit/menu/guest-menu-tabs.test.ts`
 - Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note
   cap; BD-READ-FAIL blocked-date SELECT fail-closed)
 - Reservation isolation (RES-ISO):
