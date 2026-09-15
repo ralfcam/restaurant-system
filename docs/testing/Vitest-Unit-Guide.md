@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-15
 
 ## Layout
 
@@ -46,6 +46,15 @@
   `tests/unit/floor/pos-menu-availability.test.ts`
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
+- Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,
+  `tests/unit/menu/menu-tab-persistence.test.ts`,
+  `tests/unit/menu/dish-menu-tab-options.test.ts`,
+  `tests/unit/menu/guest-menu-tabs.test.ts`,
+  `tests/unit/menu/menus-bootstrap.test.ts` (MT-4a CREATE-before-GRANT; MT-4c
+  hosted RLS + five-id `INSERT … ON CONFLICT (id) DO NOTHING`; MT-4e every
+  `CREATE TABLE IF NOT EXISTS menus` file seeds those five ids),
+  `tests/unit/menu/menus-integ-strict.test.ts` (MT-4b PRE-SATISFIED pin; MT-4d
+  `vitest.integration.config.ts` `test.env`)
 - Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note
   cap; BD-READ-FAIL blocked-date SELECT fail-closed)
 - Reservation isolation (RES-ISO):

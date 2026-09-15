@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-15
 
 ## Prerequisites
 
@@ -21,8 +21,10 @@ Env: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
 `SUPABASE_SERVICE_ROLE_KEY`. `vitest.integration.config.ts` does not load
 dotenv or call Vite's `loadEnv`, and does not set `envPrefix` (which would
 only affect `import.meta.env`, not `process.env`, anyway) — it never reads
-`.env.local` at all. Strict runs need those vars exported in the same shell
-from `npx supabase status` (local `127.0.0.1` URL + anon + service_role).
+`.env.local` at all. It does set `test.env.RESTAURANT_INTEGRATION_STRICT` to
+`"true"` (MT-4d) so a bare `pnpm test:integration` fail-closes. Strict runs
+still need the three vars exported in the same shell from
+`npx supabase status` (local `127.0.0.1` URL + anon + service_role).
 
 ## Local-only mutating coverage (OH-SAVE)
 
@@ -131,8 +133,10 @@ MUST include the same pin. Unit glob-scan:
 
 ## Layout
 
-- Config: `vitest.integration.config.ts`
+- Config: `vitest.integration.config.ts` (`test.env.RESTAURANT_INTEGRATION_STRICT`
+  is `"true"`)
 - Setup: `tests/integration/setup.ts` (honours `RESTAURANT_INTEGRATION_STRICT`;
+  throw gate when `integrationStrict && !authEnvReady`;
   `vi.mock("server-only", () => ({}))` so suites can import fenced modules)
 - Helpers: `tests/integration/helpers/`
 - Tests: `tests/integration/**/*.integ.test.ts`
@@ -175,6 +179,9 @@ MUST include the same pin. Unit glob-scan:
   then guest `GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`;
   no table-wide `GRANT INSERT`; no authenticated `FOR ALL`; hostile insert
   of server-owned columns denied).
+  `tests/integration/menu/menus-privileges.integ.test.ts` (`menus` PUBLIC-READ-PRIV:
+  guest SELECT, no authenticated `FOR ALL`, anon INSERT denied; zero-arg
+  `assertIsolatedHoursMutationTarget()` in `beforeAll` / `afterEach`).
 - Confirmation-code uniqueness (AC-4 CONF-CODE-UNIQUE / RES-ISO):
   `tests/integration/reservations/confirmation-code-uniqueness.integ.test.ts`
   (second guest insert of the same `TVL-####` is SQLSTATE `23505`; exactly one
@@ -209,25 +216,28 @@ The named catalog `it("local reset keeps validate_reservation_availability trigg
 
 Unit pin: `tests/unit/reservations/reservation-integ-isolation.test.ts` → `"RES-TRIGGER-EXEC local catalog coverage is outside the auth environment skip and retains its local guard"`. Spec: [../specs/booking-rules.md](../specs/booking-rules.md) RES-TRIGGER-EXEC-AUTHLESS.
 
-To prove the catalog `it()` executes without auth keys, run in a **child process/session** with a local URL and the keys/STRICT **unset** (`RESTAURANT_INTEGRATION_STRICT` setup rejects missing keys):
+The named catalog `it()` stays outside `describe.skipIf(!authEnvReady)`. A child process/session can still unset the anon and service_role keys, but `vitest.integration.config.ts` `test.env.RESTAURANT_INTEGRATION_STRICT` is `"true"` (MT-4d), so a parent-shell `Remove-Item Env:RESTAURANT_INTEGRATION_STRICT` does not override the throw in `tests/integration/setup.ts`. Missing keys therefore throw at setup (do not skip-green).
 
 ```powershell
 $env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
 Remove-Item Env:NEXT_PUBLIC_SUPABASE_ANON_KEY -ErrorAction SilentlyContinue
 Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY -ErrorAction SilentlyContinue
-Remove-Item Env:RESTAURANT_INTEGRATION_STRICT -ErrorAction SilentlyContinue
 pnpm test:integration tests/integration/security/sibling-privileges.integ.test.ts
 ```
 
-The named trigger-EXECUTE test must appear as passed or failed, never only skipped. The sibling matrix `it("local reset exposes only the approved sibling role capability matrix")` may skip in that invocation.
+When keys are missing this invocation throws at setup (no `it()` result). When keys are present, the named trigger-EXECUTE test must appear as passed or failed, never only skipped. The sibling matrix `it("local reset exposes only the approved sibling role capability matrix")` may skip when `authEnvReady` is false.
 
 ## Skip vs strict
 
 Suites use `describe.skipIf(!authEnvReady)` when Supabase env is absent.
-With `RESTAURANT_INTEGRATION_STRICT=true`, missing env **throws** at setup (no silent skip). The RES-TRIGGER-EXEC catalog `it()` is outside that skip (see Authless local-catalog coverage).
+`vitest.integration.config.ts` `test.env` sets `RESTAURANT_INTEGRATION_STRICT`
+to `"true"` (MT-4d), so a bare `pnpm test:integration` **throws** at
+`tests/integration/setup.ts` when auth env is missing (no silent skip).
+A parent-shell unset does not override `test.env`. The RES-TRIGGER-EXEC
+catalog `it()` is outside that skip (see Authless local-catalog coverage).
 
 ```powershell
-$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration
+pnpm test:integration
 ```
 
 ## Running

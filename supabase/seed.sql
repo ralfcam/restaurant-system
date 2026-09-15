@@ -201,6 +201,17 @@ FROM (
 ) AS v(name)
 WHERE NOT EXISTS (SELECT 1 FROM servers);
 
+-- RES-70 / MT-3: seed the five compiled catalog tab ids so existing dishes
+-- stay associated. Titles and sort_order match lib/menu-catalog.json order.
+INSERT INTO menus (id, title, title_en, sort_order)
+VALUES
+  ('midi', 'Menu Midi', 'Lunch Menu', 0),
+  ('soir', 'Menu Soir', 'Dinner Menu', 1),
+  ('boissons', 'Boissons & Philosophie', 'Drinks & Philosophy', 2),
+  ('blanc', 'Vins Blancs', 'White Wines', 3),
+  ('rouge', 'Vins Rouges', 'Red Wines', 4)
+ON CONFLICT (id) DO NOTHING;
+
 INSERT INTO menu_items (id, slug, name, name_en, description, description_en, price, price_value, menu_id, section, section_en, popular, available, sort_order)
 VALUES
   ('midi-les-entrees-au-choix-veloute-froid-de-petits-pois-menthe-et-mousse-de','midi-les-entrees-au-choix-veloute-froid-de-petits-pois-menthe-et-mousse-de','Velouté froid de petits pois, menthe et mousse de brebis','Chilled green pea soup, mint and ewe''s milk cheese mousse','Velouté rafraîchissant de petits pois frais, menthe du potager et émulsion crémeuse de brebis','Refreshing cold green pea soup, garden mint, and creamy sheep''s milk cheese emulsion','11.-',11,'midi','Les Entrées (au choix)','Starters (choose one)',false,true,0),

@@ -54,7 +54,7 @@ type Draft = {
   description: string
   description_en: string
   price: string
-  menu_id: MenuId
+  menu_id: string
   section: string
   section_en: string
   popular: boolean
@@ -105,9 +105,11 @@ function menuLabel(menuId: MenuId) {
 export function MenuManager({
   initialItems = [],
   initialChefsPicksEnabled = true,
+  menuTabOptions = [],
 }: {
   initialItems?: MenuItemRow[]
   initialChefsPicksEnabled?: boolean
+  menuTabOptions?: { id: string; title: string }[]
 }) {
   const [items, setItems] = useState<MenuItemRow[]>(initialItems)
   const [chefsPicksEnabled, setChefsPicksEnabledState] = useState(
@@ -191,7 +193,7 @@ export function MenuManager({
       description_en: draft.description_en.trim(),
       price: draft.price.trim(),
       price_value: priceValue,
-      menu_id: draft.menu_id,
+      menu_id: draft.menu_id as MenuId,
       section: draft.section.trim(),
       section_en: draft.section_en.trim(),
       popular: draft.popular,
@@ -523,7 +525,7 @@ export function MenuManager({
               <Select
                 value={draft.menu_id}
                 onValueChange={(v) => {
-                  const menuId = (v as MenuId) ?? draft.menu_id
+                  const menuId = v || draft.menu_id
                   const menu = MENUS.find((m) => m.id === menuId)
                   const section = menu?.sections[0]
                   setDraft((d) => ({
@@ -538,7 +540,7 @@ export function MenuManager({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MENUS.map((menu) => (
+                  {menuTabOptions.map((menu) => (
                     <SelectItem key={menu.id} value={menu.id}>
                       {menu.title}
                     </SelectItem>

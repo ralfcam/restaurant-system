@@ -279,3 +279,89 @@ export async function toggleMenuItemAvailability(
   revalidatePath("/admin/menu")
   return {}
 }
+
+export async function getMenuTabs() {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return []
+
+  const supabase = createServiceClient()
+  const { data, error } = await supabase
+    .from("menus")
+    .select("id, title, title_en, sort_order")
+    .order("sort_order", { ascending: true })
+  if (error) {
+    console.error("[menu] getMenuTabs error:", error.message)
+    return []
+  }
+  // minimality: PostgREST .order() is the live path; JS sort covers thenables that ignore it
+  return [...(data ?? [])].sort(
+    (a, b) => Number(a.sort_order) - Number(b.sort_order),
+  )
+}
+
+/** Dish create/edit Select options — live `menus` catalog, not compiled MENU_IDS. */
+export async function getDishMenuTabOptions() {
+  return getMenuTabs()
+}
+
+/** Guest/public tab labels — live `menus` titles via anon (MT-1 / MT-8). */
+export async function getPublicMenuTabs() {
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("menus")
+    .select("id, title, title_en, sort_order")
+    .order("sort_order", { ascending: true })
+  if (error) {
+    console.error("[menu] getPublicMenuTabs error:", error.message)
+    return []
+  }
+  // minimality: PostgREST .order() is the live path; JS sort covers thenables that ignore it
+  return [...(data ?? [])].sort(
+    (a, b) => Number(a.sort_order) - Number(b.sort_order),
+  )
+}
+
+export async function createMenuTab({
+  title,
+  title_en,
+}: {
+  title: string
+  title_en: string
+}) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return
+
+  const supabase = createServiceClient()
+  const { error } = await supabase.from("menus").insert({
+    id: crypto.randomUUID(),
+    title,
+    title_en,
+  })
+  if (error) {
+    console.error("[menu] createMenuTab error:", error.message)
+  }
+}
+
+export async function renameMenuTab(
+  id: string,
+  { title, title_en }: { title: string; title_en: string },
+) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return
+
+  const supabase = createServiceClient()
+  await supabase.from("menus").update({ title, title_en }).eq("id", id)
+}
+
+export async function reorderMenuTabs(orderedIds: string[]) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return
+
+  const supabase = createServiceClient()
+  const { error } = await supabase.rpc("reorder_menu_tabs", {
+    p_ordered_ids: orderedIds,
+  })
+  if (error) {
+    console.error("[menu] reorderMenuTabs error:", error.message)
+  }
+}

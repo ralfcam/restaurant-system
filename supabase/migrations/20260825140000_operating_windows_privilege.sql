@@ -41,6 +41,51 @@ REVOKE ALL ON TABLE menu_items FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menu_items TO anon, authenticated;
 GRANT ALL ON TABLE menu_items TO service_role;
 
+-- RES-70 / MT-4a: CREATE TABLE before GRANT/REVOKE so privilege statements
+-- cannot run against a missing relation.
+CREATE TABLE IF NOT EXISTS menus (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  title_en TEXT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
+-- RES-70 / MT-4c: ENABLE RLS + public-read / service_role before GRANT so a
+-- replay of this companion cannot leave menus RLS-less.
+ALTER TABLE menus ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read menus" ON menus;
+CREATE POLICY "Allow public read menus"
+  ON menus FOR SELECT
+  TO public
+  USING (true);
+
+-- RES-70 / MT-4: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to menus" ON menus;
+
+DROP POLICY IF EXISTS "Allow service_role full access to menus" ON menus;
+CREATE POLICY "Allow service_role full access to menus"
+  ON menus FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE menus TO anon, authenticated;
+GRANT ALL ON TABLE menus TO service_role;
+
+-- RES-70 / MT-4e: hosted apply does not re-run seed.sql; seed the five
+-- compiled catalog tab ids so guest/admin tabs are not empty.
+INSERT INTO menus (id, title, title_en, sort_order)
+VALUES
+  ('midi', 'Menu Midi', 'Lunch Menu', 0),
+  ('soir', 'Menu Soir', 'Dinner Menu', 1),
+  ('boissons', 'Boissons & Philosophie', 'Drinks & Philosophy', 2),
+  ('blanc', 'Vins Blancs', 'White Wines', 3),
+  ('rouge', 'Vins Rouges', 'Red Wines', 4)
+ON CONFLICT (id) DO NOTHING;
+
 -- REAZED-298: BC-1 — drop authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE);
 -- GRANT SELECT / REVOKE INSERT, UPDATE, DELETE for anon, authenticated.
 DROP POLICY IF EXISTS "Allow authenticated full access to restaurant_settings" ON restaurant_settings;

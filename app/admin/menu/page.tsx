@@ -1,16 +1,21 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { MenuManager } from "@/components/staff/menu-manager"
-import { getAllMenuItems, getHomepageChefsPicks } from "@/app/actions/menu"
+import {
+  getAllMenuItems,
+  getDishMenuTabOptions,
+  getHomepageChefsPicks,
+} from "@/app/actions/menu"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 
 export const dynamic = "force-dynamic"
 
 export default async function AdminMenuPage() {
-  const [items, authUser, chefsPicks] = await Promise.all([
+  const [items, authUser, chefsPicks, menuTabOptions] = await Promise.all([
     getAllMenuItems(),
     getAuthUser(),
     getHomepageChefsPicks(),
+    getDishMenuTabOptions(),
   ])
 
   return (
@@ -23,6 +28,7 @@ export default async function AdminMenuPage() {
       <MenuManager
         initialItems={items}
         initialChefsPicksEnabled={chefsPicks.enabled}
+        menuTabOptions={menuTabOptions}
       />
     </StaffShell>
   )

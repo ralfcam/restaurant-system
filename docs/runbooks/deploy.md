@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-15
 
 ## Vercel
 
@@ -119,6 +119,7 @@ SA-6.
 | Forward: occupancy duration + buffer   | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`     | Yes on local reset; apply on already-baselined remotes              |
 | Forward: table-fit availability        | `supabase/migrations/20260828121224_table_fit_availability.sql`        | Yes on local reset; apply when occupancy is already recorded        |
 | Forward: restaurant_settings privilege | `supabase/migrations/20260902214500_restaurant_settings_privilege.sql` | Yes on local reset; apply when `20260825140000` is already recorded |
+| Forward: menus bootstrap               | `supabase/migrations/20260915180000_menus_bootstrap.sql`               | Yes on local reset; apply when `20260827160000` is already recorded |
 | Reference data                         | `supabase/seed.sql`                                                    | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 RES-45 review-email objects (`restaurant_settings.review_email_*`,
@@ -127,7 +128,8 @@ baseline only. Local `db reset` applies them. This ship has no dated forward
 for already-baselined remotes.
 
 `seed.sql` holds `restaurant_settings` (singleton, no custom logo),
-`operating_windows` (7 rows), `menu_items` (120 rows from the sample
+`operating_windows` (7 rows), `menus` (5 tab ids: `midi`, `soir`, `boissons`,
+`blanc`, `rouge`), `menu_items` (120 rows from the sample
 `lib/menu-catalog.json` catalog), and `servers` (Maya, Jon, Priya, Dev). Kitchen
 tickets persist in `orders` / `order_items` (baseline schema; no seed rows; not
 in `supabase_realtime`). The public `branding` storage bucket is created
@@ -145,8 +147,9 @@ instead of adding dated migration files. Policy detail:
 `20260825140000_operating_windows_privilege.sql`,
 `20260827160000_public_catalog_privileges.sql`,
 `20260827180000_occupancy_duration_buffer.sql`,
-`20260828121224_table_fit_availability.sql`, and
-`20260902214500_restaurant_settings_privilege.sql` are the forward-only exceptions
+`20260828121224_table_fit_availability.sql`,
+`20260902214500_restaurant_settings_privilege.sql`, and
+`20260915180000_menus_bootstrap.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -181,7 +184,7 @@ The same file also
 `REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated` then only the
 public capability (`GRANT INSERT (guest_name, party_size, date, time, phone, email, notes, conf_code)`
 on `reservations`; `GRANT SELECT` on
-`blocked_dates` / `menu_items`) then `GRANT ALL TO service_role`.
+`blocked_dates` / `menu_items` / `menus`) then `GRANT ALL TO service_role`.
 `DROP POLICY IF EXISTS` drops authenticated `FOR ALL` (and public SELECT on
 `reservations`) and never `CREATE`s those policies — same order in every
 object-owning file, not only the latest forward. If `20260825140000` is
@@ -192,10 +195,19 @@ not re-run). The same `20260825140000` file also carries BC-1 SELECT-only on
 no `CREATE`; `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`;
 `GRANT ALL ON TABLE restaurant_settings TO service_role`). If
 `20260825140000` is already recorded, apply
-`20260902214500_restaurant_settings_privilege.sql`. Spec:
+`20260902214500_restaurant_settings_privilege.sql`. If
+`20260827160000` is already recorded, apply
+`20260915180000_menus_bootstrap.sql` for hosted `CREATE TABLE menus`, RLS,
+five MT-3 tab ids (`INSERT … ON CONFLICT (id) DO NOTHING`), plus
+`reorder_menu_tabs` (applied companions do not re-run). Replaying
+`20260827160000` itself also inserts those five ids after its menus
+GRANT/REVOKE trio (MT-4e). Remotes that
+already recorded `20260915180000` (MT-4a) must re-run the file contents
+to pick up the INSERT. Spec:
 [../specs/scheduling.md](../specs/scheduling.md)
 OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18), SIB-PRIV (§19);
-[../specs/branding-cms.md](../specs/branding-cms.md) BC-1. Apply per the recipes
+[../specs/branding-cms.md](../specs/branding-cms.md) BC-1;
+[../specs/menu-availability.md](../specs/menu-availability.md) MT-4a, MT-4c, MT-4e, MT-6a. Apply per the recipes
 below; do not `db push`. Until `20260825140000` is applied on a forked remote
 that still has the old hours policy or DML grants, a logged-in Data API client
 can mutate hours.
@@ -289,7 +301,8 @@ replay history the remote has diverged from.
 
 ### Apply `20260827160000_public_catalog_privileges.sql` on an already-baselined remote
 
-**UAT freshness:** 2026-09-10 — RES-PRIV-REMOTE deferred/manual. Linked project
+**UAT freshness:** 2026-09-15 — RES-PRIV-REMOTE deferred/manual; companion
+replay now also seeds the five MT-3 `menus` ids (MT-4e). Linked project
 `tilcqrudqxznnpepxjqq` already records `20260827160000`; this run did not mutate
 remote. Applying the idempotent `REVOKE ALL` + column `GRANT INSERT` (or
 resetting this no-user pre-production project) is a separately authorized
@@ -301,8 +314,9 @@ is true only for `guest_name`, `party_size`, `date`, `time`, `phone`, `email`,
 `completed_at` and for `PUBLIC` on every `reservations` column;
 `has_table_privilege(..., 'SELECT')` on `reservations` stays false. Confirm
 `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
-`has_table_privilege('anon', 'menu_items', 'SELECT')` are true and INSERT is
-false for both.
+`has_table_privilege('anon', 'menu_items', 'SELECT')` and
+`has_table_privilege('anon', 'menus', 'SELECT')` are true and INSERT is
+false for those catalog tables.
 
 Do not use `db push` or `db reset --linked` for this — the file already ends
 with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
@@ -339,9 +353,17 @@ replay history the remote has diverged from.
    `has_table_privilege('anon', 'reservations', 'SELECT')` is false (same for
    `authenticated`). Confirm
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
-   `has_table_privilege('anon', 'menu_items', 'SELECT')` are true, and INSERT
-   is false for both. Confirm policy `"Allow public read reservations"` is gone
+   `has_table_privilege('anon', 'menu_items', 'SELECT')` and
+   `has_table_privilege('anon', 'menus', 'SELECT')` are true, and INSERT
+   is false for those catalog tables. Confirm
+   `SELECT id FROM menus WHERE id IN ('midi', 'soir', 'boissons', 'blanc', 'rouge')`
+   returns those five rows. Confirm policy `"Allow public read reservations"` is gone
    and no authenticated `FOR ALL` policy remains on those catalog tables.
+   If this version is already recorded, apply
+   `20260915180000_menus_bootstrap.sql` (below) for hosted `CREATE TABLE menus`,
+   RLS, plus `reorder_menu_tabs` (applied companions do not re-run; that dated
+   forward is the path for remotes that already recorded this file). Five-id
+   seed is on this replay too (MT-4e), not only on `20260915180000`.
 
 ### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote
 
@@ -460,6 +482,55 @@ replay history the remote has diverged from.
    `has_table_privilege('authenticated', 'restaurant_settings', 'SELECT')` are
    true, and INSERT, UPDATE, DELETE are false for both. Confirm policy
    `"Allow authenticated full access to restaurant_settings"` is gone.
+
+### Apply `20260915180000_menus_bootstrap.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-09-15 — apply this file when `20260827160000` is
+already recorded (applied companions do not re-run; do not `db push`).
+Remotes that already recorded `20260915180000` from MT-4a still have an
+empty `menus` table until the current file contents are re-run (in-place
+edit does not re-apply). Then confirm `menus` exists with `id` / `title` /
+`title_en` / `sort_order`, the five MT-3 ids (`midi`, `soir`, `boissons`,
+`blanc`, `rouge`) are present, `has_table_privilege('anon', 'menus', 'SELECT')`
+is true and INSERT is false, and
+`has_function_privilege('service_role', 'public.reorder_menu_tabs(jsonb)', 'EXECUTE')`
+is true (anon/authenticated EXECUTE false).
+
+Do not use `db push` or `db reset --linked` for this — the file already ends
+with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
+replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260915180000_menus_bootstrap.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260915180000', 'menus_bootstrap');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260915180000 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260915180000';
+   ```
+
+   Confirm `to_regclass('public.menus')` is not null. Confirm
+   `has_table_privilege('anon', 'menus', 'SELECT')` and
+   `has_table_privilege('authenticated', 'menus', 'SELECT')` are true, and
+   INSERT is false for both. Confirm
+   `SELECT id FROM menus WHERE id IN ('midi', 'soir', 'boissons', 'blanc', 'rouge')`
+   returns those five rows. Confirm
+   `has_function_privilege('service_role', 'public.reorder_menu_tabs(jsonb)', 'EXECUTE')`
+   is true and the same for `anon` / `authenticated` is false. Confirm policy
+   `"Allow authenticated full access to menus"` is gone.
 
 ### Reset database
 

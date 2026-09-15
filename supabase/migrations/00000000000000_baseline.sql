@@ -155,6 +155,48 @@ GRANT ALL ON TABLE review_email_sends TO service_role;
 -- PV-12: strip leftover default privs too (not DML-only REVOKE — no anon/authenticated GRANT).
 REVOKE ALL ON TABLE review_email_sends FROM anon, authenticated;
 
+-- ── menus (RES-70 / MT-4: PUBLIC-READ-PRIV catalog tabs) ─────────────────────
+CREATE TABLE IF NOT EXISTS menus (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  title_en TEXT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
+ALTER TABLE menus ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read menus" ON menus;
+CREATE POLICY "Allow public read menus"
+  ON menus FOR SELECT
+  TO public
+  USING (true);
+
+-- RES-70 / MT-4: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to menus" ON menus;
+
+DROP POLICY IF EXISTS "Allow service_role full access to menus" ON menus;
+CREATE POLICY "Allow service_role full access to menus"
+  ON menus FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE menus TO anon, authenticated;
+GRANT ALL ON TABLE menus TO service_role;
+
+-- RES-70 / MT-4e: hosted apply does not re-run seed.sql; seed the five
+-- compiled catalog tab ids so guest/admin tabs are not empty.
+INSERT INTO menus (id, title, title_en, sort_order)
+VALUES
+  ('midi', 'Menu Midi', 'Lunch Menu', 0),
+  ('soir', 'Menu Soir', 'Dinner Menu', 1),
+  ('boissons', 'Boissons & Philosophie', 'Drinks & Philosophy', 2),
+  ('blanc', 'Vins Blancs', 'White Wines', 3),
+  ('rouge', 'Vins Rouges', 'Red Wines', 4)
+ON CONFLICT (id) DO NOTHING;
+
 -- ── menu_items ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS menu_items (
   id TEXT PRIMARY KEY,
@@ -440,6 +482,26 @@ $$;
 REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
+
+-- RES-70 / MT-6a: apply menus.sort_order as one service-role operation.
+-- Tab ids stay unchanged (MT-2). Invoker is service_role (not SECURITY DEFINER).
+CREATE OR REPLACE FUNCTION reorder_menu_tabs(p_ordered_ids jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  UPDATE public.menus AS m
+  SET sort_order = (o.ordinality - 1)::INT
+  FROM jsonb_array_elements_text(p_ordered_ids)
+    WITH ORDINALITY AS o(id, ordinality)
+  WHERE m.id = o.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION reorder_menu_tabs(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION reorder_menu_tabs(jsonb) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION reorder_menu_tabs(jsonb) TO service_role;
 
 DROP TRIGGER IF EXISTS enforce_booking_rules ON reservations;
 
