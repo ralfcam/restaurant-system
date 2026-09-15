@@ -16,6 +16,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Reservations / booking                         | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
 | Reservation analytics                          | [specs/reservation-analytics.md](./specs/reservation-analytics.md)                                                              |
 | Event inquiries                                | [specs/event-inquiries.md](./specs/event-inquiries.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md) |
+| Guest profiles (staff ficha)                   | [specs/guest-profiles.md](./specs/guest-profiles.md)                                                                            |
 | Menu / 86 / POS / KDS                          | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
 | Guest site chrome (header / logo)              | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
 | Guest site localization                        | [specs/site-localization.md](./specs/site-localization.md)                                                                      |
@@ -44,6 +45,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Reservation booking rules                    | `specs/booking-rules.md`           | `architecture/Reservation-Flow.md`                                                            |
 | Reservation / occupancy analytics            | `specs/reservation-analytics.md`   | `architecture/Platform-Overview.md`; `architecture/Auth-And-RLS.md`                           |
 | Event inquiries (not occupancy)              | `specs/event-inquiries.md`         | `architecture/Reservation-Flow.md`; `architecture/Auth-And-RLS.md`                            |
+| Guest profiles (staff ficha)                 | `specs/guest-profiles.md`          | `specs/booking-rules.md`; `specs/staff-authorization.md`                                      |
 | Menu availability / 86                       | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                                                                  |
 | Staff scheduling / tables                    | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                                                                  |
 | Guest header / brand logo                    | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                                                     |
