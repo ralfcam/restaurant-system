@@ -99,4 +99,29 @@ describe("menus privilege bootstrap", () => {
       missingRlsBeforeGrant: [],
     })
   })
+
+  it("every CREATE menus migration seeds the five tab ids", () => {
+    const migrationsDir = path.join(root, "supabase/migrations")
+    const files = readdirSync(migrationsDir).filter((name) =>
+      name.endsWith(".sql"),
+    )
+    const createMenusFiles = files.filter((name) => {
+      const sql = readFileSync(path.join(migrationsDir, name), "utf8")
+      return sql.includes(CREATE_MENUS)
+    })
+
+    expect(createMenusFiles.length).toBeGreaterThan(0)
+
+    const missingFiveIdSeed = createMenusFiles.filter((name) => {
+      const sql = readFileSync(path.join(migrationsDir, name), "utf8")
+      const insertWithConflict = sql.match(/INSERT[\s\S]*?ON CONFLICT/i)
+      const insertSql = insertWithConflict?.[0] ?? ""
+      const missingSeedIds = SEED_TAB_IDS.filter(
+        (id) => !insertSql.includes(id),
+      )
+      return !insertWithConflict || missingSeedIds.length > 0
+    })
+
+    expect(missingFiveIdSeed).toEqual([])
+  })
 })

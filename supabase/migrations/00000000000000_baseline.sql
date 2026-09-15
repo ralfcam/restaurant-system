@@ -186,6 +186,17 @@ REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menus TO anon, authenticated;
 GRANT ALL ON TABLE menus TO service_role;
 
+-- RES-70 / MT-4e: hosted apply does not re-run seed.sql; seed the five
+-- compiled catalog tab ids so guest/admin tabs are not empty.
+INSERT INTO menus (id, title, title_en, sort_order)
+VALUES
+  ('midi', 'Menu Midi', 'Lunch Menu', 0),
+  ('soir', 'Menu Soir', 'Dinner Menu', 1),
+  ('boissons', 'Boissons & Philosophie', 'Drinks & Philosophy', 2),
+  ('blanc', 'Vins Blancs', 'White Wines', 3),
+  ('rouge', 'Vins Rouges', 'Red Wines', 4)
+ON CONFLICT (id) DO NOTHING;
+
 -- ── menu_items ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS menu_items (
   id TEXT PRIMARY KEY,

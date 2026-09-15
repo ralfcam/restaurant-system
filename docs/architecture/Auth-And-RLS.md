@@ -79,8 +79,12 @@ optional custom logo (`logo.{png,jpg,svg,webp}`, max 2MB). No static logo files
 ship in `public/`; fresh resets show the restaurant name only until super-admin upload. Baseline migrations
 create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can call
 `storage.createBucket` when upload returns bucket-not-found, then retry. Reference
-data (`operating_windows`, `menus` five tab ids, `menu_items`,
+data (`operating_windows`, `menu_items`,
 `restaurant_settings` singleton, `servers`) loads from `supabase/seed.sql` on `db reset`.
+The five `menus` tab ids (`midi`, `soir`, `boissons`, `blanc`, `rouge`)
+`INSERT … ON CONFLICT (id) DO NOTHING` after GRANT on every
+`CREATE TABLE IF NOT EXISTS menus` file (MT-4e); `seed.sql` still inserts the
+same ids on `db reset`.
 
 `operating_windows` is SELECT-only for `anon` and `authenticated`
 (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges
@@ -170,10 +174,13 @@ Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
 `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
 and `20260827160000_public_catalog_privileges.sql` (companions
 `CREATE TABLE IF NOT EXISTS menus` plus ENABLE RLS and the two named
-public-read / service_role policies before GRANT). On an already-baselined
+public-read / service_role policies before GRANT, then the five-id
+`INSERT … ON CONFLICT (id) DO NOTHING` after the menus GRANT/REVOKE trio).
+On an already-baselined
 forked remote, apply `20260825140000_operating_windows_privilege.sql` when
 that version is absent; if `20260825140000` is already recorded, apply
 `20260827160000_public_catalog_privileges.sql` for catalog privilege changes
+and the five-id seed
 instead of replaying the applied file; if `20260827160000` is already
 recorded, apply `20260915180000_menus_bootstrap.sql` for hosted `menus`
 CREATE, RLS, five-id `INSERT … ON CONFLICT (id) DO NOTHING`, plus
@@ -182,7 +189,7 @@ CREATE, RLS, five-id `INSERT … ON CONFLICT (id) DO NOTHING`, plus
 Spec:
 [../specs/scheduling.md](../specs/scheduling.md) §18,
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
-[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-4, MT-4a, MT-4c, MT-6a.
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-4, MT-4a, MT-4c, MT-4e, MT-6a.
 
 `validate_reservation_availability` (`enforce_booking_rules`) is
 `SECURITY DEFINER` so that insert-only path can still cover-count and

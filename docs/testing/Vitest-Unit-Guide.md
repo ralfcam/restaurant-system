@@ -51,7 +51,8 @@
   `tests/unit/menu/dish-menu-tab-options.test.ts`,
   `tests/unit/menu/guest-menu-tabs.test.ts`,
   `tests/unit/menu/menus-bootstrap.test.ts` (MT-4a CREATE-before-GRANT; MT-4c
-  hosted RLS + five-id `INSERT … ON CONFLICT (id) DO NOTHING`),
+  hosted RLS + five-id `INSERT … ON CONFLICT (id) DO NOTHING`; MT-4e every
+  `CREATE TABLE IF NOT EXISTS menus` file seeds those five ids),
   `tests/unit/menu/menus-integ-strict.test.ts` (MT-4b PRE-SATISFIED pin; MT-4d
   `vitest.integration.config.ts` `test.env`)
 - Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note

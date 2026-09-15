@@ -136,6 +136,12 @@ FROM PUBLIC, anon, authenticated` then
     `pnpm test:integration` cannot `skipIf`-skip that suite when auth env
     is missing. `tests/integration/setup.ts` remains the throw gate
     (MT-4b). Do not add a second throw in the integ file.
+21. **MT-4e Companion five-id seed** — Every migration that
+    `CREATE TABLE IF NOT EXISTS menus` MUST idempotently insert the five
+    MT-3 seed ids (`midi`, `soir`, `boissons`, `blanc`, `rouge`) with
+    `ON CONFLICT (id) DO NOTHING`. Dated-forward seed (MT-4c) is not
+    enough when an operator replays a privilege companion without
+    `seed.sql`.
 
 ## Implementation trace (non-normative)
 
@@ -159,12 +165,14 @@ FROM PUBLIC, anon, authenticated` then
 | MT-4b Strict integ fail-closed  | PRE-SATISFIED pin of existing `tests/integration/setup.ts` throw when `integrationStrict && !authEnvReady`; `vitest.integration.config.ts` `include` + `setupFiles`; `globSync(include)` contains `tests/integration/menu/menus-privileges.integ.test.ts`. `describe.skipIf(!authEnvReady)` left in place — no second throw.                                                                                                                                                                | `tests/unit/menu/menus-integ-strict.test.ts` → "menus privilege integ is covered by STRICT fail-closed setup"                                                                                                                                                                                                                       |
 | MT-4c Hosted menus RLS + seed   | Dated `20260915180000_menus_bootstrap.sql` `ENABLE ROW LEVEL SECURITY` + `"Allow public read menus"` + `"Allow service_role full access to menus"` + `INSERT … ON CONFLICT (id) DO NOTHING` of `midi`, `soir`, `boissons`, `blanc`, `rouge`. Companions `20260825140000_operating_windows_privilege.sql` and `20260827160000_public_catalog_privileges.sql` copy ENABLE RLS + those two named policies onto `CREATE TABLE IF NOT EXISTS menus` before GRANT.                                | `tests/unit/menu/menus-bootstrap.test.ts` → "hosted menus bootstrap enables RLS and seeds the five tab ids"                                                                                                                                                                                                                         |
 | MT-4d Integration config STRICT | `vitest.integration.config.ts` `test.env.RESTAURANT_INTEGRATION_STRICT` is `"true"`. Throw remains in `tests/integration/setup.ts` (MT-4b). No second throw in the integ file.                                                                                                                                                                                                                                                                                                              | `tests/unit/menu/menus-integ-strict.test.ts` → "integration config sets STRICT so menus privilege integ cannot skip-green"                                                                                                                                                                                                          |
+| MT-4e Companion five-id seed    | Every `CREATE TABLE IF NOT EXISTS menus` file inserts `midi`, `soir`, `boissons`, `blanc`, `rouge` with `ON CONFLICT (id) DO NOTHING` after that file's menus GRANT/REVOKE trio: `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`, `20260827160000_public_catalog_privileges.sql`, `20260915180000_menus_bootstrap.sql`.                                                                                                                                     | `tests/unit/menu/menus-bootstrap.test.ts` → "every CREATE menus migration seeds the five tab ids"                                                                                                                                                                                                                                   |
 
 ## References
 
 - [../architecture/Order-Flow.md](../architecture/Order-Flow.md)
 - `menus` table in `supabase/migrations/00000000000000_baseline.sql` (PUBLIC-READ-PRIV;
-  same recipe as `menu_items`); dated forward
+  same recipe as `menu_items`; five-id `INSERT … ON CONFLICT (id) DO NOTHING` after
+  GRANT/REVOKE, same as companions `20260825140000` / `20260827160000`); dated forward
   `supabase/migrations/20260915180000_menus_bootstrap.sql` (RLS + five-id
   `INSERT … ON CONFLICT (id) DO NOTHING`); seed ids `midi`, `soir`, `boissons`, `blanc`,
   `rouge` in `supabase/seed.sql` (local reset)

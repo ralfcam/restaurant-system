@@ -203,13 +203,17 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 
 ## Execution Preconditions
 
-- Infra needed: none (all unit/mocked). C2/C3 are source-text pins. Do not require `db reset` for this loop.
+- Infra needed: none for inner TDD (C2/C3 are unit source-text pins). C2 edits
+  `supabase/migrations/**`, so **before C2 close-out** require a successful
+  `npx supabase db reset --local`, a second reset that is a no-op, and
+  `npx supabase db lint --local --fail-on error` with zero errors. Unit
+  source-text checks do not replace that gate.
 - If a later residual needs live integ, run `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration tests/integration/menu/menus-privileges.integ.test.ts` (fail-closed).
 
 ## Permissions Requested (before execution)
 
 - Spec create/edit: `docs/specs/menu-availability.md` — add MT-6a, MT-4a, MT-4b.
-- Existing-test edit: `tests/integration/menu/menus-privileges.integ.test.ts` — C2 Green may add a new dated forward file to `MIGRATION_FILES` if that file also carries the GRANT trio. C3 must not rewrite `skipIf` unless a Red that is not pre-satisfied requires it (C3 pins setup coverage, not skipIf removal).
+- Existing-test edit: `tests/integration/menu/menus-privileges.integ.test.ts` — C2 Red may add a new dated forward file to `MIGRATION_FILES` if that file also carries the GRANT trio. C2 Green must not edit tests. C3 must not rewrite `skipIf` unless a Red that is not pre-satisfied requires it (C3 pins setup coverage, not skipIf removal).
 - Existing-test edit: `tests/unit/menu/menu-tab-persistence.test.ts` — add a new `it` only (do not rewrite the existing MT-6 persist `it`).
 
 ## TDD Execution Loop
@@ -223,7 +227,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 ### Criterion C2 — MT-4a CREATE before GRANT (layer: unit)
 
 - **Red** → Invoke `tdd-red` to write `tests/unit/menu/menus-bootstrap.test.ts` :: `menus privilege migrations create the table before granting`. Scan `supabase/migrations/*.sql`; every file with `GRANT SELECT ON TABLE menus` must have an earlier `CREATE TABLE IF NOT EXISTS menus` naming `id`, `title`, `title_en`, `sort_order`. Must fail on today's companions. Command: `pnpm test:unit tests/unit/menu/menus-bootstrap.test.ts`.
-- **Green** → Invoke `tdd-green` to add `CREATE TABLE IF NOT EXISTS menus` (same columns as baseline) before GRANT/REVOKE in both privilege companions. Also add a new dated forward migration for already-applied hosts (supabase-migrations.mdc all-three test). Copy the same CREATE + privilege trio into that file. May update `MIGRATION_FILES` in the listed existing integ test. Exit = target test green.
+- **Green** → Invoke `tdd-green` to add `CREATE TABLE IF NOT EXISTS menus` (same columns as baseline) before GRANT/REVOKE in both privilege companions. Also add a new dated forward migration for already-applied hosts (supabase-migrations.mdc all-three test). Copy the same CREATE + privilege trio into that file. Do not edit tests; `MIGRATION_FILES` updates belong to C2 Red. Exit = target test green.
 - **Refactor** → Invoke `tdd-refactor` to clean C2 SQL/source; exit = green + lint + typecheck + prettier --check on touched source.
 
 ### Criterion C3 — MT-4b STRICT fail-closed coverage (layer: unit)

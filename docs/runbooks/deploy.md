@@ -199,13 +199,15 @@ no `CREATE`; `GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`;
 `20260827160000` is already recorded, apply
 `20260915180000_menus_bootstrap.sql` for hosted `CREATE TABLE menus`, RLS,
 five MT-3 tab ids (`INSERT … ON CONFLICT (id) DO NOTHING`), plus
-`reorder_menu_tabs` (applied companions do not re-run). Remotes that
+`reorder_menu_tabs` (applied companions do not re-run). Replaying
+`20260827160000` itself also inserts those five ids after its menus
+GRANT/REVOKE trio (MT-4e). Remotes that
 already recorded `20260915180000` (MT-4a) must re-run the file contents
 to pick up the INSERT. Spec:
 [../specs/scheduling.md](../specs/scheduling.md)
 OH-PRIV (§16), EARLY-PRIV (§17), PUBLIC-READ-PRIV (§18), SIB-PRIV (§19);
 [../specs/branding-cms.md](../specs/branding-cms.md) BC-1;
-[../specs/menu-availability.md](../specs/menu-availability.md) MT-4a, MT-4c, MT-6a. Apply per the recipes
+[../specs/menu-availability.md](../specs/menu-availability.md) MT-4a, MT-4c, MT-4e, MT-6a. Apply per the recipes
 below; do not `db push`. Until `20260825140000` is applied on a forked remote
 that still has the old hours policy or DML grants, a logged-in Data API client
 can mutate hours.
@@ -299,7 +301,8 @@ replay history the remote has diverged from.
 
 ### Apply `20260827160000_public_catalog_privileges.sql` on an already-baselined remote
 
-**UAT freshness:** 2026-09-10 — RES-PRIV-REMOTE deferred/manual. Linked project
+**UAT freshness:** 2026-09-15 — RES-PRIV-REMOTE deferred/manual; companion
+replay now also seeds the five MT-3 `menus` ids (MT-4e). Linked project
 `tilcqrudqxznnpepxjqq` already records `20260827160000`; this run did not mutate
 remote. Applying the idempotent `REVOKE ALL` + column `GRANT INSERT` (or
 resetting this no-user pre-production project) is a separately authorized
@@ -352,11 +355,15 @@ replay history the remote has diverged from.
    `has_table_privilege('anon', 'blocked_dates', 'SELECT')` and
    `has_table_privilege('anon', 'menu_items', 'SELECT')` and
    `has_table_privilege('anon', 'menus', 'SELECT')` are true, and INSERT
-   is false for those catalog tables. Confirm policy `"Allow public read reservations"` is gone
+   is false for those catalog tables. Confirm
+   `SELECT id FROM menus WHERE id IN ('midi', 'soir', 'boissons', 'blanc', 'rouge')`
+   returns those five rows. Confirm policy `"Allow public read reservations"` is gone
    and no authenticated `FOR ALL` policy remains on those catalog tables.
    If this version is already recorded, apply
    `20260915180000_menus_bootstrap.sql` (below) for hosted `CREATE TABLE menus`,
-   RLS, five-id seed, plus `reorder_menu_tabs` instead of re-running this file.
+   RLS, plus `reorder_menu_tabs` (applied companions do not re-run; that dated
+   forward is the path for remotes that already recorded this file). Five-id
+   seed is on this replay too (MT-4e), not only on `20260915180000`.
 
 ### Apply `20260827180000_occupancy_duration_buffer.sql` on an already-baselined remote
 
