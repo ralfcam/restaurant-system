@@ -472,6 +472,26 @@ REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
 
+-- RES-70 / MT-6a: apply menus.sort_order as one service-role operation.
+-- Tab ids stay unchanged (MT-2). Invoker is service_role (not SECURITY DEFINER).
+CREATE OR REPLACE FUNCTION reorder_menu_tabs(p_ordered_ids jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  UPDATE public.menus AS m
+  SET sort_order = (o.ordinality - 1)::INT
+  FROM jsonb_array_elements_text(p_ordered_ids)
+    WITH ORDINALITY AS o(id, ordinality)
+  WHERE m.id = o.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION reorder_menu_tabs(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION reorder_menu_tabs(jsonb) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION reorder_menu_tabs(jsonb) TO service_role;
+
 DROP TRIGGER IF EXISTS enforce_booking_rules ON reservations;
 
 CREATE TRIGGER enforce_booking_rules

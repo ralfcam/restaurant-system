@@ -358,9 +358,10 @@ export async function reorderMenuTabs(orderedIds: string[]) {
   if (!staffUser) return
 
   const supabase = createServiceClient()
-  await Promise.all(
-    orderedIds.map((tabId, index) =>
-      supabase.from("menus").update({ sort_order: index }).eq("id", tabId),
-    ),
-  )
+  const { error } = await supabase.rpc("reorder_menu_tabs", {
+    p_ordered_ids: orderedIds,
+  })
+  if (error) {
+    console.error("[menu] reorderMenuTabs error:", error.message)
+  }
 }

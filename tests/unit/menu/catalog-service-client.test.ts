@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   createCookieClient: vi.fn(),
   createServiceClient: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -85,17 +86,20 @@ describe("staff menu catalog client", () => {
     mocks.createCookieClient.mockReset()
     mocks.createServiceClient.mockReset()
     mocks.from.mockReset()
+    mocks.rpc.mockReset()
     mocks.from.mockImplementation(() =>
       thenable({
         data: [{ ...catalogRow, created_at: "1970-01-01T00:00:00.000Z" }],
         error: null,
       }),
     )
+    mocks.rpc.mockResolvedValue({ data: null, error: null })
     mocks.createCookieClient.mockImplementation(async () => ({
       from: mocks.from,
     }))
     mocks.createServiceClient.mockImplementation(() => ({
       from: mocks.from,
+      rpc: mocks.rpc,
     }))
   })
 

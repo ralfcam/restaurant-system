@@ -41,6 +41,15 @@ REVOKE ALL ON TABLE menu_items FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON TABLE menu_items TO anon, authenticated;
 GRANT ALL ON TABLE menu_items TO service_role;
 
+-- RES-70 / MT-4a: CREATE TABLE before GRANT/REVOKE so privilege statements
+-- cannot run against a missing relation.
+CREATE TABLE IF NOT EXISTS menus (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  title_en TEXT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
 -- RES-70 / MT-4: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
 -- FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow authenticated full access to menus" ON menus;

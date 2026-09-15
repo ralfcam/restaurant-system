@@ -12,6 +12,7 @@ const MIGRATION_FILES = [
   "supabase/migrations/00000000000000_baseline.sql",
   "supabase/migrations/20260825140000_operating_windows_privilege.sql",
   "supabase/migrations/20260827160000_public_catalog_privileges.sql",
+  "supabase/migrations/20260915180000_menus_bootstrap.sql",
 ] as const
 
 const GRANT_SELECT_MENUS = "GRANT SELECT ON TABLE menus TO anon, authenticated"

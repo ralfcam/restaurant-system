@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
   from: vi.fn(),
   insert: vi.fn(),
+  update: vi.fn(),
+  upsert: vi.fn(),
+  rpc: vi.fn(),
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -61,6 +64,34 @@ const staffUser = { id: "staff-1" }
 
 const SEED_IDS = ["midi", "soir", "boissons", "blanc", "rouge"] as const
 
+function collectOrderedIds(value: unknown): string[] | null {
+  if (
+    Array.isArray(value) &&
+    value.every((entry) => typeof entry === "string")
+  ) {
+    return value
+  }
+  if (
+    Array.isArray(value) &&
+    value.every((entry) => entry && typeof entry === "object" && "id" in entry)
+  ) {
+    return [...value]
+      .sort(
+        (left, right) =>
+          Number((left as { sort_order?: number }).sort_order ?? 0) -
+          Number((right as { sort_order?: number }).sort_order ?? 0),
+      )
+      .map((entry) => String((entry as { id: unknown }).id))
+  }
+  if (value && typeof value === "object") {
+    for (const nested of Object.values(value)) {
+      const found = collectOrderedIds(nested)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 describe("menu tab persistence", () => {
   let menus: Row[]
 
@@ -103,7 +134,20 @@ describe("menu tab persistence", () => {
     mocks.createServiceClient.mockReset()
     mocks.from.mockReset()
     mocks.insert.mockReset()
+    mocks.update.mockReset()
+    mocks.upsert.mockReset()
+    mocks.rpc.mockReset()
     mocks.requireStaffUser.mockResolvedValue(staffUser)
+    mocks.rpc.mockImplementation((_fn: string, params?: unknown) => {
+      const orderedIds = collectOrderedIds(params)
+      if (orderedIds) {
+        for (const [index, id] of orderedIds.entries()) {
+          const row = menus.find((candidate) => candidate.id === id)
+          if (row) row.sort_order = index
+        }
+      }
+      return Promise.resolve({ data: null, error: null })
+    })
 
     const tables: Record<string, Row[]> = { menus }
 
@@ -119,6 +163,7 @@ describe("menu tab persistence", () => {
           return thenable({ data: incoming, error: null })
         },
         update(patch: Row) {
+          mocks.update(patch)
           return {
             eq(col: string, val: unknown) {
               for (const row of rows) {
@@ -131,11 +176,24 @@ describe("menu tab persistence", () => {
             },
           }
         },
+        upsert(payload: Row | Row[]) {
+          mocks.upsert(payload)
+          const incoming = (Array.isArray(payload) ? payload : [payload]).map(
+            (row) => ({ ...row }),
+          )
+          for (const row of incoming) {
+            const existing = rows.find((candidate) => candidate.id === row.id)
+            if (existing) Object.assign(existing, row)
+            else rows.push(row)
+          }
+          return thenable({ data: incoming, error: null })
+        },
         select: () => thenable({ data: [...rows], error: null }),
       }
     })
     mocks.createServiceClient.mockImplementation(() => ({
       from: mocks.from,
+      rpc: mocks.rpc,
     }))
     mocks.createCookieClient.mockImplementation(async () => ({
       from: mocks.from,
@@ -220,5 +278,36 @@ describe("menu tab persistence", () => {
       "blanc",
       "rouge",
     ])
+  })
+
+  it("reorder menu tabs applies sort_order in one operation", async () => {
+    const orderedIds = ["soir", "midi", "boissons", "blanc", "rouge"]
+
+    mocks.from.mockClear()
+    mocks.update.mockClear()
+    mocks.upsert.mockClear()
+    mocks.rpc.mockClear()
+
+    await reorderMenuTabs(orderedIds)
+
+    const sortOrderUpdates = mocks.update.mock.calls.filter(
+      ([patch]) =>
+        patch !== null &&
+        typeof patch === "object" &&
+        Object.prototype.hasOwnProperty.call(patch, "sort_order"),
+    )
+    const catalogWrites = [
+      ...mocks.rpc.mock.calls.map((args) => ({ kind: "rpc" as const, args })),
+      ...mocks.upsert.mock.calls.map((args) => ({
+        kind: "upsert" as const,
+        args,
+      })),
+      ...sortOrderUpdates.map((args) => ({ kind: "update" as const, args })),
+    ]
+
+    expect(catalogWrites).toHaveLength(1)
+
+    const serialized = JSON.stringify(catalogWrites[0]?.args)
+    expect(orderedIds.every((id) => serialized.includes(`"${id}"`))).toBe(true)
   })
 })
