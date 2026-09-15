@@ -30,12 +30,14 @@
   version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
   `20260825140000_operating_windows_privilege.sql` (OH-PRIV SELECT-only on
   `operating_windows` plus `GRANT ALL` for `operating_windows`, `blocked_dates`,
-  `reservations`, `menu_items`, `menus`; RES-PRIV insert-only on `reservations`;
+  `reservations`, `menu_items`, `menus`; `CREATE TABLE IF NOT EXISTS menus`
+  before those GRANT/REVOKE statements; RES-PRIV insert-only on `reservations`;
   PUBLIC-READ-PRIV `REVOKE ALL` then `GRANT SELECT` on `blocked_dates`,
   `menu_items`, and `menus`; drop authenticated `FOR ALL` on those siblings; BC-1 SELECT-only on `restaurant_settings`; apply on
   already-baselined remotes — not a full `db push`), and
   `20260827160000_public_catalog_privileges.sql` (same RES-PRIV / PUBLIC-READ-PRIV
-  strings when `20260825140000` is already recorded), plus
+  strings and `CREATE TABLE IF NOT EXISTS menus` before GRANT when
+  `20260825140000` is already recorded), plus
   `20260827180000_occupancy_duration_buffer.sql` (occupancy duration + safety
   buffer columns and last-writer `validate_reservation_availability`; apply on
   already-baselined remotes — not a full `db push`), plus
@@ -45,7 +47,11 @@
   `20260902214500_restaurant_settings_privilege.sql` (BC-1 SELECT-only on
   `restaurant_settings`; same DROP/GRANT/REVOKE/GRANT ALL as baseline and
   `20260825140000`; apply when `20260825140000` is already recorded — not a
-  full `db push`).
+  full `db push`), plus
+  `20260915180000_menus_bootstrap.sql` (`CREATE TABLE IF NOT EXISTS menus`
+  with `id` / `title` / `title_en` / `sort_order`, RLS, public-read /
+  service_role policies, privilege trio, and `reorder_menu_tabs`; apply when
+  `20260827160000` is already recorded — not a full `db push`).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 2 test accounts (see Personas below)

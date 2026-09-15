@@ -49,7 +49,9 @@
 - Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,
   `tests/unit/menu/menu-tab-persistence.test.ts`,
   `tests/unit/menu/dish-menu-tab-options.test.ts`,
-  `tests/unit/menu/guest-menu-tabs.test.ts`
+  `tests/unit/menu/guest-menu-tabs.test.ts`,
+  `tests/unit/menu/menus-bootstrap.test.ts`,
+  `tests/unit/menu/menus-integ-strict.test.ts`
 - Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note
   cap; BD-READ-FAIL blocked-date SELECT fail-closed)
 - Reservation isolation (RES-ISO):

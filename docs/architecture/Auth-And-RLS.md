@@ -124,13 +124,15 @@ menu AC-2. Spec:
 
 Staff list and mutation for those siblings (including `getReservations`,
 `getAllMenuItems`, menu CRUD/toggle, and `getMenuTabs` / `createMenuTab` /
-`renameMenuTab` / `reorderMenuTabs`) is `requireStaffUser` plus
-`createServiceClient` (`lib/supabase/service.ts`). The cookie JWT client
+`renameMenuTab`) is `requireStaffUser` plus
+`createServiceClient` (`lib/supabase/service.ts`). `reorderMenuTabs` is the
+same gate then `.rpc("reorder_menu_tabs")` (`SET search_path = ''`, not
+SECURITY DEFINER, `GRANT EXECUTE` to `service_role` only). The cookie JWT client
 (`lib/supabase/server.ts`) is not used on those paths. Guest catalog reads
 (`getMenuItems`, `getPublicMenuTabs`) stay on the anon client
 (`lib/supabase/client-server.ts`). Spec:
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
-[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-1.
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-1, MT-6a.
 Staff analytics (`getReservationAnalytics`) uses the same
 `requireStaffUser` + `createServiceClient` path with SELECT-only queries;
 guest `SELECT` on `reservations` and `status_events` stays denied (RA-9).
@@ -166,14 +168,17 @@ Spec: [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
 PV-9, PV-12, PV-13.
 Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
 `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
-and `20260827160000_public_catalog_privileges.sql` (on an already-baselined
+and `20260827160000_public_catalog_privileges.sql` (companions
+`CREATE TABLE IF NOT EXISTS menus` before GRANT). On an already-baselined
 forked remote, apply `20260825140000_operating_windows_privilege.sql` when
 that version is absent; if `20260825140000` is already recorded, apply
 `20260827160000_public_catalog_privileges.sql` for catalog privilege changes
-instead of replaying the applied file; do not `db push`). Spec:
+instead of replaying the applied file; if `20260827160000` is already
+recorded, apply `20260915180000_menus_bootstrap.sql` for hosted `menus`
+CREATE plus `reorder_menu_tabs` (do not `db push`). Spec:
 [../specs/scheduling.md](../specs/scheduling.md) §18,
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
-[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-4.
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-4, MT-4a, MT-6a.
 
 `validate_reservation_availability` (`enforce_booking_rules`) is
 `SECURITY DEFINER` so that insert-only path can still cover-count and
