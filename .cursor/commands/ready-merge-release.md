@@ -28,9 +28,10 @@ require the GitHub check `CodeRabbit US latest-head gate` from
 The read-only adapter is
 [`.cursor/checks/coderabbit-pr-gate.mjs`](.cursor/checks/coderabbit-pr-gate.mjs).
 It requires current-HEAD approval by US `coderabbitai[bot]` (App ID `347564`),
-no unresolved CodeRabbit review threads, and no rate-limit,
-billing, or explicit-override marker. The mandatory advisory local JSONL
-attempt remains separate under
+no unresolved CodeRabbit review threads except work-order paths under
+`.cursor/plans/`, and no rate-limit, billing, or explicit-override marker.
+An unresolved US thread on any other path still fails closed. The
+mandatory advisory local JSONL attempt remains separate under
 [`.cursor/checks/coderabbit-gate.mjs`](.cursor/checks/coderabbit-gate.mjs).
 
 CodeRabbit severity routing is exact:

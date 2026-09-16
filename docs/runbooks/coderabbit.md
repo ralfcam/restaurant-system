@@ -1,7 +1,7 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-16
 
 This repository uses **one** CodeRabbit installation: **US Team**. Local
 CLI review and Cloud Agent reviews must authenticate against
@@ -310,7 +310,10 @@ CodeRabbit reviews draft PRs. G-CR3 is a US allow-list:
 `coderabbitai[bot]` (App `347564`) on current HEAD. Non-US
 CodeRabbit-shaped identity on reviews, check runs/suites, review
 threads, issue comments, or inline review comments is `wrong_bot`
-before unresolved-thread routing. `eu_bot_activity` is retired. Pin
+before unresolved-thread routing. Unresolved US threads whose path is
+under `.cursor/plans/` are work-order process-meta; they do not fail as
+`unresolved_threads` and do not appear in routed findings. An unresolved
+US thread on any other path still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
 `/ready-merge-release PR#`; Critical/Major and unknown-severity findings
 route to `/sdd-to-tdd`, while Minor/Trivial findings route to `/capture`
@@ -411,7 +414,7 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
    use that config change as the protected second promotion canary. The
    custom gate must be pending before review, fail-close `wrong_bot` on
    non-US CodeRabbit-shaped identity, fail stale HEAD or unresolved US
-   threads, and pass only on clean US approval of current HEAD. Prove
+   threads (except `.cursor/plans/` work-orders), and pass only on clean US approval of current HEAD. Prove
    `/ready-merge-release` withholds its operator-merge verdict until the
    post-ready check is green. Prove rate-limit enforcement with fixtures,
    not by exhausting quota.
