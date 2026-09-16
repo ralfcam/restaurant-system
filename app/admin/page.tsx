@@ -8,7 +8,7 @@ import {
 } from "lucide-react"
 import { TABLE_STATUS_META } from "@/lib/data"
 import { getAvailableSlots, getFloorSnapshot } from "@/app/actions/reservations"
-import { getAllOperatingWindowsMap } from "@/app/actions/availability"
+import { getConfiguredOperatingWindows } from "@/app/actions/availability"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
@@ -31,7 +31,7 @@ async function loadWeeklyServiceOverview(
   const staffUser = await requireStaffUser()
   if (!staffUser) return { days: [] }
 
-  const operatingDays = Object.values(await getAllOperatingWindowsMap())
+  const operatingDays = await getConfiguredOperatingWindows()
   const weekDates = buildWeeklyServiceOverview({
     selectedDate,
     operatingDays,
@@ -59,7 +59,7 @@ export default async function AdminDashboardPage({
   const [authUser, snapshot, weeklyOverview] = await Promise.all([
     getAuthUser(),
     getFloorSnapshot(today),
-    loadWeeklyServiceOverview(selectedDate),
+    loadWeeklyServiceOverview(selectedDate).catch(() => ({ days: [] })),
   ])
   const reservations = snapshot.reservations
   const todays = reservations.filter((r) => r.status !== "cancelled")

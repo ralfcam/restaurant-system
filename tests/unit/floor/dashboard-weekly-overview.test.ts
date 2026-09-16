@@ -57,4 +57,39 @@ describe("dashboard weekly service overview chrome", () => {
     expect(surface).toMatch(/\bgreen\b/i)
     expect(surface).toMatch(/\bred\b/i)
   })
+
+  it("weekly overview load is isolated from tonight's floor snapshot", () => {
+    const page = read("app/admin/page.tsx")
+    const pageFnStart = page.indexOf(
+      "export default async function AdminDashboardPage",
+    )
+    expect(pageFnStart).toBeGreaterThan(-1)
+    const pageFn = page.slice(pageFnStart)
+
+    const unguardedWeeklyAfterSnapshot =
+      /Promise\.all\(\[[^\]]*getFloorSnapshot[^\]]*loadWeeklyServiceOverview\s*\([^)]*\)\s*,?\s*\]/
+    const unguardedWeeklyBeforeSnapshot =
+      /Promise\.all\(\[[^\]]*loadWeeklyServiceOverview\s*\([^)]*\)\s*,[^\]]*getFloorSnapshot[^\]]*\]/
+
+    expect(pageFn).not.toMatch(unguardedWeeklyAfterSnapshot)
+    expect(pageFn).not.toMatch(unguardedWeeklyBeforeSnapshot)
+  })
+
+  it("weekly overview does not load DEFAULT operating-day templates", () => {
+    const page = read("app/admin/page.tsx")
+    const loaderStart = page.indexOf("async function loadWeeklyServiceOverview")
+    expect(loaderStart).toBeGreaterThan(-1)
+    const pageFnStart = page.indexOf(
+      "export default async function AdminDashboardPage",
+    )
+    const loader = page.slice(
+      loaderStart,
+      pageFnStart === -1 ? undefined : pageFnStart,
+    )
+
+    expect(loader).not.toMatch(/\bgetAllOperatingWindowsMap\b/)
+    expect(page).not.toMatch(/\bgetAllOperatingWindowsMap\b/)
+    expect(loader).not.toMatch(/\bDEFAULT_OPERATING_DAYS\b/)
+    expect(page).not.toMatch(/\bDEFAULT_OPERATING_DAYS\b/)
+  })
 })

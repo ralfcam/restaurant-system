@@ -40,11 +40,15 @@ mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
 live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
 static `TABLES` seed in `lib/data.ts`. The weekly service-availability
-overview (WA-1–WA-6) is `buildWeeklyServiceOverview` in
+overview (WA-1–WA-7) is `buildWeeklyServiceOverview` in
 `lib/floor/weekly-service-overview.ts` plus chrome
 `components/staff/weekly-service-overview.tsx`; `app/admin/page.tsx` loads
+configured windows via `getConfiguredOperatingWindows()` (empty/error → `[]`;
+guest `getAllOperatingWindowsMap` DEFAULT fallback unchanged) and
 `getAvailableSlots(date, 1)` per restaurant-TZ week day after
-`requireStaffUser` and mounts prev/next `?week=` Links via
+`requireStaffUser`, isolates that load with
+`.catch(() => ({ days: [] }))` so it cannot reject FP-11
+`getFloorSnapshot`, and mounts prev/next `?week=` Links via
 `shiftSelectedWeek`. `/pos`'s Table picker lists live
 `getTables()` rows via `app/pos/page.tsx` (`dynamic = "force-dynamic"`) into
 `PosTerminal` `tables`, also not `TABLES`. The Server picker lists live
