@@ -24,6 +24,7 @@ function load(name) {
 const CASES = [
   ["remote-clean.json", true, "clean"],
   ["remote-stale-approval.json", false, "stale_approval"],
+  ["remote-incremental-paused.json", true, "incremental_paused"],
   ["remote-coderabbit-other.json", false, "wrong_bot"],
   ["remote-unresolved-threads.json", false, "unresolved_threads"],
   ["remote-rate-limit.json", false, "rate_limited"],

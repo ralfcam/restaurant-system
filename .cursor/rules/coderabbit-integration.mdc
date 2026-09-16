@@ -48,8 +48,11 @@ named (`/ready-merge-release`) so they do not shadow plugin commands.
 
 ## Remote enforcement
 
-CodeRabbit reviews draft PRs. `/ready-merge-release PR#` verifies the current
-US-reviewed HEAD, routes Critical/Major/unknown findings to `/sdd-to-tdd` and
+CodeRabbit reviews draft PRs. Incremental review pauses after
+`auto_pause_after_reviewed_commits` (integer >= 20). `/ready-merge-release PR#`
+verifies the current US-reviewed HEAD. Adapter `incremental_paused` leftover
+findings (any severity) go to `/capture` and Step 2 is clean. Otherwise it
+routes Critical/Major/unknown findings to `/sdd-to-tdd` and
 Minor/Trivial findings to `/capture` → `docs/findings`. It re-reads
 `headRefOid` immediately before readying and MUST NOT mutate when that differs
 from `preReadyHead`, then runs `gh pr ready` only after a clean preflight. If

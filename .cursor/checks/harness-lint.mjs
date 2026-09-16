@@ -43,6 +43,7 @@ import {
   DAILY_QUEUE_MINIMUM,
   calculateDailyQueueCapacity,
 } from "../hooks/lib/dispatch-capacity-policy.mjs"
+import { AUTO_PAUSE_AFTER_REVIEWED_COMMITS_MIN } from "../hooks/lib/coderabbit-pr-policy.mjs"
 import { runPnpm } from "./run-pnpm.mjs"
 
 const FINDINGS_LEDGER = [
@@ -590,6 +591,21 @@ export function detectCoderabbitYamlViolations(text) {
   if (yamlMappingValue(text, ["reviews", "auto_review", "drafts"]) !== true) {
     found.push(
       ".coderabbit.yaml must set reviews.auto_review.drafts to boolean true",
+    )
+  }
+  const pause = Number(
+    yamlMappingValue(text, [
+      "reviews",
+      "auto_review",
+      "auto_pause_after_reviewed_commits",
+    ]),
+  )
+  if (
+    !Number.isInteger(pause) ||
+    pause < AUTO_PAUSE_AFTER_REVIEWED_COMMITS_MIN
+  ) {
+    found.push(
+      `.coderabbit.yaml must set reviews.auto_review.auto_pause_after_reviewed_commits to an integer >= ${AUTO_PAUSE_AFTER_REVIEWED_COMMITS_MIN}`,
     )
   }
   found.push(

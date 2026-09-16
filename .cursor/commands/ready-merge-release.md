@@ -78,8 +78,14 @@ node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> --allow-draft
 The adapter may use `GITHUB_TOKEN`/`GH_TOKEN` or the authenticated `gh` token.
 Never rely on an old comment or cached result.
 
-If the adapter returns active findings, dedupe by stable finding ID and emit a
-paste-ready argv fence plus an inert report for each:
+If the adapter returns `ok: true` with reason `incremental_paused`, leftover
+findings are `/capture` only (including former Major/Critical leftovers).
+Emit a paste-ready `/capture` fence per finding, then treat Step 2 as clean
+and continue to ready. Do not route those leftovers to `/sdd-to-tdd` and do
+not stop.
+
+If the adapter returns active findings on any other reason, dedupe by stable
+finding ID and emit a paste-ready argv fence plus an inert report for each:
 
 - Critical/Major/unknown:
   `/sdd-to-tdd "bug: CodeRabbit finding on PR #<n> <local-ref>"`
@@ -97,7 +103,7 @@ If the adapter reports pending/stale review, changes requested without a
 parseable finding, wrong bot, rate limit, billing, explicit override,
 missing evidence, or API/auth failure, report that operational FAIL and
 stop. Do not disguise it as a product finding. There is no manual-review
-fallback.
+fallback. `incremental_paused` is not stale.
 
 ### 3. Ready only a clean draft
 
@@ -169,7 +175,7 @@ Tone: professional and actionable. Length: concise.
 Exactly these sections:
 
 1. **PR** — number, title, `<head> → <base>`, draft | ready | stopped, frozen HEAD.
-2. **US latest-head** — `green` | `pending` | `stale` | `wrong-bot` |
+2. **US latest-head** — `green` | `incremental_paused` | `pending` | `stale` | `wrong-bot` |
    `changes_requested` | `FAIL: <reason>`.
 3. **Finding routes** — paste-ready `/sdd-to-tdd` or `/capture` with
    `<local-ref>`; inert severity, ID, path, title, and capture provenance;
