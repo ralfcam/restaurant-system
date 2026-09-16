@@ -13,7 +13,8 @@ export async function getGuestProfile(
   const { data, error } = await createServiceClient()
     .from("reservations")
     .select("*")
-    .eq("email", normalizeGuestEmail(email))
+    // GP-2: generated trim+lower key — not exact stored email.
+    .eq("email_normalized", normalizeGuestEmail(email))
   if (error) return { error: error.message }
 
   return buildGuestProfile(email, data ?? [])
@@ -30,6 +31,7 @@ export async function updateGuestProfilePii(input: {
   const { error } = await createServiceClient()
     .from("reservations")
     .update({ guest_name: input.guest_name, phone: input.phone })
+    // update-pii pin: exact stored email (not email_normalized).
     .eq("email", normalizeGuestEmail(input.email))
   if (error) return { error: error.message }
 }

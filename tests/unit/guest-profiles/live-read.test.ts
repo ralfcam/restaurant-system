@@ -28,21 +28,40 @@ type GuestProfile = {
 }
 
 function thenable<T>(value: T) {
+  const payload = value as { data: Row | Row[] | null; error: unknown }
+  let rows: Row[] = Array.isArray(payload.data)
+    ? [...payload.data]
+    : payload.data
+      ? [payload.data]
+      : []
+
+  const snapshot = () =>
+    ({
+      ...payload,
+      data: Array.isArray(payload.data) ? rows : (rows[0] ?? null),
+    }) as T
+
   const builder: Record<string, unknown> = {}
   const self = new Proxy(builder, {
     get(_target, prop) {
       if (prop === "then") {
+        const resolved = snapshot()
         return (
           resolve: (value: T) => unknown,
           reject?: (reason: unknown) => unknown,
-        ) => Promise.resolve(value).then(resolve, reject)
+        ) => Promise.resolve(resolved).then(resolve, reject)
       }
       if (prop === "single" || prop === "maybeSingle") {
-        const payload = value as { data: Row | Row[] | null; error: unknown }
-        const row = Array.isArray(payload.data)
-          ? (payload.data[0] ?? null)
-          : payload.data
+        const row = rows[0] ?? null
         return async () => ({ data: row, error: row ? null : payload.error })
+      }
+      if (prop === "eq") {
+        return (col: string, val: unknown) => {
+          if (col === "email") {
+            rows = rows.filter((row) => row.email === val)
+          }
+          return self
+        }
       }
       return () => self
     },
@@ -120,6 +139,51 @@ describe("getGuestProfile live read", () => {
           time: inserted.time,
           party_size: inserted.party_size,
           status: inserted.status,
+        },
+      ]),
+    )
+  })
+
+  it("getGuestProfile includes reservations that differ only by case or padding", async () => {
+    const { getGuestProfile } =
+      (await import("@/app/actions/guest-profiles")) as {
+        getGuestProfile: (email: string) => Promise<GuestProfile>
+      }
+
+    const mixedCase = {
+      email: "Ada@Ex.com",
+      date: "2026-09-12",
+      time: "18:30",
+      party_size: 3,
+      status: "confirmed",
+    }
+    const padded = {
+      email: "  Ada@Ex.com  ",
+      date: "2026-09-13",
+      time: "19:15",
+      party_size: 5,
+      status: "seated",
+    }
+
+    mocks.from.mockImplementation(() =>
+      thenable({ data: [mixedCase, padded], error: null }),
+    )
+
+    const profile = await getGuestProfile("ada@ex.com")
+
+    expect(historyStamp(profile)).toEqual(
+      expect.arrayContaining([
+        {
+          date: mixedCase.date,
+          time: mixedCase.time,
+          party_size: mixedCase.party_size,
+          status: mixedCase.status,
+        },
+        {
+          date: padded.date,
+          time: padded.time,
+          party_size: padded.party_size,
+          status: padded.status,
         },
       ]),
     )
