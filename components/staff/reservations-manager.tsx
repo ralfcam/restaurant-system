@@ -357,6 +357,9 @@ export function ReservationsManager({
                     <p className="flex items-center gap-1 text-sm text-muted-foreground">
                       <Phone className="size-3" /> {r.phone}
                     </p>
+                    {r.email?.trim() ? (
+                      <p className="text-sm text-muted-foreground">{r.email}</p>
+                    ) : null}
                     {fichaHref ? (
                       <Link
                         href={fichaHref}

@@ -69,6 +69,10 @@
   `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
   glob-scan of `tests/integration/reservations/*.integ.test.ts`; zero-arg
   call; rejects an explicit-URL helper argument)
+- Staff list guest email (STAFF-GUEST-EMAIL / STAFF-GUEST-EMAIL-ABSENT):
+  `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
+  visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit
+  `r.email?.trim()` gate)
 - Review-email isolation (PV-ISO):
   `tests/unit/marketing/review-email-schema-isolation.test.ts` (AST
   glob-scan of `tests/integration/marketing/*.integ.test.ts`; `WRITE_HOOKS`
