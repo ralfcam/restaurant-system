@@ -130,6 +130,6 @@ Save calls `updateGuestProfilePii({ email, guest_name, phone })` with
 ## References
 
 - [staff-authorization.md](./staff-authorization.md) (SA-1 / SA-2 / SA-8)
-- [booking-rules.md](./booking-rules.md) (AC-5 / RES-PRIV, STAFF-LIST)
+- [booking-rules.md](./booking-rules.md) (AC-5 / RES-PRIV, STAFF-LIST, STAFF-GUEST-EMAIL)
 - [site-localization.md](./site-localization.md) (staff chrome English-only)
 - [RES-104](https://linear.app/realized/issue/RES-104)
