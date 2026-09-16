@@ -1,7 +1,8 @@
 /**
  * Pure PR CodeRabbit policy. US latest-head approval, no non-US CodeRabbit
- * identity, no unresolved CodeRabbit threads, no rate-limit/billing/override
- * markers, and deterministic severity routing for active findings.
+ * identity, no unresolved CodeRabbit threads except `.cursor/plans/`
+ * work-orders, no rate-limit/billing/override markers, and deterministic
+ * severity routing for active findings.
  */
 import {
   US_APP_ID,
@@ -86,6 +87,15 @@ function threadHasNonUsCodeRabbit(thread) {
   return threadHasCommentLogin(thread, isNonUsCodeRabbitLogin)
 }
 
+function threadFilePath(thread) {
+  const commentWithPath = threadComments(thread).find((c) => c?.path)
+  return String(thread?.path || commentWithPath?.path || "")
+}
+
+function isWorkOrderPlanThread(thread) {
+  return threadFilePath(thread).startsWith(".cursor/plans/")
+}
+
 export function collectOverrideTexts(snapshot) {
   const blobs = []
   for (const c of snapshot.issueComments || []) blobs.push(c.body)
@@ -153,6 +163,7 @@ export function collectActiveCodeRabbitFindings(snapshot) {
   const findings = new Map()
   for (const thread of snapshot?.threads || snapshot?.reviewThreads || []) {
     if (thread?.isResolved === true || !threadHasCodeRabbit(thread)) continue
+    if (isWorkOrderPlanThread(thread)) continue
     const comments = threadComments(thread)
     for (const comment of comments) {
       const login = commentAuthorLogin(comment)
@@ -254,8 +265,12 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
   if (threads.some(threadHasNonUsCodeRabbit)) {
     return { ok: false, reason: "wrong_bot" }
   }
+  // Work-order `.cursor/plans/` paths are process-meta (G-CR3).
   const unresolved = threads.filter(
-    (t) => t.isResolved !== true && threadHasCodeRabbit(t),
+    (t) =>
+      t.isResolved !== true &&
+      threadHasCodeRabbit(t) &&
+      !isWorkOrderPlanThread(t),
   )
   if (unresolved.length) {
     return {

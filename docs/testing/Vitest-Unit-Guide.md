@@ -39,11 +39,16 @@
   `.cursor/checks/tdd-guard-policy.test.mjs`, and
   `tests/unit/dev-toolchain/coderabbit-gcr2-empty-reviewed-files.test.ts`;
   fail-closed remote G-CR3 in `.cursor/checks/coderabbit-pr-policy.test.mjs` and
-  `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts`)
+  `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts` (`.cursor/plans/`
+  work-order threads excluded from `unresolved_threads`); spawn-proven
+  G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
   `tests/unit/floor/pos-menu-availability.test.ts`
+- Weekly service overview (WA-1–WA-7):
+  `tests/unit/floor/weekly-service-overview.test.ts`,
+  `tests/unit/floor/dashboard-weekly-overview.test.ts`
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
 - Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,

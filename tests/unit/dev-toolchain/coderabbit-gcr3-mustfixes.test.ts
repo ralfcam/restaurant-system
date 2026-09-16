@@ -571,6 +571,57 @@ describe("G-CR3 US-only allow-list", () => {
     })
   })
 
+  it("unresolved work-order plan thread is not a G-CR3 finding", () => {
+    const clean = JSON.parse(
+      readFileSync(
+        path.join(
+          repoRoot,
+          ".cursor",
+          "checks",
+          "fixtures",
+          "coderabbit",
+          "remote-clean.json",
+        ),
+        "utf8",
+      ),
+    )
+
+    const withUnresolvedUsThread = (filePath: string) => ({
+      ...clean,
+      threads: [
+        {
+          isResolved: false,
+          isOutdated: false,
+          path: filePath,
+          comments: {
+            nodes: [
+              {
+                author: { login: "coderabbitai[bot]" },
+                path: filePath,
+                body: "please fix",
+              },
+            ],
+          },
+        },
+      ],
+    })
+
+    const planResult = evaluateReadyPr(
+      withUnresolvedUsThread(".cursor/plans/example.plan.md"),
+    )
+    const productResult = evaluateReadyPr(
+      withUnresolvedUsThread("lib/billing/foo.ts"),
+    )
+
+    expect({
+      plan: { ok: planResult.ok, reason: planResult.reason },
+      product: { ok: productResult.ok, reason: productResult.reason },
+    }).toEqual({
+      plan: { ok: true, reason: "clean" },
+      product: { ok: false, reason: "unresolved_threads" },
+    })
+  })
+
   it("ready-merge undoes on drift only when this invocation ran gh pr ready", () => {
     const command = readFileSync(
       path.join(repoRoot, ".cursor", "commands", "ready-merge-release.md"),
