@@ -734,6 +734,54 @@ describe("G-CR3 US-only allow-list", () => {
     })
   })
 
+  it("outdated unresolved US thread is not a G-CR3 finding", () => {
+    const clean = JSON.parse(
+      readFileSync(
+        path.join(
+          repoRoot,
+          ".cursor",
+          "checks",
+          "fixtures",
+          "coderabbit",
+          "remote-clean.json",
+        ),
+        "utf8",
+      ),
+    )
+    const productPath = "lib/billing/foo.ts"
+
+    const withUnresolvedUsThread = (isOutdated: boolean) => ({
+      ...clean,
+      threads: [
+        {
+          isResolved: false,
+          isOutdated,
+          path: productPath,
+          comments: {
+            nodes: [
+              {
+                author: { login: "coderabbitai[bot]" },
+                path: productPath,
+                body: "please fix",
+              },
+            ],
+          },
+        },
+      ],
+    })
+
+    const outdatedResult = evaluateReadyPr(withUnresolvedUsThread(true))
+    const liveResult = evaluateReadyPr(withUnresolvedUsThread(false))
+
+    expect({
+      outdated: { ok: outdatedResult.ok, reason: outdatedResult.reason },
+      live: { ok: liveResult.ok, reason: liveResult.reason },
+    }).toEqual({
+      outdated: { ok: true, reason: "clean" },
+      live: { ok: false, reason: "unresolved_threads" },
+    })
+  })
+
   it("incremental pause captures leftovers and is not stale_approval", () => {
     const yaml = readFileSync(path.join(repoRoot, ".coderabbit.yaml"), "utf8")
     const pauseMatch = yaml.match(/auto_pause_after_reviewed_commits:\s*(\d+)/)
@@ -865,6 +913,37 @@ describe("G-CR3 US-only allow-list", () => {
       substringStatus: { ok: false, reason: "stale_approval" },
       nonUsCreator: { ok: false, reason: "stale_approval" },
       checkRunWithoutUsAppId: { ok: false, reason: "stale_approval" },
+    })
+  })
+
+  it("incremental pause accepts US check-suite app name", () => {
+    const staleBase = JSON.parse(
+      readFileSync(
+        path.join(
+          repoRoot,
+          ".cursor",
+          "checks",
+          "fixtures",
+          "coderabbit",
+          "remote-stale-approval.json",
+        ),
+        "utf8",
+      ),
+    )
+
+    const result = evaluateReadyPr({
+      ...staleBase,
+      checkSuites: [
+        {
+          conclusion: "success",
+          app: { id: 347564, name: "CodeRabbit" },
+        },
+      ],
+    })
+
+    expect({ ok: result.ok, reason: result.reason }).toEqual({
+      ok: true,
+      reason: "incremental_paused",
     })
   })
 

@@ -286,7 +286,13 @@ auth token`) MUST pass a finite positive `timeout` (milliseconds) to
    suffice. If `creator.login` is present it MUST pass `isUsBotLogin`; a
    missing creator with the exact context is still US-complete. A SUCCESS
    check-run or check-suite MUST satisfy `isUsApp` (App ID `347564`), not
-   merely the absence of a non-US CodeRabbit app.
+   merely the absence of a non-US CodeRabbit app. The CodeRabbit label on a
+   check-run or check-suite MAY be `name` or `app.name` so a nameless US
+   suite from App ID `347564` still counts. Unresolved US threads with
+   `isOutdated` equal to boolean `true` are leftover process-meta: they MUST
+   NOT fail as `unresolved_threads` and MUST NOT appear in routed findings.
+   A non-outdated unresolved US thread on any path other than
+   `.cursor/plans/` still fails closed.
    - Regression guard: `.cursor/checks/coderabbit-pr-policy.test.mjs`,
      `.cursor/checks/harness-lint.test.mjs`,
      `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts` pins
@@ -303,7 +309,9 @@ handoff commands omit remote finding fields`, `unresolved work-order plan
 thread is not a G-CR3 finding`, `incremental pause captures leftovers
 and is not stale_approval`, `incremental pause requires positive US
 status identity`, `fetchSnapshot paginates commit statuses into
-snapshot.statuses`, and adapter snapshot cases.
+snapshot.statuses`, `incremental pause accepts US check-suite app name`,
+     `outdated unresolved US thread is not a G-CR3 finding`, and adapter
+     snapshot cases.
      `.cursor/checks/coderabbit-pr-policy.test.mjs` extends
      `main-gate workflow is read-only, staging→main, and named US
 latest-head` so `on.pull_request.types` includes `edited`.

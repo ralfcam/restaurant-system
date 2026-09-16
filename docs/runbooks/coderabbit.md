@@ -218,7 +218,8 @@ Team allowance is metered per developer, and incremental reviews count.
 `.coderabbit.yaml` pauses incremental review after **20** reviewed commits
 (not 2) so a typical feature PR keeps getting HEAD reviews. After that
 pause, exact-context US SUCCESS (`REQUIRED_US_STATUS_CONTEXT`, US
-creator when present) or an `isUsApp` check-run on HEAD without a new
+creator when present) or an `isUsApp` check-run or check-suite on HEAD
+(CodeRabbit label `name` or `app.name`) without a new
 review is `incremental_paused`: leftover threads go to `/capture` and
 `/ready-merge-release` may PASS. If CodeRabbit reports a rate limit, wait for the reset time
 before relying on another review. Local 4G records `unavailable` and
@@ -315,9 +316,10 @@ CodeRabbit reviews draft PRs. G-CR3 is a US allow-list:
 CodeRabbit-shaped identity on reviews, check runs/suites, review
 threads, issue comments, or inline review comments is `wrong_bot`
 before unresolved-thread routing. Unresolved US threads whose path is
-under `.cursor/plans/` are work-order process-meta; they do not fail as
+under `.cursor/plans/` or whose `isOutdated` is boolean `true` are
+process-meta; they do not fail as
 `unresolved_threads` and do not appear in routed findings. An unresolved
-US thread on any other path still fails closed. `eu_bot_activity` is retired. Pin
+non-outdated US thread on any other path still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
 `/ready-merge-release PR#`. Adapter `incremental_paused` leftovers (any
 severity) go to `/capture` and Step 2 is clean. Otherwise Critical/Major
@@ -421,7 +423,7 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
    use that config change as the protected second promotion canary. The
    custom gate must be pending before review, fail-close `wrong_bot` on
    non-US CodeRabbit-shaped identity, fail stale HEAD or unresolved US
-   threads (except `.cursor/plans/` work-orders), and pass only on clean US approval of current HEAD. Prove
+   threads (except `.cursor/plans/` work-orders or outdated leftovers), and pass only on clean US approval of current HEAD. Prove
    `/ready-merge-release` withholds its operator-merge verdict until the
    post-ready check is green. Prove rate-limit enforcement with fixtures,
    not by exhausting quota.

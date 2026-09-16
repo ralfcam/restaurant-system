@@ -1,8 +1,9 @@
 /**
  * Pure PR CodeRabbit policy. US latest-head approval, no non-US CodeRabbit
  * identity, no unresolved CodeRabbit threads except `.cursor/plans/`
- * work-orders or incremental-pause leftovers, no rate-limit/billing/override
- * markers, and deterministic severity routing for active findings.
+ * work-orders, outdated leftovers, or incremental-pause leftovers, no
+ * rate-limit/billing/override markers, and deterministic severity routing
+ * for active findings.
  */
 import {
   US_APP_ID,
@@ -97,6 +98,11 @@ function isWorkOrderPlanThread(thread) {
   return threadFilePath(thread).startsWith(".cursor/plans/")
 }
 
+function isProcessMetaThread(thread) {
+  // Work-order `.cursor/plans/` paths and outdated leftovers are process-meta (G-CR3).
+  return isWorkOrderPlanThread(thread) || thread?.isOutdated === true
+}
+
 function isCompletedSuccess(state) {
   return String(state || "").toLowerCase() === "success"
 }
@@ -111,8 +117,11 @@ function isUsCompletedLegacyStatus(status) {
 }
 
 function isUsCompletedCheck(run) {
+  // GitHub check-suites from App 347564 often have an empty name and
+  // put the CodeRabbit label on app.name (G-CR3).
+  const label = run?.name || run?.app?.name
   return (
-    isCodeRabbitShaped(run?.name) &&
+    isCodeRabbitShaped(label) &&
     isCompletedSuccess(run?.conclusion || run?.status) &&
     isUsApp(run)
   )
@@ -204,7 +213,7 @@ export function collectActiveCodeRabbitFindings(snapshot) {
   const findings = new Map()
   for (const thread of snapshot?.threads || snapshot?.reviewThreads || []) {
     if (thread?.isResolved === true || !threadHasCodeRabbit(thread)) continue
-    if (isWorkOrderPlanThread(thread)) continue
+    if (isProcessMetaThread(thread)) continue
     const comments = threadComments(thread)
     for (const comment of comments) {
       const login = commentAuthorLogin(comment)
@@ -317,12 +326,11 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
     usReviews.length > 0 &&
     hasUsCompletedHeadStatus(snapshot)
 
-  // Work-order `.cursor/plans/` paths are process-meta (G-CR3).
   const unresolved = threads.filter(
     (t) =>
       t.isResolved !== true &&
       threadHasCodeRabbit(t) &&
-      !isWorkOrderPlanThread(t),
+      !isProcessMetaThread(t),
   )
   if (unresolved.length && !incrementalPaused) {
     return {
