@@ -40,7 +40,9 @@
   `tests/unit/dev-toolchain/coderabbit-gcr2-empty-reviewed-files.test.ts`;
   fail-closed remote G-CR3 in `.cursor/checks/coderabbit-pr-policy.test.mjs` and
   `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts` (`.cursor/plans/`
-  work-order threads excluded from `unresolved_threads`); spawn-proven
+  work-order threads excluded from `unresolved_threads`; incremental-pause
+  SUCCESS is exact `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks;
+  `fetchSnapshot` paginates `GET /commits/{sha}/status`); spawn-proven
   G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,

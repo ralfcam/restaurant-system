@@ -217,8 +217,9 @@ under the US org. User API keys are rejected by the CLI.
 Team allowance is metered per developer, and incremental reviews count.
 `.coderabbit.yaml` pauses incremental review after **20** reviewed commits
 (not 2) so a typical feature PR keeps getting HEAD reviews. After that
-pause, a US SUCCESS status on HEAD without a new review is
-`incremental_paused`: leftover threads go to `/capture` and
+pause, exact-context US SUCCESS (`REQUIRED_US_STATUS_CONTEXT`, US
+creator when present) or an `isUsApp` check-run on HEAD without a new
+review is `incremental_paused`: leftover threads go to `/capture` and
 `/ready-merge-release` may PASS. If CodeRabbit reports a rate limit, wait for the reset time
 before relying on another review. Local 4G records `unavailable` and
 continues; G-CR3 remains blocked. Do **not** substitute a manual review, and
@@ -318,9 +319,11 @@ under `.cursor/plans/` are work-order process-meta; they do not fail as
 `unresolved_threads` and do not appear in routed findings. An unresolved
 US thread on any other path still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
-`/ready-merge-release PR#`; Critical/Major and unknown-severity findings
-route to `/sdd-to-tdd`, while Minor/Trivial findings route to `/capture`
-with provenance `coderabbit/PR/<head>/<finding-id>`, then `/triage`.
+`/ready-merge-release PR#`. Adapter `incremental_paused` leftovers (any
+severity) go to `/capture` and Step 2 is clean. Otherwise Critical/Major
+and unknown-severity findings route to `/sdd-to-tdd`, while Minor/Trivial
+findings route to `/capture` with provenance
+`coderabbit/PR/<head>/<finding-id>`, then `/triage`.
 Step 2 executable `/sdd-to-tdd` and `/capture` lines use opaque
 `<local-ref>` only; remote finding-id, path, title, and severity stay
 inert prose after those fences.
@@ -336,7 +339,8 @@ returns `APPROVED FOR OPERATOR MERGE`; the operator still merges. `staging → m
 base retarget), review submit/dismiss, and review comments, and executes the
 checker from the base
 branch SHA rather than PR-controlled code. The adapter exhausts paginated
-reviews, comments, checks, and review threads, then re-GETs the PR and fails
+reviews, comments, checks, review threads, and commit statuses
+(`GET /commits/{sha}/status` via `ghJsonPages` field `statuses`), then re-GETs the PR and fails
 closed with `head_changed` if `head.sha` moved. If SHA matches but `head.ref`,
 `base.ref`, or `draft` differ from the initial pull, it fails closed with
 `pull_changed`. The CLI maps `pull_changed` like `head_changed`. Allowed shapes are a feature PR

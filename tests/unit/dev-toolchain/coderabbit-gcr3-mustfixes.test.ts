@@ -6,6 +6,7 @@ import { detectCoderabbitYamlViolations } from "../../../.cursor/checks/harness-
 import {
   AUTO_PAUSE_AFTER_REVIEWED_COMMITS_MIN,
   evaluateReadyPr,
+  REQUIRED_US_STATUS_CONTEXT,
 } from "../../../.cursor/hooks/lib/coderabbit-pr-policy.mjs"
 
 const repoRoot = process.cwd()
@@ -258,6 +259,106 @@ describe("G-CR3 snapshot HEAD re-read", () => {
         ...initialPull,
         draft: true,
       })
+    } finally {
+      globalThis.fetch = originalFetch
+    }
+  })
+
+  it("fetchSnapshot paginates commit statuses into snapshot.statuses", async () => {
+    const originalFetch = globalThis.fetch
+    const helperPageSize = 100
+    const fillerStatus = { context: "ci/filler", state: "success" }
+    const usSuccess = { context: "CodeRabbit", state: "success" }
+
+    globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+      const url = String(input)
+      const parsed = new URL(url)
+      const pathname = parsed.pathname
+      const json = (body: unknown) => ({
+        ok: true,
+        json: async () => body,
+        text: async () => JSON.stringify(body),
+      })
+
+      if (pathname === "/graphql") {
+        return json({
+          data: {
+            repository: {
+              pullRequest: {
+                reviewThreads: {
+                  nodes: [],
+                  pageInfo: { hasNextPage: false },
+                },
+              },
+            },
+          },
+        })
+      }
+
+      if (pathname.endsWith("/reviews") || pathname.endsWith("/comments")) {
+        return json([])
+      }
+
+      if (pathname.endsWith("/commits/sha-a/check-runs")) {
+        return json({ check_runs: [] })
+      }
+
+      if (pathname.endsWith("/commits/sha-a/check-suites")) {
+        return json({ check_suites: [] })
+      }
+
+      if (pathname.endsWith("/commits/sha-a/status")) {
+        const perPage = parsed.searchParams.get("per_page")
+        const page = parsed.searchParams.get("page")
+        if (perPage === String(helperPageSize) && page === "1") {
+          return json({
+            state: "success",
+            statuses: Array.from({ length: helperPageSize }, () => ({
+              ...fillerStatus,
+            })),
+          })
+        }
+        if (perPage === String(helperPageSize) && page === "2") {
+          return json({
+            state: "success",
+            statuses: [usSuccess],
+          })
+        }
+        return json({
+          state: "success",
+          statuses: [fillerStatus],
+        })
+      }
+
+      if (/\/pulls\/\d+$/.test(pathname)) {
+        return json({
+          number: 12,
+          draft: false,
+          base: { ref: "staging" },
+          head: { sha: "sha-a", ref: "feat" },
+        })
+      }
+
+      throw new Error(`unexpected fetch: ${url}`)
+    }) as typeof fetch
+
+    try {
+      const { fetchSnapshot } =
+        await import("../../../.cursor/checks/coderabbit-pr-gate.mjs")
+      const snapshot = await fetchSnapshot({
+        owner: "acme",
+        repo: "restaurant-system",
+        number: 12,
+        token: "test-token",
+      })
+      expect(snapshot.statuses).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            context: "CodeRabbit",
+            state: "success",
+          }),
+        ]),
+      )
     } finally {
       globalThis.fetch = originalFetch
     }
@@ -694,6 +795,76 @@ describe("G-CR3 US-only allow-list", () => {
         command: "/capture",
       },
       readyMergeCapturesPause: true,
+    })
+  })
+
+  it("incremental pause requires positive US status identity", () => {
+    const staleBase = JSON.parse(
+      readFileSync(
+        path.join(
+          repoRoot,
+          ".cursor",
+          "checks",
+          "fixtures",
+          "coderabbit",
+          "remote-stale-approval.json",
+        ),
+        "utf8",
+      ),
+    )
+    const substringContext = `${REQUIRED_US_STATUS_CONTEXT} Review`
+
+    const substringStatus = evaluateReadyPr({
+      ...staleBase,
+      statuses: [
+        {
+          context: substringContext,
+          state: "success",
+          description: "Review completed",
+        },
+      ],
+    })
+    const nonUsCreator = evaluateReadyPr({
+      ...staleBase,
+      statuses: [
+        {
+          context: REQUIRED_US_STATUS_CONTEXT,
+          state: "success",
+          description: "Review completed",
+          creator: { login: "coderabbit-other[bot]" },
+        },
+      ],
+    })
+    const checkRunWithoutUsAppId = evaluateReadyPr({
+      ...staleBase,
+      checkRuns: [
+        {
+          name: REQUIRED_US_STATUS_CONTEXT,
+          conclusion: "success",
+          app: { id: 1 },
+        },
+      ],
+    })
+
+    expect({
+      substringMatchesCoderabbit: /coderabbit/i.test(substringContext),
+      substringIsNotExactContext:
+        String(substringContext) !== String(REQUIRED_US_STATUS_CONTEXT),
+      substringStatus: {
+        ok: substringStatus.ok,
+        reason: substringStatus.reason,
+      },
+      nonUsCreator: { ok: nonUsCreator.ok, reason: nonUsCreator.reason },
+      checkRunWithoutUsAppId: {
+        ok: checkRunWithoutUsAppId.ok,
+        reason: checkRunWithoutUsAppId.reason,
+      },
+    }).toEqual({
+      substringMatchesCoderabbit: true,
+      substringIsNotExactContext: true,
+      substringStatus: { ok: false, reason: "stale_approval" },
+      nonUsCreator: { ok: false, reason: "stale_approval" },
+      checkRunWithoutUsAppId: { ok: false, reason: "stale_approval" },
     })
   })
 

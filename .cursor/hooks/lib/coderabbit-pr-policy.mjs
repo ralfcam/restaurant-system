@@ -97,31 +97,35 @@ function isWorkOrderPlanThread(thread) {
   return threadFilePath(thread).startsWith(".cursor/plans/")
 }
 
-function isUsCompletedCoderabbitOutcome(name, state) {
-  const label = String(name || "")
-  const conclusion = String(state || "").toLowerCase()
-  return /coderabbit/i.test(label) && conclusion === "success"
+function isCompletedSuccess(state) {
+  return String(state || "").toLowerCase() === "success"
+}
+
+function isUsCompletedLegacyStatus(status) {
+  const login = status?.creator?.login
+  return (
+    status?.context === REQUIRED_US_STATUS_CONTEXT &&
+    isCompletedSuccess(status?.state) &&
+    (login == null || login === "" || isUsBotLogin(login))
+  )
+}
+
+function isUsCompletedCheck(run) {
+  return (
+    isCodeRabbitShaped(run?.name) &&
+    isCompletedSuccess(run?.conclusion || run?.status) &&
+    isUsApp(run)
+  )
 }
 
 export function hasUsCompletedHeadStatus(snapshot) {
   const statuses = snapshot?.statuses || snapshot?.status?.statuses || []
-  if (
-    statuses.some((s) =>
-      isUsCompletedCoderabbitOutcome(s?.context || s?.name, s?.state),
-    )
-  ) {
-    return true
-  }
   const runs = [
     ...(snapshot?.checkRuns || snapshot?.check_runs || []),
     ...(snapshot?.checkSuites || snapshot?.check_suites || []),
   ]
-  return runs.some(
-    (run) =>
-      isUsCompletedCoderabbitOutcome(
-        run?.name,
-        run?.conclusion || run?.status,
-      ) && !isNonUsCodeRabbitApp(run),
+  return (
+    statuses.some(isUsCompletedLegacyStatus) || runs.some(isUsCompletedCheck)
   )
 }
 
