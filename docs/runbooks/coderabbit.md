@@ -146,7 +146,7 @@ Configure these in the **US** org/repository UI so they match
 | Review profile                         | Quiet                                                                                                                                                                                 |
 | Automatic reviews                      | On for the default branch and `staging`                                                                                                                                               |
 | Draft PRs                              | Review (parsed `drafts: true` boolean); comment-only `# drafts: true` does not; `/ready-merge-release PR#` owns the clean-pass readiness transition                                   |
-| Incremental reviews                    | On, pause after **2** reviewed commits                                                                                                                                                |
+| Incremental reviews                    | On, pause after **20** reviewed commits                                                                                                                                               |
 | Request changes workflow               | On (approve when comments are resolved, latest head is reviewed, and pre-merge checks are not failing)                                                                                |
 | Linear knowledge                       | Enabled for team key **`RES`** (display name is informational)                                                                                                                        |
 | Chat → Linear issue creation           | **Disabled**                                                                                                                                                                          |
@@ -215,8 +215,11 @@ under the US org. User API keys are rejected by the CLI.
 ### Rate limit
 
 Team allowance is metered per developer, and incremental reviews count.
-`.coderabbit.yaml` pauses incremental review after two reviewed commits to
-conserve quota. If CodeRabbit reports a rate limit, wait for the reset time
+`.coderabbit.yaml` pauses incremental review after **20** reviewed commits
+(not 2) so a typical feature PR keeps getting HEAD reviews. After that
+pause, a US SUCCESS status on HEAD without a new review is
+`incremental_paused`: leftover threads go to `/capture` and
+`/ready-merge-release` may PASS. If CodeRabbit reports a rate limit, wait for the reset time
 before relying on another review. Local 4G records `unavailable` and
 continues; G-CR3 remains blocked. Do **not** substitute a manual review, and
 do **not** treat a passing **Review rate limited** GitHub check as approval.

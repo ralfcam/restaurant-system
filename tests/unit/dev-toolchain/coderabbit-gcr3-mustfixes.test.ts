@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
 import { detectCoderabbitYamlViolations } from "../../../.cursor/checks/harness-lint.mjs"
-import { evaluateReadyPr } from "../../../.cursor/hooks/lib/coderabbit-pr-policy.mjs"
+import {
+  AUTO_PAUSE_AFTER_REVIEWED_COMMITS_MIN,
+  evaluateReadyPr,
+} from "../../../.cursor/hooks/lib/coderabbit-pr-policy.mjs"
 
 const repoRoot = process.cwd()
 
@@ -119,6 +122,10 @@ describe("G-CR3 snapshot HEAD re-read", () => {
         return json({ check_suites: [] })
       }
 
+      if (pathname.endsWith("/commits/sha-a/status")) {
+        return json({ state: "success", statuses: [] })
+      }
+
       if (/\/pulls\/\d+$/.test(pathname)) {
         pullGets += 1
         if (pullGets === 1) {
@@ -207,6 +214,10 @@ describe("G-CR3 snapshot HEAD re-read", () => {
 
         if (pathname.endsWith("/commits/sha-a/check-suites")) {
           return json({ check_suites: [] })
+        }
+
+        if (pathname.endsWith("/commits/sha-a/status")) {
+          return json({ state: "success", statuses: [] })
         }
 
         if (/\/pulls\/\d+$/.test(pathname)) {
@@ -619,6 +630,70 @@ describe("G-CR3 US-only allow-list", () => {
     }).toEqual({
       plan: { ok: true, reason: "clean" },
       product: { ok: false, reason: "unresolved_threads" },
+    })
+  })
+
+  it("incremental pause captures leftovers and is not stale_approval", () => {
+    const yaml = readFileSync(path.join(repoRoot, ".coderabbit.yaml"), "utf8")
+    const pauseMatch = yaml.match(/auto_pause_after_reviewed_commits:\s*(\d+)/)
+    const stale = JSON.parse(
+      readFileSync(
+        path.join(
+          repoRoot,
+          ".cursor",
+          "checks",
+          "fixtures",
+          "coderabbit",
+          "remote-stale-approval.json",
+        ),
+        "utf8",
+      ),
+    )
+    const paused = JSON.parse(
+      readFileSync(
+        path.join(
+          repoRoot,
+          ".cursor",
+          "checks",
+          "fixtures",
+          "coderabbit",
+          "remote-incremental-paused.json",
+        ),
+        "utf8",
+      ),
+    )
+    const command = readFileSync(
+      path.join(repoRoot, ".cursor", "commands", "ready-merge-release.md"),
+      "utf8",
+    )
+    const staleResult = evaluateReadyPr(stale)
+    const pausedResult = evaluateReadyPr(paused)
+
+    expect({
+      pauseNAtLeastMin:
+        pauseMatch != null &&
+        Number(pauseMatch[1]) >= AUTO_PAUSE_AFTER_REVIEWED_COMMITS_MIN,
+      stale: { ok: staleResult.ok, reason: staleResult.reason },
+      paused: {
+        ok: pausedResult.ok,
+        reason: pausedResult.reason,
+        route: pausedResult.findings?.[0]?.route,
+        command: pausedResult.findings?.[0]?.command,
+      },
+      readyMergeCapturesPause:
+        command.includes("incremental_paused") &&
+        command.includes("treat Step 2 as clean") &&
+        /incremental_paused[\s\S]*\/capture/.test(command),
+    }).toEqual({
+      pauseNAtLeastMin: true,
+      stale: { ok: false, reason: "stale_approval" },
+      paused: {
+        ok: true,
+        reason: "incremental_paused",
+        route: "capture",
+        command: "/capture",
+      },
+      readyMergeCapturesPause: true,
     })
   })
 

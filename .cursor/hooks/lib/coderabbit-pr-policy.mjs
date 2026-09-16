@@ -1,8 +1,8 @@
 /**
  * Pure PR CodeRabbit policy. US latest-head approval, no non-US CodeRabbit
  * identity, no unresolved CodeRabbit threads except `.cursor/plans/`
- * work-orders, no rate-limit/billing/override markers, and deterministic
- * severity routing for active findings.
+ * work-orders or incremental-pause leftovers, no rate-limit/billing/override
+ * markers, and deterministic severity routing for active findings.
  */
 import {
   US_APP_ID,
@@ -16,6 +16,7 @@ export { US_APP_ID }
 
 export const US_LATEST_HEAD_CHECK_NAME = "CodeRabbit US latest-head gate"
 export const REQUIRED_US_STATUS_CONTEXT = "CodeRabbit"
+export const AUTO_PAUSE_AFTER_REVIEWED_COMMITS_MIN = 20
 export const CODERABBIT_PR_SEVERITIES = Object.freeze([
   "critical",
   "major",
@@ -94,6 +95,42 @@ function threadFilePath(thread) {
 
 function isWorkOrderPlanThread(thread) {
   return threadFilePath(thread).startsWith(".cursor/plans/")
+}
+
+function isUsCompletedCoderabbitOutcome(name, state) {
+  const label = String(name || "")
+  const conclusion = String(state || "").toLowerCase()
+  return /coderabbit/i.test(label) && conclusion === "success"
+}
+
+export function hasUsCompletedHeadStatus(snapshot) {
+  const statuses = snapshot?.statuses || snapshot?.status?.statuses || []
+  if (
+    statuses.some((s) =>
+      isUsCompletedCoderabbitOutcome(s?.context || s?.name, s?.state),
+    )
+  ) {
+    return true
+  }
+  const runs = [
+    ...(snapshot?.checkRuns || snapshot?.check_runs || []),
+    ...(snapshot?.checkSuites || snapshot?.check_suites || []),
+  ]
+  return runs.some(
+    (run) =>
+      isUsCompletedCoderabbitOutcome(
+        run?.name,
+        run?.conclusion || run?.status,
+      ) && !isNonUsCodeRabbitApp(run),
+  )
+}
+
+function captureRoutedFindings(snapshot) {
+  return collectActiveCodeRabbitFindings(snapshot).map((finding) => ({
+    ...finding,
+    route: "capture",
+    command: "/capture",
+  }))
 }
 
 export function collectOverrideTexts(snapshot) {
@@ -265,6 +302,17 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
   if (threads.some(threadHasNonUsCodeRabbit)) {
     return { ok: false, reason: "wrong_bot" }
   }
+
+  const usReviews = reviews.filter((r) => isUsBotLogin(reviewAuthorLogin(r)))
+  const onHead = usReviews.filter((r) => reviewCommitId(r) === headSha)
+  const ranked = onHead.filter((r) =>
+    ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(r)),
+  )
+  const incrementalPaused =
+    ranked.length === 0 &&
+    usReviews.length > 0 &&
+    hasUsCompletedHeadStatus(snapshot)
+
   // Work-order `.cursor/plans/` paths are process-meta (G-CR3).
   const unresolved = threads.filter(
     (t) =>
@@ -272,7 +320,7 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
       threadHasCodeRabbit(t) &&
       !isWorkOrderPlanThread(t),
   )
-  if (unresolved.length) {
+  if (unresolved.length && !incrementalPaused) {
     return {
       ok: false,
       reason: "unresolved_threads",
@@ -281,11 +329,6 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
     }
   }
 
-  const usReviews = reviews.filter((r) => isUsBotLogin(reviewAuthorLogin(r)))
-  const onHead = usReviews.filter((r) => reviewCommitId(r) === headSha)
-  const ranked = onHead.filter((r) =>
-    ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(r)),
-  )
   if (!ranked.length) {
     const otherApproval = reviews.find(
       (r) =>
@@ -293,6 +336,18 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
     )
     if (!usReviews.length && otherApproval) {
       return { ok: false, reason: "wrong_bot" }
+    }
+    if (incrementalPaused) {
+      return {
+        ok: true,
+        reason: "incremental_paused",
+        headSha,
+        isDraft,
+        findings: captureRoutedFindings(snapshot),
+        usAppId: US_APP_ID,
+        checkName: US_LATEST_HEAD_CHECK_NAME,
+        statusContext: REQUIRED_US_STATUS_CONTEXT,
+      }
     }
     return {
       ok: false,

@@ -229,6 +229,7 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
     reviewComments,
     checkRuns,
     checkSuites,
+    commitStatus,
     threads,
   ] = await Promise.all([
     ghJsonPages(`${repoApi}/pulls/${number}/reviews`, token),
@@ -248,6 +249,9 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
           "check_suites",
         )
       : [],
+    headSha
+      ? ghJson(`${repoApi}/commits/${headSha}/status`, token)
+      : { statuses: [] },
     fetchReviewThreads({ owner, repo, number, token }),
   ])
   const currentPull = await ghJson(`${repoApi}/pulls/${number}`, token)
@@ -276,6 +280,9 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
     reviewComments,
     checkRuns,
     checkSuites,
+    statuses: Array.isArray(commitStatus?.statuses)
+      ? commitStatus.statuses
+      : [],
     threads,
   }
 }
