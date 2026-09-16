@@ -7,23 +7,59 @@ import {
   CheckCircle2,
 } from "lucide-react"
 import { TABLE_STATUS_META } from "@/lib/data"
-import { getFloorSnapshot } from "@/app/actions/reservations"
+import { getAvailableSlots, getFloorSnapshot } from "@/app/actions/reservations"
+import { getAllOperatingWindowsMap } from "@/app/actions/availability"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 import { countFloorOccupancy } from "@/lib/floor/table-use"
+import { buildWeeklyServiceOverview } from "@/lib/floor/weekly-service-overview"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { StatCard } from "@/components/staff/stat-card"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
+import { WeeklyServiceOverview } from "@/components/staff/weekly-service-overview"
 import { Button } from "@/components/ui/button"
 
 export const dynamic = "force-dynamic"
 
-export default async function AdminDashboardPage() {
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+async function loadWeeklyServiceOverview(
+  selectedDate: string,
+): Promise<ReturnType<typeof buildWeeklyServiceOverview>> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { days: [] }
+
+  const operatingDays = Object.values(await getAllOperatingWindowsMap())
+  const weekDates = buildWeeklyServiceOverview({
+    selectedDate,
+    operatingDays,
+  }).days.map((day) => day.date)
+  const slotsByDate = Object.fromEntries(
+    await Promise.all(
+      weekDates.map(async (date) => [date, await getAvailableSlots(date, 1)]),
+    ),
+  )
+  return buildWeeklyServiceOverview({
+    selectedDate,
+    operatingDays,
+    slotsByDate,
+  })
+}
+
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>
+}) {
   const today = getTodayInRestaurantTZ()
-  const [authUser, snapshot] = await Promise.all([
+  const { week: weekParam } = await searchParams
+  const selectedDate = weekParam && DATE_RE.test(weekParam) ? weekParam : today
+  const [authUser, snapshot, weeklyOverview] = await Promise.all([
     getAuthUser(),
     getFloorSnapshot(today),
+    loadWeeklyServiceOverview(selectedDate),
   ])
   const reservations = snapshot.reservations
   const todays = reservations.filter((r) => r.status !== "cancelled")
@@ -168,6 +204,11 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      <WeeklyServiceOverview
+        selectedDate={selectedDate}
+        days={weeklyOverview.days}
+      />
     </StaffShell>
   )
 }

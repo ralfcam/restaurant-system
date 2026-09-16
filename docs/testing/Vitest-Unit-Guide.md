@@ -44,6 +44,9 @@
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
   `tests/unit/floor/pos-menu-availability.test.ts`
+- Weekly service overview (WA-1–WA-6):
+  `tests/unit/floor/weekly-service-overview.test.ts`,
+  `tests/unit/floor/dashboard-weekly-overview.test.ts`
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
 - Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,

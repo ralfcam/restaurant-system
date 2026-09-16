@@ -1,12 +1,13 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-16
 
 ## Scope
 
 Staff scheduling (`app/admin/scheduling`), floor plan (`app/admin/floor`),
-and `/admin` Dashboard floor-occupancy widgets (FP-11), the `/pos` table
+and `/admin` Dashboard floor-occupancy widgets (FP-11) plus the weekly
+service-availability overview (WA-1–WA-6), the `/pos` table
 picker (FP-13), and the `/pos` server picker (FP-14).
 Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
 `supabase/migrations/00000000000000_baseline.sql`; default hours seeded in
@@ -229,6 +230,56 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     placeholder instead of an uncontrolled empty value. A staff-facing
     admin UI to add/rename/remove servers is out of scope.
 
+### Weekly service availability (WA) — RES-76
+
+`/admin` Dashboard MUST include a weekly service-availability overview for a
+selected restaurant-TZ week, in addition to the current-day FP-11 widgets.
+
+20. **WA-1 — Seven days, configured services only** — The overview displays
+    all seven days of the selected week. The selected week is the Monday-first
+    restaurant-TZ week that contains the selected date (default: today from
+    `getTodayInRestaurantTZ`). Each day lists only the opening-hour segments
+    configured for that weekday on `/admin/scheduling` (`operating_windows` /
+    `OperatingDay.segments`). A closed day (`is_closed` or no segments) still
+    appears as a day column and MUST NOT present any service as available.
+    Suggested-segment templates and other weekdays' services MUST NOT be
+    copied onto a day that does not configure them.
+
+21. **WA-2 — Service labels** — Each configured service displays its staff
+    label. A blank/whitespace label uses the existing BW-4 time-range fallback
+    (`opens_at–closes_at`). Labels are shown exactly as staff typed (no auto
+    FR/EN translation).
+
+22. **WA-3 — Availability indicator** — A service shows **available** (green)
+    when at least one valid booking slot remains for that service, and
+    **fully booked** (red) when none remain. Status MUST also be exposed as
+    accessible text (`available` / `fully booked`), not color alone. A valid
+    booking slot is a generated slot that `getAvailableSlots(date, 1)` would
+    mark `available: true` and that `assignSegmentForTime` (BW-1) assigns to
+    that segment. Party size `1` is the existing minimum bookable party
+    (`validateReservationPayload`). Past-today slots stay unavailable
+    (existing `getAvailableSlots` rule). A blocked date yields no remaining
+    slots (configured services are fully booked). A closed day has no
+    services (WA-1).
+
+23. **WA-4 — Reuse booking rules** — The overview MUST NOT compute a second
+    cover/capacity formula. It reuses booking-rules BW-9–BW-12 (occupancy
+    window, early-release, table-fit) via the same `getAvailableSlots`
+    availability flags the guest widget uses.
+
+24. **WA-5 — Week navigation** — The overview provides previous-week and
+    next-week controls. Each control shifts the selected date by seven
+    restaurant-TZ calendar days. Changing the week MUST refresh the seven
+    displayed dates and recompute each service's availability for the new
+    week.
+
+25. **WA-6 — Refresh on reservation change** — When weekly data is reloaded
+    (week change or a subsequent Dashboard/overview fetch), service
+    availability MUST reflect current occupying reservations and capacity. A
+    service that had a remaining slot MUST turn fully booked after those
+    slots are taken, and MUST turn available after occupying reservations
+    are released (`completed` / `cancelled` / `no_show`, BW-10).
+
 **15. OH-SAVE — Persist opening hours via deployed RPC** — Staff **Save Changes**
 on `/admin/scheduling` persists the weekly opening-hour schedule by calling
 public RPC `replace_operating_windows(p_windows jsonb)`. The function MUST
@@ -380,6 +431,11 @@ linked-project conformance is an operator-owned reset and manual-UAT
 | FP-12                     | `lib/floor/layout.ts` — `FLOOR_LG_MIN_PX` (1024), `shouldOpenMobileInspector`; `components/staff/floor-plan.tsx` `selectTable` calls the helper and `setMobileInspectorOpen(true)` only below `lg`; resize listener closes the Sheet at `lg+`; desktop side inspector remains `lg:block`; mobile `<Sheet open={mobileInspectorOpen}>` / `SheetContent side="bottom"` `lg:hidden`. Shared `components/ui/sheet.tsx` unchanged.                                                                                                                                                                                                    | `tests/unit/floor/schema.test.ts` → "selecting a table at lg does not open the mobile inspector Sheet"; "selecting a table below lg opens the bottom Sheet inspector"                                                                                                               |
 | FP-13                     | `app/pos/page.tsx` (`PosPage`) — `getTables()` + `<PosTerminal tables={tables} />`; page is `dynamic = "force-dynamic"`; `PosTerminal` Table `Select` maps `tables`, defaults `tables[0]?.label ?? ""`, and when `tables.length === 0` is `disabled` with `value={table \|\| undefined}` and placeholder `No tables available`                                                                                                                                                                                                                                                                                                   | `tests/unit/floor/pos-table-picker.test.ts` → "POS table picker lists live getTables() tables, not the TABLES seed"; "table select disables with a placeholder when no tables are available"                                                                                        |
 | FP-14                     | `servers` table in baseline (`-- REAZED-329`, after `tables` GRANT) + seed Maya/Jon/Priya/Dev (`INSERT … WHERE NOT EXISTS`); `getServers()`; `app/pos/page.tsx` `Promise.all` with `getTables()`; `<PosTerminal servers={servers} />`; empty list disables Server `Select` (`value={server \|\| undefined}`, placeholder `No servers available`); `SERVERS` removed from `lib/data.ts`                                                                                                                                                                                                                                           | `tests/unit/scheduling/schema.test.ts`; `tests/unit/floor/get-servers.test.ts`; `tests/unit/floor/pos-server-picker.test.ts`                                                                                                                                                        |
+| WA-1                      | `lib/floor/weekly-service-overview.ts` `buildWeeklyServiceOverview` — Monday-first `mondayContaining(selectedDate)` then seven `addCalendarDays`; `configuredServices` returns `[]` when the weekday is missing, `is_closed`, or has no segments. `/admin` default week is `getTodayInRestaurantTZ` unless `?week=` matches `DATE_RE`. Chrome: `components/staff/weekly-service-overview.tsx` (`data-testid="week-overview"`).                                                                                                                                                                                                   | `tests/unit/floor/weekly-service-overview.test.ts` → "selected week lists seven days and only each day's configured services"; `tests/unit/floor/dashboard-weekly-overview.test.ts` → "admin Dashboard renders weekly service overview with week navigation"                        |
+| WA-2                      | `configuredServices` label is `segment.label?.trim()` or BW-4 `${normalizeTime(segment.opens_at)}–${normalizeTime(segment.closes_at)}`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `tests/unit/floor/weekly-service-overview.test.ts` → "configured services use staff labels and BW-4 time-range fallback"                                                                                                                                                            |
+| WA-3 / WA-4               | `statusFromExistingFlags` — `slots.some((slot) => slot.available && assignSegmentForTime(slot.time, segments) === segment)` → `"available"` else `"fully_booked"`. Loader `loadWeeklyServiceOverview` is `requireStaffUser` then `Promise.all(getAvailableSlots(date, 1))` into a second `buildWeeklyServiceOverview`. No second cover formula.                                                                                                                                                                                                                                                                                  | `tests/unit/floor/weekly-service-overview.test.ts` → "service is available when an existing bookable slot remains and fully booked when none remain"                                                                                                                                |
+| WA-5                      | `shiftSelectedWeek(date, weekDelta)` is `addCalendarDays(date, weekDelta * 7)` (does not snap to Monday). Chrome prev/next are `<Link href={/admin?week=${shiftSelectedWeek(...)}}>` (`data-testid="prev-week"` / `"next-week"`). Page stays a Server Component (`await searchParams`; no `"use client"` for week nav).                                                                                                                                                                                                                                                                                                          | `tests/unit/floor/weekly-service-overview.test.ts` → "previous and next week shift dates and recompute availability"; `tests/unit/floor/dashboard-weekly-overview.test.ts` → "admin Dashboard renders weekly service overview with week navigation"                                 |
+| WA-6                      | Reload is a fresh `buildWeeklyServiceOverview` with a new `slotsByDate` (no memo). `app/admin/page.tsx` is `dynamic = "force-dynamic"`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `tests/unit/floor/weekly-service-overview.test.ts` → "reloaded slot availability flips service status"                                                                                                                                                                              |
 | OH-SAVE (§15)             | `replace_operating_windows(p_windows jsonb)` — `supabase/migrations/20260818162000_operating_hour_segments.sql` applied on linked remote `tilcqrudqxznnpepxjqq` (version recorded; `DELETE … WHERE TRUE`; `GRANT EXECUTE` to `service_role`; `NOTIFY pgrst, 'reload schema'`); `app/actions/availability.ts` `upsertOperatingWindows`. Mutating pin is **local isolated**; unit pin stubs `NEXT_PUBLIC_SUPABASE_URL` (omitted follows env; explicit URL wins; helper `url ?? process.env.NEXT_PUBLIC_SUPABASE_URL` unchanged); linked-remote apply stays runbook + manual-UAT.                                                   | `tests/unit/scheduling/hours-mutation-target.test.ts` → "omitted url follows env; explicit url wins even when env is local"; `tests/integration/scheduling/replace-operating-windows.integ.test.ts` (local only)                                                                    |
 | OH-SAVE-PATH (§15)        | `replace_operating_windows(jsonb)` remains `SECURITY INVOKER` with exact `SET search_path = ''`; `DELETE FROM public.operating_windows` and `INSERT INTO public.operating_windows` in both defining migrations (`00000000000000_baseline.sql`, `20260818162000_operating_hour_segments.sql`). After a clean local reset, `pg_proc.proconfig` contains `search_path=""` and `prosecdef` is false; guest EXECUTE stays denied; `service_role` EXECUTE stays granted. Atomic exact-payload persistence unchanged.                                                                                                                   | `tests/integration/scheduling/replace-operating-windows.integ.test.ts` → "replace_operating_windows pins an empty search_path and qualified table writes"                                                                                                                           |
 | OH-SAVE-PATH-LINKED (§15) | Operator-owned replay of the current idempotent `20260818162000_operating_hour_segments.sql` on linked `tilcqrudqxznnpepxjqq` after merge, even though the history row exists; catalog `search_path=""`, Advisor lint 0011 absent, staff Save still persists multiple segments. Do not repair the history row, `db push`, or reset linked history.                                                                                                                                                                                                                                                                               | manual-UAT — `docs/runbooks/deploy.md` § Apply `20260818162000_operating_hour_segments.sql` on an already-baselined remote                                                                                                                                                          |
@@ -399,6 +455,8 @@ linked-project conformance is an operator-owned reset and manual-UAT
 - [../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md)
 - `lib/floor/layout.ts`
 - `lib/floor/table-use.ts`
+- `lib/floor/weekly-service-overview.ts`
+- `components/staff/weekly-service-overview.tsx`
 - `lib/reservations/auto-assign.ts`
 - `lib/reservations/selectable-tables.ts`
 - `app/actions/reservations.ts`

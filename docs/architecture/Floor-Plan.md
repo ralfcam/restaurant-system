@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-16
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -39,7 +39,13 @@ desktop selection (FP-12). Inventory is persisted in Postgres (`tables`), not
 mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
 live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
-static `TABLES` seed in `lib/data.ts`. `/pos`'s Table picker lists live
+static `TABLES` seed in `lib/data.ts`. The weekly service-availability
+overview (WA-1–WA-6) is `buildWeeklyServiceOverview` in
+`lib/floor/weekly-service-overview.ts` plus chrome
+`components/staff/weekly-service-overview.tsx`; `app/admin/page.tsx` loads
+`getAvailableSlots(date, 1)` per restaurant-TZ week day after
+`requireStaffUser` and mounts prev/next `?week=` Links via
+`shiftSelectedWeek`. `/pos`'s Table picker lists live
 `getTables()` rows via `app/pos/page.tsx` (`dynamic = "force-dynamic"`) into
 `PosTerminal` `tables`, also not `TABLES`. The Server picker lists live
 `getServers()` rows (`servers` in baseline + seed; not a `lib/data.ts`
