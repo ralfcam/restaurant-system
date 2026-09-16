@@ -31,7 +31,7 @@ export async function updateGuestProfilePii(input: {
   const { error } = await createServiceClient()
     .from("reservations")
     .update({ guest_name: input.guest_name, phone: input.phone })
-    // update-pii pin: exact stored email (not email_normalized).
-    .eq("email", normalizeGuestEmail(input.email))
+    // GP-10: write the GP-2 generated-key group — not exact stored email.
+    .eq("email_normalized", normalizeGuestEmail(input.email))
   if (error) return { error: error.message }
 }

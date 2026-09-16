@@ -94,14 +94,16 @@ ficha.
 ## Implementation trace (non-normative)
 
 FEATURE `res-104_guest_profiles_f8c2e1a0` (RES-104, 2026-09-16) plus
-FIX `res-104_cr_majors_b3e8a1c2` (2026-09-16). GP-1–GP-12 shipped at the
+FIX `res-104_cr_majors_b3e8a1c2` (2026-09-16) plus
+FIX `res-104_cr_mutator_d4b2a9c1` (2026-09-16). GP-1–GP-12 shipped at the
 builder / action / reservation-row entry and ficha chrome. Identity is
 `normalizeGuestEmail` (trim + lowercase). Live read is `requireStaffUser`
 then a fresh `createServiceClient` `.eq("email_normalized",
 normalizeGuestEmail(email))` into `buildGuestProfile`. Baseline
 `email_normalized TEXT GENERATED ALWAYS AS (lower(btrim(email))) STORED`
 plus `reservations_email_normalized_idx`. Mutator `updateGuestProfilePii`
-still `.eq("email", normalizeGuestEmail(...))` (no new GRANT SELECT).
+`.eq("email_normalized", normalizeGuestEmail(input.email))` (no new GRANT
+SELECT).
 `/admin/customers/[email]` is `force-dynamic` + `StaffShell` +
 `getGuestProfile`; chrome interpolates `profile.email` / `profile.notes`,
 Save calls `updateGuestProfilePii({ email, guest_name, phone })` with
@@ -121,7 +123,7 @@ Save calls `updateGuestProfilePii({ email, guest_name, phone })` with
 | GP-7      | History `sort` is `date` then `time` `localeCompare` descending                                                                                                                                                                                                                                                                                                          | `tests/unit/guest-profiles/build-profile.test.ts` → "history is newest date then time first"                                                                                                                                                         |
 | GP-8      | `getGuestProfile` — `requireStaffUser` then fresh `createServiceClient().from("reservations").select("*").eq("email_normalized", normalizeGuestEmail(email))` into `buildGuestProfile`                                                                                                                                                                                   | `tests/unit/guest-profiles/live-read.test.ts` → "getGuestProfile is a live service-role select"                                                                                                                                                      |
 | GP-9      | `guestProfileHref`; `ReservationRow.email`; `ReservationsManager` maps `email` and renders `const fichaHref = guestProfileHref(r.email)` plus ternary `Link href={fichaHref}` / `: null`. No customer-list nav item                                                                                                                                                      | `tests/unit/guest-profiles/reservation-entry.test.ts` → "reservations list links a non-blank email to the ficha"; "reservations list renders a ficha link for non-blank email only"                                                                  |
-| GP-10     | `updateGuestProfilePii` — `requireStaffUser` then service-role `.update({ guest_name, phone }).eq("email", normalizeGuestEmail(...))`. Page Save form calls `updateGuestProfilePii({ email, guest_name, phone })` (a11y `htmlFor`/`id`/`autoComplete` on chrome, not inside the call)                                                                                    | `tests/unit/guest-profiles/update-pii.test.ts` → "updateGuestProfilePii writes name and phone on the email group and never email"; `tests/unit/guest-profiles/staff-gate.test.ts` → "staff ficha save control writes name and phone and not email"   |
+| GP-10     | `updateGuestProfilePii` — `requireStaffUser` then service-role `.update({ guest_name, phone }).eq("email_normalized", normalizeGuestEmail(input.email))`. Page Save form calls `updateGuestProfilePii({ email, guest_name, phone })` (a11y `htmlFor`/`id`/`autoComplete` on chrome, not inside the call)                                                                 | `tests/unit/guest-profiles/update-pii.test.ts` → "updateGuestProfilePii writes name and phone on the email group and never email"; `tests/unit/guest-profiles/staff-gate.test.ts` → "staff ficha save control writes name and phone and not email"   |
 | GP-11     | Reader and mutator construct `createServiceClient` only after staff; no `GRANT SELECT` on `reservations` for `anon` / `authenticated`                                                                                                                                                                                                                                    | `tests/unit/guest-profiles/res-priv.test.ts` → "guest profile reader and mutator use service client and do not grant anon SELECT"                                                                                                                    |
 | GP-12     | Same filter + return; empty match is `history: []` and `email: key`. Page empty chrome is exclusive ternary (`!history?.length` → `No reservations — not found.` else history `<ul>`)                                                                                                                                                                                    | `tests/unit/guest-profiles/build-profile.test.ts` → "empty matching set is empty not other guests"; `tests/unit/guest-profiles/staff-gate.test.ts` → "staff ficha empty key is empty not other guests"                                               |
 

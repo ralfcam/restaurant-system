@@ -77,7 +77,7 @@ describe("updateGuestProfilePii", () => {
     })
     expect(updatePayload()).not.toHaveProperty("email")
     expect(mocks.eq).toHaveBeenCalledWith(
-      "email",
+      "email_normalized",
       normalizeGuestEmail(piiDraft.email),
     )
   })
