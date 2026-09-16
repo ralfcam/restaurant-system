@@ -60,6 +60,7 @@ export type ReservationRow = {
   time: string
   status: "confirmed" | "seated" | "completed" | "cancelled" | "no_show"
   phone: string
+  email?: string | null
   notes: string | null
   table_label: string | null
   conf_code: string

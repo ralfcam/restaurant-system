@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-16
 
 ## Layout
 
@@ -73,6 +73,9 @@
 - Event inquiries: `tests/unit/inquiries/` (staff gate + Service `NAV_GROUPS`,
   schema CHECKs, create allowlist, STAFF-LIST, status-only update, no
   convert/confirm export, EI-9 isolation scan)
+- Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
+  `buildGuestProfile`, RES-PRIV, staff gate, PII update, live read,
+  reservation-row ficha `Link`)
 
 ## Conventions
 

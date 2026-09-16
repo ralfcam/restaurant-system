@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-16
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -131,6 +131,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-70 CR majors (`res-70_cr_majors_9f4c2a71`)                                                    | 2026-09-15 | `specs/menu-availability.md` (MT-6a/MT-4a/MT-4b), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md`, `dev-journal.md`                                                                                                                                                                              |
 | RES-70 CR remain (`res-70_cr_remain_b5c93e14`)                                                    | 2026-09-15 | `specs/menu-availability.md` (MT-4c/MT-4d), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Integration-Guide.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md`, `dev-journal.md`                                                                                                                                             |
 | RES-70 CR threads (`res-70_cr_threads_e8a1c4d2`)                                                  | 2026-09-15 | `specs/menu-availability.md` (MT-4e), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md`, `dev-journal.md`                                                                                                                                                                                          |
+| FEATURE guest profiles (`res-104_guest_profiles_f8c2e1a0`)                                        | 2026-09-16 | `specs/guest-profiles.md` (GP-1–GP-12), `specs/staff-authorization.md` (SA-8), `specs/booking-rules.md` (STAFF-LIST / GP-9), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                           |
 
 ## Seed path
 

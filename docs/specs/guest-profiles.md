@@ -1,7 +1,7 @@
 # Guest profiles
 
 **Status:** Draft
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-16
 
 ## Scope
 
@@ -90,3 +90,37 @@ ficha.
 12. **GP-12 — Empty key** — Visiting `/admin/customers/[email]` with a
     normalized email that matches no reservations shows a clear
     empty/not-found state and MUST NOT list any other guest's reservations.
+
+## Implementation trace (non-normative)
+
+FEATURE `res-104_guest_profiles_f8c2e1a0` (RES-104, 2026-09-16). GP-1–GP-12
+shipped at the builder / action / reservation-row entry. Identity is
+`normalizeGuestEmail` (trim + lowercase). Live read and PII write use
+`requireStaffUser` then a fresh `createServiceClient` on `reservations`
+(no new GRANT SELECT). `/admin/customers/[email]` is `force-dynamic` +
+`StaffShell` + `getGuestProfile`; the page still renders
+`profile.error ?? email` and does not display builder PII, history, or
+empty/not-found copy. Entry is `guestProfileHref` plus a per-row `Link`
+on `/admin/reservations`. No customer-list nav item. No `guests` table.
+
+| Criterion | Shipped in                                                                                                                                                                                                                                                  | Tests                                                                                                                             |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| GP-1      | `app/admin/customers/[email]/page.tsx` (`dynamic = "force-dynamic"`, `StaffShell`, `Promise.all([getGuestProfile, getAuthUser])`); `getGuestProfile` is `requireStaffUser` then `createServiceClient`. Page chrome is title + `profile.error ?? email` only | `tests/unit/guest-profiles/staff-gate.test.ts` → "staff guest profile is gated at /admin/customers"                               |
+| GP-2      | `lib/guest-profiles.ts` `normalizeGuestEmail` (`trim` + `toLowerCase`, blank → `null`); `guestProfileHref` percent-encodes the key                                                                                                                          | `tests/unit/guest-profiles/build-profile.test.ts` → "normalizeGuestEmail matches trim+lowercase and drops blank emails"           |
+| GP-3      | `buildGuestProfile` filters `normalizeGuestEmail(row.email) === key` before mapping                                                                                                                                                                         | `tests/unit/guest-profiles/build-profile.test.ts` → "buildGuestProfile excludes other emails"                                     |
+| GP-4      | After newest-first sort, displayed PII is `history[0]` (`guest_name` / `phone` / `notes`); ficha `email` is the identity key. Page does not render these fields                                                                                             | `tests/unit/guest-profiles/build-profile.test.ts` → "displayed PII comes from the newest reservation"                             |
+| GP-5      | History rows keep `...row` plus `date`, `time`, `party_size`, `status`, `isVisit`. Page does not list history                                                                                                                                               | `tests/unit/guest-profiles/build-profile.test.ts` → "each history row has date time party_size status"                            |
+| GP-6      | `isVisit: row.status === "completed"` after the email filter (not analytics' `completed && completed_at`)                                                                                                                                                   | `tests/unit/guest-profiles/build-profile.test.ts` → "completed reservations are visits and others are not"                        |
+| GP-7      | History `sort` is `date` then `time` `localeCompare` descending                                                                                                                                                                                             | `tests/unit/guest-profiles/build-profile.test.ts` → "history is newest date then time first"                                      |
+| GP-8      | `getGuestProfile` — `requireStaffUser` then fresh `createServiceClient().from("reservations").select("*").eq("email", normalizeGuestEmail(email))` into `buildGuestProfile`                                                                                 | `tests/unit/guest-profiles/live-read.test.ts` → "getGuestProfile is a live service-role select"                                   |
+| GP-9      | `guestProfileHref`; `ReservationRow.email`; `ReservationsManager` maps `email` and renders a per-row `Link` when href is non-null. No customer-list nav item                                                                                                | `tests/unit/guest-profiles/reservation-entry.test.ts` → "reservations list links a non-blank email to the ficha"                  |
+| GP-10     | `updateGuestProfilePii` — `requireStaffUser` then service-role `.update({ guest_name, phone }).eq("email", normalizeGuestEmail(...))`. Page has no submit control                                                                                           | `tests/unit/guest-profiles/update-pii.test.ts` → "updateGuestProfilePii writes name and phone on the email group and never email" |
+| GP-11     | Reader and mutator construct `createServiceClient` only after staff; no `GRANT SELECT` on `reservations` for `anon` / `authenticated`                                                                                                                       | `tests/unit/guest-profiles/res-priv.test.ts` → "guest profile reader and mutator use service client and do not grant anon SELECT" |
+| GP-12     | Same filter + return; empty match is `history: []` and `email: key`. Page has no empty/not-found copy                                                                                                                                                       | `tests/unit/guest-profiles/build-profile.test.ts` → "empty matching set is empty not other guests"                                |
+
+## References
+
+- [staff-authorization.md](./staff-authorization.md) (SA-1 / SA-2 / SA-8)
+- [booking-rules.md](./booking-rules.md) (AC-5 / RES-PRIV, STAFF-LIST)
+- [site-localization.md](./site-localization.md) (staff chrome English-only)
+- [RES-104](https://linear.app/realized/issue/RES-104)
