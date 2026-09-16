@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS reservations (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   -- PV-9: nullable guest email for post-visit review send (RES-PRIV: no GRANT SELECT).
   email TEXT,
+  -- RES-104 / GP-2: stored trim+lower membership key (not inserted; generated).
+  email_normalized TEXT GENERATED ALWAYS AS (lower(btrim(email))) STORED,
   -- RES-45 / PV-13: completion clock for post-visit review delay (not updated_at).
   completed_at TIMESTAMPTZ
 );
@@ -105,6 +107,13 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
 -- RES-45 / PV-13: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
 -- without completed_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- RES-104 / GP-2: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without email_normalized; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email_normalized TEXT
+  GENERATED ALWAYS AS (lower(btrim(email))) STORED;
+-- RES-104 / GP-2: btree on the generated membership key for getGuestProfile .eq.
+CREATE INDEX IF NOT EXISTS reservations_email_normalized_idx
+  ON public.reservations (email_normalized);
 
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 
@@ -116,7 +125,8 @@ CREATE POLICY "Allow public insert reservations"
 
 -- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
 -- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
--- id, status, table_label, created_at, completed_at have no guest INSERT privilege.
+-- id, status, table_label, created_at, completed_at, email_normalized have no
+-- guest INSERT privilege.
 -- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 

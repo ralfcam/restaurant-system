@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-16
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -16,6 +16,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Reservations / booking                         | [specs/booking-rules.md](./specs/booking-rules.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md)     |
 | Reservation analytics                          | [specs/reservation-analytics.md](./specs/reservation-analytics.md)                                                              |
 | Event inquiries                                | [specs/event-inquiries.md](./specs/event-inquiries.md) · [architecture/Reservation-Flow.md](./architecture/Reservation-Flow.md) |
+| Guest profiles (staff ficha)                   | [specs/guest-profiles.md](./specs/guest-profiles.md)                                                                            |
 | Menu / 86 / POS / KDS                          | [specs/menu-availability.md](./specs/menu-availability.md) · [architecture/Order-Flow.md](./architecture/Order-Flow.md)         |
 | Guest site chrome (header / logo)              | [specs/site-chrome.md](./specs/site-chrome.md)                                                                                  |
 | Guest site localization                        | [specs/site-localization.md](./specs/site-localization.md)                                                                      |
@@ -44,6 +45,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | Reservation booking rules                    | `specs/booking-rules.md`           | `architecture/Reservation-Flow.md`                                                            |
 | Reservation / occupancy analytics            | `specs/reservation-analytics.md`   | `architecture/Platform-Overview.md`; `architecture/Auth-And-RLS.md`                           |
 | Event inquiries (not occupancy)              | `specs/event-inquiries.md`         | `architecture/Reservation-Flow.md`; `architecture/Auth-And-RLS.md`                            |
+| Guest profiles (staff ficha)                 | `specs/guest-profiles.md`          | `specs/booking-rules.md`; `specs/staff-authorization.md`                                      |
 | Menu availability / 86                       | `specs/menu-availability.md`       | `architecture/Order-Flow.md`                                                                  |
 | Staff scheduling / tables                    | `specs/scheduling.md`              | `architecture/Floor-Plan.md`                                                                  |
 | Guest header / brand logo                    | `specs/site-chrome.md`             | `specs/branding-cms.md` (custom override)                                                     |
@@ -129,6 +131,9 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-70 CR majors (`res-70_cr_majors_9f4c2a71`)                                                    | 2026-09-15 | `specs/menu-availability.md` (MT-6a/MT-4a/MT-4b), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md`, `dev-journal.md`                                                                                                                                                                              |
 | RES-70 CR remain (`res-70_cr_remain_b5c93e14`)                                                    | 2026-09-15 | `specs/menu-availability.md` (MT-4c/MT-4d), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Integration-Guide.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md`, `dev-journal.md`                                                                                                                                             |
 | RES-70 CR threads (`res-70_cr_threads_e8a1c4d2`)                                                  | 2026-09-15 | `specs/menu-availability.md` (MT-4e), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Test-Data-And-Seeds.md`, `testing/Vitest-Unit-Guide.md`, `runbooks/deploy.md`, `dev-journal.md`                                                                                                                                                                                          |
+| FEATURE guest profiles (`res-104_guest_profiles_f8c2e1a0`)                                        | 2026-09-16 | `specs/guest-profiles.md` (GP-1–GP-12), `specs/staff-authorization.md` (SA-8), `specs/booking-rules.md` (STAFF-LIST / GP-9), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                           |
+| RES-104 CR majors (`res-104_cr_majors_b3e8a1c2`)                                                  | 2026-09-16 | `specs/guest-profiles.md` (GP-2/GP-4/GP-5/GP-8–GP-10/GP-12), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                           |
+| RES-104 CR mutator (`res-104_cr_mutator_d4b2a9c1`)                                                | 2026-09-16 | `specs/guest-profiles.md` (GP-10 impl trace), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                                          |
 
 ## Seed path
 
