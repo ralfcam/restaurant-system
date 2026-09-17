@@ -666,7 +666,7 @@ You are a **capture orchestrator, not an implementer**. When this plan is execut
 
 - Plan Mode: YES (proceeding) | NO (stopped — instruction to switch) | CLOUD-MANAGED (one-shot)
 - Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | (fail-closed if probed and not exactly `managed`)
-- Work-order: `.cursor/plans/<plan-slug>.plan.md` (managed Cloud) | n/a (Plan Mode — native plan)
+- Work-order: `.cursor/plans/<plan-slug>.plan.md` (repository work-order, not a silently accepted native Cursor Plan; managed Cloud) | n/a (Plan Mode — native plan)
 - Input source: <argument | @file | thread context>
 
 ## Input Summary
