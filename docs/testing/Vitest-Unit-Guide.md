@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-17
 
 ## Layout
 
@@ -44,7 +44,9 @@
   `unresolved_threads`; incremental-pause SUCCESS is exact
   `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks, with CodeRabbit label
   `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
-  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`)
+  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
+  G-CAP1 PHASE 5 heading-range chrome-scan in
+  `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
@@ -73,6 +75,12 @@
   `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
   visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit
   `r.email?.trim()` gate)
+- Guest widget fully booked confirm (BW-16):
+  `tests/unit/reservation-widget/fully-booked-error.test.ts` (source-scan
+  `confirm()` exact-string branch; no page toast; step 2 `role="alert"`;
+  Back-clear: every step-2 `setStep(1)` `onClick` calls the denial setter
+  with `null` — "fully booked rejection is cleared when the guest leaves
+  the confirmation form")
 - Review-email isolation (PV-ISO):
   `tests/unit/marketing/review-email-schema-isolation.test.ts` (AST
   glob-scan of `tests/integration/marketing/*.integ.test.ts`; `WRITE_HOOKS`

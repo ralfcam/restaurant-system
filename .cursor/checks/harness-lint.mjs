@@ -13,7 +13,8 @@
  *                    milestone routes
  *   clarify          resolver-only bounded/idempotent comment feedback loop
  *   gates            commit.md names lint, typecheck, test:unit, gate open, harness-lint
- *   capture          capture.md pins Validation Summary row count = PHASE 5 slug count
+ *   capture          capture.md pins Validation Summary row count = PHASE 5 slug
+ *                    count and the managed Cloud one-shot contract
  *   ledger           linear-resolver + triage Grep ledger before MCP
  *   findings-format  prettier --check on the five docs/findings/*.md bus files
  *                    via Corepack-independent local prettier (Linux Cloud Agents
@@ -917,6 +918,21 @@ function checkCaptureSlugRule() {
       "capture",
       "capture.md must pin Validation Summary row count = PHASE 5 slug count",
     )
+  }
+  const cloudNeedles = [
+    "/v1/meta-data/agent/runtime",
+    "exactly `managed`",
+    ".cursor/plans/<plan-slug>.plan.md",
+    "repository work-order, not a silently accepted native Cursor Plan",
+    "Cloud one-shot does not waive",
+    "do not auto-confirm",
+    "Do **not** invoke `CreatePlan`",
+    "unattended Agent-mode launches",
+  ]
+  for (const needle of cloudNeedles) {
+    if (!text.includes(needle)) {
+      fail("capture", `capture.md must pin managed Cloud one-shot: ${needle}`)
+    }
   }
 }
 
