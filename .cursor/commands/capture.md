@@ -477,7 +477,7 @@ Runs once the operator approves the Capture Plan (per-item opt-out allowed — s
 only the items they decline; drop those lines from their file's delegation),
 **or** — after STEP 0B — immediately after the work-order is written.
 
-Execute **PHASE 5 Execution Todos in order**, one todo per turn — the
+Execute **PHASE 5 Execution Todos in order**, one todo per turn locally unless STEP 0B — after STEP 0B, execute every listed PHASE 5 todo sequentially in this same turn: the
 `<category>-phase5` ledger todos first, then the gated `linear-register` todo (if
 present), then each approved `clarify-*` todo. A clarification-only plan
 executes only those `clarify-*` todos. For each todo `<category>-phase5`:

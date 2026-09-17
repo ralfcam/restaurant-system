@@ -44,7 +44,9 @@
   `unresolved_threads`; incremental-pause SUCCESS is exact
   `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks, with CodeRabbit label
   `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
-  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`)
+  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
+  G-CAP1 PHASE 5 heading-range chrome-scan in
+  `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
