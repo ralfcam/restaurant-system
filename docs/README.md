@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-17
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -142,7 +142,8 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | PR #119 G-CR3 pause identity (`pr119_cr_gcr3_pause_id_e7c2a91f`)                                  | 2026-09-16 | `specs/dev-toolchain.md` (G-CR3 C1/C2), `testing/Design-And-Patterns.md`, `runbooks/coderabbit.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                      |
 | PR #119 G-CR3 suite/outdated (`pr119_cr_gcr3_suite_od_a8f1c203`)                                  | 2026-09-16 | `specs/dev-toolchain.md` (G-CR3 C1/C2), `testing/Design-And-Patterns.md`, `runbooks/coderabbit.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                      |
 | RES-74 staff guest email (`res-74_staff_guest_email_c3a8f1d2`)                                    | 2026-09-16 | `specs/booking-rules.md` (STAFF-GUEST-EMAIL / STAFF-GUEST-EMAIL-ABSENT), `specs/guest-profiles.md` (STAFF-GUEST-EMAIL cross-ref), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                      |
-| RES-66 in-widget fully booked (`res-66_inwidget_fully_booked_a7c2e1d4`)                           | 2026-09-16 | `specs/booking-rules.md` (BW-16 impl-trace), `dev-journal.md`                                                                                                                                                                                                                                                                                                                                             |
+| RES-66 in-widget fully booked (`res-66_inwidget_fully_booked_a7c2e1d4`)                           | 2026-09-16 | `specs/booking-rules.md` (BW-16 impl-trace), `architecture/Reservation-Flow.md`, `testing/Vitest-Unit-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                       |
+| PR #122 BW-16 attempt scope (`pr122_cr_bw16_attempt_scope_c4e8a1b2`)                              | 2026-09-17 | `specs/booking-rules.md` (BW-16 impl-trace Back-clear), `architecture/Reservation-Flow.md`, `testing/Vitest-Unit-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                            |
 
 ## Seed path
 

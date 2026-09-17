@@ -1,12 +1,12 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-17
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
-(BW-1…BW-14 for the segmented homepage widget, occupancy window,
-compatible-table bookability, guest email intake, and post-booking
-confirmation).
+(BW-1…BW-16 for the segmented homepage widget, occupancy window,
+compatible-table bookability, last-slot fully booked in-widget reject,
+guest email intake, and post-booking confirmation).
 
 ```mermaid
 flowchart LR
@@ -33,6 +33,12 @@ truncate), and renders until-badges via
 safety buffer). Guests/date/time are exclusive accordions; Réserver advances
 to guest details only after a slot is selected (no `createReservation` on pick).
 Step 2 requires guest name and a valid email; phone is optional (BW-7 / BW-13).
+When `createReservation` returns `Booking denied: This time is fully booked.`,
+step 2 stays visible and renders that string in-widget (`role="alert"`); this
+path does not toast or change step, and does not clear guest name / email / phone
+(BW-16). Step-2 Back calls `setFullyBookedError(null)` with `setStep(1)` /
+`setSlot(null)` so the denial is attempt-scoped. Other confirm errors keep their
+existing toasts.
 After INSERT succeeds, `createReservation` calls `sendBookingConfirmation` from
 the in-memory payload (no `.select()` of the inserted row). A throwing mailer
 is caught; `conf_code` is still returned (AC-4 / BW-14). Live provider stays

@@ -99,15 +99,65 @@ function step2RendersFullyBookedRejection(
   fullyBookedBranch: string,
 ): boolean {
   if (step2.includes(FULLY_BOOKED_REJECTION)) return true
+
+  // Identifier-only mentions (`fullyBooked` / `fullyBookedError` in a
+  // condition or setter) are not guest-visible rejection copy — sibling
+  // staff-list-guest-email strips ficha/href mentions before asserting.
+  const visibleSource = step2
+    .replace(/\bsetFullyBookedError\b/g, "")
+    .replace(/\bfullyBookedError\b/g, "")
+    .replace(/\bfullyBooked\b/g, "")
   const visibleCopy =
-    /fully\s*booked|fullyBooked|no remaining availability|no availability remains/i
-  if (visibleCopy.test(step2)) return true
+    /fully\s*booked|no remaining availability|no availability remains/i
+  if (visibleCopy.test(visibleSource)) return true
 
   const setters = [...fullyBookedBranch.matchAll(/set([A-Z]\w*)\s*\(/g)]
   return setters.some((m) => {
     const state = m[1][0]!.toLowerCase() + m[1].slice(1)
-    return new RegExp(`\\{[^}]*\\b${state}\\b`).test(step2)
+    return new RegExp(`\\{\\s*${state}\\s*\\}`).test(step2)
   })
+}
+
+function extractOnClickExpressions(jsx: string): string[] {
+  const expressions: string[] = []
+  const re = /onClick\s*=\s*\{/g
+  let match: RegExpExecArray | null
+  while ((match = re.exec(jsx))) {
+    const expr = extractBalanced(jsx, match.index + match[0].length - 1)
+    if (expr) expressions.push(expr)
+  }
+  return expressions
+}
+
+function resolveClickHandler(source: string, onClickExpr: string): string {
+  // Numbered group — tsconfig target is ES6; named groups are TS1503.
+  const named = /^\{([A-Za-z_$][\w$]*)\}$/.exec(onClickExpr.trim())
+  if (!named?.[1]) return onClickExpr
+  const name = named[1]
+  const fnHead = new RegExp(
+    `(?:function\\s+${name}\\s*\\([^)]*\\)\\s*|const\\s+${name}\\s*=\\s*(?:\\([^)]*\\)|[A-Za-z_$][\\w$]*)\\s*=>\\s*)\\{`,
+  ).exec(source)
+  if (!fnHead || fnHead.index === undefined) return onClickExpr
+  const openIdx = source.indexOf("{", fnHead.index + fnHead[0].length - 1)
+  return extractBalanced(source, openIdx) || onClickExpr
+}
+
+function extractStep2LeaveHandlers(source: string, step2: string): string[] {
+  return extractOnClickExpressions(step2)
+    .map((expr) => resolveClickHandler(source, expr))
+    .filter((body) => /setStep\s*\(\s*1\s*\)/.test(body))
+}
+
+function extractDenialSetters(fullyBookedBranch: string): string[] {
+  return [...fullyBookedBranch.matchAll(/\b(set[A-Z]\w*)\s*\(/g)].map(
+    (m) => m[1]!,
+  )
+}
+
+function denialClearPattern(setter: string): RegExp {
+  return new RegExp(
+    `\\b${setter}\\s*\\(\\s*(?:null|undefined|["'\`]{2})\\s*\\)`,
+  )
 }
 
 describe("reservation widget fully booked confirmation error", () => {
@@ -139,5 +189,29 @@ describe("reservation widget fully booked confirmation error", () => {
     expect(step2RendersFullyBookedRejection(step2, fullyBookedBranch)).toBe(
       true,
     )
+  })
+
+  it("fully booked rejection is cleared when the guest leaves the confirmation form", () => {
+    const source = readReservationWidgetSource()
+    const confirmSrc = extractConfirm(source)
+    expect(confirmSrc.length).toBeGreaterThan(0)
+
+    const fullyBookedBranch = isolateFullyBookedHandling(confirmSrc)
+    expect(fullyBookedBranch.length).toBeGreaterThan(0)
+
+    const denialSetters = extractDenialSetters(fullyBookedBranch)
+    expect(denialSetters.length).toBeGreaterThan(0)
+
+    const step2 = extractStep2Panel(source)
+    expect(step2.length).toBeGreaterThan(0)
+
+    const leaveHandlers = extractStep2LeaveHandlers(source, step2)
+    expect(leaveHandlers.length).toBeGreaterThan(0)
+
+    for (const handler of leaveHandlers) {
+      for (const setter of denialSetters) {
+        expect(handler).toMatch(denialClearPattern(setter))
+      }
+    }
   })
 })
