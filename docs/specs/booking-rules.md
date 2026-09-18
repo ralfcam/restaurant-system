@@ -415,6 +415,9 @@ the route locale. An in-widget language toggle is out of scope.
 - [post-visit-review-email.md](./post-visit-review-email.md) (PV-9 guest email PII)
 - `supabase/migrations/00000000000000_baseline.sql` — `validate_reservation_availability()`
   trigger `enforce_booking_rules` on `reservations`
+- `supabase/migrations/20260918140655_slot_service_cover_limits.sql` — dated
+  last-writer for remotes that already recorded table-fit (BW-20)
+- `lib/reservations/operating-hours.ts` — `coversFitSlotAndService` (BW-21)
 - `app/actions/reservations.ts` — `getReservationsByDate`
 - `lib/reservations/list-empty-copy.ts`
 - `components/staff/reservations-manager.tsx` — guest-contact chrome (STAFF-GUEST-EMAIL)

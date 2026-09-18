@@ -67,9 +67,11 @@ byte-identical in baseline, `20260818162000_operating_hour_segments.sql`,
 `table_label`. `completed` / `cancelled` / `no_show` do not occupy (BW-10).
 Criteria: [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-12.
 
-**Slot and service cover caps.** Optional `operating_windows.max_covers` and
-`bookable_slots` JSONB (`[]` = all generated times) are the BW-18 / BW-19
-caps. `getAvailableSlots` keeps BW-18 occupying covers in
+**Slot and service cover caps.** Optional `operating_windows.max_covers`
+(`INT NULL`, `CHECK (max_covers IS NULL OR max_covers >= 1)`) and
+`bookable_slots` JSONB (`NOT NULL DEFAULT '[]'`; empty = all generated times;
+non-empty = exclusive allowlist on the interval grid in `[opens_at, closes_at)`)
+are the BW-18 / BW-19 caps. `getAvailableSlots` keeps BW-18 occupying covers in
 `occupyingCoversByExactTime` (not BW-9 `bookedBySlot`) and BW-19 by
 `sort_order` + `opens_at`, then ANDs `coversFitSlotAndService` with BW-9 /
 BW-12 (`available: slotAndServiceFit && coversFit && tableFit`, BW-22).
