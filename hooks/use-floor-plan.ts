@@ -35,7 +35,8 @@ export function useFloorPlan(date: string, fallbackData?: FloorSnapshot) {
       data?.tables ?? [],
       data?.reservations ?? [],
       merges,
-      data?.tableTotals ?? {},
+      // FP-15-UNAVAILABLE: pass null through; do not substitute an empty map.
+      data?.tableTotals,
     ),
     merges,
   )

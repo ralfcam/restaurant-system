@@ -1058,10 +1058,12 @@ export function FloorPlan({
                           <span className="font-heading text-lg font-semibold leading-none">
                             {t.label}
                           </span>
-                          <span className="mt-1 flex items-center gap-0.5 text-xs">
-                            <Users className="size-3" />{" "}
-                            {t.reservation?.partySize ?? t.seats}
-                          </span>
+                          {t.reservation ? (
+                            <span className="mt-1 flex items-center gap-0.5 text-xs">
+                              <Users className="size-3" />{" "}
+                              {t.reservation.partySize}
+                            </span>
+                          ) : null}
                           {t.reservation ? (
                             <span className="mt-0.5 flex w-full min-w-0 max-w-[90%] flex-col items-center px-1 text-[10px] leading-tight">
                               <span className="w-full truncate">
@@ -1073,9 +1075,11 @@ export function FloorPlan({
                             </span>
                           ) : null}
                           {t.reservation?.status === "seated" ? (
-                            <span className="mt-0.5 text-[10px] leading-tight tabular-nums">
-                              CHF {(t.billTotal ?? 0).toFixed(2)}
-                            </span>
+                            typeof t.billTotal === "number" ? (
+                              <span className="mt-0.5 text-[10px] leading-tight tabular-nums">
+                                CHF {t.billTotal.toFixed(2)}
+                              </span>
+                            ) : null
                           ) : null}
                         </button>
                       </div>

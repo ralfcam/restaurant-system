@@ -265,11 +265,12 @@ describe("floor tables schema and live surfaces", () => {
     expect(chip).toMatch(/t\.displayStatus === ["']seated["']/)
     expect(chip).toMatch(/animate-ping/)
 
-    // FP-15: seated path formats overlay billTotal like POS (`CHF` + two
-    // decimals). Null/undefined is 0 so seated-with-no-orders shows CHF 0.00.
+    // FP-15-UNAVAILABLE: dining-room chip renders CHF only when billTotal
+    // is a number. MUST NOT coerce null/undefined with ?? 0 or || 0.
     expect(chip).toMatch(
-      /(?:t\.displayStatus === ["']seated["']|t\.reservation\??\.status === ["']seated["'])[\s\S]*CHF[\s\S]*(?:t\.)?billTotal\s*(?:\?\?|\|\|)\s*0[\s\S]*toFixed\(\s*2\s*\)/,
+      /typeof\s+t\.billTotal\s*===\s*["']number["'][\s\S]*CHF/,
     )
+    expect(chip).not.toMatch(/(?:t\.)?billTotal\s*(?:\?\?|\|\|)\s*0/)
 
     // Confirmed/reserved (and unassigned) paths must not render a bill.
     const withoutSeated = chip
@@ -288,5 +289,53 @@ describe("floor tables schema and live surfaces", () => {
       )
     expect(withoutSeated).not.toMatch(/CHF/)
     expect(withoutSeated).not.toMatch(/billTotal/)
+  })
+
+  it("floor chip party size does not fall back to table seats", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+
+    // Dining-room chip <button> only — inspector already shows
+    // {selected.reservation.partySize} and must not satisfy FP-4-PARTY.
+    const chipStart = floor.indexOf("onChipPointerDown(t, event)")
+    expect(chipStart).toBeGreaterThan(-1)
+    const buttonOpen = floor.lastIndexOf("<button", chipStart)
+    expect(buttonOpen).toBeGreaterThan(-1)
+    const buttonClose = floor.indexOf("</button>", chipStart)
+    expect(buttonClose).toBeGreaterThan(buttonOpen)
+    const chip = floor.slice(buttonOpen, buttonClose + "</button>".length)
+
+    expect(chip).toContain("onChipPointerDown")
+    expect(chip).not.toMatch(/selected\.reservation/)
+
+    // Chip size class MAY still use t.seats; isolate the party-size slot
+    // (Users icon figure) so a capacity cue is not confused with party size.
+    const usersAt = chip.indexOf("<Users")
+    expect(usersAt).toBeGreaterThan(-1)
+    const slotOpen = chip.lastIndexOf("<span", usersAt)
+    expect(slotOpen).toBeGreaterThan(-1)
+    const slotClose = chip.indexOf("</span>", usersAt)
+    expect(slotClose).toBeGreaterThan(slotOpen)
+    const partySlot = chip.slice(slotOpen, slotClose + "</span>".length)
+
+    // FP-4-PARTY: occupying reservation party_size only — MUST NOT fall
+    // back to tables.seats (?? / || / ternary) in that slot.
+    expect(partySlot).not.toMatch(/t\.seats/)
+    expect(partySlot).not.toMatch(
+      /partySize\s*(?:\?\?|\|\||\?[^:]*:)\s*t\.seats/,
+    )
+    expect(partySlot).toMatch(/t\.reservation(?:\?)?\.partySize/)
+
+    // Occupying figure is reservation party size with no seats fallback.
+    expect(chip).toMatch(/\{t\.reservation(?:\?)?\.partySize\}/)
+
+    // Unassigned path still omits guest/time (existing FP-4 pins).
+    expect(chip).toMatch(/\{t\.reservation \?/)
+    expect(chip).toMatch(/\{t\.reservation\.guestName\}/)
+    const ungated = chip.replace(
+      /\{t\.reservation \? \([\s\S]*?\) : null\}/g,
+      "",
+    )
+    expect(ungated).not.toMatch(/t\.reservation\.guestName/)
+    expect(ungated).not.toMatch(/t\.reservation\.time/)
   })
 })
