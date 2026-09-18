@@ -184,19 +184,19 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 
 ## Acceptance Criteria → Tests
 
-| #   | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
-| --- | --------- | ---- | ----- | --------- | --------------- | --------- | --------- | ------- | ---------- |
-| C1  | MT-4c hosted RLS + five seed ids | P0 | unit | tests/unit/menu/menus-bootstrap.test.ts | existing file, new `it` | hosted menus bootstrap enables RLS and seeds the five tab ids | `20260915180000_menus_bootstrap.sql` contains `ENABLE ROW LEVEL SECURITY`, `CREATE POLICY "Allow public read menus"`, `CREATE POLICY "Allow service_role full access to menus"`, and an `INSERT` that names `midi`, `soir`, `boissons`, `blanc`, `rouge` with `ON CONFLICT`. Every `supabase/migrations/*.sql` that contains `CREATE TABLE IF NOT EXISTS menus` also contains those RLS/policy statements before `GRANT SELECT ON TABLE menus`. | `pnpm test:unit tests/unit/menu/menus-bootstrap.test.ts` | none |
-| C2  | MT-4d integ config sets STRICT | P0 | unit | tests/unit/menu/menus-integ-strict.test.ts | existing file, new `it` | integration config sets STRICT so menus privilege integ cannot skip-green | `vitest.integration.config.ts` sets `RESTAURANT_INTEGRATION_STRICT` to `"true"` (test `env` or equivalent in that file). Existing MT-4b pin stays. | `pnpm test:unit tests/unit/menu/menus-integ-strict.test.ts` | none |
+| #   | Criterion                        | Risk | Layer | Test file                                  | New or existing         | Test name                                                                 | Assertion                                                                                                                                                                                                                                                                                                                                                                                                                                       | Command                                                     | Depends on |
+| --- | -------------------------------- | ---- | ----- | ------------------------------------------ | ----------------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- | ---------- |
+| C1  | MT-4c hosted RLS + five seed ids | P0   | unit  | tests/unit/menu/menus-bootstrap.test.ts    | existing file, new `it` | hosted menus bootstrap enables RLS and seeds the five tab ids             | `20260915180000_menus_bootstrap.sql` contains `ENABLE ROW LEVEL SECURITY`, `CREATE POLICY "Allow public read menus"`, `CREATE POLICY "Allow service_role full access to menus"`, and an `INSERT` that names `midi`, `soir`, `boissons`, `blanc`, `rouge` with `ON CONFLICT`. Every `supabase/migrations/*.sql` that contains `CREATE TABLE IF NOT EXISTS menus` also contains those RLS/policy statements before `GRANT SELECT ON TABLE menus`. | `pnpm test:unit tests/unit/menu/menus-bootstrap.test.ts`    | none       |
+| C2  | MT-4d integ config sets STRICT   | P0   | unit  | tests/unit/menu/menus-integ-strict.test.ts | existing file, new `it` | integration config sets STRICT so menus privilege integ cannot skip-green | `vitest.integration.config.ts` sets `RESTAURANT_INTEGRATION_STRICT` to `"true"` (test `env` or equivalent in that file). Existing MT-4b pin stays.                                                                                                                                                                                                                                                                                              | `pnpm test:unit tests/unit/menu/menus-integ-strict.test.ts` | none       |
 
 - **Risk** is `P0`–`P3`. C1 then C2 (both P0). No inter-criterion source dependency.
 
 ## Traceability Matrix
 
-| Criterion | Spec ref | Test file::name | Source file(s) | Risk | Status |
-| --------- | -------- | --------------- | -------------- | ---- | ------ |
-| C1 | menu-availability.md MT-4c | menus-bootstrap.test.ts::hosted menus bootstrap enables RLS and seeds the five tab ids | (fills at Green) | P0 | planned |
-| C2 | menu-availability.md MT-4d | menus-integ-strict.test.ts::integration config sets STRICT so menus privilege integ cannot skip-green | (fills at Green) | P0 | planned |
+| Criterion | Spec ref                   | Test file::name                                                                                       | Source file(s)   | Risk | Status  |
+| --------- | -------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------- | ---- | ------- |
+| C1        | menu-availability.md MT-4c | menus-bootstrap.test.ts::hosted menus bootstrap enables RLS and seeds the five tab ids                | (fills at Green) | P0   | planned |
+| C2        | menu-availability.md MT-4d | menus-integ-strict.test.ts::integration config sets STRICT so menus privilege integ cannot skip-green | (fills at Green) | P0   | planned |
 
 ## Execution Preconditions
 
@@ -245,10 +245,10 @@ Problem: PR 116 still has two Majors after MT-4a/MT-4b. Hosted menus bootstrap c
 Approach: Add MT-4c (dated forward seeds the five ids; every CREATE menus file enables RLS and the two baseline policies) and MT-4d (integration Vitest config sets STRICT). Do not execute review codegen.
 Out-of-scope findings: POS compiled MENUS (med) · tab delete (low) · privilege catalog inside skipIf (med, existing ledger)
 
-| #   | Criterion | Risk | Layer | Test file |
-| --- | --------- | ---- | ----- | --------- |
-| 1   | Hosted RLS + five seed ids | P0 | unit | tests/unit/menu/menus-bootstrap.test.ts |
-| 2   | Integ config sets STRICT | P0 | unit | tests/unit/menu/menus-integ-strict.test.ts |
+| #   | Criterion                  | Risk | Layer | Test file                                  |
+| --- | -------------------------- | ---- | ----- | ------------------------------------------ |
+| 1   | Hosted RLS + five seed ids | P0   | unit  | tests/unit/menu/menus-bootstrap.test.ts    |
+| 2   | Integ config sets STRICT   | P0   | unit  | tests/unit/menu/menus-integ-strict.test.ts |
 ```
 
 ## Docs Sync
@@ -287,11 +287,11 @@ Close-out todos: `4d-review-trail`, `4e-traceability`, `4-docs-packet`, `4-docs-
 
 ## Out-of-Scope Findings (the Findings Ledger — "none" if empty)
 
-| Finding | Where (file:line/area) | Why it matters | Severity | Relation |
-| ------- | ---------------------- | -------------- | -------- | -------- |
-| POS picker tabs stay on compiled MENUS | components/staff/pos-terminal.tsx / AC-4 | New admin tabs cannot be sold on POS | med | already on product-gaps |
-| Tab delete not specified | /admin/menu | Leftover empty tabs accumulate | low | already on product-gaps |
-| Privilege SQL catalog sits inside skipIf | tests/integration/menu/menus-privileges.integ.test.ts | Filesystem GRANT assertions skip when keys absent even after STRICT-on-config if someone unsets the flag | med | already on test-debt |
+| Finding                                  | Where (file:line/area)                                | Why it matters                                                                                           | Severity | Relation                |
+| ---------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------- | ----------------------- |
+| POS picker tabs stay on compiled MENUS   | components/staff/pos-terminal.tsx / AC-4              | New admin tabs cannot be sold on POS                                                                     | med      | already on product-gaps |
+| Tab delete not specified                 | /admin/menu                                           | Leftover empty tabs accumulate                                                                           | low      | already on product-gaps |
+| Privilege SQL catalog sits inside skipIf | tests/integration/menu/menus-privileges.integ.test.ts | Filesystem GRANT assertions skip when keys absent even after STRICT-on-config if someone unsets the flag | med      | already on test-debt    |
 
 ## Linear Close-out & Findings Registration
 

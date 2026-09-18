@@ -193,9 +193,9 @@ In `docs/specs/booking-rules.md`:
 
 ## Acceptance Criteria → Tests
 
-| #   | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
-| --- | --------- | ---- | ----- | --------- | --------------- | --------- | --------- | ------- | ---------- |
-| C1  | RES-ISO suite wiring | P0 | unit | `tests/unit/reservations/reservation-integ-isolation.test.ts` | new file | `reservation integ suites call assertIsolatedHoursMutationTarget before mutating writes` | Every `tests/integration/reservations/*.integ.test.ts` (glob, not a fixed five-name list) imports `assertIsolatedHoursMutationTarget` from `@/lib/scheduling/hours-mutation-target` and invokes `assertIsolatedHoursMutationTarget()` as the first statement of `beforeAll` and of every `afterEach`/`afterAll`. A comment or string mention is not enough. | `pnpm test:unit tests/unit/reservations/reservation-integ-isolation.test.ts` | none |
+| #   | Criterion            | Risk | Layer | Test file                                                     | New or existing | Test name                                                                                | Assertion                                                                                                                                                                                                                                                                                                                                                   | Command                                                                      | Depends on |
+| --- | -------------------- | ---- | ----- | ------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------- |
+| C1  | RES-ISO suite wiring | P0   | unit  | `tests/unit/reservations/reservation-integ-isolation.test.ts` | new file        | `reservation integ suites call assertIsolatedHoursMutationTarget before mutating writes` | Every `tests/integration/reservations/*.integ.test.ts` (glob, not a fixed five-name list) imports `assertIsolatedHoursMutationTarget` from `@/lib/scheduling/hours-mutation-target` and invokes `assertIsolatedHoursMutationTarget()` as the first statement of `beforeAll` and of every `afterEach`/`afterAll`. A comment or string mention is not enough. | `pnpm test:unit tests/unit/reservations/reservation-integ-isolation.test.ts` | none       |
 
 C1 is unit because the missing pin is a source-text contract on the integ files; the helper's fail-closed host logic is already unit-tested. Do **not** duplicate that host matrix. Do **not** require an integration run against the linked remote. No e2e. No manual-UAT.
 
@@ -203,9 +203,9 @@ C1 is **test-only wiring** after Red's scan is proven RED (same shape as OH-SAVE
 
 ## Traceability Matrix
 
-| Criterion | Spec ref | Test file::name | Source file(s) | Risk | Status |
-| --------- | -------- | --------------- | -------------- | ---- | ------ |
-| C1 | booking-rules.md RES-ISO | reservation-integ-isolation.test.ts::reservation integ suites call assertIsolatedHoursMutationTarget before mutating writes | none (reuse `lib/scheduling/hours-mutation-target.ts`; wire existing integ suites) | P0 | planned |
+| Criterion | Spec ref                 | Test file::name                                                                                                             | Source file(s)                                                                     | Risk | Status  |
+| --------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ---- | ------- |
+| C1        | booking-rules.md RES-ISO | reservation-integ-isolation.test.ts::reservation integ suites call assertIsolatedHoursMutationTarget before mutating writes | none (reuse `lib/scheduling/hours-mutation-target.ts`; wire existing integ suites) | P0   | planned |
 
 ## Execution Preconditions
 
@@ -223,7 +223,7 @@ C1 is **test-only wiring** after Red's scan is proven RED (same shape as OH-SAVE
   - `tests/integration/reservations/table-fit.integ.test.ts`
   - `tests/integration/reservations/public-privileges.integ.test.ts`
   - `tests/integration/reservations/review-email-pii.integ.test.ts`
-  Wiring only: import + first-statement `assertIsolatedHoursMutationTarget()` in `beforeAll` and write-cleanup hooks. Do not change assertions or dates.
+    Wiring only: import + first-statement `assertIsolatedHoursMutationTarget()` in `beforeAll` and write-cleanup hooks. Do not change assertions or dates.
 - Existing-test edit: **none** of `tests/unit/scheduling/hours-mutation-target.test.ts` (already owns the helper).
 
 Managed Cloud one-shot: the initiating RES-39 task pre-authorizes **only** these paths.
@@ -260,9 +260,9 @@ Problem: Reservation integration suites insert and delete reservations with no l
 Approach: Encode RES-ISO on booking-rules (local-only, fail-closed, first statement of beforeAll and write-cleanup hooks, reuse the hours helper, never createServiceClient). Drive one unit glob-scan through Red, authorized integ wiring, Green (no new source), Refactor.
 Out-of-scope findings: marketing review-email-schema integ missing the same pin (high); POS orders-persistence integ missing the same pin (high)
 
-| #   | Criterion                          | Risk | Layer | Test file                                      |
-| --- | ---------------------------------- | ---- | ----- | ---------------------------------------------- |
-| C1  | RES-ISO reservation integ local pin | P0   | unit  | reservation-integ-isolation.test.ts            |
+| #   | Criterion                           | Risk | Layer | Test file                           |
+| --- | ----------------------------------- | ---- | ----- | ----------------------------------- |
+| C1  | RES-ISO reservation integ local pin | P0   | unit  | reservation-integ-isolation.test.ts |
 ```
 
 ## Docs Sync
@@ -308,10 +308,10 @@ Close-out todos:
 
 ## Out-of-Scope Findings (the Findings Ledger — "none" if empty)
 
-| Finding | Where (file:line/area) | Why it matters | Severity | Relation |
-| ------- | ---------------------- | -------------- | -------- | -------- |
-| Marketing review-email-schema integ has no local-host isolation pin | `tests/integration/marketing/review-email-schema.integ.test.ts` vs `assertIsolatedHoursMutationTarget` | Same class as RES-39: service-role writes; a remote URL would mutate `tilcqrudqxznnpepxjqq` | high | same-class sibling; stay scoped to `reservations/*` |
-| POS orders-persistence integ has no local-host isolation pin | `tests/integration/pos/orders-persistence.integ.test.ts` vs `assertIsolatedHoursMutationTarget` | Same class: service-role insert/delete without the hours isolation pin | high | same-class sibling; stay scoped to `reservations/*` |
+| Finding                                                             | Where (file:line/area)                                                                                 | Why it matters                                                                              | Severity | Relation                                            |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------- |
+| Marketing review-email-schema integ has no local-host isolation pin | `tests/integration/marketing/review-email-schema.integ.test.ts` vs `assertIsolatedHoursMutationTarget` | Same class as RES-39: service-role writes; a remote URL would mutate `tilcqrudqxznnpepxjqq` | high     | same-class sibling; stay scoped to `reservations/*` |
+| POS orders-persistence integ has no local-host isolation pin        | `tests/integration/pos/orders-persistence.integ.test.ts` vs `assertIsolatedHoursMutationTarget`        | Same class: service-role insert/delete without the hours isolation pin                      | high     | same-class sibling; stay scoped to `reservations/*` |
 
 Seed these into `docs/findings/runs/res-39_pin_reservation_integ_local_a7c3e1f2.md` `## test-debt` at execution start (orchestrator findings write). Do not expand C1 to those folders.
 

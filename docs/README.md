@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-18
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -146,6 +146,9 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | PR #122 BW-16 attempt scope (`pr122_cr_bw16_attempt_scope_c4e8a1b2`)                              | 2026-09-17 | `specs/booking-rules.md` (BW-16 impl-trace Back-clear), `architecture/Reservation-Flow.md`, `testing/Vitest-Unit-Guide.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                            |
 | PR #122 G-CAP1 PHASE 5 turn (`pr122_cr_cap_phase5_turn_e8a1c4d2`)                                 | 2026-09-17 | `specs/dev-toolchain.md` (G-CAP1), `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                  |
 | RES-103 collapsed summary gap (`res-103_collapsed_summary_gap_e8a4c1d2`)                          | 2026-09-17 | `specs/booking-rules.md` (BW-17 impl-trace), `architecture/Reservation-Flow.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                       |
+| RES-72 floor chip details (`res-72_floor_chip_details_b676a1c2`)                                  | 2026-09-18 | `specs/scheduling.md` (FP-4 chip time / FP-15), `architecture/Floor-Plan.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                          |
+| PR #126 FP-15 majors (`pr126_cr_fp15_majors_7c2e9d14`)                                            | 2026-09-18 | `specs/scheduling.md` (FP-4-PARTY / FP-15-COMPLETE / FP-15-UNAVAILABLE), `architecture/Floor-Plan.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                 |
+| PR #126 FP-15 stable order (`pr126_cr_stable_order_c3a91e08`)                                     | 2026-09-18 | `specs/scheduling.md` (FP-15-COMPLETE impl-trace), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                                     |
 
 ## Seed path
 

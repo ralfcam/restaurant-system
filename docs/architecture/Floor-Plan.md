@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-16
+**Last updated:** 2026-09-18
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -30,7 +30,15 @@ renders that grid as a canvas (`lib/floor/layout.ts`). Each chip has a
 **move-lock** (default locked) so a click does not drag. Unlocking a table
 lets staff drag it to a new cell; coordinates persist through
 `updateTableState`. Dropping an unlocked available table on another still
-merges (FP-8). New tables take the next free cell.
+merges (FP-8). New tables take the next free cell. An occupying overlay
+(`confirmed` / `seated`) paints guest name, reservation `partySize`, and
+reservation `time` on the chip (FP-4; party slot is `{t.reservation.partySize}`,
+not `tables.seats`). Seated chips show `CHF` only when
+`typeof t.billTotal === "number"` from `getFloorSnapshot.tableTotals` on the
+same 5s `useFloorPlan` refresh (FP-15; `lib/floor/table-bills.ts` sums persisted
+`orders.total` excluding `cancelled` / `voided`; orders-read error is
+`tableTotals: null`, not `{}`). Confirmed, unassigned, and unavailable-total
+chips omit the bill.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. From `lg` (1024px) up, table selection updates the
