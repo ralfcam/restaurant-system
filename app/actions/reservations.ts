@@ -51,6 +51,7 @@ import {
   type PersistedTable,
 } from "@/app/actions/operations"
 import { toAssignableTables, type TableMergeRef } from "@/lib/floor/floor-units"
+import { sumOpenOrderTotalsByTableLabel } from "@/lib/floor/table-bills"
 
 export type ReservationRow = {
   id: string
@@ -494,6 +495,8 @@ export type FloorSnapshot = {
   reservations: ReservationRow[]
   assigned: PlannedAssignment[]
   merges: PersistedMerge[]
+  /** FP-15: non-cancelled/voided `orders.total` by `table_label` (completed counts). */
+  tableTotals: Record<string, number>
 }
 
 /**
@@ -561,20 +564,43 @@ export async function autoAssignDueReservations(): Promise<{
   return { assigned }
 }
 
-/** Live floor payload: auto-assign due reservations, then return tables + today's book. */
+/** Live floor payload: auto-assign due reservations, then return tables, today's book, and seated-chip bill totals. */
 export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
   const staffUser = await requireStaffUser()
   if (!staffUser)
-    return { tables: [], reservations: [], assigned: [], merges: [] }
+    return {
+      tables: [],
+      reservations: [],
+      assigned: [],
+      merges: [],
+      tableTotals: {},
+    }
 
   await expireDueMerges()
   const { assigned } = await autoAssignDueReservations()
-  const [tables, { reservations }, merges] = await Promise.all([
+  const db = createServiceClient()
+  const [tables, { reservations }, merges, ordersResult] = await Promise.all([
     getTables(),
     getReservationsByDate(date),
     getActiveMerges(),
+    // minimality: FP-15 does not date-filter; C3 pins from("orders") + these columns.
+    db.from("orders").select("table_label, total, status"),
   ])
-  return { tables, reservations, assigned, merges }
+  if (ordersResult.error) {
+    console.error(
+      "[reservations] getFloorSnapshot orders:",
+      ordersResult.error.message,
+    )
+  }
+  const tableTotals = sumOpenOrderTotalsByTableLabel(
+    (ordersResult.data ?? []).map((row) => ({
+      table_label: row.table_label,
+      // PostgREST NUMERIC often arrives as string; coerce before the IEEE sum.
+      total: Number(row.total),
+      status: row.status,
+    })),
+  )
+  return { tables, reservations, assigned, merges, tableTotals }
 }
 
 /** Fetch reservations across a date range (or all if no bounds given). */

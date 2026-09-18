@@ -66,6 +66,7 @@ export type FloorTableView<T extends AssignableTable = AssignableTable> = T & {
   y: number
   displayStatus: TableStatus
   reservation: FloorReservationOverlay | null
+  billTotal?: number | null
 }
 
 type OverlayReservationInput = {
@@ -303,10 +304,16 @@ export function planAutoAssignments(
   return planned
 }
 
+/**
+ * Occupying-reservation overlay. `tableTotals` is optional: when omitted the
+ * 3-arg path leaves `billTotal` off the view; when passed, seated labels take
+ * the map value (missing key → null) and confirmed / unassigned stay `null`.
+ */
 export function overlayReservationsOnTables<T extends AssignableTable>(
   tables: T[],
   reservations: OverlayReservationInput[],
   merges: Array<{ tableIds: string[] }> = [],
+  tableTotals?: Record<string, number>,
 ): FloorTableView<T>[] {
   const byLabel = new Map<string, FloorReservationOverlay>()
   for (const reservation of reservations) {
@@ -336,6 +343,17 @@ export function overlayReservationsOnTables<T extends AssignableTable>(
         : "reserved"
       : table.status
     // T may omit grid fields (AssignableTable); FloorTableView requires them for the canvas.
-    return { ...table, displayStatus, reservation } as FloorTableView<T>
+    const view = {
+      ...table,
+      displayStatus,
+      reservation,
+    } as FloorTableView<T>
+    if (tableTotals !== undefined) {
+      view.billTotal =
+        reservation?.status === "seated"
+          ? (tableTotals[table.label] ?? null)
+          : null
+    }
+    return view
   })
 }

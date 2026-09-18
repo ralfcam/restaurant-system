@@ -18,9 +18,9 @@ export const FLOOR_PLAN_SWR_KEY = (date: string) =>
 const FLOOR_REFRESH_MS = 5000
 
 /**
- * Live Floor Plan data: tables + today's reservations, refreshed every 5s.
- * Each fetch runs auto-assign so a due reservation receives a table at the
- * proper time without a manual dropdown.
+ * Live Floor Plan data: tables, today's reservations, and seated bill totals,
+ * refreshed every 5s. Each fetch runs auto-assign so a due reservation
+ * receives a table at the proper time without a manual dropdown.
  */
 export function useFloorPlan(date: string, fallbackData?: FloorSnapshot) {
   const { data, mutate, isLoading, isValidating } = useSWR(
@@ -35,6 +35,7 @@ export function useFloorPlan(date: string, fallbackData?: FloorSnapshot) {
       data?.tables ?? [],
       data?.reservations ?? [],
       merges,
+      data?.tableTotals ?? {},
     ),
     merges,
   )

@@ -1063,8 +1063,18 @@ export function FloorPlan({
                             {t.reservation?.partySize ?? t.seats}
                           </span>
                           {t.reservation ? (
-                            <span className="mt-0.5 max-w-[90%] truncate px-1 text-[10px] leading-tight">
-                              {t.reservation.guestName}
+                            <span className="mt-0.5 flex w-full min-w-0 max-w-[90%] flex-col items-center px-1 text-[10px] leading-tight">
+                              <span className="w-full truncate">
+                                {t.reservation.guestName}
+                              </span>
+                              <span className="tabular-nums">
+                                {t.reservation.time}
+                              </span>
+                            </span>
+                          ) : null}
+                          {t.reservation?.status === "seated" ? (
+                            <span className="mt-0.5 text-[10px] leading-tight tabular-nums">
+                              CHF {(t.billTotal ?? 0).toFixed(2)}
                             </span>
                           ) : null}
                         </button>
