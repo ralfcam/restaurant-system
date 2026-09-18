@@ -81,6 +81,11 @@
   Back-clear: every step-2 `setStep(1)` `onClick` calls the denial setter
   with `null` — "fully booked rejection is cleared when the guest leaves
   the confirmation form")
+- Guest widget collapsed summary gap (BW-17):
+  `tests/unit/reservation-widget/collapsed-summary-gap.test.ts` (source-scan
+  named `cn` `accordionTriggerCls`; exclude inner icon-to-label `gap-1.5`
+  when asserting label↔summary separation — "collapsed guests and date
+  summaries are separated from their accordion labels")
 - Review-email isolation (PV-ISO):
   `tests/unit/marketing/review-email-schema-isolation.test.ts` (AST
   glob-scan of `tests/integration/marketing/*.integ.test.ts`; `WRITE_HOOKS`

@@ -513,8 +513,9 @@ export function ReservationWidget({
   const triggerCls = dark
     ? "bg-transparent hover:bg-white/10 border-white/15 text-white [&_svg]:text-white/60 focus-visible:ring-white/20"
     : ""
+  // BW-17: trigger gap is label↔summary; inner span `gap-1.5` is icon↔label only.
   const accordionTriggerCls = cn(
-    "text-xs",
+    "text-xs gap-1.5",
     dark
       ? "text-white **:data-[slot=accordion-trigger-icon]:text-white/70"
       : "",

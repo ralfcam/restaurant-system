@@ -4,9 +4,9 @@
 **Last updated:** 2026-09-17
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
-(BW-1…BW-16 for the segmented homepage widget, occupancy window,
+(BW-1…BW-17 for the segmented homepage widget, occupancy window,
 compatible-table bookability, last-slot fully booked in-widget reject,
-guest email intake, and post-booking confirmation).
+collapsed accordion label/summary gap, guest email intake, and post-booking confirmation).
 
 ```mermaid
 flowchart LR
@@ -30,7 +30,9 @@ flowchart LR
 truncate), and renders until-badges via
 `slotUntilTime(time, occupancyDurationMinutes)` (occupancy duration from
 `getGuestOccupancyDurationMinutes`, default 90; wraps past midnight; no
-safety buffer). Guests/date/time are exclusive accordions; Réserver advances
+safety buffer). Guests/date/time are exclusive accordions; collapsed chrome labels stay
+separated from their summaries by an unprefixed `accordionTriggerCls` `gap-1.5`
+(BW-17). Réserver advances
 to guest details only after a slot is selected (no `createReservation` on pick).
 Step 2 requires guest name and a valid email; phone is optional (BW-7 / BW-13).
 When `createReservation` returns `Booking denied: This time is fully booked.`,
