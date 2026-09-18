@@ -124,6 +124,54 @@ function ordersPagedThenable() {
   return self
 }
 
+/** Page 2 yields the 1001st row only when `.order("id", { ascending: true })` precedes `.range`. */
+function ordersStableIdOrderThenable() {
+  let rangeStart: number | null = null
+  let rangeEnd: number | null = null
+  let orderedByIdAscBeforeRange = false
+  const builder: Record<string, unknown> = {}
+  const self = new Proxy(builder, {
+    get(_target, prop) {
+      if (prop === "then") {
+        return (
+          resolve: (value: { data: Row[]; error: null }) => unknown,
+          reject?: (reason: unknown) => unknown,
+        ) => {
+          const isPage2 =
+            rangeStart !== null && rangeStart >= POSTGREST_MAX_ROWS
+          const data = isPage2
+            ? orderedByIdAscBeforeRange
+              ? [matchingOrder(NEXT_PAGE_ROW_TOTAL)]
+              : []
+            : pageOrders(rangeStart, rangeEnd)
+          return Promise.resolve({ data, error: null }).then(resolve, reject)
+        }
+      }
+      if (prop === "order") {
+        return (column: string, options?: { ascending?: boolean }) => {
+          if (
+            column === "id" &&
+            options?.ascending === true &&
+            rangeStart === null
+          ) {
+            orderedByIdAscBeforeRange = true
+          }
+          return self
+        }
+      }
+      if (prop === "range") {
+        return (start: number, end: number) => {
+          rangeStart = start
+          rangeEnd = end
+          return self
+        }
+      }
+      return () => self
+    },
+  })
+  return self
+}
+
 function emptyTableApi() {
   return {
     select: () => thenable({ data: [], error: null }),
@@ -203,6 +251,27 @@ describe("getFloorSnapshot seated bills", () => {
     expect(chip).not.toMatch(/(?:t\.)?billTotal\s*\?\?\s*0/)
     expect(chip).toMatch(
       /typeof\s+t\.billTotal\s*===\s*["']number["'][\s\S]*CHF/,
+    )
+  })
+
+  it("floor snapshot pages orders with a stable id order", async () => {
+    mocks.from.mockImplementation((name: string) => {
+      if (name === "orders") {
+        return {
+          select: () => ordersStableIdOrderThenable(),
+          insert: async () => ({ error: null }),
+          update: () => thenable({ error: null }),
+          delete: () => ({ eq: () => thenable({ error: null }) }),
+        }
+      }
+      return emptyTableApi()
+    })
+
+    const { getFloorSnapshot } = await import("@/app/actions/reservations")
+    const snapshot = await getFloorSnapshot("2026-08-18")
+
+    expect(snapshot.tableTotals?.[TABLE_LABEL]).toBe(
+      POSTGREST_MAX_ROWS * FIRST_PAGE_ROW_TOTAL + NEXT_PAGE_ROW_TOTAL,
     )
   })
 })

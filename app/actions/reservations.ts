@@ -583,6 +583,8 @@ export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
   const { assigned } = await autoAssignDueReservations()
   const db = createServiceClient()
   // FP-15-COMPLETE: page past PostgREST max_rows (supabase/config.toml) until a short page.
+  // Unique immutable orders.id order before .range keeps offset pages disjoint
+  // (id is PK; not required in select).
   // minimality: FP-15 does not date-filter; schema pin is from("orders") + these columns.
   const POSTGREST_MAX_ROWS = 1000
   type OrderPageRow = {
@@ -596,6 +598,7 @@ export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
       const page = await db
         .from("orders")
         .select("table_label, total, status")
+        .order("id", { ascending: true })
         .range(start, start + POSTGREST_MAX_ROWS - 1)
       if (page.error) return page
       const pageRows = page.data ?? []
