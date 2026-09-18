@@ -63,9 +63,9 @@ thinking: { type: "adaptive", effort: "high" }
 
 ## STEP 0 — PLAN MODE GATE (do this before anything else)
 
-This command runs in **Plan Mode only**, like `/triage` and `/audit`.
-`/capture` and `/sdd-to-tdd` default to Plan Mode but have a managed-Cloud
-one-shot exception; `/design` does not.
+This command runs in **Plan Mode only**, like `/audit` and `/dispatch`.
+`/capture`, `/sdd-to-tdd`, and `/triage` default to Plan Mode but have a
+managed-Cloud one-shot exception; `/design` does not.
 First, determine whether you are in Plan Mode.
 
 - If you are **NOT** in Plan Mode: STOP immediately. Make no file reads beyond

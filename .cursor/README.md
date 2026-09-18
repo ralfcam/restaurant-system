@@ -35,11 +35,12 @@ env tools. Runbook:
 [`docs/runbooks/deploy.md`](../docs/runbooks/deploy.md). Rule:
 [`rules/vercel-project.mdc`](rules/vercel-project.mdc).
 
-**Plan Mode only:** [`/audit`](commands/audit.md), [`/triage`](commands/triage.md),
+**Plan Mode only:** [`/audit`](commands/audit.md),
 [`/dispatch`](commands/dispatch.md), [`/design`](commands/design.md).
-[`/sdd-to-tdd`](commands/sdd-to-tdd.md) and [`/capture`](commands/capture.md)
-default to Plan Mode; managed Cloud (`agent/runtime` = `managed`) may one-shot
-past that gate.
+
+[`/sdd-to-tdd`](commands/sdd-to-tdd.md), [`/capture`](commands/capture.md), and
+[`/triage`](commands/triage.md) default to Plan Mode; managed Cloud
+(`agent/runtime` = `managed`) may one-shot past that gate.
 [`/intake`](commands/intake.md) has no Plan Mode gate.
 
 There is no GitHub QA workflow in this repo. Local gates are
