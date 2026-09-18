@@ -38,11 +38,13 @@ env tools. Runbook:
 **Plan Mode only:** [`/audit`](commands/audit.md) and
 [`/dispatch`](commands/dispatch.md).
 
-[`/sdd-to-tdd`](commands/sdd-to-tdd.md), [`/capture`](commands/capture.md), and
+**Managed Cloud-capable:** [`/sdd-to-tdd`](commands/sdd-to-tdd.md),
+[`/capture`](commands/capture.md), and
 [`/triage`](commands/triage.md) default to Plan Mode; managed Cloud
 (`agent/runtime` = `managed`) may one-shot past that gate.
 [`/design`](commands/design.md) also defaults to Plan Mode; managed Cloud may
 bypass that gate but retains its interactive dialogue and approval stops.
+
 [`/intake`](commands/intake.md) has no Plan Mode gate.
 
 There is no GitHub QA workflow in this repo. Local gates are

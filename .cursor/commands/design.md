@@ -79,9 +79,9 @@ First, determine whether you are in Plan Mode.
   stop yet. Probe the documented Cloud Agent metadata API first (this probe
   only — no repo or spec reads, edits, or subagents):
 
-  ```bash
-  curl -fsS --unix-socket "${CURSOR_AGENT_SOCKET:-/run/cursor/api.sock}" \
-    http://cursor-agent/v1/meta-data/agent/runtime
+  ```powershell
+  $socket = if ($env:CURSOR_AGENT_SOCKET) { $env:CURSOR_AGENT_SOCKET } else { "/run/cursor/api.sock" }
+  & curl -fsS --unix-socket $socket http://cursor-agent/v1/meta-data/agent/runtime
   ```
 
   Classify from the response body, trimmed:

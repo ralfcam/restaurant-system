@@ -63,4 +63,35 @@ describe("design managed Cloud dialogue", () => {
     expect(planOnlyParagraph).not.toContain("[`/design`]")
     expect(commandReadme).toContain("[`/design`](commands/design.md)")
   })
+
+  it("uses PowerShell syntax for the managed runtime probe", () => {
+    const design = readFileSync(
+      path.join(repoRoot, ".cursor", "commands", "design.md"),
+      "utf8",
+    )
+    const step0 = section(design, "## STEP 0 — PLAN MODE GATE")
+
+    expect(step0).toContain("```powershell")
+    expect(step0).toContain("$env:CURSOR_AGENT_SOCKET")
+    expect(step0).toContain("/run/cursor/api.sock")
+    expect(step0).toMatch(/&\s+curl(?:\.exe)?\s+-fsS\b/)
+    expect(step0).not.toContain("```bash")
+    expect(step0).not.toMatch(/\$\{[^}]+\}/)
+  })
+
+  it("indexes design under managed Cloud-capable commands", () => {
+    const commandReadme = readFileSync(
+      path.join(repoRoot, ".cursor", "README.md"),
+      "utf8",
+    )
+    const managedCloudParagraph = commandReadme
+      .split("\n\n")
+      .find((paragraph) => paragraph.startsWith("**Managed Cloud-capable:**"))
+
+    expect(managedCloudParagraph).toBeDefined()
+    expect(managedCloudParagraph).toContain("[`/design`](commands/design.md)")
+    expect(managedCloudParagraph).toContain(
+      "retains its interactive dialogue and approval stops",
+    )
+  })
 })

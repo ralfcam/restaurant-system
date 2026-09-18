@@ -46,7 +46,9 @@
   `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
   spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
   G-CAP1 PHASE 5 heading-range chrome-scan in
-  `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`)
+  `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`; G-DES1 PowerShell
+  runtime-probe and labeled command-index paragraph isolation in
+  `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
