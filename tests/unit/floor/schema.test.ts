@@ -129,6 +129,69 @@ describe("floor tables schema and live surfaces", () => {
     expect(layout.shouldOpenMobileInspector(1023)).toBe(true)
   })
 
+  it("floor snapshot and live hook carry table bill totals on the 5s refresh", () => {
+    const actions = read("app/actions/reservations.ts")
+    const snapshotStart = actions.indexOf(
+      "export async function getFloorSnapshot",
+    )
+    expect(snapshotStart).toBeGreaterThan(-1)
+    const snapshotEnd = actions.indexOf("\nexport ", snapshotStart + 1)
+    const snapshotFn = actions.slice(
+      snapshotStart,
+      snapshotEnd === -1 ? actions.length : snapshotEnd,
+    )
+
+    const callNames = [
+      ...snapshotFn.matchAll(/\b([A-Za-z_][A-Za-z0-9_]*)\s*\(/g),
+    ].map((match) => match[1])
+
+    function functionBody(src: string, name: string) {
+      const needle = `function ${name}`
+      const at = src.indexOf(needle)
+      if (at < 0) return ""
+      const from = src.lastIndexOf("\n", at) + 1
+      const nextExport = src.indexOf("\nexport ", at + needle.length)
+      return src.slice(from, nextExport === -1 ? src.length : nextExport)
+    }
+
+    const importSpecs = [
+      ...actions.matchAll(/import\s+\{([^}]+)\}\s+from\s+["'](@\/[^"']+)["']/g),
+    ]
+
+    const helperSrc = callNames
+      .map((name) => {
+        const local = functionBody(actions, name)
+        if (local) return local
+        const spec = importSpecs.find((imp) =>
+          new RegExp(`\\b${name}\\b`).test(imp[1]),
+        )?.[2]
+        if (!spec) return ""
+        const rel = `${spec.replace(/^@\//, "")}.ts`
+        if (!existsSync(path.join(root, rel))) return ""
+        return functionBody(read(rel), name)
+      })
+      .join("\n")
+
+    // FP-15: getFloorSnapshot (or a helper it calls) must load orders
+    // table_label/total/status — not only tables/reservations/assigned/merges.
+    const scanned = `${snapshotFn}\n${helperSrc}`
+    expect(scanned).toMatch(/from\(\s*["']orders["']\)/)
+    expect(scanned).toMatch(
+      /select\(\s*["'][^"']*table_label[^"']*total[^"']*status[^"']*["']\s*\)|select\([^)]*\btable_label\b[^)]*\btotal\b[^)]*\bstatus\b/,
+    )
+    expect(snapshotFn).not.toMatch(
+      /return \{\s*tables,\s*reservations,\s*assigned,\s*merges\s*\}/,
+    )
+
+    const hook = read("hooks/use-floor-plan.ts")
+    expect(hook).toMatch(/refreshInterval:\s*(5000|FLOOR_REFRESH_MS)/)
+    expect(hook).toMatch(/FLOOR_REFRESH_MS\s*=\s*5000/)
+    expect(hook).toMatch(/sumOpenOrderTotalsByTableLabel|tableTotals|billTotal/)
+    expect(hook).toMatch(
+      /overlayReservationsOnTables\s*\([\s\S]*?(?:sumOpenOrderTotalsByTableLabel|tableTotals|billTotal)[\s\S]*?\)/,
+    )
+  })
+
   it("baseline persists orders and order_items for POS/KDS send-to-kitchen", () => {
     const baseline = read("supabase/migrations/00000000000000_baseline.sql")
     expect(baseline).toMatch(/CREATE TABLE IF NOT EXISTS orders/)
@@ -141,5 +204,138 @@ describe("floor tables schema and live surfaces", () => {
     expect(baseline).toMatch(/order_id UUID NOT NULL REFERENCES orders/)
     expect(baseline).toMatch(/GRANT ALL ON TABLE orders TO service_role/)
     expect(baseline).toMatch(/GRANT ALL ON TABLE order_items TO service_role/)
+  })
+
+  it("floor chip renders the assigned reservation time without hiding the table label", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+
+    // Dining-room chip <button> only — inspector already shows
+    // {selected.reservation.time} and must not satisfy FP-4.
+    const chipStart = floor.indexOf("onChipPointerDown(t, event)")
+    expect(chipStart).toBeGreaterThan(-1)
+    const buttonOpen = floor.lastIndexOf("<button", chipStart)
+    expect(buttonOpen).toBeGreaterThan(-1)
+    const buttonClose = floor.indexOf("</button>", chipStart)
+    expect(buttonClose).toBeGreaterThan(buttonOpen)
+    const chip = floor.slice(buttonOpen, buttonClose + "</button>".length)
+
+    expect(chip).toContain("onChipPointerDown")
+    expect(chip).not.toMatch(/selected\.reservation/)
+
+    const heading = chip.match(
+      /<span className="font-heading[^"]*">([\s\S]*?)<\/span>/,
+    )?.[1]
+    expect(heading).toMatch(/\{t\.label\}/)
+
+    // Unassigned path: guest is gated on t.reservation; leftover chip
+    // copy must not render guest or reservation time.
+    expect(chip).toMatch(/\{t\.reservation \?/)
+    expect(chip).toMatch(/\{t\.reservation\.guestName\}/)
+    const ungated = chip.replace(
+      /\{t\.reservation \? \([\s\S]*?\) : null\}/g,
+      "",
+    )
+    expect(ungated).not.toMatch(/t\.reservation\.guestName/)
+    expect(ungated).not.toMatch(/t\.reservation\.time/)
+
+    // FP-4: occupying overlay must render reservation time on the chip.
+    expect(chip).toMatch(/\{t\.reservation\.time\}/)
+  })
+
+  it("seated floor chip renders CHF bill total and reserved chips do not", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+
+    // Dining-room chip <button> only — inspector must not satisfy FP-15.
+    const chipStart = floor.indexOf("onChipPointerDown(t, event)")
+    expect(chipStart).toBeGreaterThan(-1)
+    const buttonOpen = floor.lastIndexOf("<button", chipStart)
+    expect(buttonOpen).toBeGreaterThan(-1)
+    const buttonClose = floor.indexOf("</button>", chipStart)
+    expect(buttonClose).toBeGreaterThan(buttonOpen)
+    const chip = floor.slice(buttonOpen, buttonClose + "</button>".length)
+
+    expect(chip).toContain("onChipPointerDown")
+    expect(chip).not.toMatch(/selected\.reservation/)
+
+    // Added bill lines MUST NOT hide tables.label or the seated ping.
+    const heading = chip.match(
+      /<span className="font-heading[^"]*">([\s\S]*?)<\/span>/,
+    )?.[1]
+    expect(heading).toMatch(/\{t\.label\}/)
+    expect(chip).toMatch(/t\.displayStatus === ["']seated["']/)
+    expect(chip).toMatch(/animate-ping/)
+
+    // FP-15-UNAVAILABLE: dining-room chip renders CHF only when billTotal
+    // is a number. MUST NOT coerce null/undefined with ?? 0 or || 0.
+    expect(chip).toMatch(
+      /typeof\s+t\.billTotal\s*===\s*["']number["'][\s\S]*CHF/,
+    )
+    expect(chip).not.toMatch(/(?:t\.)?billTotal\s*(?:\?\?|\|\|)\s*0/)
+
+    // Confirmed/reserved (and unassigned) paths must not render a bill.
+    const withoutSeated = chip
+      .replace(
+        /\{t\.displayStatus === ["']seated["'] \? \([\s\S]*?\) : null\}/g,
+        "",
+      )
+      .replace(
+        /\{t\.reservation\??\.status === ["']seated["'] \? \([\s\S]*?\) : null\}/g,
+        "",
+      )
+      .replace(/\{t\.displayStatus === ["']seated["'] && \([\s\S]*?\)\}/g, "")
+      .replace(
+        /\{t\.reservation\??\.status === ["']seated["'] && \([\s\S]*?\)\}/g,
+        "",
+      )
+    expect(withoutSeated).not.toMatch(/CHF/)
+    expect(withoutSeated).not.toMatch(/billTotal/)
+  })
+
+  it("floor chip party size does not fall back to table seats", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+
+    // Dining-room chip <button> only — inspector already shows
+    // {selected.reservation.partySize} and must not satisfy FP-4-PARTY.
+    const chipStart = floor.indexOf("onChipPointerDown(t, event)")
+    expect(chipStart).toBeGreaterThan(-1)
+    const buttonOpen = floor.lastIndexOf("<button", chipStart)
+    expect(buttonOpen).toBeGreaterThan(-1)
+    const buttonClose = floor.indexOf("</button>", chipStart)
+    expect(buttonClose).toBeGreaterThan(buttonOpen)
+    const chip = floor.slice(buttonOpen, buttonClose + "</button>".length)
+
+    expect(chip).toContain("onChipPointerDown")
+    expect(chip).not.toMatch(/selected\.reservation/)
+
+    // Chip size class MAY still use t.seats; isolate the party-size slot
+    // (Users icon figure) so a capacity cue is not confused with party size.
+    const usersAt = chip.indexOf("<Users")
+    expect(usersAt).toBeGreaterThan(-1)
+    const slotOpen = chip.lastIndexOf("<span", usersAt)
+    expect(slotOpen).toBeGreaterThan(-1)
+    const slotClose = chip.indexOf("</span>", usersAt)
+    expect(slotClose).toBeGreaterThan(slotOpen)
+    const partySlot = chip.slice(slotOpen, slotClose + "</span>".length)
+
+    // FP-4-PARTY: occupying reservation party_size only — MUST NOT fall
+    // back to tables.seats (?? / || / ternary) in that slot.
+    expect(partySlot).not.toMatch(/t\.seats/)
+    expect(partySlot).not.toMatch(
+      /partySize\s*(?:\?\?|\|\||\?[^:]*:)\s*t\.seats/,
+    )
+    expect(partySlot).toMatch(/t\.reservation(?:\?)?\.partySize/)
+
+    // Occupying figure is reservation party size with no seats fallback.
+    expect(chip).toMatch(/\{t\.reservation(?:\?)?\.partySize\}/)
+
+    // Unassigned path still omits guest/time (existing FP-4 pins).
+    expect(chip).toMatch(/\{t\.reservation \?/)
+    expect(chip).toMatch(/\{t\.reservation\.guestName\}/)
+    const ungated = chip.replace(
+      /\{t\.reservation \? \([\s\S]*?\) : null\}/g,
+      "",
+    )
+    expect(ungated).not.toMatch(/t\.reservation\.guestName/)
+    expect(ungated).not.toMatch(/t\.reservation\.time/)
   })
 })

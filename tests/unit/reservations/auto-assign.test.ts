@@ -265,4 +265,54 @@ describe("overlayReservationsOnTables", () => {
       reservation: null,
     })
   })
+
+  it("attaches billTotal only for seated overlays from the table totals map", () => {
+    const views = overlayReservationsOnTables(
+      [table("1", 2), table("3", 4, "available"), table("8", 8)],
+      [
+        {
+          id: "r-seat",
+          guest_name: "Daniel Cho",
+          party_size: 4,
+          time: "18:00",
+          status: "seated",
+          table_label: "3",
+        },
+        {
+          id: "r-hold",
+          guest_name: "Amelia Brooks",
+          party_size: 2,
+          time: "18:30",
+          status: "confirmed",
+          table_label: "1",
+        },
+        {
+          id: "r-done",
+          guest_name: "Past Guest",
+          party_size: 2,
+          time: "12:00",
+          status: "completed",
+          table_label: "8",
+        },
+      ],
+      [],
+      { "3": 30.5, "1": 8 },
+    )
+
+    const seated = views.find((row) => row.label === "3")
+    expect(seated).toMatchObject({
+      displayStatus: "seated",
+      reservation: { guestName: "Daniel Cho", partySize: 4, time: "18:00" },
+    })
+    expect(seated?.billTotal).toBe(30.5)
+
+    const reserved = views.find((row) => row.label === "1")
+    expect(reserved).toMatchObject({
+      displayStatus: "reserved",
+      reservation: { guestName: "Amelia Brooks", partySize: 2, time: "18:30" },
+    })
+    expect(reserved?.billTotal).toBeNull()
+
+    expect(views.find((row) => row.label === "8")?.reservation).toBeNull()
+  })
 })

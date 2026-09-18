@@ -21,6 +21,12 @@ export const DAY_NAMES = [
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const MINUTES_PER_DAY = 24 * 60
 
+/** One allowlisted slot time plus optional per-slot cover cap (CL-1 / CL-2). */
+type BookableSlot = {
+  time: string
+  max_covers?: number | null
+}
+
 export type OperatingSegment = {
   opens_at: string
   closes_at: string
@@ -28,6 +34,10 @@ export type OperatingSegment = {
   sort_order: number
   /** Present only when non-blank. Persist via flatten as SQL NULL when omitted. */
   guest_note?: string | null
+  /** CL-3 / BW-19: null / omitted = no extra service cover cap. */
+  max_covers?: number | null
+  /** Empty/omitted = every generated time in the segment stays bookable (BW-18). */
+  bookable_slots?: BookableSlot[]
 }
 
 export type OperatingDay = {
@@ -47,6 +57,10 @@ export type OperatingWindowRow = {
   sort_order?: number
   /** Always set on flatten so replace_operating_windows can store/clear NULL. */
   guest_note?: string | null
+  /** Always set on flatten (open rows) so replace_operating_windows can store/clear NULL. */
+  max_covers?: number | null
+  /** Always set on flatten (open rows) so replace_operating_windows can store/clear []. */
+  bookable_slots?: BookableSlot[]
 }
 
 /**
@@ -367,6 +381,40 @@ export function bookableTimesForDay(
   return generateSlotsForSegments(day.segments, stepMinutes)
 }
 
+/**
+ * BW-18 / BW-19 guest formula (BW-21). Empty `bookableSlots` is not an
+ * allowlist; null maxima add no extra cap. Occupancy sums are supplied by
+ * the caller (exact-time slot; all-day service assignment).
+ */
+export function coversFitSlotAndService(input: {
+  time: string
+  partySize: number
+  bookableSlots: readonly BookableSlot[]
+  serviceMaxCovers: number | null
+  occupyingCoversAtTime: number
+  occupyingCoversInService: number
+}): boolean {
+  const time = normalizeTime(input.time)
+  const allowlistEntry = input.bookableSlots.find(
+    (slot) => normalizeTime(slot.time) === time,
+  )
+  if (input.bookableSlots.length > 0 && allowlistEntry == null) return false
+  const slotMax = allowlistEntry?.max_covers
+  if (
+    slotMax != null &&
+    input.occupyingCoversAtTime + input.partySize > slotMax
+  ) {
+    return false
+  }
+  if (
+    input.serviceMaxCovers != null &&
+    input.occupyingCoversInService + input.partySize > input.serviceMaxCovers
+  ) {
+    return false
+  }
+  return true
+}
+
 export function lastBookableTime(day: OperatingDay | undefined): string | null {
   if (!day || day.is_closed || day.segments.length === 0) return null
   return day.segments.reduce((latest, segment) => {
@@ -397,7 +445,18 @@ export function nextSuggestedSegment(
   }
 }
 
-export function validateOperatingDays(days: OperatingDay[]): string | null {
+/** CL-2 / CL-3: omit or null is no extra cap; reject 0, negatives, and non-integers. */
+function isInvalidCoverMax(value: number | null | undefined): boolean {
+  return value != null && (!Number.isInteger(value) || value < 1)
+}
+
+export function validateOperatingDays(
+  days: OperatingDay[],
+  slotIntervalMinutes?: number,
+): string | null {
+  const interval = clampSlotIntervalMinutes(
+    slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL_MINUTES,
+  )
   if (days.length !== 7) return "All 7 days of the week must be provided."
 
   const seen = new Set<number>()
@@ -441,6 +500,35 @@ export function validateOperatingDays(days: OperatingDay[]): string | null {
         return `${DAY_NAMES[day.day_of_week]} has overlapping segments.`
       }
     }
+
+    // CL-1: non-empty bookable_slots — HH:MM, [opens, closes), interval grid from opens.
+    // Empty/omitted list stays valid (BW-5 generated times). Duplicates are not rejected here.
+    const dayName = DAY_NAMES[day.day_of_week]
+    for (const segment of day.segments) {
+      if (isInvalidCoverMax(segment.max_covers)) {
+        return `${dayName} has an invalid service max_covers.`
+      }
+      const slots = segment.bookable_slots
+      if (!slots || slots.length === 0) continue
+      const opens = timeToMinutes(segment.opens_at)
+      const closes = timeToMinutes(segment.closes_at)
+      for (const slot of slots) {
+        const slotTime = normalizeTime(slot.time)
+        if (!TIME_RE.test(slotTime)) {
+          return `${dayName} has an invalid bookable slot time.`
+        }
+        const minutes = timeToMinutes(slotTime)
+        if (minutes < opens || minutes >= closes) {
+          return `${dayName} has a bookable slot outside its segment window.`
+        }
+        if ((minutes - opens) % interval !== 0) {
+          return `${dayName} has a bookable slot that is not on the ${interval}-minute grid.`
+        }
+        if (isInvalidCoverMax(slot.max_covers)) {
+          return `${dayName} has a bookable slot with an invalid max_covers.`
+        }
+      }
+    }
   }
 
   return null
@@ -480,6 +568,10 @@ export function groupRowsByDay(rows: OperatingWindowRow[]): OperatingDay[] {
           label: row.label ?? null,
           sort_order: row.sort_order ?? index,
           ...(note ? { guest_note: note } : {}),
+          ...(row.max_covers != null ? { max_covers: row.max_covers } : {}),
+          ...(row.bookable_slots?.length
+            ? { bookable_slots: row.bookable_slots }
+            : {}),
         }
       })
 
@@ -491,6 +583,11 @@ export function groupRowsByDay(rows: OperatingWindowRow[]): OperatingDay[] {
   })
 }
 
+/**
+ * Flat ledger rows for `replace_operating_windows`. Open segments always
+ * emit `max_covers` (NULL if omitted) and `bookable_slots` ([] if omitted)
+ * so staff Save can persist or clear both columns.
+ */
 export function flattenDaysToRows(days: OperatingDay[]): OperatingWindowRow[] {
   const rows: OperatingWindowRow[] = []
   for (const day of days) {
@@ -516,6 +613,8 @@ export function flattenDaysToRows(days: OperatingDay[]): OperatingWindowRow[] {
         label: segment.label?.trim() || null,
         sort_order: index,
         guest_note: trimmedGuestNote(segment.guest_note) ?? null,
+        max_covers: segment.max_covers ?? null,
+        bookable_slots: segment.bookable_slots ?? [],
       })
     })
   }

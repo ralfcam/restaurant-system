@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-14
+**Last updated:** 2026-09-18
 
 ## Layout
 
@@ -39,19 +39,62 @@
   `.cursor/checks/tdd-guard-policy.test.mjs`, and
   `tests/unit/dev-toolchain/coderabbit-gcr2-empty-reviewed-files.test.ts`;
   fail-closed remote G-CR3 in `.cursor/checks/coderabbit-pr-policy.test.mjs` and
-  `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts`)
+  `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts` (`.cursor/plans/`
+  work-order threads and `isOutdated === true` leftovers excluded from
+  `unresolved_threads`; incremental-pause SUCCESS is exact
+  `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks, with CodeRabbit label
+  `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
+  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
+  G-CAP1 PHASE 5 heading-range chrome-scan in
+  `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`; G-DES1 PowerShell
+  runtime-probe, isolated STEP 0 fail-closed denial (`MUST NOT enter STEP
+0B`), and labeled command-index paragraph isolation (one-shot trio plus
+  interactive `/design`) in
+  `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
   `tests/unit/floor/pos-menu-availability.test.ts`
+- Weekly service overview (WA-1–WA-7):
+  `tests/unit/floor/weekly-service-overview.test.ts`,
+  `tests/unit/floor/dashboard-weekly-overview.test.ts`
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
+- Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,
+  `tests/unit/menu/menu-tab-persistence.test.ts`,
+  `tests/unit/menu/dish-menu-tab-options.test.ts`,
+  `tests/unit/menu/guest-menu-tabs.test.ts`,
+  `tests/unit/menu/menus-bootstrap.test.ts` (MT-4a CREATE-before-GRANT; MT-4c
+  hosted RLS + five-id `INSERT … ON CONFLICT (id) DO NOTHING`; MT-4e every
+  `CREATE TABLE IF NOT EXISTS menus` file seeds those five ids),
+  `tests/unit/menu/menus-integ-strict.test.ts` (MT-4b PRE-SATISFIED pin; MT-4d
+  `vitest.integration.config.ts` `test.env`)
 - Availability: `tests/unit/availability/actions.test.ts` (OH-NOTE-SAVE guest-note
   cap; BD-READ-FAIL blocked-date SELECT fail-closed)
 - Reservation isolation (RES-ISO):
   `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
   glob-scan of `tests/integration/reservations/*.integ.test.ts`; zero-arg
   call; rejects an explicit-URL helper argument)
+- Staff list guest email (STAFF-GUEST-EMAIL / STAFF-GUEST-EMAIL-ABSENT):
+  `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
+  visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit
+  `r.email?.trim()` gate)
+- Guest widget fully booked confirm (BW-16):
+  `tests/unit/reservation-widget/fully-booked-error.test.ts` (source-scan
+  `confirm()` exact-string branch; no page toast; step 2 `role="alert"`;
+  Back-clear: every step-2 `setStep(1)` `onClick` calls the denial setter
+  with `null` — "fully booked rejection is cleared when the guest leaves
+  the confirmation form")
+- Guest widget collapsed summary gap (BW-17):
+  `tests/unit/reservation-widget/collapsed-summary-gap.test.ts` (source-scan
+  named `cn` `accordionTriggerCls`; exclude inner icon-to-label `gap-1.5`
+  when asserting label↔summary separation — "collapsed guests and date
+  summaries are separated from their accordion labels")
+- Slot/service cover limits (BW-18–BW-22 / CL-1–CL-3):
+  `tests/unit/reservations/available-slots.test.ts` (slot cap, service cap,
+  BW-22 table-fit AND), `tests/unit/reservations/cover-limits.test.ts`
+  (`coversFitSlotAndService`), `tests/unit/scheduling/cover-limits.test.ts`
+  (staff `validateOperatingDays` CL-1–CL-3)
 - Review-email isolation (PV-ISO):
   `tests/unit/marketing/review-email-schema-isolation.test.ts` (AST
   glob-scan of `tests/integration/marketing/*.integ.test.ts`; `WRITE_HOOKS`
@@ -64,6 +107,10 @@
 - Event inquiries: `tests/unit/inquiries/` (staff gate + Service `NAV_GROUPS`,
   schema CHECKs, create allowlist, STAFF-LIST, status-only update, no
   convert/confirm export, EI-9 isolation scan)
+- Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
+  `buildGuestProfile`, RES-PRIV, staff gate + ficha Save/PII/history
+  chrome, PII update, live `email_normalized` read, reservation-row
+  `fichaHref` `Link`)
 
 ## Conventions
 

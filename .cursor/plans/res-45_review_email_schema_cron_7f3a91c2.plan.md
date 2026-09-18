@@ -175,13 +175,13 @@ Also: set **Last updated** to `2026-09-09`. Replace the implementation-trace sen
 
 ## Acceptance Criteria → Tests
 
-| #   | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
-| --- | --------- | ---- | ----- | --------- | --------------- | --------- | --------- | ------- | ---------- |
-| C1  | PV-11 settings columns persist | P0 | integration | `tests/integration/marketing/review-email-schema.integ.test.ts` | new file | `service-role upsert of review_email settings columns persists and reads back` | After service-role upsert of the four keys on `id=1`, `select` returns the written values (error null). Restore prior row in `afterEach`. | `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration tests/integration/marketing/review-email-schema.integ.test.ts` | none |
-| C2  | PV-12 send-queue table + RLS | P0 | integration | `tests/integration/marketing/review-email-schema.integ.test.ts` | add test (same new file) | `review_email_sends accepts a reservation_id insert and denies anon writes` | Service-role insert `{ reservation_id }` succeeds; `sent_at` is null; anon `select`/`insert` is empty + permission error (42501/PGRST301). Distinct test date from PII suite. | same fail-closed integration command | C1 optional; needs a reservations row (existing table) |
-| C3  | PV-13 completed_at column | P0 | integration | `tests/integration/marketing/review-email-schema.integ.test.ts` | add test | `reservations.completed_at persists a timestamptz on service-role update` | Insert reservation; update `completed_at`; select matches. Error must not be missing-column. | same fail-closed integration command | none |
-| C4  | PV-14 cron mailer factory | P1 | unit | `tests/unit/marketing/review-email-cron-mailer.test.ts` | new file | `authorized cron GET passes createReviewEmailMailer result into processDue` | Mock factory returns `{ send }`; authorized GET calls `processDueReviewEmails` with that mailer; `route.ts` source has no inline unconfigured throw. | `pnpm test:unit tests/unit/marketing/review-email-cron-mailer.test.ts` | none |
-| C5  | PV-15 hourly vercel cron | P1 | unit | `tests/unit/marketing/review-email-cron-schedule.test.ts` | new file | `vercel.json schedules hourly GET /api/cron/review-email` | Parsed `vercel.json` `crons` contains `{ path: "/api/cron/review-email", schedule: "0 * * * *" }`. | `pnpm test:unit tests/unit/marketing/review-email-cron-schedule.test.ts` | none |
+| #   | Criterion                      | Risk | Layer       | Test file                                                       | New or existing          | Test name                                                                      | Assertion                                                                                                                                                                     | Command                                                                                                                            | Depends on                                             |
+| --- | ------------------------------ | ---- | ----------- | --------------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| C1  | PV-11 settings columns persist | P0   | integration | `tests/integration/marketing/review-email-schema.integ.test.ts` | new file                 | `service-role upsert of review_email settings columns persists and reads back` | After service-role upsert of the four keys on `id=1`, `select` returns the written values (error null). Restore prior row in `afterEach`.                                     | `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration tests/integration/marketing/review-email-schema.integ.test.ts` | none                                                   |
+| C2  | PV-12 send-queue table + RLS   | P0   | integration | `tests/integration/marketing/review-email-schema.integ.test.ts` | add test (same new file) | `review_email_sends accepts a reservation_id insert and denies anon writes`    | Service-role insert `{ reservation_id }` succeeds; `sent_at` is null; anon `select`/`insert` is empty + permission error (42501/PGRST301). Distinct test date from PII suite. | same fail-closed integration command                                                                                               | C1 optional; needs a reservations row (existing table) |
+| C3  | PV-13 completed_at column      | P0   | integration | `tests/integration/marketing/review-email-schema.integ.test.ts` | add test                 | `reservations.completed_at persists a timestamptz on service-role update`      | Insert reservation; update `completed_at`; select matches. Error must not be missing-column.                                                                                  | same fail-closed integration command                                                                                               | none                                                   |
+| C4  | PV-14 cron mailer factory      | P1   | unit        | `tests/unit/marketing/review-email-cron-mailer.test.ts`         | new file                 | `authorized cron GET passes createReviewEmailMailer result into processDue`    | Mock factory returns `{ send }`; authorized GET calls `processDueReviewEmails` with that mailer; `route.ts` source has no inline unconfigured throw.                          | `pnpm test:unit tests/unit/marketing/review-email-cron-mailer.test.ts`                                                             | none                                                   |
+| C5  | PV-15 hourly vercel cron       | P1   | unit        | `tests/unit/marketing/review-email-cron-schedule.test.ts`       | new file                 | `vercel.json schedules hourly GET /api/cron/review-email`                      | Parsed `vercel.json` `crons` contains `{ path: "/api/cron/review-email", schedule: "0 * * * *" }`.                                                                            | `pnpm test:unit tests/unit/marketing/review-email-cron-schedule.test.ts`                                                           | none                                                   |
 
 C1–C3 are integration because only live Postgres after `db reset` can prove DDL. A SQL-string unit test cannot. C4–C5 are unit (route wiring + config file). No e2e: no multi-page UX. Live inbox = existing manual-UAT, not this loop.
 
@@ -189,13 +189,13 @@ Do **not** modify `tests/unit/marketing/review-email-job-auth.test.ts` (C9 unaut
 
 ## Traceability Matrix
 
-| Criterion | Spec ref | Test file::name | Source file(s) | Risk | Status |
-| --------- | -------- | --------------- | -------------- | ---- | ------ |
-| C1 | PV-11 | review-email-schema.integ.test.ts::service-role upsert of review_email settings columns persists and reads back | supabase/migrations/00000000000000_baseline.sql | P0 | planned |
-| C2 | PV-12 | review-email-schema.integ.test.ts::review_email_sends accepts a reservation_id insert and denies anon writes | supabase/migrations/00000000000000_baseline.sql | P0 | planned |
-| C3 | PV-13 | review-email-schema.integ.test.ts::reservations.completed_at persists a timestamptz on service-role update | supabase/migrations/00000000000000_baseline.sql | P0 | planned |
-| C4 | PV-14 | review-email-cron-mailer.test.ts::authorized cron GET passes createReviewEmailMailer result into processDue | app/api/cron/review-email/route.ts, lib/marketing/review-email-mailer.ts | P1 | planned |
-| C5 | PV-15 | review-email-cron-schedule.test.ts::vercel.json schedules hourly GET /api/cron/review-email | vercel.json | P1 | planned |
+| Criterion | Spec ref | Test file::name                                                                                                 | Source file(s)                                                           | Risk | Status  |
+| --------- | -------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ---- | ------- |
+| C1        | PV-11    | review-email-schema.integ.test.ts::service-role upsert of review_email settings columns persists and reads back | supabase/migrations/00000000000000_baseline.sql                          | P0   | planned |
+| C2        | PV-12    | review-email-schema.integ.test.ts::review_email_sends accepts a reservation_id insert and denies anon writes    | supabase/migrations/00000000000000_baseline.sql                          | P0   | planned |
+| C3        | PV-13    | review-email-schema.integ.test.ts::reservations.completed_at persists a timestamptz on service-role update      | supabase/migrations/00000000000000_baseline.sql                          | P0   | planned |
+| C4        | PV-14    | review-email-cron-mailer.test.ts::authorized cron GET passes createReviewEmailMailer result into processDue     | app/api/cron/review-email/route.ts, lib/marketing/review-email-mailer.ts | P1   | planned |
+| C5        | PV-15    | review-email-cron-schedule.test.ts::vercel.json schedules hourly GET /api/cron/review-email                     | vercel.json                                                              | P1   | planned |
 
 ## Execution Preconditions
 
@@ -267,13 +267,13 @@ Problem: Feature code upserts review-email settings, stamps completed_at, and in
 Approach: Encode PV-11–PV-15 (settings columns, send-queue table with service-role-only RLS, completed_at, createReviewEmailMailer factory, hourly vercel.json cron). Drive each through Red→Green→Refactor. Live provider stays manual-UAT. Fold DDL into the canonical baseline.
 Out-of-scope findings: none new (form loader already on product-gaps ledger)
 
-| #   | Criterion                          | Risk | Layer       | Test file                                      |
-| --- | ---------------------------------- | ---- | ----------- | ---------------------------------------------- |
-| C1  | Settings review_email_* persist    | P0   | integration | review-email-schema.integ.test.ts              |
-| C2  | review_email_sends + RLS           | P0   | integration | review-email-schema.integ.test.ts              |
-| C3  | reservations.completed_at          | P0   | integration | review-email-schema.integ.test.ts              |
-| C4  | Cron mailer factory                | P1   | unit        | review-email-cron-mailer.test.ts               |
-| C5  | Hourly vercel.json cron            | P1   | unit        | review-email-cron-schedule.test.ts             |
+| #   | Criterion                       | Risk | Layer       | Test file                          |
+| --- | ------------------------------- | ---- | ----------- | ---------------------------------- |
+| C1  | Settings review_email_* persist | P0   | integration | review-email-schema.integ.test.ts  |
+| C2  | review_email_sends + RLS        | P0   | integration | review-email-schema.integ.test.ts  |
+| C3  | reservations.completed_at       | P0   | integration | review-email-schema.integ.test.ts  |
+| C4  | Cron mailer factory             | P1   | unit        | review-email-cron-mailer.test.ts   |
+| C5  | Hourly vercel.json cron         | P1   | unit        | review-email-cron-schedule.test.ts |
 ```
 
 ## Docs Sync

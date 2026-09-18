@@ -23,7 +23,7 @@ export type {
 } from "@/lib/reservations/operating-hours"
 
 const WINDOW_COLUMNS =
-  "day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note"
+  "day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note, max_covers, bookable_slots"
 
 /**
  * Detects PostgREST schema-cache / missing-table errors. These occur when the
@@ -165,6 +165,31 @@ export async function getBlockedDatesInRange(
   }
 
   return (data ?? []).map((row) => row.date as string)
+}
+
+/**
+ * Configured `operating_windows` only (WA-1 weekly overview).
+ * Empty ledger or read error → [] — no DEFAULT_OPERATING_DAYS fill.
+ */
+export async function getConfiguredOperatingWindows(): Promise<OperatingDay[]> {
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("operating_windows")
+    .select(WINDOW_COLUMNS)
+    .order("day_of_week", { ascending: true })
+    .order("sort_order", { ascending: true })
+
+  if (error || !data || data.length === 0) {
+    return []
+  }
+
+  const rows = data as OperatingWindowRow[]
+  // groupRowsByDay seeds DEFAULT_OPERATING_DAYS for weekdays with no ledger
+  // rows — keep only days that actually appear in operating_windows.
+  const ledgerWeekdays = new Set(rows.map((row) => row.day_of_week))
+  return groupRowsByDay(rows).filter((day) =>
+    ledgerWeekdays.has(day.day_of_week),
+  )
 }
 
 /**

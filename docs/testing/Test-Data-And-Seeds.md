@@ -1,14 +1,16 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-18
 
 ## Current state
 
 - **Schema:** `supabase/migrations/00000000000000_baseline.sql` — idempotent DDL for
   `operating_windows`, `blocked_dates`, `reservations` (nullable `email` via
   CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`; RES-PRIV
-  insert-only, no `GRANT SELECT`), `menu_items`,
+  insert-only, no `GRANT SELECT`), `menus` (PUBLIC-READ-PRIV, same recipe as
+  `menu_items`; five-id `INSERT … ON CONFLICT (id) DO NOTHING` after
+  GRANT/REVOKE), `menu_items`,
   `restaurant_settings`, public `branding` storage bucket, `servers` (FP-14,
   `-- REAZED-329`, after the `tables` GRANT block; service-role-only like
   `tables`), `orders` / `order_items`
@@ -29,27 +31,47 @@
   version recorded on `tilcqrudqxznnpepxjqq` — not a full `db push`), plus
   `20260825140000_operating_windows_privilege.sql` (OH-PRIV SELECT-only on
   `operating_windows` plus `GRANT ALL` for `operating_windows`, `blocked_dates`,
-  `reservations`, `menu_items`; RES-PRIV insert-only on `reservations`;
-  PUBLIC-READ-PRIV `REVOKE ALL` then `GRANT SELECT` on `blocked_dates` and
-  `menu_items`; drop authenticated `FOR ALL` on those siblings; BC-1 SELECT-only on `restaurant_settings`; apply on
+  `reservations`, `menu_items`, `menus`; `CREATE TABLE IF NOT EXISTS menus`
+  plus ENABLE RLS and the two named public-read / service_role policies
+  before those GRANT/REVOKE statements, then the five-id
+  `INSERT … ON CONFLICT (id) DO NOTHING` after the menus GRANT/REVOKE trio;
+  RES-PRIV insert-only on `reservations`;
+  PUBLIC-READ-PRIV `REVOKE ALL` then `GRANT SELECT` on `blocked_dates`,
+  `menu_items`, and `menus`; drop authenticated `FOR ALL` on those siblings; BC-1 SELECT-only on `restaurant_settings`; apply on
   already-baselined remotes — not a full `db push`), and
   `20260827160000_public_catalog_privileges.sql` (same RES-PRIV / PUBLIC-READ-PRIV
-  strings when `20260825140000` is already recorded), plus
+  strings and `CREATE TABLE IF NOT EXISTS menus` plus ENABLE RLS and the two
+  named policies before GRANT, then the five-id INSERT after GRANT, when
+  `20260825140000` is already recorded), plus
   `20260827180000_occupancy_duration_buffer.sql` (occupancy duration + safety
   buffer columns and last-writer `validate_reservation_availability`; apply on
   already-baselined remotes — not a full `db push`), plus
   `20260828121224_table_fit_availability.sql` (last-writer table-fit +
   date-scoped `pg_advisory_xact_lock`; apply on already-baselined remotes that
   already recorded occupancy — not a full `db push`), plus
+  `20260918140655_slot_service_cover_limits.sql` (`operating_windows.max_covers`
+  / `bookable_slots`; last-writer `validate_reservation_availability` +
+  `replace_operating_windows` INSERT of those columns; apply when
+  `20260828121224` is already recorded — not a full `db push`), plus
   `20260902214500_restaurant_settings_privilege.sql` (BC-1 SELECT-only on
   `restaurant_settings`; same DROP/GRANT/REVOKE/GRANT ALL as baseline and
   `20260825140000`; apply when `20260825140000` is already recorded — not a
-  full `db push`).
+  full `db push`), plus
+  `20260915180000_menus_bootstrap.sql` (`CREATE TABLE IF NOT EXISTS menus`
+  with `id` / `title` / `title_en` / `sort_order`, RLS, public-read /
+  service_role policies, privilege trio, `INSERT … ON CONFLICT (id) DO NOTHING`
+  of `midi`, `soir`, `boissons`, `blanc`, `rouge`, and `reorder_menu_tabs`;
+  apply when `20260827160000` is already recorded — not a full `db push`;
+  remotes that already recorded this version must re-run the file contents
+  to pick up the INSERT).
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 2 test accounts (see Personas below)
   - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo)
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
+  - `menus` — 5 rows (`midi`, `soir`, `boissons`, `blanc`, `rouge`); hosted apply
+    does not re-run this file — those ids also `INSERT … ON CONFLICT (id) DO NOTHING`
+    after GRANT in every `CREATE TABLE IF NOT EXISTS menus` migration (MT-4e)
   - `menu_items` — 120 rows (sample `lib/menu-catalog.json` catalog)
   - `servers` — 4 rows (Maya, Jon, Priya, Dev) via `INSERT … WHERE NOT EXISTS`
 - **Branding bucket runtime:** Migrations define the public `branding` bucket and

@@ -322,5 +322,169 @@ describe("getAvailableSlots", () => {
         available: true,
       })
     })
+
+    it("does not offer a slot when cover limits have room but no compatible table remains", async () => {
+      // BW-22: high BW-18/BW-19 caps still leave BW-12 table-fit in force.
+      // Same inventory as the sibling: 8-top occupied, leftover 2-tops cannot
+      // seat party 4 (merges are not invented).
+      mocks.getOperatingWindowForDate.mockResolvedValue({
+        day_of_week: 2,
+        is_closed: false,
+        segments: [
+          {
+            label: "Dinner",
+            opens_at: "18:00",
+            closes_at: "22:00",
+            sort_order: 0,
+            max_covers: 40,
+            bookable_slots: [
+              { time: "19:00", max_covers: 40 },
+              { time: "20:00", max_covers: 40 },
+            ],
+          },
+        ],
+      })
+
+      const { getAvailableSlots } = await import("@/app/actions/reservations")
+      const slots = await getAvailableSlots("2026-08-25", 4)
+      expect(slots.find((slot) => slot.time === "19:00")).toEqual({
+        time: "19:00",
+        available: false,
+      })
+    })
+  })
+
+  describe("slot cover cap and allowlist", () => {
+    const dinnerWithSlotCaps = {
+      day_of_week: 2,
+      is_closed: false,
+      segments: [
+        {
+          label: "Dinner",
+          opens_at: "18:00",
+          closes_at: "22:00",
+          sort_order: 0,
+          bookable_slots: [
+            { time: "19:00", max_covers: 12 },
+            { time: "20:00", max_covers: 12 },
+          ],
+        },
+      ],
+    }
+
+    beforeEach(() => {
+      mocks.getOperatingWindowForDate.mockResolvedValue(dinnerWithSlotCaps)
+      mocks.from.mockImplementation((name: string) => {
+        if (name === "restaurant_settings") {
+          return thenable({
+            data: {
+              slot_interval_minutes: 15,
+              occupancy_duration_minutes: 90,
+              safety_buffer_minutes: 15,
+            },
+            error: null,
+          })
+        }
+        if (name === "tables") {
+          return thenable({ data: [{ seats: 40 }], error: null })
+        }
+        if (name === "reservations") {
+          return thenable({
+            data: [
+              {
+                time: "19:00",
+                party_size: 8,
+                status: "confirmed",
+              },
+            ],
+            error: null,
+          })
+        }
+        return thenable({ data: [], error: null })
+      })
+    })
+
+    it("does not offer a slot when the party would exceed that slot's cover limit", async () => {
+      const { getAvailableSlots } = await import("@/app/actions/reservations")
+      const slots = await getAvailableSlots("2026-08-25", 6)
+
+      expect(slots.find((slot) => slot.time === "19:00")).toEqual({
+        time: "19:00",
+        available: false,
+      })
+      expect(slots.find((slot) => slot.time === "20:00")).toEqual({
+        time: "20:00",
+        available: true,
+      })
+      expect(
+        slots.find((slot) => slot.time === "19:30")?.available ?? false,
+      ).toBe(false)
+    })
+  })
+
+  describe("service cover cap", () => {
+    const dinnerWithServiceCap = {
+      day_of_week: 2,
+      is_closed: false,
+      segments: [
+        {
+          label: "Dinner",
+          opens_at: "18:00",
+          closes_at: "22:00",
+          sort_order: 0,
+          max_covers: 20,
+          bookable_slots: [
+            { time: "19:00", max_covers: 24 },
+            { time: "20:00", max_covers: 24 },
+          ],
+        },
+      ],
+    }
+
+    beforeEach(() => {
+      mocks.getOperatingWindowForDate.mockResolvedValue(dinnerWithServiceCap)
+      mocks.from.mockImplementation((name: string) => {
+        if (name === "restaurant_settings") {
+          return thenable({
+            data: {
+              slot_interval_minutes: 15,
+              occupancy_duration_minutes: 90,
+              safety_buffer_minutes: 15,
+            },
+            error: null,
+          })
+        }
+        if (name === "tables") {
+          return thenable({ data: [{ seats: 40 }], error: null })
+        }
+        if (name === "reservations") {
+          return thenable({
+            data: [
+              {
+                time: "19:00",
+                party_size: 16,
+                status: "confirmed",
+              },
+            ],
+            error: null,
+          })
+        }
+        return thenable({ data: [], error: null })
+      })
+    })
+
+    it("does not offer a slot when the party would exceed the service cover limit", async () => {
+      const { getAvailableSlots } = await import("@/app/actions/reservations")
+      const slots = await getAvailableSlots("2026-08-25", 6)
+
+      expect(slots.find((slot) => slot.time === "19:00")).toEqual({
+        time: "19:00",
+        available: false,
+      })
+      expect(slots.find((slot) => slot.time === "20:00")).toEqual({
+        time: "20:00",
+        available: false,
+      })
+    })
   })
 })

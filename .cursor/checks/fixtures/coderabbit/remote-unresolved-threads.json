@@ -1,7 +1,13 @@
 {
   "isDraft": false,
   "headSha": "abc123",
-  "pull": { "number": 12, "isDraft": false, "base": "main", "head": "staging", "headSha": "abc123" },
+  "pull": {
+    "number": 12,
+    "isDraft": false,
+    "base": "main",
+    "head": "staging",
+    "headSha": "abc123"
+  },
   "reviews": [
     {
       "user": { "login": "coderabbitai[bot]" },
@@ -14,7 +20,9 @@
       "isResolved": false,
       "isOutdated": false,
       "comments": {
-        "nodes": [{ "author": { "login": "coderabbitai" }, "body": "please fix" }]
+        "nodes": [
+          { "author": { "login": "coderabbitai" }, "body": "please fix" }
+        ]
       }
     }
   ],

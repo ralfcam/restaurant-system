@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-15
 
 ## Stack
 
@@ -15,7 +15,9 @@
 
 Bootstrapping template (**Restaurant Link**): name, tagline, and contact
 fixtures live in `lib/data.ts`. Sample menu catalog: `lib/menu-catalog.json`
-(`lib/menu-catalog.ts`). There is **no bundled logo** in `public/` — guest
+(`lib/menu-catalog.ts`). Admin and guest tab labels/order come from live
+`menus` (seeded `midi`, `soir`, `boissons`, `blanc`, `rouge`); POS picker
+tabs and staff filter/section chrome stay compiled `MENUS`. There is **no bundled logo** in `public/` — guest
 header, login, and staff chrome show the restaurant name only until staff
 upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
 `SITE_LOGO` dimensions/alt only (no `src`) and `shouldUseLightNavText`

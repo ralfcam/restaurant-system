@@ -308,6 +308,7 @@ export function ReservationWidget({
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [submitting, setSubmitting] = useState(false)
+  const [fullyBookedError, setFullyBookedError] = useState<string | null>(null)
   const [confCode, setConfCode] = useState("")
   const [slots, setSlots] = useState<SlotAvailability[]>([])
   const [occupancyDurationMinutes, setOccupancyDurationMinutes] = useState(
@@ -452,6 +453,7 @@ export function ReservationWidget({
 
   async function confirm(e: React.FormEvent) {
     e.preventDefault()
+    setFullyBookedError(null)
     setSubmitting(true)
     const { confCode: code, error } = await createReservation({
       guestName: name,
@@ -463,7 +465,12 @@ export function ReservationWidget({
     })
     setSubmitting(false)
     if (error) {
-      // Detect database-level trigger rejections by their prefix and show a
+      // BW-16: stay on step 2 and render this rejection in-form (no page toast).
+      if (error === "Booking denied: This time is fully booked.") {
+        setFullyBookedError(error)
+        return
+      }
+      // Blocked / closed / outside-hours rejections bounce to step 1 with a
       // dedicated toast. Form inputs (name, phone, email) are intentionally
       // NOT reset so the guest can pick a new slot without re-typing.
       const isSlotError =
@@ -506,8 +513,9 @@ export function ReservationWidget({
   const triggerCls = dark
     ? "bg-transparent hover:bg-white/10 border-white/15 text-white [&_svg]:text-white/60 focus-visible:ring-white/20"
     : ""
+  // BW-17: trigger gap is label↔summary; inner span `gap-1.5` is icon↔label only.
   const accordionTriggerCls = cn(
-    "text-xs",
+    "text-xs gap-1.5",
     dark
       ? "text-white **:data-[slot=accordion-trigger-icon]:text-white/70"
       : "",
@@ -920,6 +928,7 @@ export function ReservationWidget({
                 onClick={() => {
                   setStep(1)
                   setSlot(null)
+                  setFullyBookedError(null)
                 }}
                 className={cn(
                   "flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors",
@@ -985,6 +994,12 @@ export function ReservationWidget({
                   placeholder="jamie@email.com"
                 />
               </div>
+
+              {fullyBookedError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {fullyBookedError}
+                </p>
+              ) : null}
 
               <Button
                 type="submit"

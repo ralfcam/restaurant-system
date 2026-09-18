@@ -200,10 +200,10 @@ In `docs/specs/site-localization.md`:
 
 ## Acceptance Criteria → Tests
 
-| #   | Criterion | Risk | Layer | Test file | New or existing | Test name | Assertion | Command | Depends on |
-| --- | --------- | ---- | ----- | --------- | --------------- | --------- | --------- | ------- | ---------- |
-| C1  | AC-18 session cookies + Set-Cookie options survive locale merge | P0 | unit | `tests/unit/i18n/middleware-scope.test.ts` | add test (existing file) | `session cookies and Set-Cookie options survive locale merge` | Mock `updateSession` to return a `NextResponse` whose `cookies.set` used `{ httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 3600 }`. `proxy` on `/menu` (localize). Composed response has that cookie **and** `HttpOnly` + `Secure` (header or `cookies.get` options). Name/value-only is not enough. | `pnpm test:unit tests/unit/i18n/middleware-scope.test.ts` | none |
-| C2  | AC-19 segment-bounded exclusion + `/auth/error` through `proxy()` | P2 | unit | `tests/unit/i18n/middleware-scope.test.ts` | add test | `locale exclusion is segment-bounded including auth/error through proxy` | `resolveLocaleRoutingDecision("/authorship" \| "/administrator" \| "/apiculture" \| "/postal" \| "/kdssuffix")` is `localize`; `"/auth/error"` is `skip-locale`; `proxy` on `/auth/error` and `/auth/login` calls `updateSession` and returns that same session response. | `pnpm test:unit tests/unit/i18n/middleware-scope.test.ts` | none |
+| #   | Criterion                                                         | Risk | Layer | Test file                                  | New or existing          | Test name                                                                | Assertion                                                                                                                                                                                                                                                                                                               | Command                                                   | Depends on |
+| --- | ----------------------------------------------------------------- | ---- | ----- | ------------------------------------------ | ------------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- | ---------- |
+| C1  | AC-18 session cookies + Set-Cookie options survive locale merge   | P0   | unit  | `tests/unit/i18n/middleware-scope.test.ts` | add test (existing file) | `session cookies and Set-Cookie options survive locale merge`            | Mock `updateSession` to return a `NextResponse` whose `cookies.set` used `{ httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 3600 }`. `proxy` on `/menu` (localize). Composed response has that cookie **and** `HttpOnly` + `Secure` (header or `cookies.get` options). Name/value-only is not enough. | `pnpm test:unit tests/unit/i18n/middleware-scope.test.ts` | none       |
+| C2  | AC-19 segment-bounded exclusion + `/auth/error` through `proxy()` | P2   | unit  | `tests/unit/i18n/middleware-scope.test.ts` | add test                 | `locale exclusion is segment-bounded including auth/error through proxy` | `resolveLocaleRoutingDecision("/authorship" \| "/administrator" \| "/apiculture" \| "/postal" \| "/kdssuffix")` is `localize`; `"/auth/error"` is `skip-locale`; `proxy` on `/auth/error` and `/auth/login` calls `updateSession` and returns that same session response.                                               | `pnpm test:unit tests/unit/i18n/middleware-scope.test.ts` | none       |
 
 Issue map: C1 = RES-43 + RES-56. C2 = RES-52 + RES-51 + RES-53. RES-51/53 pins that would be green alone are folded into C2 so the `it()` is still RED on lookalikes.
 
@@ -213,10 +213,10 @@ Do **not** rewrite the existing three `it()`s. Do **not** edit `tests/unit/auth/
 
 ## Traceability Matrix
 
-| Criterion | Spec ref | Test file::name | Source file(s) | Risk | Status |
-| --------- | -------- | --------------- | -------------- | ---- | ------ |
-| C1 | AC-18 | middleware-scope.test.ts::session cookies and Set-Cookie options survive locale merge | proxy.ts | P0 | planned |
-| C2 | AC-19 (+ AC-3 tighten) | middleware-scope.test.ts::locale exclusion is segment-bounded including auth/error through proxy | i18n/middleware-scope.ts | P2 | planned |
+| Criterion | Spec ref               | Test file::name                                                                                  | Source file(s)           | Risk | Status  |
+| --------- | ---------------------- | ------------------------------------------------------------------------------------------------ | ------------------------ | ---- | ------- |
+| C1        | AC-18                  | middleware-scope.test.ts::session cookies and Set-Cookie options survive locale merge            | proxy.ts                 | P0   | planned |
+| C2        | AC-19 (+ AC-3 tighten) | middleware-scope.test.ts::locale exclusion is segment-bounded including auth/error through proxy | i18n/middleware-scope.ts | P2   | planned |
 
 ## Execution Preconditions
 
@@ -267,10 +267,10 @@ Problem: On localize paths, proxy copies session cookies onto the intl response 
 Approach: Add AC-18 (forward getAll options on merge) and AC-19 (segment-bounded prefixes, /auth/error skip through proxy). Drive C1 then C2 through Red→Green→Refactor. Children RES-43/56 map to C1; RES-52/51/53 map to C2. Staff-gate startsWith in lib/supabase/proxy.ts stays out of scope.
 Out-of-scope findings: staff-path startsWith is segment-unaware (lib/supabase/proxy.ts STAFF_PATHS) · med
 
-| #   | Criterion                                              | Risk | Layer | Test file                    |
-| --- | ------------------------------------------------------ | ---- | ----- | ---------------------------- |
-| C1  | Session cookies + Set-Cookie options survive locale merge | P0   | unit  | middleware-scope.test.ts     |
-| C2  | Segment-bounded exclusion + auth/error through proxy   | P2   | unit  | middleware-scope.test.ts     |
+| #   | Criterion                                                 | Risk | Layer | Test file                |
+| --- | --------------------------------------------------------- | ---- | ----- | ------------------------ |
+| C1  | Session cookies + Set-Cookie options survive locale merge | P0   | unit  | middleware-scope.test.ts |
+| C2  | Segment-bounded exclusion + auth/error through proxy      | P2   | unit  | middleware-scope.test.ts |
 ```
 
 ## Docs Sync
@@ -318,9 +318,9 @@ Close-out todos:
 
 ## Out-of-Scope Findings (the Findings Ledger — "none" if empty)
 
-| Finding | Where (file:line/area) | Why it matters | Severity | Relation |
-| ------- | ---------------------- | -------------- | -------- | -------- |
-| Staff-path `startsWith` is segment-unaware | `lib/supabase/proxy.ts:35-36` (`STAFF_PATHS`) | `/administrator` would be treated as `/admin` and redirected by the staff gate. Same class as AC-19, different owner (`staff-authorization.md` SA-2). | med | out of scope — do not change `updateSession` this run |
+| Finding                                    | Where (file:line/area)                        | Why it matters                                                                                                                                        | Severity | Relation                                              |
+| ------------------------------------------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ----------------------------------------------------- |
+| Staff-path `startsWith` is segment-unaware | `lib/supabase/proxy.ts:35-36` (`STAFF_PATHS`) | `/administrator` would be treated as `/admin` and redirected by the staff gate. Same class as AC-19, different owner (`staff-authorization.md` SA-2). | med      | out of scope — do not change `updateSession` this run |
 
 Duplicate locale vs staff prefix lists already open on `docs/findings/tech-debt.md` — do not re-file.
 

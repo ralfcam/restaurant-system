@@ -6,6 +6,9 @@ export default defineConfig({
     include: ["tests/integration/**/*.integ.test.ts"],
     setupFiles: ["tests/integration/setup.ts"],
     environment: "node",
+    env: {
+      RESTAURANT_INTEGRATION_STRICT: "true",
+    },
   },
   resolve: {
     alias: {

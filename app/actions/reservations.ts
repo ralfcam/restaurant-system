@@ -18,9 +18,11 @@ import {
 } from "@/lib/reservations/validation"
 import { sendBookingConfirmation } from "@/lib/marketing/booking-confirmation"
 import {
+  assignSegmentForTime,
   bookableTimesForDay,
   clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
+  coversFitSlotAndService,
   DEFAULT_SAFETY_BUFFER_MINUTES,
   formatSegmentsSummary,
   isTimeWithinSegments,
@@ -51,6 +53,7 @@ import {
   type PersistedTable,
 } from "@/app/actions/operations"
 import { toAssignableTables, type TableMergeRef } from "@/lib/floor/floor-units"
+import { sumOpenOrderTotalsByTableLabel } from "@/lib/floor/table-bills"
 
 export type ReservationRow = {
   id: string
@@ -60,6 +63,7 @@ export type ReservationRow = {
   time: string
   status: "confirmed" | "seated" | "completed" | "cancelled" | "no_show"
   phone: string
+  email?: string | null
   notes: string | null
   table_label: string | null
   conf_code: string
@@ -493,6 +497,11 @@ export type FloorSnapshot = {
   reservations: ReservationRow[]
   assigned: PlannedAssignment[]
   merges: PersistedMerge[]
+  /**
+   * FP-15: non-cancelled/voided `orders.total` by `table_label` (completed counts).
+   * Null when the orders read failed (FP-15-UNAVAILABLE).
+   */
+  tableTotals: Record<string, number> | null
 }
 
 /**
@@ -560,20 +569,70 @@ export async function autoAssignDueReservations(): Promise<{
   return { assigned }
 }
 
-/** Live floor payload: auto-assign due reservations, then return tables + today's book. */
+/** Live floor payload: auto-assign due reservations, then return tables, today's book, and seated-chip bill totals. */
 export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
   const staffUser = await requireStaffUser()
   if (!staffUser)
-    return { tables: [], reservations: [], assigned: [], merges: [] }
+    return {
+      tables: [],
+      reservations: [],
+      assigned: [],
+      merges: [],
+      tableTotals: {},
+    }
 
   await expireDueMerges()
   const { assigned } = await autoAssignDueReservations()
-  const [tables, { reservations }, merges] = await Promise.all([
+  const db = createServiceClient()
+  // FP-15-COMPLETE: page past PostgREST max_rows (supabase/config.toml) until a short page.
+  // Unique immutable orders.id order before .range keeps offset pages disjoint
+  // (id is PK; not required in select).
+  // minimality: FP-15 does not date-filter; schema pin is from("orders") + these columns.
+  const POSTGREST_MAX_ROWS = 1000
+  type OrderPageRow = {
+    table_label: string
+    total: number | string
+    status: string
+  }
+  const fetchAllOrderPages = async () => {
+    const rows: OrderPageRow[] = []
+    for (let start = 0; ; start += POSTGREST_MAX_ROWS) {
+      const page = await db
+        .from("orders")
+        .select("table_label, total, status")
+        .order("id", { ascending: true })
+        .range(start, start + POSTGREST_MAX_ROWS - 1)
+      if (page.error) return page
+      const pageRows = page.data ?? []
+      rows.push(...pageRows)
+      if (pageRows.length < POSTGREST_MAX_ROWS) {
+        return { data: rows, error: null }
+      }
+    }
+  }
+  const [tables, { reservations }, merges, ordersResult] = await Promise.all([
     getTables(),
     getReservationsByDate(date),
     getActiveMerges(),
+    fetchAllOrderPages(),
   ])
-  return { tables, reservations, assigned, merges }
+  if (ordersResult.error) {
+    console.error(
+      "[reservations] getFloorSnapshot orders:",
+      ordersResult.error.message,
+    )
+    // FP-15-UNAVAILABLE: query error is null totals, never a successful empty map.
+    return { tables, reservations, assigned, merges, tableTotals: null }
+  }
+  const tableTotals = sumOpenOrderTotalsByTableLabel(
+    (ordersResult.data ?? []).map((row) => ({
+      table_label: row.table_label,
+      // PostgREST NUMERIC often arrives as string; coerce before the IEEE sum.
+      total: Number(row.total),
+      status: row.status,
+    })),
+  )
+  return { tables, reservations, assigned, merges, tableTotals }
 }
 
 /** Fetch reservations across a date range (or all if no bounds given). */
@@ -652,6 +711,11 @@ export async function getGuestOccupancyDurationMinutes(): Promise<number> {
  *    `[start, nextBookableTime(start))` plus `partySize` exceed total seats
  *  - Table-fit fails (BW-12): occupying overlapping parties plus `partySize`
  *    cannot be assigned to distinct units, even when covers still fit
+ *  - Slot allowlist / exact-time slot cover fails (BW-18): a non-empty
+ *    `bookable_slots` omits the time, or occupying same-time covers plus
+ *    `partySize` exceed that slot's `max_covers`
+ *  - Service cover fails (BW-19): occupying covers assigned to the
+ *    segment (BW-1) on that date plus `partySize` exceed `max_covers`
  */
 export async function getAvailableSlots(
   date: string,
@@ -782,10 +846,30 @@ export async function getAvailableSlots(
   // Compare exclusive-end to generatedSlots only (BW-5) — do not emit a
   // slot at the free instant unless bookableTimesForDay already did.
   const bookedBySlot: Record<string, number> = {}
+  // BW-18 slot-cover is exact reservation `time`, not the BW-9 window.
+  const occupyingCoversByExactTime: Record<string, number> = {}
+  // BW-19 service-cover is all-day assignment to the segment (BW-1), not the
+  // BW-9 occupancy window. Key by sort_order + opens_at, not object identity.
+  const occupyingCoversBySegment = new Map<string, number>()
+  const segmentCoverKey = (segment: { sort_order: number; opens_at: string }) =>
+    `${segment.sort_order}:${normalizeTime(segment.opens_at)}`
   const occupying: AssignableReservation[] = []
   for (const row of data ?? []) {
     if (!ACTIVE_RESERVATION_STATUSES.includes(row.status)) continue
     const start = normalizeTime(row.time)
+    occupyingCoversByExactTime[start] =
+      (occupyingCoversByExactTime[start] ?? 0) + Number(row.party_size)
+    const reservationSegment = assignSegmentForTime(
+      start,
+      operatingWindow.segments,
+    )
+    if (reservationSegment) {
+      const key = segmentCoverKey(reservationSegment)
+      occupyingCoversBySegment.set(
+        key,
+        (occupyingCoversBySegment.get(key) ?? 0) + Number(row.party_size),
+      )
+    }
     const exclusiveEnd = nextBookableTime(
       start,
       occupancyDurationMinutes,
@@ -836,6 +920,24 @@ export async function getAvailableSlots(
       safetyBufferMinutes,
     )
 
-    return { time, available: coversFit && tableFit }
+    const segment = assignSegmentForTime(time, operatingWindow.segments)
+    const serviceOccupied = segment
+      ? (occupyingCoversBySegment.get(segmentCoverKey(segment)) ?? 0)
+      : 0
+    const slotAndServiceFit = coversFitSlotAndService({
+      time,
+      partySize,
+      bookableSlots: segment?.bookable_slots ?? [],
+      serviceMaxCovers: segment?.max_covers ?? null,
+      occupyingCoversAtTime:
+        occupyingCoversByExactTime[normalizeTime(time)] ?? 0,
+      occupyingCoversInService: serviceOccupied,
+    })
+
+    return {
+      time,
+      // BW-22: slot/service caps never skip BW-9 inventory cover or BW-12 table-fit.
+      available: slotAndServiceFit && coversFit && tableFit,
+    }
   })
 }

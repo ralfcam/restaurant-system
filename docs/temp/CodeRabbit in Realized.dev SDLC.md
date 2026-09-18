@@ -42,13 +42,13 @@ To maximize the Essentials tier, the repository's configuration file must be str
 
 The Realized.dev execution loop mandates a strict boundary between test code, source code, and normative specifications7. This boundary can be reinforced remotely using CodeRabbit's path instructions feature, which applies targeted guidance to specific files using glob patterns23. By utilizing these patterns, the SDLC architect can instruct CodeRabbit to review test files differently than application logic or documentation. Furthermore, the tone instructions parameter must be configured to produce machine-readable, highly analytical feedback22. Because the feedback will often be ingested back into the local environment by an operator initiating a bug-fix command, the AI's tone must be direct and devoid of conversational filler7.
 
-| Configuration Parameter | Target Path | Factory Implementation Intent |
-| :---- | :---- | :---- |
-| tone\_instructions | Global | Ensure feedback is concise, analytical, and devoid of conversational filler to facilitate rapid ingestion by local fixing agents. |
-| path\_instructions | docs/specs/\*\*/\*.md | Enforce normative language and verify that all acceptance criteria are independently testable. Prohibit implementation details. |
-| path\_instructions | docs/findings/\*\*/\*.md | Verify ledger entries conform to the standard open-item format. Flag any deletion of open entries lacking a corresponding Linear resolution ID. |
-| path\_instructions | tests/\*\*/\*.ts | Ensure assertions are strictly deterministic. Prohibit suggestions that add application logic to test files. |
-| request\_changes\_workflow | Global | Enable automatic approval only when all AI comments are resolved and all pre-merge checks are passing, mirroring local gating constraints. |
+| Configuration Parameter    | Target Path              | Factory Implementation Intent                                                                                                                   |
+| :------------------------- | :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
+| tone\_instructions         | Global                   | Ensure feedback is concise, analytical, and devoid of conversational filler to facilitate rapid ingestion by local fixing agents.               |
+| path\_instructions         | docs/specs/\*\*/\*.md    | Enforce normative language and verify that all acceptance criteria are independently testable. Prohibit implementation details.                 |
+| path\_instructions         | docs/findings/\*\*/\*.md | Verify ledger entries conform to the standard open-item format. Flag any deletion of open entries lacking a corresponding Linear resolution ID. |
+| path\_instructions         | tests/\*\*/\*.ts         | Ensure assertions are strictly deterministic. Prohibit suggestions that add application logic to test files.                                    |
+| request\_changes\_workflow | Global                   | Enable automatic approval only when all AI comments are resolved and all pre-merge checks are passing, mirroring local gating constraints.      |
 
 ### **Contextual Enrichment via Model Context Protocol**
 
@@ -82,12 +82,12 @@ In addition to natural language checks, the Team tier's robust support for integ
 
 The Realized.dev model relies on specific frameworks and architectural boundaries6. Standard linters often struggle to enforce complex boundaries, such as ensuring that server-side data fetching functions do not inadvertently leak sensitive environment variables to client-side components. By configuring rule directories in the .coderabbit.yaml file to point to a repository directory containing custom YAML rules for ast-grep, the SDLC architect can create structural invariants29.
 
-| Tool / Capability | Analysis Mechanism | Factory Implementation Use Case |
-| :---- | :---- | :---- |
-| **Custom Pre-Merge Checks** | Natural Language LLM Evaluation | Enforce the presence of corresponding specification updates when bug fixes are detected in the diff. |
-| **AST-Grep (Atomic Rules)** | Syntax Node Matching | Detect the usage of forbidden legacy libraries or deprecated internal helper functions across the codebase. |
-| **AST-Grep (Relational Rules)** | Syntax Node Surroundings | Ensure that all database mutation queries are properly wrapped within the designated transaction middleware logic. |
-| **AST-Grep (Composite Rules)** | Logical Operator Combinations | Flag direct DOM manipulations in frontend components unless they are explicitly interacting with a specific allowed reference type. |
+| Tool / Capability               | Analysis Mechanism              | Factory Implementation Use Case                                                                                                     |
+| :------------------------------ | :------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------- |
+| **Custom Pre-Merge Checks**     | Natural Language LLM Evaluation | Enforce the presence of corresponding specification updates when bug fixes are detected in the diff.                                |
+| **AST-Grep (Atomic Rules)**     | Syntax Node Matching            | Detect the usage of forbidden legacy libraries or deprecated internal helper functions across the codebase.                         |
+| **AST-Grep (Relational Rules)** | Syntax Node Surroundings        | Ensure that all database mutation queries are properly wrapped within the designated transaction middleware logic.                  |
+| **AST-Grep (Composite Rules)**  | Logical Operator Combinations   | Flag direct DOM manipulations in frontend components unless they are explicitly interacting with a specific allowed reference type. |
 
 When CodeRabbit runs, it executes these ast-grep rules against the pull request diff, surfacing structural violations directly in the review walkthrough29. Because ast-grep understands the syntax tree rather than relying on brittle regular expressions, it drastically reduces the false-positive rates that typically plague traditional static analysis, ensuring that agent-generated code adheres strictly to the factory's architectural standards30.
 
@@ -145,11 +145,11 @@ In the Realized.dev factory, if a local agent pushes a commit, realizes continuo
 
 To maximize operational efficiency and avoid factory gridlock, the SDLC architect must implement strict governance mechanisms.
 
-| Governance Strategy | Implementation Mechanism | Impact on Factory Throughput |
-| :---- | :---- | :---- |
-| **Optimize Local Gating** | Enforce strict whole-suite checks (lint, typecheck, test:unit) via the local /push command before any remote branch is updated. | Prevents CodeRabbit from wasting limited review quotas on trivial compilation or formatting errors. |
-| **Review Toggling** | Configure .coderabbit.yaml to pause automatic incremental reviews, relying instead on a specific GitHub label to opt pull requests into the review process. | Ensures CodeRabbit only evaluates the final, polished output of the local development loop, drastically reducing redundant analysis. |
-| **Usage-Based Add-ons** | Enable the usage-based billing add-on for eligible over-limit reviews, metered at a specific cost per reviewed file or agent minute. | Guarantees that the agentic pipeline never stalls due to artificial rate limits during high-velocity development sprints. |
+| Governance Strategy       | Implementation Mechanism                                                                                                                                    | Impact on Factory Throughput                                                                                                         |
+| :------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+| **Optimize Local Gating** | Enforce strict whole-suite checks (lint, typecheck, test:unit) via the local /push command before any remote branch is updated.                             | Prevents CodeRabbit from wasting limited review quotas on trivial compilation or formatting errors.                                  |
+| **Review Toggling**       | Configure .coderabbit.yaml to pause automatic incremental reviews, relying instead on a specific GitHub label to opt pull requests into the review process. | Ensures CodeRabbit only evaluates the final, polished output of the local development loop, drastically reducing redundant analysis. |
+| **Usage-Based Add-ons**   | Enable the usage-based billing add-on for eligible over-limit reviews, metered at a specific cost per reviewed file or agent minute.                        | Guarantees that the agentic pipeline never stalls due to artificial rate limits during high-velocity development sprints.            |
 
 By utilizing the usage-based add-on, enterprise factories can ensure that eligible over-limit reviews continue uninterrupted at a metered cost, allowing the SDLC to scale infinitely without developer intervention10.
 
@@ -177,50 +177,50 @@ Ultimately, the Advanced and Enterprise tiers secure the entire operation. Throu
 
 #### **Works cited**
 
-> 1. CodeRabbit — Free AI Code Review for Public Repos \- FreeAPIHub, [https://freeapihub.com/ai-tools/coderabbit-ai-code-review](https://freeapihub.com/ai-tools/coderabbit-ai-code-review)  
-> 2. Rethinking Code Review in the Age of Generative AI \- ResearchGate, [https://www.researchgate.net/publication/414108055\_Rethinking\_Code\_Review\_in\_the\_Age\_of\_Generative\_AI\_A\_Conceptual\_Framework\_for\_Layered\_Software\_Verification](https://www.researchgate.net/publication/414108055_Rethinking_Code_Review_in_the_Age_of_Generative_AI_A_Conceptual_Framework_for_Layered_Software_Verification)  
-> 3. An Empirical Study of Code Review Agents in Pull Requests \- arXiv, [https://arxiv.org/html/2604.03196v1](https://arxiv.org/html/2604.03196v1)  
-> 4. Agent-Assisted Code Review: Agents as PR First Pass, [https://agentpatterns.ai/code-review/agent-assisted-code-review/](https://agentpatterns.ai/code-review/agent-assisted-code-review/)  
-> 5. Is Agentic Code Review Helpful? Mining Developers' Feedback to, [https://www.alphaxiv.org/abs/2607.03316](https://www.alphaxiv.org/abs/2607.03316)  
-> 6. capture.md  
-> 7. sdd-to-tdd.md  
-> 8. CodeRabbit Review 2026: Features, Pricing & Benchmarks, [https://humantestsai.net/tools/coderabbit/](https://humantestsai.net/tools/coderabbit/)  
-> 9. The art and science of context engineering for AI code reviews, [https://www.coderabbit.ai/blog/the-art-and-science-of-context-engineering](https://www.coderabbit.ai/blog/the-art-and-science-of-context-engineering)  
-> 10. Plans and pricing \- CodeRabbit docs, [https://docs.coderabbit.ai/management/plans](https://docs.coderabbit.ai/management/plans)  
-> 11. CodeRabbit Pricing | AI Code Review Plans, [https://www.coderabbit.ai/pricing](https://www.coderabbit.ai/pricing)  
-> 12. design.md  
-> 13. triage.md  
-> 14. dispatch.md  
-> 15. commit.md  
-> 16. push.md  
-> 17. Autonomous Code Review: Multi-Agent Approaches to Pull Request, [https://zylos.ai/research/2026-04-22-autonomous-code-review-multi-agent-pr-analysis/](https://zylos.ai/research/2026-04-22-autonomous-code-review-multi-agent-pr-analysis/)  
-> 18. CodeRabbit tops independent AI code review benchmark, [https://www.coderabbit.ai/blog/coderabbit-tops-martian-code-review-benchmark](https://www.coderabbit.ai/blog/coderabbit-tops-martian-code-review-benchmark)  
-> 19. Best AI powered code review tools in 2026 \- Composio, [https://composio.dev/content/best-ai-powered-code-review-tools-in-2026](https://composio.dev/content/best-ai-powered-code-review-tools-in-2026)  
-> 20. CodeRabbit — Overview, Features & Use Cases | THE D\*AI\*LY BRIEF, [https://www.beri.net/tools/coderabbit](https://www.beri.net/tools/coderabbit)  
-> 21. Linear Integration \- CodeRabbit docs, [https://docs.coderabbit.ai/connections/linear](https://docs.coderabbit.ai/connections/linear)  
-> 22. Configuration reference \- CodeRabbit docs, [https://docs.coderabbit.ai/reference/configuration](https://docs.coderabbit.ai/reference/configuration)  
-> 23. Path-based review instructions \- CodeRabbit docs, [https://docs.coderabbit.ai/configuration/path-instructions](https://docs.coderabbit.ai/configuration/path-instructions)  
-> 24. Connect MCP servers \- CodeRabbit docs, [https://docs.coderabbit.ai/connections/mcp-servers](https://docs.coderabbit.ai/connections/mcp-servers)  
-> 25. CodeRabbit glossary: review, Git, and code analysis terms, [https://docs.coderabbit.ai/reference/glossary](https://docs.coderabbit.ai/reference/glossary)  
-> 26. Integrate MCP servers \- CodeRabbit docs, [https://docs.coderabbit.ai/integrations/mcp-servers](https://docs.coderabbit.ai/integrations/mcp-servers)  
-> 27. MCP Servers \- CodeRabbit Docs, [https://docs.coderabbit.ai/knowledge-base/mcp-context](https://docs.coderabbit.ai/knowledge-base/mcp-context)  
-> 28. Built-in Pre-Merge Checks \- CodeRabbit docs, [https://docs.coderabbit.ai/pr-reviews/pre-merge-checks](https://docs.coderabbit.ai/pr-reviews/pre-merge-checks)  
-> 29. ast-grep \- CodeRabbit docs, [https://docs.coderabbit.ai/tools/ast-grep](https://docs.coderabbit.ai/tools/ast-grep)  
-> 30. AST-based path instructions \- CodeRabbit docs, [https://docs.coderabbit.ai/configuration/ast-grep-instructions](https://docs.coderabbit.ai/configuration/ast-grep-instructions)  
-> 31. Tools configuration reference \- CodeRabbit docs, [https://docs.coderabbit.ai/tools/reference](https://docs.coderabbit.ai/tools/reference)  
-> 32. Issue Planner \- CodeRabbit docs, [https://docs.coderabbit.ai/issues/planner](https://docs.coderabbit.ai/issues/planner)  
-> 33. Planning on GitHub \- CodeRabbit docs, [https://docs.coderabbit.ai/issues/planner/github](https://docs.coderabbit.ai/issues/planner/github)  
-> 34. Changelog \- CodeRabbit docs, [https://docs.coderabbit.ai/changelog](https://docs.coderabbit.ai/changelog)  
-> 35. CodeRabbit raises $143M to build a governance layer for... \- daily.dev, [https://daily.dev/posts/coderabbit-raises-143m-to-build-a-governance-layer-for-ai-generated-code-fjmdfco3s](https://daily.dev/posts/coderabbit-raises-143m-to-build-a-governance-layer-for-ai-generated-code-fjmdfco3s)  
-> 36. What is Agentic Change Management? \- CodeRabbit, [https://www.coderabbit.ai/guides/what-is-agentic-change-management](https://www.coderabbit.ai/guides/what-is-agentic-change-management)  
-> 37. AI Code Reviews | CodeRabbit | Try for Free., [https://www.coderabbit.ai/](https://www.coderabbit.ai/)  
-> 38. CodeRabbit vs Snyk Code (2026): Pricing, Features, Verdict, [https://ai.dosa.dev/compare/coderabbit-vs-snyk-code](https://ai.dosa.dev/compare/coderabbit-vs-snyk-code)  
-> 39. CodeRabbit: Reviews, Pricing & Alternatives \- Relve, [https://relvehq.com/tool/coderabbit](https://relvehq.com/tool/coderabbit)  
-> 40. [https://docs.coderabbit.ai/security](https://docs.coderabbit.ai/security)  
-> 41. CodeRabbit for Open Source | Free AI Code Reviews, [https://www.coderabbit.ai/oss](https://www.coderabbit.ai/oss)  
-> 42. CodeRabbit vs Graphite Agent for AI Code Review in 2026, [https://tools-review.netlify.app/blog/coderabbit-vs-graphite-agent-for-ai-code-review-in-2026-whic/](https://tools-review.netlify.app/blog/coderabbit-vs-graphite-agent-for-ai-code-review-in-2026-whic/)  
-> 43. CodeRabbit Alternative: PURA vs ... \- AI Code Review for GitHub, [https://www.pura.sh/blog/pura-vs-coderabbit](https://www.pura.sh/blog/pura-vs-coderabbit)  
-> 44. Usage-based Add-on \- CodeRabbit Docs, [https://docs.coderabbit.ai/management/usage-based-addon](https://docs.coderabbit.ai/management/usage-based-addon)  
-> 45. Code Guidelines \- CodeRabbit Docs, [https://docs.coderabbit.ai/knowledge-base/code-guidelines](https://docs.coderabbit.ai/knowledge-base/code-guidelines)  
-> 46. Central configuration \- CodeRabbit docs, [https://docs.coderabbit.ai/configuration/central-configuration](https://docs.coderabbit.ai/configuration/central-configuration)  
+> 1. CodeRabbit — Free AI Code Review for Public Repos \- FreeAPIHub, [https://freeapihub.com/ai-tools/coderabbit-ai-code-review](https://freeapihub.com/ai-tools/coderabbit-ai-code-review)
+> 2. Rethinking Code Review in the Age of Generative AI \- ResearchGate, [https://www.researchgate.net/publication/414108055\_Rethinking\_Code\_Review\_in\_the\_Age\_of\_Generative\_AI\_A\_Conceptual\_Framework\_for\_Layered\_Software\_Verification](https://www.researchgate.net/publication/414108055_Rethinking_Code_Review_in_the_Age_of_Generative_AI_A_Conceptual_Framework_for_Layered_Software_Verification)
+> 3. An Empirical Study of Code Review Agents in Pull Requests \- arXiv, [https://arxiv.org/html/2604.03196v1](https://arxiv.org/html/2604.03196v1)
+> 4. Agent-Assisted Code Review: Agents as PR First Pass, [https://agentpatterns.ai/code-review/agent-assisted-code-review/](https://agentpatterns.ai/code-review/agent-assisted-code-review/)
+> 5. Is Agentic Code Review Helpful? Mining Developers' Feedback to, [https://www.alphaxiv.org/abs/2607.03316](https://www.alphaxiv.org/abs/2607.03316)
+> 6. capture.md
+> 7. sdd-to-tdd.md
+> 8. CodeRabbit Review 2026: Features, Pricing & Benchmarks, [https://humantestsai.net/tools/coderabbit/](https://humantestsai.net/tools/coderabbit/)
+> 9. The art and science of context engineering for AI code reviews, [https://www.coderabbit.ai/blog/the-art-and-science-of-context-engineering](https://www.coderabbit.ai/blog/the-art-and-science-of-context-engineering)
+> 10. Plans and pricing \- CodeRabbit docs, [https://docs.coderabbit.ai/management/plans](https://docs.coderabbit.ai/management/plans)
+> 11. CodeRabbit Pricing | AI Code Review Plans, [https://www.coderabbit.ai/pricing](https://www.coderabbit.ai/pricing)
+> 12. design.md
+> 13. triage.md
+> 14. dispatch.md
+> 15. commit.md
+> 16. push.md
+> 17. Autonomous Code Review: Multi-Agent Approaches to Pull Request, [https://zylos.ai/research/2026-04-22-autonomous-code-review-multi-agent-pr-analysis/](https://zylos.ai/research/2026-04-22-autonomous-code-review-multi-agent-pr-analysis/)
+> 18. CodeRabbit tops independent AI code review benchmark, [https://www.coderabbit.ai/blog/coderabbit-tops-martian-code-review-benchmark](https://www.coderabbit.ai/blog/coderabbit-tops-martian-code-review-benchmark)
+> 19. Best AI powered code review tools in 2026 \- Composio, [https://composio.dev/content/best-ai-powered-code-review-tools-in-2026](https://composio.dev/content/best-ai-powered-code-review-tools-in-2026)
+> 20. CodeRabbit — Overview, Features & Use Cases | THE D\*AI\*LY BRIEF, [https://www.beri.net/tools/coderabbit](https://www.beri.net/tools/coderabbit)
+> 21. Linear Integration \- CodeRabbit docs, [https://docs.coderabbit.ai/connections/linear](https://docs.coderabbit.ai/connections/linear)
+> 22. Configuration reference \- CodeRabbit docs, [https://docs.coderabbit.ai/reference/configuration](https://docs.coderabbit.ai/reference/configuration)
+> 23. Path-based review instructions \- CodeRabbit docs, [https://docs.coderabbit.ai/configuration/path-instructions](https://docs.coderabbit.ai/configuration/path-instructions)
+> 24. Connect MCP servers \- CodeRabbit docs, [https://docs.coderabbit.ai/connections/mcp-servers](https://docs.coderabbit.ai/connections/mcp-servers)
+> 25. CodeRabbit glossary: review, Git, and code analysis terms, [https://docs.coderabbit.ai/reference/glossary](https://docs.coderabbit.ai/reference/glossary)
+> 26. Integrate MCP servers \- CodeRabbit docs, [https://docs.coderabbit.ai/integrations/mcp-servers](https://docs.coderabbit.ai/integrations/mcp-servers)
+> 27. MCP Servers \- CodeRabbit Docs, [https://docs.coderabbit.ai/knowledge-base/mcp-context](https://docs.coderabbit.ai/knowledge-base/mcp-context)
+> 28. Built-in Pre-Merge Checks \- CodeRabbit docs, [https://docs.coderabbit.ai/pr-reviews/pre-merge-checks](https://docs.coderabbit.ai/pr-reviews/pre-merge-checks)
+> 29. ast-grep \- CodeRabbit docs, [https://docs.coderabbit.ai/tools/ast-grep](https://docs.coderabbit.ai/tools/ast-grep)
+> 30. AST-based path instructions \- CodeRabbit docs, [https://docs.coderabbit.ai/configuration/ast-grep-instructions](https://docs.coderabbit.ai/configuration/ast-grep-instructions)
+> 31. Tools configuration reference \- CodeRabbit docs, [https://docs.coderabbit.ai/tools/reference](https://docs.coderabbit.ai/tools/reference)
+> 32. Issue Planner \- CodeRabbit docs, [https://docs.coderabbit.ai/issues/planner](https://docs.coderabbit.ai/issues/planner)
+> 33. Planning on GitHub \- CodeRabbit docs, [https://docs.coderabbit.ai/issues/planner/github](https://docs.coderabbit.ai/issues/planner/github)
+> 34. Changelog \- CodeRabbit docs, [https://docs.coderabbit.ai/changelog](https://docs.coderabbit.ai/changelog)
+> 35. CodeRabbit raises $143M to build a governance layer for... \- daily.dev, [https://daily.dev/posts/coderabbit-raises-143m-to-build-a-governance-layer-for-ai-generated-code-fjmdfco3s](https://daily.dev/posts/coderabbit-raises-143m-to-build-a-governance-layer-for-ai-generated-code-fjmdfco3s)
+> 36. What is Agentic Change Management? \- CodeRabbit, [https://www.coderabbit.ai/guides/what-is-agentic-change-management](https://www.coderabbit.ai/guides/what-is-agentic-change-management)
+> 37. AI Code Reviews | CodeRabbit | Try for Free., [https://www.coderabbit.ai/](https://www.coderabbit.ai/)
+> 38. CodeRabbit vs Snyk Code (2026): Pricing, Features, Verdict, [https://ai.dosa.dev/compare/coderabbit-vs-snyk-code](https://ai.dosa.dev/compare/coderabbit-vs-snyk-code)
+> 39. CodeRabbit: Reviews, Pricing & Alternatives \- Relve, [https://relvehq.com/tool/coderabbit](https://relvehq.com/tool/coderabbit)
+> 40. [https://docs.coderabbit.ai/security](https://docs.coderabbit.ai/security)
+> 41. CodeRabbit for Open Source | Free AI Code Reviews, [https://www.coderabbit.ai/oss](https://www.coderabbit.ai/oss)
+> 42. CodeRabbit vs Graphite Agent for AI Code Review in 2026, [https://tools-review.netlify.app/blog/coderabbit-vs-graphite-agent-for-ai-code-review-in-2026-whic/](https://tools-review.netlify.app/blog/coderabbit-vs-graphite-agent-for-ai-code-review-in-2026-whic/)
+> 43. CodeRabbit Alternative: PURA vs ... \- AI Code Review for GitHub, [https://www.pura.sh/blog/pura-vs-coderabbit](https://www.pura.sh/blog/pura-vs-coderabbit)
+> 44. Usage-based Add-on \- CodeRabbit Docs, [https://docs.coderabbit.ai/management/usage-based-addon](https://docs.coderabbit.ai/management/usage-based-addon)
+> 45. Code Guidelines \- CodeRabbit Docs, [https://docs.coderabbit.ai/knowledge-base/code-guidelines](https://docs.coderabbit.ai/knowledge-base/code-guidelines)
+> 46. Central configuration \- CodeRabbit docs, [https://docs.coderabbit.ai/configuration/central-configuration](https://docs.coderabbit.ai/configuration/central-configuration)
 > 47. CodeRabbit for Python: AI Code Review for Python Projects, [https://dev.to/rahulxsingh/coderabbit-for-python-ai-code-review-for-python-projects-29il](https://dev.to/rahulxsingh/coderabbit-for-python-ai-code-review-for-python-projects-29il)

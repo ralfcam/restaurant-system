@@ -3,11 +3,17 @@
 import { useMemo, useState } from "react"
 import { UtensilsCrossed } from "lucide-react"
 import { useTranslations } from "next-intl"
-import { MENUS, type MenuId } from "@/lib/data"
 import type { MenuItemRow } from "@/app/actions/menu"
+import { MENUS } from "@/lib/menu-catalog"
 import { cn } from "@/lib/utils"
 
 type Locale = "fr" | "en"
+
+type PublicMenuTab = {
+  id: string
+  title: string
+  title_en: string
+}
 
 function groupBySection(items: MenuItemRow[], locale: Locale) {
   const groups: { key: string; title: string; items: MenuItemRow[] }[] = []
@@ -30,12 +36,14 @@ function groupBySection(items: MenuItemRow[], locale: Locale) {
 export function MenuBrowser({
   initialItems = [],
   locale,
+  menus = [],
 }: {
   initialItems?: MenuItemRow[]
   locale: Locale
+  menus?: PublicMenuTab[]
 }) {
   const t = useTranslations("menuBrowser")
-  const [menuId, setMenuId] = useState<MenuId>(MENUS[0]?.id ?? "soir")
+  const [menuId, setMenuId] = useState(menus[0]?.id ?? "soir")
 
   const menuMeta = MENUS.find((m) => m.id === menuId)
   const menuItems = useMemo(
@@ -47,19 +55,15 @@ export function MenuBrowser({
     [menuItems, locale],
   )
 
-  const populatedMenus = MENUS.filter((menu) =>
-    initialItems.some((item) => item.menu_id === menu.id),
-  )
-  const tabs = populatedMenus.length > 0 ? populatedMenus : MENUS
-
   return (
     <div>
       <div className="sticky top-16 z-20 -mx-4 space-y-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur md:mx-0 md:rounded-lg md:border">
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {tabs.map((tab) => (
+          {menus.map((tab) => (
             <button
               key={tab.id}
               type="button"
+              aria-pressed={menuId === tab.id}
               onClick={() => setMenuId(tab.id)}
               className={cn(
                 "whitespace-nowrap rounded-full border px-4 py-1.5 text-sm font-medium transition-colors",
@@ -68,7 +72,7 @@ export function MenuBrowser({
                   : "border-border bg-background text-muted-foreground hover:text-foreground",
               )}
             >
-              {locale === "fr" ? tab.title : tab.titleEn}
+              {locale === "fr" ? tab.title : tab.title_en}
             </button>
           ))}
         </div>

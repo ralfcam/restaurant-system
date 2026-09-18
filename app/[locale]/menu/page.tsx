@@ -3,7 +3,7 @@ import Image from "next/image"
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 import { RESTAURANT } from "@/lib/data"
-import { getMenuItems } from "@/app/actions/menu"
+import { getMenuItems, getPublicMenuTabs } from "@/app/actions/menu"
 import { Link } from "@/i18n/navigation"
 import { SiteHeader } from "@/components/site/site-header"
 import { MenuBrowser } from "@/components/site/menu-browser"
@@ -31,7 +31,10 @@ export default async function MenuPage({ params }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations("menuPage")
-  const items = await getMenuItems()
+  const [items, menus] = await Promise.all([
+    getMenuItems(),
+    getPublicMenuTabs(),
+  ])
 
   return (
     <div className="min-h-screen bg-background">
@@ -65,7 +68,7 @@ export default async function MenuPage({ params }: PageProps) {
       </section>
 
       <main className="mx-auto max-w-3xl px-4 py-8 md:px-6">
-        <MenuBrowser initialItems={items} locale={locale} />
+        <MenuBrowser initialItems={items} locale={locale} menus={menus} />
       </main>
 
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, useTransition } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
   Search,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { type ReservationStatus } from "@/lib/data"
+import { guestProfileHref } from "@/lib/guest-profiles"
 import { staffListEmptyCopy } from "@/lib/reservations/list-empty-copy"
 import { selectableTablesForAssignment } from "@/lib/reservations/selectable-tables"
 import {
@@ -40,6 +42,7 @@ type Reservation = {
   tableLabel?: string
   status: ReservationStatus
   phone: string
+  email: string | null
   notes?: string
   confCode: string
 }
@@ -54,6 +57,7 @@ function rowToReservation(r: ReservationRow): Reservation {
     tableLabel: r.table_label ?? undefined,
     status: r.status,
     phone: r.phone,
+    email: r.email ?? null,
     notes: r.notes ?? undefined,
     confCode: r.conf_code,
   }
@@ -338,43 +342,60 @@ export function ReservationsManager({
               })}
             </li>
           ) : (
-            filtered.map((r) => (
-              <li
-                key={r.id}
-                className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[80px_1fr_120px_120px_140px] md:items-center md:gap-4"
-              >
-                <span className="font-heading text-sm font-semibold">
-                  {r.time}
-                </span>
-                <div className="min-w-0">
-                  <p className="font-medium">{r.guestName}</p>
-                  <p className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Phone className="size-3" /> {r.phone}
-                  </p>
-                  {r.notes ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {r.notes}
-                    </p>
-                  ) : null}
-                </div>
-                <span className="text-sm">
-                  <span className="md:hidden text-muted-foreground">
-                    Party:{" "}
+            filtered.map((r) => {
+              const fichaHref = guestProfileHref(r.email)
+              return (
+                <li
+                  key={r.id}
+                  className="grid grid-cols-1 gap-3 px-5 py-4 md:grid-cols-[80px_1fr_120px_120px_140px] md:items-center md:gap-4"
+                >
+                  <span className="font-heading text-sm font-semibold">
+                    {r.time}
                   </span>
-                  {r.partySize} guests
-                </span>
-                <TableAssignment
-                  reservation={r}
-                  tables={tables}
-                  assigning={assigningId === r.id}
-                  onAssign={assignTable}
-                />
-                <div className="flex items-center justify-between gap-2 md:justify-start">
-                  <ReservationStatusBadge status={r.status} />
-                  <ReservationActions reservation={r} onUpdate={updateStatus} />
-                </div>
-              </li>
-            ))
+                  <div className="min-w-0">
+                    <p className="font-medium">{r.guestName}</p>
+                    <p className="flex items-center gap-1 text-sm text-muted-foreground">
+                      <Phone className="size-3" /> {r.phone}
+                    </p>
+                    {r.email?.trim() ? (
+                      <p className="text-sm text-muted-foreground">{r.email}</p>
+                    ) : null}
+                    {fichaHref ? (
+                      <Link
+                        href={fichaHref}
+                        className="mt-0.5 inline-block text-xs text-primary hover:underline"
+                      >
+                        Guest profile
+                      </Link>
+                    ) : null}
+                    {r.notes ? (
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {r.notes}
+                      </p>
+                    ) : null}
+                  </div>
+                  <span className="text-sm">
+                    <span className="md:hidden text-muted-foreground">
+                      Party:{" "}
+                    </span>
+                    {r.partySize} guests
+                  </span>
+                  <TableAssignment
+                    reservation={r}
+                    tables={tables}
+                    assigning={assigningId === r.id}
+                    onAssign={assignTable}
+                  />
+                  <div className="flex items-center justify-between gap-2 md:justify-start">
+                    <ReservationStatusBadge status={r.status} />
+                    <ReservationActions
+                      reservation={r}
+                      onUpdate={updateStatus}
+                    />
+                  </div>
+                </li>
+              )
+            })
           )}
         </ul>
       </div>
