@@ -1,7 +1,13 @@
 {
   "isDraft": false,
   "headSha": "abc123",
-  "pull": { "number": 12, "isDraft": false, "base": "main", "head": "staging", "headSha": "abc123" },
+  "pull": {
+    "number": 12,
+    "isDraft": false,
+    "base": "main",
+    "head": "staging",
+    "headSha": "abc123"
+  },
   "reviews": [
     {
       "user": { "login": "octocat" },
