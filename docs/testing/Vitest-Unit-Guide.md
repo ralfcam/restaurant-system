@@ -47,7 +47,9 @@
   spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
   G-CAP1 PHASE 5 heading-range chrome-scan in
   `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`; G-DES1 PowerShell
-  runtime-probe and labeled command-index paragraph isolation in
+  runtime-probe, isolated STEP 0 fail-closed denial (`MUST NOT enter STEP
+0B`), and labeled command-index paragraph isolation (one-shot trio plus
+  interactive `/design`) in
   `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,

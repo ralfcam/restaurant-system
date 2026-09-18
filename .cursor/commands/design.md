@@ -88,7 +88,8 @@ First, determine whether you are in Plan Mode.
   - Exactly `managed` (Cursor-managed Cloud Agent VM) → enter
     **STEP 0B — MANAGED CLOUD INTERACTIVE**. Do not emit the Plan Mode stop.
   - Socket missing, HTTP error, empty body, self-hosted, `unknown`, or any
-    value other than exactly `managed` → fail closed. Output exactly:
+    value other than exactly `managed` → fail closed. MUST NOT enter STEP 0B.
+    Output exactly:
     "/design runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
     mode picker) and re-run `/design [idea]`." Then end the turn.
 

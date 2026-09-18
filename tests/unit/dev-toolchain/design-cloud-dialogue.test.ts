@@ -79,6 +79,21 @@ describe("design managed Cloud dialogue", () => {
     expect(step0).not.toMatch(/\$\{[^}]+\}/)
   })
 
+  it("denies unsupported runtimes before STEP 0B", () => {
+    const design = readFileSync(
+      path.join(repoRoot, ".cursor", "commands", "design.md"),
+      "utf8",
+    )
+    const step0 = section(design, "## STEP 0 — PLAN MODE GATE")
+
+    expect(step0).toContain("self-hosted")
+    expect(step0).toContain("`unknown`")
+    expect(step0).toContain("empty body")
+    expect(step0).toContain("value other than exactly `managed`")
+    expect(step0).toMatch(/fail[- ]closed/)
+    expect(step0).toContain("MUST NOT enter STEP 0B")
+  })
+
   it("indexes design under managed Cloud-capable commands", () => {
     const commandReadme = readFileSync(
       path.join(repoRoot, ".cursor", "README.md"),
@@ -89,6 +104,28 @@ describe("design managed Cloud dialogue", () => {
       .find((paragraph) => paragraph.startsWith("**Managed Cloud-capable:**"))
 
     expect(managedCloudParagraph).toBeDefined()
+    expect(managedCloudParagraph).toContain("[`/design`](commands/design.md)")
+    expect(managedCloudParagraph).toContain(
+      "retains its interactive dialogue and approval stops",
+    )
+  })
+
+  it("indexes one-shot commands beside interactive design", () => {
+    const commandReadme = readFileSync(
+      path.join(repoRoot, ".cursor", "README.md"),
+      "utf8",
+    )
+    const managedCloudParagraph = commandReadme
+      .split("\n\n")
+      .find((paragraph) => paragraph.startsWith("**Managed Cloud-capable:**"))
+
+    expect(managedCloudParagraph).toBeDefined()
+    expect(managedCloudParagraph).toContain(
+      "[`/sdd-to-tdd`](commands/sdd-to-tdd.md)",
+    )
+    expect(managedCloudParagraph).toContain("[`/capture`](commands/capture.md)")
+    expect(managedCloudParagraph).toContain("[`/triage`](commands/triage.md)")
+    expect(managedCloudParagraph).toContain("one-shot commands")
     expect(managedCloudParagraph).toContain("[`/design`](commands/design.md)")
     expect(managedCloudParagraph).toContain(
       "retains its interactive dialogue and approval stops",
