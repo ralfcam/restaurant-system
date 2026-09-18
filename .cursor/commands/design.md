@@ -63,19 +63,68 @@ thinking: { type: "adaptive", effort: "high" }
 
 ## STEP 0 — PLAN MODE GATE (do this before anything else)
 
-This command runs in **Plan Mode only**, like `/audit` and `/dispatch`.
-`/capture`, `/sdd-to-tdd`, and `/triage` default to Plan Mode but have a
-managed-Cloud one-shot exception; `/design` does not.
+This command's default is **Plan Mode**. Cloud Agents support Plan Mode; prefer
+it when the launch surface exposes it. The managed-Cloud path below is a
+**narrow interactive exception for Agent-mode launches**, not an unattended
+one-shot and not a claim that Cloud lacks Plan Mode.
+
 First, determine whether you are in Plan Mode.
 
-- If you are **NOT** in Plan Mode: STOP immediately. Make no file reads beyond
-  what's needed to answer, write nothing, delegate to no subagents. Output
-  exactly: "/design runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or
-  the mode picker) and re-run `/design [idea]`." Then end the turn.
 - If you ARE in Plan Mode: proceed. Producing the spec proposal must not write
-  any file — the dialogue, drafting, and presentation are all read-only. The PHASE 5 writes (the approved spec write, optional `docs-updater`
+  any file — the dialogue, drafting, and presentation are all read-only. The
+  PHASE 5 writes (the approved spec write, optional `docs-updater`
   delegation, and single approved comment-only CLARIFY) happen later, after
   explicit approval.
+- If you are **NOT** in Plan Mode: do not assume local Agent Mode and do not
+  stop yet. Probe the documented Cloud Agent metadata API first (this probe
+  only — no repo or spec reads, edits, or subagents):
+
+  ```bash
+  curl -fsS --unix-socket "${CURSOR_AGENT_SOCKET:-/run/cursor/api.sock}" \
+    http://cursor-agent/v1/meta-data/agent/runtime
+  ```
+
+  Classify from the response body, trimmed:
+  - Exactly `managed` (Cursor-managed Cloud Agent VM) → enter
+    **STEP 0B — MANAGED CLOUD INTERACTIVE**. Do not emit the Plan Mode stop.
+  - Socket missing, HTTP error, empty body, self-hosted, `unknown`, or any
+    value other than exactly `managed` → fail closed. Output exactly:
+    "/design runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
+    mode picker) and re-run `/design [idea]`." Then end the turn.
+
+  If the socket is missing immediately after boot, retry the connection once;
+  then fail closed. Do not infer Cloud from branch name (`cursor/…`), OS, or
+  available tools. `/v1/meta-data/agent/runtime` returning exactly `managed` is
+  the only positive signal.
+
+## STEP 0B — MANAGED CLOUD INTERACTIVE (narrow exception)
+
+Applies only after STEP 0 classified `agent/runtime` as exactly `managed`. This
+waives only the Plan Mode requirement and native Plan artifact; it does not
+turn `/design` into an unattended one-shot.
+
+**Cloud interactive does not waive** a missing or vague idea; the hub-walk
+owner stop; milestone routing; the one-question-at-a-time dialogue and
+`AskQuestion` wait between genuine decisions; operator confirmation of Scope
+and Acceptance Criteria; clarification of a spec contradiction; or the final
+explicit `Go ahead` on the exact complete spec. It also does not waive the
+PHASE 5 write whitelist, delegation boundaries, or the prohibition on
+auto-running `/sdd-to-tdd`, `/commit`, or `/push`.
+
+Continue STEP 1–4 normally across as many operator turns as the dialogue
+requires. Ask exactly one decision question per turn and do not silently adopt
+the recommended default.
+
+**Durable work-order (required after approval and before any PHASE 5 write):**
+Once the operator gives explicit `Go ahead` on the exact STEP 4 content, render
+the complete approved plan — beginning with the verbatim Execution Protocol —
+to `.cursor/plans/<plan-slug>.plan.md`. This is a **repository work-order, not a
+silently accepted native Cursor Plan**. Do not invoke `CreatePlan` or wait for
+native plan acceptance.
+
+After the work-order exists, execute only its listed PHASE 5 todos in that same
+approval turn. Stop on any unresolved decision, changed content, unavailable
+delegation, scope violation, or failed write; never broaden the approved plan.
 
 ## STEP 1 — HUB WALK (does this already have an owner?)
 
@@ -163,14 +212,19 @@ Propose:
 ## STEP 4 — PRESENT FOR APPROVAL
 
 Output the plan (format below) and stop. The spec write happens only in
-PHASE 5, and only after the operator gives explicit "yes" on the exact spec
-content shown — not a vague "looks good" on an earlier partial draft.
+PHASE 5, and only after the operator gives explicit `Go ahead` on the exact
+spec content shown — not a vague "looks good" on an earlier partial draft.
+In managed Cloud, also stop and wait for the explicit `Go ahead`; STEP 0B
+waives no dialogue or approval boundary. Only that later approval turn writes
+the managed-Cloud work-order and enters PHASE 5.
 
 ## Execution Protocol (PHASE 5 — after plan approval)
 
 You are a **design orchestrator**, not `/sdd-to-tdd`. When this plan is
 executed:
 
+- In managed Cloud, the approved managed-Cloud work-order MUST exist before
+  the first write or delegation. Execute only the exact todos it lists.
 - Your **only** writes are: (1) the approved spec write — the **one** new spec
   file under `docs/specs/**` (design owns spec authorship for this
   genuinely-new case directly — no `tdd-*` subagent, no TDD loop; that begins
@@ -207,8 +261,12 @@ docs/findings/README.md entry format."` Each line stamped
   </instructions>
 
 <constraints>
-- DO NOT run outside Plan Mode — the STEP 0 gate stops the command and
-  instructs the operator to switch.
+- Outside Plan Mode, DO NOT read the repo or run the workflow unless STEP 0's
+  metadata probe returns exactly `managed`; every other result stops with the
+  Plan Mode instruction.
+- Managed Cloud does not waive any dialogue or approval step. DO NOT write a
+  work-order or enter PHASE 5 until the operator approves the exact complete
+  STEP 4 spec with `Go ahead`.
 - DO NOT draft a new spec file when STEP 1's hub walk finds an existing
   owner (even folded) — route to `/sdd-to-tdd @<canonical-file>` FEATURE
   instead.
@@ -239,7 +297,10 @@ open with the Execution Protocol block above **verbatim**.
 
 ## Mode Check
 
-- Plan Mode: YES (proceeding) | NO (stopped — instruction to switch)
+- Plan Mode: YES (proceeding) | CLOUD-MANAGED (interactive) | NO (stopped)
+- Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | cannot verify
+- Work-order: `.cursor/plans/<plan-slug>.plan.md` after explicit approval |
+  n/a until approval / in Plan Mode
 
 ## Hub Walk (STEP 1)
 
