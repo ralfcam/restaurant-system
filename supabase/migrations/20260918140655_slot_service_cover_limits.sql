@@ -1,15 +1,33 @@
--- Forward migration for remotes that already recorded 20260827180000.
--- Same table-fit block is also defined in 00000000000000_baseline.sql,
--- 20260818162000_operating_hour_segments.sql, and
--- 20260827180000_occupancy_duration_buffer.sql so
--- `supabase db reset --local` stays equivalent.
+-- Forward migration for remotes that already recorded table-fit / occupancy.
+-- Same columns and last-writer function bodies are also defined in
+-- 00000000000000_baseline.sql and 20260818162000_operating_hour_segments.sql
+-- so `supabase db reset --local` stays equivalent.
 --
--- REAZED-305: BW-12 compatible-table bookability in
--- validate_reservation_availability. New dated file because remotes have
--- already recorded occupancy; folding into 20260827180000 would not apply.
+-- RES-71: operating_windows.max_covers + bookable_slots and BW-20
+-- slot/service cover in validate_reservation_availability. New dated file
+-- because remotes have already recorded 20260828121224_table_fit_availability.
 
--- Last-writer on remotes that already recorded earlier function definitions.
--- Same body as baseline / 20260818162000 / 20260827180000 so `db reset --local` stays equivalent.
+-- RES-71: slot/service cover limits (BW-18–BW-20).
+ALTER TABLE operating_windows
+  ADD COLUMN IF NOT EXISTS max_covers INT NULL;
+
+ALTER TABLE operating_windows
+  ADD COLUMN IF NOT EXISTS bookable_slots JSONB NOT NULL DEFAULT '[]';
+
+DO $$
+BEGIN
+  ALTER TABLE operating_windows
+    ADD CONSTRAINT operating_windows_max_covers_check
+    CHECK (max_covers IS NULL OR max_covers >= 1);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+COMMENT ON COLUMN public.operating_windows.max_covers IS
+  'Optional service cover cap; NULL = no extra cap (RES-71 / BW-19 / CL-3).';
+COMMENT ON COLUMN public.operating_windows.bookable_slots IS
+  'Ordered bookable slots JSONB; empty = all generated times (RES-71 / BW-18 / CL-1).';
+
 CREATE OR REPLACE FUNCTION validate_reservation_availability()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -304,3 +322,36 @@ $$;
 
 REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated;
+
+CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  -- WHERE TRUE satisfies hosted safe-delete (error 21000 without a predicate).
+  DELETE FROM public.operating_windows WHERE TRUE;
+
+  INSERT INTO public.operating_windows (
+    day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note,
+    max_covers, bookable_slots
+  )
+  SELECT
+    (w->>'day_of_week')::INT,
+    (w->>'opens_at')::TIME,
+    (w->>'closes_at')::TIME,
+    COALESCE((w->>'is_closed')::BOOLEAN, false),
+    NULLIF(BTRIM(w->>'label'), ''),
+    COALESCE((w->>'sort_order')::INT, 0),
+    NULLIF(BTRIM(w->>'guest_note'), ''),
+    (w->>'max_covers')::INT,
+    COALESCE(w->'bookable_slots', '[]'::jsonb)
+  FROM jsonb_array_elements(p_windows) AS w;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
+
+NOTIFY pgrst, 'reload schema';

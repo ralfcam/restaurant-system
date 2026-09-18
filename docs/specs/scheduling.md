@@ -162,7 +162,56 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
       public widget renders the persisted validated note and does not add a
       second truncation path.
 
-14. **FP-10 — Slot interval** — `/admin/floor` exposes a restaurant-wide slot
+### Cover limits per service and slot (CL) — RES-71
+
+Staff configure reservation capacity on `/admin/scheduling` per opening-hour
+segment (a **service**). Guest availability and INSERT/UPDATE validation are
+owned by [booking-rules.md](./booking-rules.md) BW-18–BW-22; this section is
+the staff persist/edit contract. WA-4 continues to reuse `getAvailableSlots`
+(now including BW-18–BW-19) and MUST NOT grow a second cover formula.
+
+27. **CL-1 — Bookable slots per service** — Staff can define an ordered list
+    of bookable slot times on each opening-hour segment. Each time is `HH:MM`
+    (24h). A time MUST lie on the restaurant slot-interval grid
+    (`clampSlotIntervalMinutes` / BW-3) and in the half-open segment window
+    `[opens_at, closes_at)` (BW-1 exclusive membership). `validateOperatingDays`
+    and therefore `upsertOperatingWindows` reject an off-grid or
+    outside-window time before `replace_operating_windows` (explicit error,
+    never silent drop or truncation). An **empty** list means every BW-5
+    generated time in that segment remains bookable (no allowlist). A
+    **non-empty** list is the exclusive offer set for that segment:
+    `getAvailableSlots` MUST NOT mark a time `available: true` unless it is
+    in the list (and still passes BW-9–BW-12 and BW-18–BW-19). Persist via
+    `replace_operating_windows` as `operating_windows.bookable_slots` JSONB
+    (`[{"time":"19:00","max_covers":12},…]`; `time` required). Duplicate
+    times in one segment are rejected.
+
+28. **CL-2 — Independent slot cover maxima** — Each bookable slot MAY set
+    `max_covers` (integer ≥ 1) or omit it (`null` / missing). Two slots in
+    the same segment MAY have different maxima (example: 19:00 → 12,
+    20:00 → 8). `validateOperatingDays` rejects `0`, negative, non-integer,
+    and non-numeric values. `null` / omitted means no extra per-slot cap
+    (BW-9 / BW-12 still apply).
+
+29. **CL-3 — Service cover maximum** — Each opening-hour segment MAY set
+    `max_covers` (integer ≥ 1) or omit it (`null`). `null` / omitted means
+    no extra service cap. Same numeric validation as CL-2. Persist as
+    `operating_windows.max_covers`.
+
+30. **CL-4 — Persist and edit** — `replace_operating_windows` persists
+    `max_covers` and `bookable_slots` exactly, including `null` service max
+    and `[]` slot lists. Staff can edit and Save again; leftover slot
+    entries not in the payload MUST NOT remain (atomic replace, same
+    OH-SAVE exact-payload rule). `WINDOW_COLUMNS` / `getAllOperatingWindowsMap`
+    / `groupRowsByDay` round-trip the values. Privilege surface stays
+    OH-PRIV / §16 (anon/authenticated SELECT only; staff write remains
+    `requireStaffUser` + `service_role` RPC). No new guest write grant.
+    Staff chrome on each segment exposes a service-max control
+    (`data-testid="scheduling-service-max-covers"`) and per-slot rows
+    (`data-testid="scheduling-slot-row"`) with time and optional max
+    (`scheduling-slot-time` / `scheduling-slot-max-covers`).
+
+31. **FP-10 — Slot interval** — `/admin/floor` exposes a restaurant-wide slot
     interval (15 / 30 / 60 minutes, default **30**) persisted on
     `restaurant_settings.slot_interval_minutes`. Guest slot generation uses
     this value (`clampSlotIntervalMinutes`). Per-table Expected time
@@ -176,7 +225,7 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     assignment-feasible table-fit (booking-rules BW-12), not per-table
     Expected time.
 
-15. **FP-11 — Dashboard occupancy is live floor inventory** — `/admin` Floor
+32. **FP-11 — Dashboard occupancy is live floor inventory** — `/admin` Floor
     occupancy, Service is live copy, and Floor status MUST count persisted
     `tables` rows from the same live snapshot as `/admin/floor`
     (`getFloorSnapshot`). They MUST NOT use the static `TABLES` seed in
@@ -188,7 +237,7 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     `status` is the source. Each Dashboard load re-reads the snapshot (the
     page is request-dynamic).
 
-16. **FP-12 — Selection overlay is mobile-only** — On `/admin/floor`, the
+33. **FP-12 — Selection overlay is mobile-only** — On `/admin/floor`, the
     live canvas uses a side inspector from the `lg` breakpoint up
     (`lg:grid-cols-[1fr_300px]`, inspector `lg:block`) and a bottom Sheet
     inspector below `lg`. Selecting a table:
@@ -204,7 +253,7 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
       Hiding only the Sheet panel (`lg:hidden` on `SheetContent`) while the
       Sheet stays open does **not** satisfy this criterion.
 
-17. **FP-13 — POS table picker is live floor inventory** — `/pos`'s Table
+34. **FP-13 — POS table picker is live floor inventory** — `/pos`'s Table
     `Select` (`PosTerminal`) MUST list persisted `tables` rows fetched live
     from the same inventory source `/admin/floor` uses (`getTables()`), not
     the static `TABLES` seed in `lib/data.ts`. `app/pos/page.tsx` is a
@@ -222,7 +271,7 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     Table `Select` MUST disable and show a placeholder instead of an
     uncontrolled empty value.
 
-18. **FP-14 — POS server picker is live server inventory** — A persisted
+35. **FP-14 — POS server picker is live server inventory** — A persisted
     `servers` table (`id` UUID PK, `name` TEXT NOT NULL UNIQUE, timestamps)
     MUST exist in `supabase/migrations/00000000000000_baseline.sql` with
     service-role-only RLS/ACL per §19 SIB-PRIV (no authenticated policy or
@@ -237,7 +286,7 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
     placeholder instead of an uncontrolled empty value. A staff-facing
     admin UI to add/rename/remove servers is out of scope.
 
-19. **FP-15 — Seated bill total on the chip** — When the overlay status is
+36. **FP-15 — Seated bill total on the chip** — When the overlay status is
     `seated`, the same dining-room chip MUST also show that table’s current
     bill total: the sum of persisted `orders.total` for that `table_label`
     whose status is not `cancelled` or `voided`. Format matches POS (`CHF`
@@ -301,9 +350,10 @@ selected restaurant-TZ week, in addition to the current-day FP-11 widgets.
     services (WA-1).
 
 23. **WA-4 — Reuse booking rules** — The overview MUST NOT compute a second
-    cover/capacity formula. It reuses booking-rules BW-9–BW-12 (occupancy
-    window, early-release, table-fit) via the same `getAvailableSlots`
-    availability flags the guest widget uses.
+    cover/capacity formula. It reuses booking-rules BW-9–BW-12 and
+    BW-18–BW-19 (occupancy window, early-release, table-fit, slot/service
+    cover caps) via the same `getAvailableSlots` availability flags the
+    guest widget uses.
 
 24. **WA-5 — Week navigation** — The overview provides previous-week and
     next-week controls. Each control shifts the selected date by seven
@@ -500,11 +550,15 @@ linked-project conformance is an operator-owned reset and manual-UAT
 | FP-15                     | `lib/floor/table-bills.ts` `sumOpenOrderTotalsByTableLabel` (skip `cancelled`/`voided`; `completed` counts); `lib/reservations/auto-assign.ts` `FloorTableView.billTotal` + optional 4th `tableTotals` (`Record<string, number> \| null`) on `overlayReservationsOnTables` (omitted/`null` leaves `billTotal` off; when passed, seated labels take map value, missing key → 0; 3-arg callers field-free); `app/actions/reservations.ts` `FloorSnapshot.tableTotals` (`Record<string, number> \| null`), staff-gated `getFloorSnapshot` pages `from("orders").select("table_label, total, status")` with `.order("id", { ascending: true })` then `.range(start, start + POSTGREST_MAX_ROWS - 1)` until a short page (`POSTGREST_MAX_ROWS = 1000`; no date window), `Number(total)` then sum; **FP-15-COMPLETE**; orders error → `tableTotals: null` (**FP-15-UNAVAILABLE**); `hooks/use-floor-plan.ts` `FLOOR_REFRESH_MS = 5000` + 4th overlay arg `data?.tableTotals` (no `?? {}`); `components/staff/floor-plan.tsx` seated-gated `typeof t.billTotal === "number"` then `CHF {t.billTotal.toFixed(2)}` sibling of the overlay strip (`t.reservation?.status === "seated"`) | `tests/unit/floor/table-bills.test.ts` → "sums non-cancelled order totals by table_label and ignores cancelled or voided"; `tests/unit/reservations/auto-assign.test.ts` → "attaches billTotal only for seated overlays from the table totals map"; `tests/unit/floor/schema.test.ts` → "floor snapshot and live hook carry table bill totals on the 5s refresh"; "seated floor chip renders CHF bill total and reserved chips do not"; `tests/unit/floor/floor-snapshot-bills.test.ts` → "floor snapshot sums orders past the PostgREST max_rows page"; "floor snapshot pages orders with a stable id order"; "floor snapshot does not treat an orders query error as a zero bill"; visual-density-on-busy-floor is manual-UAT |
 | FP-3 occupancy-window     | `lib/reservations/auto-assign.ts` — `occupyingWindowMinutes` (BW-9 via `nextBookableTime`; wrap `endMin <= startMin` → 24:00), `occupyingWindowsOverlap`; `planAutoAssignments` seeds same-date `confirmed`/`seated` claims and takes a label only when windows overlap (defaults 90+15). Guest bookability uses the same assignable units via `canSeatPartyOnTables` (existing staff merges collapsed; no speculative merge) — BW-12.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | `tests/unit/reservations/auto-assign.test.ts` → "reuses a table when occupying windows do not overlap and refuses when they do"; `tests/unit/reservations/table-fit.test.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | FP-5                      | `app/actions/reservations.ts` `assignReservationTable` — `select("label, seats")`; `if (table && table.seats < party_size)` before overlap; unassign is a null table; live `restaurant_settings` → occupying window. Dropdown: `selectableTablesForAssignment` (`lib/reservations/selectable-tables.ts`) in `TableAssignment`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `tests/unit/reservations/assign-table.test.ts` overlap + undersize; `tests/unit/reservations/selectable-tables.test.ts` → "omits undersize tables except the reservation current label"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| CL-1                      | `validateOperatingDays(days, slotIntervalMinutes?)` — HH:MM, half-open `[opens, closes)`, opens-aligned grid; empty `bookable_slots` skipped; duplicate times not rejected. Chrome `scheduling-slot-row` / `scheduling-slot-time` is display-only — `lib/reservations/operating-hours.ts`, `components/staff/scheduling-manager.tsx`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `tests/unit/scheduling/cover-limits.test.ts` → "accepts on-grid service slots and rejects off-grid or outside-window times"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| CL-2                      | same validator `isInvalidCoverMax` on slot `max_covers`; chrome `scheduling-slot-max-covers`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `tests/unit/scheduling/cover-limits.test.ts` → "allows different max_covers on slots in the same service and rejects non-positive values"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| CL-3                      | same helper on segment `max_covers`; chrome `scheduling-service-max-covers`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `tests/unit/scheduling/cover-limits.test.ts` → "accepts a service max_covers of at least 1 and rejects invalid values"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| CL-4                      | `replace_operating_windows` INSERT of `max_covers` / `bookable_slots` — last-writer identical in baseline + occupancy/table-fit forwards + `20260918140655_slot_service_cover_limits.sql`. `flattenDaysToRows` / `groupRowsByDay` / `toOperatingDays` / `WINDOW_COLUMNS` round-trip the values so staff Save and guest `getAvailableSlots` load see them. Chrome remains display-only testids.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `tests/integration/scheduling/cover-limits-persist.integ.test.ts` → "replace_operating_windows persists and updates slot and service cover limits"; `tests/unit/scheduling/cover-limits.test.ts` → "flattenDaysToRows and WINDOW_COLUMNS round-trip slot and service cover limits"                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## References
 
 - [../architecture/Floor-Plan.md](../architecture/Floor-Plan.md)
-- [../runbooks/deploy.md](../runbooks/deploy.md) (linked remote apply of `20260818162000_operating_hour_segments`, `20260825140000_operating_windows_privilege`, `20260827160000_public_catalog_privileges`, `20260827180000_occupancy_duration_buffer`, and `20260828121224_table_fit_availability`)
+- [../runbooks/deploy.md](../runbooks/deploy.md) (linked remote apply of `20260818162000_operating_hour_segments`, `20260825140000_operating_windows_privilege`, `20260827160000_public_catalog_privileges`, `20260827180000_occupancy_duration_buffer`, `20260828121224_table_fit_availability`, and `20260918140655_slot_service_cover_limits`)
 - [../testing/Vitest-Integration-Guide.md](../testing/Vitest-Integration-Guide.md)
 - `lib/floor/layout.ts`
 - `lib/floor/table-use.ts`

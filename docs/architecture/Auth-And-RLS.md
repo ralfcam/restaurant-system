@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-18
 
 ## Auth flow
 
@@ -194,7 +194,8 @@ Spec:
 `validate_reservation_availability` (`enforce_booking_rules`) is
 `SECURITY DEFINER` so that insert-only path can still cover-count and
 table-fit `reservations` / `tables` for the occupancy window (booking-rules
-BW-9) and compatible-table bookability (BW-12). It is trigger-only, not a
+BW-9), compatible-table bookability (BW-12), and slot/service cover caps
+(BW-18 / BW-19 / BW-20). It is trigger-only, not a
 guest RPC: every migration that `CREATE OR REPLACE`s the function immediately
 follows the body with `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC`
 and `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated`
@@ -202,8 +203,9 @@ and `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon
 [../specs/booking-rules.md](../specs/booking-rules.md) RES-TRIGGER-EXEC.
 Last-writer body is identical in baseline,
 `20260818162000_operating_hour_segments.sql`,
-`20260827180000_occupancy_duration_buffer.sql`, and
-`20260828121224_table_fit_availability.sql`.
+`20260827180000_occupancy_duration_buffer.sql`,
+`20260828121224_table_fit_availability.sql`, and
+`20260918140655_slot_service_cover_limits.sql`.
 
 ## Env vars
 

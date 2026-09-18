@@ -85,6 +85,12 @@ function toOperatingDays(drafts: DayDraft[]): OperatingDay[] {
         label: segment.label,
         sort_order: index,
         ...(note ? { guest_note: note } : {}),
+        ...(segment.max_covers != null
+          ? { max_covers: segment.max_covers }
+          : {}),
+        ...(segment.bookable_slots?.length
+          ? { bookable_slots: segment.bookable_slots }
+          : {}),
       }
     }),
   }))
@@ -447,92 +453,131 @@ export function SchedulingManager({
                   {!day.is_closed && (
                     <div className="mt-2 space-y-1.5 pl-10">
                       {day.segments.map((segment, index) => (
-                        <div
-                          key={segment.key}
-                          data-testid="scheduling-segment-row"
-                          className="flex flex-wrap items-center gap-1.5"
-                        >
-                          <span className="w-3 shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                            {index + 1}.
-                          </span>
-                          <input
-                            type="text"
-                            value={segment.label ?? ""}
-                            placeholder={
-                              ["Morning", "Lunch", "Dinner"][index] ?? "Segment"
-                            }
-                            onChange={(e) =>
-                              handleSegmentChange(
-                                day.day_of_week,
-                                segment.key,
-                                {
-                                  label: e.target.value || null,
-                                },
-                              )
-                            }
-                            aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} label`}
-                            className={LABEL_INPUT_CLS}
-                          />
-                          <input
-                            type="time"
-                            value={segment.opens_at}
-                            onChange={(e) =>
-                              handleSegmentChange(
-                                day.day_of_week,
-                                segment.key,
-                                {
-                                  opens_at: e.target.value,
-                                },
-                              )
-                            }
-                            aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} opens`}
-                            className={TIME_INPUT_CLS}
-                          />
-                          <span className="text-[10px] text-muted-foreground">
-                            –
-                          </span>
-                          <input
-                            type="time"
-                            value={segment.closes_at}
-                            onChange={(e) =>
-                              handleSegmentChange(
-                                day.day_of_week,
-                                segment.key,
-                                {
-                                  closes_at: e.target.value,
-                                },
-                              )
-                            }
-                            aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} closes`}
-                            className={TIME_INPUT_CLS}
-                          />
-                          <input
-                            type="text"
-                            value={segment.guest_note ?? ""}
-                            placeholder="Guest note"
-                            onChange={(e) =>
-                              handleSegmentChange(
-                                day.day_of_week,
-                                segment.key,
-                                {
-                                  guest_note: e.target.value || null,
-                                },
-                              )
-                            }
-                            aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} guest note`}
-                            maxLength={MAX_GUEST_NOTE_LENGTH}
-                            className={NOTE_INPUT_CLS}
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              handleRemoveSegment(day.day_of_week, segment.key)
-                            }
-                            className="ml-0.5 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                            aria-label={`Remove ${DAY_NAMES[day.day_of_week]} segment ${index + 1}`}
+                        <div key={segment.key} className="space-y-1">
+                          <div
+                            data-testid="scheduling-segment-row"
+                            className="flex flex-wrap items-center gap-1.5"
                           >
-                            <Trash2 className="size-3" />
-                          </button>
+                            <span className="w-3 shrink-0 text-[10px] tabular-nums text-muted-foreground">
+                              {index + 1}.
+                            </span>
+                            <input
+                              type="text"
+                              value={segment.label ?? ""}
+                              placeholder={
+                                ["Morning", "Lunch", "Dinner"][index] ??
+                                "Segment"
+                              }
+                              onChange={(e) =>
+                                handleSegmentChange(
+                                  day.day_of_week,
+                                  segment.key,
+                                  {
+                                    label: e.target.value || null,
+                                  },
+                                )
+                              }
+                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} label`}
+                              className={LABEL_INPUT_CLS}
+                            />
+                            <input
+                              type="time"
+                              value={segment.opens_at}
+                              onChange={(e) =>
+                                handleSegmentChange(
+                                  day.day_of_week,
+                                  segment.key,
+                                  {
+                                    opens_at: e.target.value,
+                                  },
+                                )
+                              }
+                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} opens`}
+                              className={TIME_INPUT_CLS}
+                            />
+                            <span className="text-[10px] text-muted-foreground">
+                              –
+                            </span>
+                            <input
+                              type="time"
+                              value={segment.closes_at}
+                              onChange={(e) =>
+                                handleSegmentChange(
+                                  day.day_of_week,
+                                  segment.key,
+                                  {
+                                    closes_at: e.target.value,
+                                  },
+                                )
+                              }
+                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} closes`}
+                              className={TIME_INPUT_CLS}
+                            />
+                            <input
+                              type="text"
+                              value={segment.guest_note ?? ""}
+                              placeholder="Guest note"
+                              onChange={(e) =>
+                                handleSegmentChange(
+                                  day.day_of_week,
+                                  segment.key,
+                                  {
+                                    guest_note: e.target.value || null,
+                                  },
+                                )
+                              }
+                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} guest note`}
+                              maxLength={MAX_GUEST_NOTE_LENGTH}
+                              className={NOTE_INPUT_CLS}
+                            />
+                            <span
+                              data-testid="scheduling-service-max-covers"
+                              className="text-xs tabular-nums"
+                            >
+                              {segment.max_covers ?? ""}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleRemoveSegment(
+                                  day.day_of_week,
+                                  segment.key,
+                                )
+                              }
+                              className="ml-0.5 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                              aria-label={`Remove ${DAY_NAMES[day.day_of_week]} segment ${index + 1}`}
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </div>
+                          {segment.bookable_slots &&
+                          segment.bookable_slots.length > 0 ? (
+                            <ul
+                              className="list-none space-y-1 p-0"
+                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} bookable slots`}
+                            >
+                              {segment.bookable_slots.map((slot) => (
+                                <li
+                                  key={slot.time}
+                                  data-testid="scheduling-slot-row"
+                                  className="flex items-center gap-1.5 pl-8"
+                                >
+                                  <span
+                                    data-testid="scheduling-slot-time"
+                                    className="text-xs tabular-nums"
+                                  >
+                                    {slot.time}
+                                  </span>
+                                  <span
+                                    data-testid="scheduling-slot-max-covers"
+                                    className="text-xs tabular-nums"
+                                  >
+                                    {slot.max_covers ?? ""}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
                         </div>
                       ))}
                       <Button

@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-18
 
 ## Vercel
 
@@ -118,6 +118,7 @@ SA-6.
 | Forward: public catalog privileges     | `supabase/migrations/20260827160000_public_catalog_privileges.sql`     | Yes on local reset; apply when `20260825140000` is already recorded |
 | Forward: occupancy duration + buffer   | `supabase/migrations/20260827180000_occupancy_duration_buffer.sql`     | Yes on local reset; apply on already-baselined remotes              |
 | Forward: table-fit availability        | `supabase/migrations/20260828121224_table_fit_availability.sql`        | Yes on local reset; apply when occupancy is already recorded        |
+| Forward: slot/service cover limits     | `supabase/migrations/20260918140655_slot_service_cover_limits.sql`     | Yes on local reset; apply when table-fit is already recorded        |
 | Forward: restaurant_settings privilege | `supabase/migrations/20260902214500_restaurant_settings_privilege.sql` | Yes on local reset; apply when `20260825140000` is already recorded |
 | Forward: menus bootstrap               | `supabase/migrations/20260915180000_menus_bootstrap.sql`               | Yes on local reset; apply when `20260827160000` is already recorded |
 | Reference data                         | `supabase/seed.sql`                                                    | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
@@ -148,6 +149,7 @@ instead of adding dated migration files. Policy detail:
 `20260827160000_public_catalog_privileges.sql`,
 `20260827180000_occupancy_duration_buffer.sql`,
 `20260828121224_table_fit_availability.sql`,
+`20260918140655_slot_service_cover_limits.sql`,
 `20260902214500_restaurant_settings_privilege.sql`, and
 `20260915180000_menus_bootstrap.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
@@ -221,8 +223,8 @@ history row exists. Do not insert or repair that history row, `db push`, or
 reset linked history.
 
 First confirm `validate_reservation_availability()` body parity with the
-latest writer (`20260828121224_table_fit_availability.sql`) so this replay
-does not regress RES-47 EXECUTE revokes.
+latest writer (`20260918140655_slot_service_cover_limits.sql`) so this replay
+does not regress RES-47 EXECUTE revokes or BW-18 / BW-19 cover checks.
 
 Do not use `db push` or `db reset --linked` for this — the file already ends
 with `NOTIFY pgrst, 'reload schema'`, and a full push/reset would try to
@@ -443,6 +445,54 @@ try to replay history the remote has diverged from.
    and `has_function_privilege('authenticated', 'public.validate_reservation_availability()', 'EXECUTE')`
    are false; `enforce_booking_rules` remains enabled; Security Advisor EXECUTE
    warning is absent.
+
+### Apply `20260918140655_slot_service_cover_limits.sql` on an already-baselined remote
+
+**UAT freshness:** 2026-09-18 — linked-remote-forward (manual-UAT). Apply on
+`tilcqrudqxznnpepxjqq` when `20260828121224` is already recorded. Do not
+`db push` or reset forked history.
+
+For remotes that already recorded table-fit (`schema_migrations` has
+`20260828121224`), apply this last-writer `CREATE OR REPLACE` of
+`validate_reservation_availability` (BW-18 / BW-19 after lock + inventory +
+table-fit) plus `operating_windows.max_covers` / `bookable_slots` and
+`replace_operating_windows` INSERT of those columns. Local `db reset` already
+applies this file.
+
+Do not use `db push` or `db reset --linked` for this — a full push/reset would
+try to replay history the remote has diverged from.
+
+1. Run the contents of `supabase/migrations/20260918140655_slot_service_cover_limits.sql`
+   against `tilcqrudqxznnpepxjqq` via the Supabase MCP `execute_sql` tool
+   (single file, one call).
+2. If `supabase_migrations.schema_migrations` has no row for this version yet,
+   record it:
+
+   ```sql
+   INSERT INTO supabase_migrations.schema_migrations (version, name)
+   VALUES ('20260918140655', 'slot_service_cover_limits');
+   ```
+
+   Alternatively, `npx supabase migration repair 20260918140655 --status applied`
+   marks the same history row applied — but `migration repair` only updates
+   `schema_migrations`, it does not run the SQL, so step 1 is still required first.
+
+3. Verify:
+
+   ```sql
+   SELECT version, name FROM supabase_migrations.schema_migrations
+   WHERE version = '20260918140655';
+   ```
+
+   Confirm `operating_windows.max_covers` is `INT NULL` with
+   `CHECK (max_covers IS NULL OR max_covers >= 1)` and
+   `operating_windows.bookable_slots` is `JSONB NOT NULL DEFAULT '[]'`.
+   Confirm `validate_reservation_availability` refuses occupying INSERT with
+   P0001 `Booking denied: This time is fully booked.` when slot or service
+   covers would exceed those caps, after lock + inventory + table-fit.
+   Confirm `has_function_privilege('anon', 'public.validate_reservation_availability()', 'EXECUTE')`
+   and `has_function_privilege('authenticated', 'public.validate_reservation_availability()', 'EXECUTE')`
+   are false; `enforce_booking_rules` remains enabled.
 
 ### Apply `20260902214500_restaurant_settings_privilege.sql` on an already-baselined remote
 

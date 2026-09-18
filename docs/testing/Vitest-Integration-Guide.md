@@ -1,7 +1,7 @@
 # Vitest integration guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-18
 
 ## Prerequisites
 
@@ -157,6 +157,17 @@ MUST include the same pin. Unit glob-scan:
   `20260828121224_table_fit_availability.sql`; already-baselined remotes that
   recorded occupancy apply that forward the same way as occupancy —
   [../runbooks/deploy.md](../runbooks/deploy.md).
+- Slot/service cover trigger (BW-20):
+  `tests/integration/reservations/cover-limits.integ.test.ts` (occupying
+  insert exceeds slot or service `max_covers`). Local `db reset` applies
+  `20260918140655_slot_service_cover_limits.sql`; already-baselined remotes
+  that recorded table-fit apply that forward the same way —
+  [../runbooks/deploy.md](../runbooks/deploy.md).
+- Slot/service cover persist (CL-4):
+  `tests/integration/scheduling/cover-limits-persist.integ.test.ts`
+  (`replace_operating_windows` persist + atomic edit; local only). Unit
+  `tests/unit/scheduling/cover-limits.test.ts` pins flatten / `WINDOW_COLUMNS`
+  / `toOperatingDays` round-trip.
 - Guest email PII (PV-9):
   `tests/integration/reservations/review-email-pii.integ.test.ts` (service-role
   insert of nullable `reservations.email`; anon `select("email")` is empty +
