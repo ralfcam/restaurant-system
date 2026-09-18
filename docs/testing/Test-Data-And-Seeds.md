@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-18
 
 ## Current state
 
@@ -49,6 +49,10 @@
   `20260828121224_table_fit_availability.sql` (last-writer table-fit +
   date-scoped `pg_advisory_xact_lock`; apply on already-baselined remotes that
   already recorded occupancy — not a full `db push`), plus
+  `20260918140655_slot_service_cover_limits.sql` (`operating_windows.max_covers`
+  / `bookable_slots`; last-writer `validate_reservation_availability` +
+  `replace_operating_windows` INSERT of those columns; apply when
+  `20260828121224` is already recorded — not a full `db push`), plus
   `20260902214500_restaurant_settings_privilege.sql` (BC-1 SELECT-only on
   `restaurant_settings`; same DROP/GRANT/REVOKE/GRANT ALL as baseline and
   `20260825140000`; apply when `20260825140000` is already recorded — not a

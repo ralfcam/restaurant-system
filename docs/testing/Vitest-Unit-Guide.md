@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-18
 
 ## Layout
 
@@ -86,6 +86,11 @@
   named `cn` `accordionTriggerCls`; exclude inner icon-to-label `gap-1.5`
   when asserting label↔summary separation — "collapsed guests and date
   summaries are separated from their accordion labels")
+- Slot/service cover limits (BW-18–BW-22 / CL-1–CL-3):
+  `tests/unit/reservations/available-slots.test.ts` (slot cap, service cap,
+  BW-22 table-fit AND), `tests/unit/reservations/cover-limits.test.ts`
+  (`coversFitSlotAndService`), `tests/unit/scheduling/cover-limits.test.ts`
+  (staff `validateOperatingDays` CL-1–CL-3)
 - Review-email isolation (PV-ISO):
   `tests/unit/marketing/review-email-schema-isolation.test.ts` (AST
   glob-scan of `tests/integration/marketing/*.integ.test.ts`; `WRITE_HOOKS`

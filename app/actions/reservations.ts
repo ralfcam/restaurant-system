@@ -18,9 +18,11 @@ import {
 } from "@/lib/reservations/validation"
 import { sendBookingConfirmation } from "@/lib/marketing/booking-confirmation"
 import {
+  assignSegmentForTime,
   bookableTimesForDay,
   clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
+  coversFitSlotAndService,
   DEFAULT_SAFETY_BUFFER_MINUTES,
   formatSegmentsSummary,
   isTimeWithinSegments,
@@ -709,6 +711,11 @@ export async function getGuestOccupancyDurationMinutes(): Promise<number> {
  *    `[start, nextBookableTime(start))` plus `partySize` exceed total seats
  *  - Table-fit fails (BW-12): occupying overlapping parties plus `partySize`
  *    cannot be assigned to distinct units, even when covers still fit
+ *  - Slot allowlist / exact-time slot cover fails (BW-18): a non-empty
+ *    `bookable_slots` omits the time, or occupying same-time covers plus
+ *    `partySize` exceed that slot's `max_covers`
+ *  - Service cover fails (BW-19): occupying covers assigned to the
+ *    segment (BW-1) on that date plus `partySize` exceed `max_covers`
  */
 export async function getAvailableSlots(
   date: string,
@@ -839,10 +846,30 @@ export async function getAvailableSlots(
   // Compare exclusive-end to generatedSlots only (BW-5) — do not emit a
   // slot at the free instant unless bookableTimesForDay already did.
   const bookedBySlot: Record<string, number> = {}
+  // BW-18 slot-cover is exact reservation `time`, not the BW-9 window.
+  const occupyingCoversByExactTime: Record<string, number> = {}
+  // BW-19 service-cover is all-day assignment to the segment (BW-1), not the
+  // BW-9 occupancy window. Key by sort_order + opens_at, not object identity.
+  const occupyingCoversBySegment = new Map<string, number>()
+  const segmentCoverKey = (segment: { sort_order: number; opens_at: string }) =>
+    `${segment.sort_order}:${normalizeTime(segment.opens_at)}`
   const occupying: AssignableReservation[] = []
   for (const row of data ?? []) {
     if (!ACTIVE_RESERVATION_STATUSES.includes(row.status)) continue
     const start = normalizeTime(row.time)
+    occupyingCoversByExactTime[start] =
+      (occupyingCoversByExactTime[start] ?? 0) + Number(row.party_size)
+    const reservationSegment = assignSegmentForTime(
+      start,
+      operatingWindow.segments,
+    )
+    if (reservationSegment) {
+      const key = segmentCoverKey(reservationSegment)
+      occupyingCoversBySegment.set(
+        key,
+        (occupyingCoversBySegment.get(key) ?? 0) + Number(row.party_size),
+      )
+    }
     const exclusiveEnd = nextBookableTime(
       start,
       occupancyDurationMinutes,
@@ -893,6 +920,24 @@ export async function getAvailableSlots(
       safetyBufferMinutes,
     )
 
-    return { time, available: coversFit && tableFit }
+    const segment = assignSegmentForTime(time, operatingWindow.segments)
+    const serviceOccupied = segment
+      ? (occupyingCoversBySegment.get(segmentCoverKey(segment)) ?? 0)
+      : 0
+    const slotAndServiceFit = coversFitSlotAndService({
+      time,
+      partySize,
+      bookableSlots: segment?.bookable_slots ?? [],
+      serviceMaxCovers: segment?.max_covers ?? null,
+      occupyingCoversAtTime:
+        occupyingCoversByExactTime[normalizeTime(time)] ?? 0,
+      occupyingCoversInService: serviceOccupied,
+    })
+
+    return {
+      time,
+      // BW-22: slot/service caps never skip BW-9 inventory cover or BW-12 table-fit.
+      available: slotAndServiceFit && coversFit && tableFit,
+    }
   })
 }
