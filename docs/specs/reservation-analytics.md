@@ -1,7 +1,7 @@
 # Reservation and occupancy analytics
 
 **Status:** Draft
-**Last updated:** 2026-09-12
+**Last updated:** 2026-09-20
 
 ## Scope
 
@@ -19,10 +19,11 @@ and `party_size`. Per-table turnover, guest CRM, CSV/email export,
 forecasting, channel-import analytics, and inferred guest attributes are out
 of this spec.
 
-**Dependency (non-blocking for the contract):** RA-5 still counts
-`status = 'no_show'`. Until [RES-67](https://linear.app/realized/issue/RES-67/fix-reservation-completion-and-no-show-status-transitions)
-allows that value in the `reservations.status` CHECK, those rows cannot
-persist and the count stays 0 on a real database.
+**RA-5 persist:** RA-5 still counts `status = 'no_show'`.
+[RES-67](https://linear.app/realized/issue/RES-67/fix-reservation-completion-and-no-show-status-transitions)
+shipped the five-value `reservations.status` CHECK including `'no_show'`
+([booking-rules.md](./booking-rules.md) RES-STATUS-NOSHOW /
+RES-STATUS-FORWARD), so those rows can persist.
 
 ## Acceptance criteria
 
@@ -90,7 +91,7 @@ persist and the count stays 0 on a real database.
 
 ## References
 
-- [booking-rules.md](./booking-rules.md) AC-5, BW-10, STAFF-LIST
+- [booking-rules.md](./booking-rules.md) AC-5, BW-10, STAFF-LIST, RES-STATUS-NOSHOW, RES-STATUS-FORWARD
 - [staff-authorization.md](./staff-authorization.md) SA-1, SA-2, SA-8
 - [scheduling.md](./scheduling.md) FP-5 (`table_label` cleared on complete), timezone
 - Linear parent RES-93 (children RES-88, RES-89, RES-90)

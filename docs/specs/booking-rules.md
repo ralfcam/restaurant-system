@@ -1,7 +1,7 @@
 # Booking rules
 
 **Status:** Draft  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-09-20
 
 ## Scope
 
@@ -375,6 +375,31 @@ the route locale. An in-widget language toggle is out of scope.
     must pass for the time to be bookable. Compatible-table assignment
     (BW-12 / FP-3) is unchanged.
 
+34. **RES-STATUS-NOSHOW — Staff no-show persists.** `public.reservations.status`
+    MUST allow `no_show` in addition to `confirmed`, `seated`, `completed`, and
+    `cancelled`. Baseline `00000000000000_baseline.sql` CREATE TABLE CHECK MUST
+    include `'no_show'` in that five-value list. Staff
+    `transitionReservationStatus` for `confirmed → no_show` MUST persist
+    `status = 'no_show'` and MUST NOT return
+    `Could not update reservation status.` A subsequent staff/service-role
+    read of that row MUST still show `no_show`. Existing allowed transitions
+    (`confirmed → seated`,
+    `confirmed → cancelled`, `seated → completed`) and rejected transitions stay
+    as specified by the in-app matrix; this criterion does not add or remove
+    edges other than making the already-allowed `no_show` edge persist. Guest
+    INSERT still cannot write `status` (AC-5). Completing a reservation still
+    stamps `completed_at` (PV-13).
+
+35. **RES-STATUS-FORWARD — Remotes receive the five-value CHECK.** Because
+    `CREATE TABLE IF NOT EXISTS` is a no-op on databases that already recorded
+    baseline, a dated last-writer MUST idempotently
+    `DROP CONSTRAINT IF EXISTS reservations_status_check` and
+    `ADD CONSTRAINT reservations_status_check CHECK (status IN ('confirmed',
+'seated', 'completed', 'cancelled', 'no_show'))`, and MUST
+    `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`
+    (PV-13 clock for remotes that applied an older baseline). Those last-writer
+    statements MUST also appear in baseline so a fresh reset converges.
+
 ## Implementation trace (non-normative)
 
 | Criterion                | Shipped in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -407,6 +432,8 @@ the route locale. An in-widget language toggle is out of scope.
 | BW-20                    | `operating_windows.max_covers` / `bookable_slots`; `validate_reservation_availability` after lock + inventory + table-fit; `replace_operating_windows` INSERT — last-writer identical in baseline, `20260818162000_operating_hour_segments.sql`, `20260827180000_occupancy_duration_buffer.sql`, `20260828121224_table_fit_availability.sql`, and `20260918140655_slot_service_cover_limits.sql`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `tests/integration/reservations/cover-limits.integ.test.ts` → "rejects an occupying insert that would exceed the slot or service cover limit"                                                                                                                                                                                                                                                                                                                                                                                 |
 | BW-21                    | `coversFitSlotAndService` is the guest source of truth; trigger SQL implements the same sums                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `tests/unit/reservations/cover-limits.test.ts` → "coversFitSlotAndService rejects over slot or service and accepts when both have room"                                                                                                                                                                                                                                                                                                                                                                                       |
 | BW-22                    | `available: slotAndServiceFit && coversFit && tableFit` — `app/actions/reservations.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `tests/unit/reservations/available-slots.test.ts` → "does not offer a slot when cover limits have room but no compatible table remains"                                                                                                                                                                                                                                                                                                                                                                                       |
+| RES-STATUS-NOSHOW        | `public.reservations.status` CREATE TABLE CHECK in `supabase/migrations/00000000000000_baseline.sql` includes `'no_show'` (five values). `app/actions/reservations.ts` `RESERVATION_TRANSITIONS.confirmed` already includes `no_show`; staff `transitionReservationStatus` persist path unchanged. Occupancy trigger still `IN ('confirmed','seated')` (BW-10). Guest INSERT still cannot write `status` (AC-5). Completing still stamps `completed_at` (PV-13).                                                                                                                                                                                                                                                                                                                                                                                                  | `tests/integration/reservations/status-transitions.integ.test.ts` → "staff confirmed to no_show persists after refresh"                                                                                                                                                                                                                                                                                                                                                                                                       |
+| RES-STATUS-FORWARD       | Dated last-writer `supabase/migrations/20260920183000_reservation_status_no_show.sql`: `DROP CONSTRAINT IF EXISTS reservations_status_check` + `ADD CONSTRAINT` five-value CHECK including `'no_show'` + `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ`. Same DROP/ADD + `completed_at` statements copied after the reservations table in `00000000000000_baseline.sql`.                                                                                                                                                                                                                                                                                                                                                                                                                                                            | `tests/unit/reservations/status-check-forward.test.ts` → "dated last-writer replaces reservations status check with no_show and adds completed_at"                                                                                                                                                                                                                                                                                                                                                                            |
 
 ## References
 
@@ -417,6 +444,8 @@ the route locale. An in-widget language toggle is out of scope.
   trigger `enforce_booking_rules` on `reservations`
 - `supabase/migrations/20260918140655_slot_service_cover_limits.sql` — dated
   last-writer for remotes that already recorded table-fit (BW-20)
+- `supabase/migrations/20260920183000_reservation_status_no_show.sql` — dated
+  last-writer for remotes (RES-STATUS-FORWARD)
 - `lib/reservations/operating-hours.ts` — `coversFitSlotAndService` (BW-21)
 - `app/actions/reservations.ts` — `getReservationsByDate`
 - `lib/reservations/list-empty-copy.ts`

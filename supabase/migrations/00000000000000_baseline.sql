@@ -94,8 +94,9 @@ CREATE TABLE IF NOT EXISTS reservations (
   party_size INT NOT NULL,
   date DATE NOT NULL,
   time TEXT NOT NULL,
+  -- RES-67 / RES-STATUS-NOSHOW: staff-closed no_show is a legal persisted status.
   status TEXT NOT NULL DEFAULT 'confirmed'
-    CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled')),
+    CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled', 'no_show')),
   phone TEXT NOT NULL,
   notes TEXT,
   table_label TEXT,
@@ -117,6 +118,13 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
 -- RES-45 / PV-13: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
 -- without completed_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- RES-67 / RES-STATUS-FORWARD: remotes already recorded baseline; same
+-- DROP/ADD last-writer as 20260920183000 so a fresh reset converges.
+ALTER TABLE reservations
+  DROP CONSTRAINT IF EXISTS reservations_status_check;
+ALTER TABLE reservations
+  ADD CONSTRAINT reservations_status_check
+  CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled', 'no_show'));
 -- RES-104 / GP-2: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
 -- without email_normalized; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email_normalized TEXT
