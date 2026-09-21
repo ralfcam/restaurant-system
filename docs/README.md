@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-09-20
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -152,6 +152,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-71 slot/service covers (`res-71_slot_service_covers_a8c1e2f4`)                                | 2026-09-18 | `specs/scheduling.md` (CL-1–CL-4, by orchestrator), `specs/booking-rules.md` (BW-18–BW-22, by orchestrator), `architecture/Reservation-Flow.md`, `architecture/Auth-And-RLS.md`, `runbooks/deploy.md` (`20260918140655_slot_service_cover_limits`), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/Vitest-Integration-Guide.md`, `testing/Test-Data-And-Seeds.md`, `dev-journal.md` |
 | PR #128 G-DES1 follow-up (`pr128_design_coderabbit_followup_9b41c7d2`)                            | 2026-09-18 | `specs/dev-toolchain.md` (G-DES1a/G-DES1b), `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                               |
 | PR #128 G-DES1 loc (`pr128_cr_loc_8f2c1a90`)                                                      | 2026-09-18 | `specs/dev-toolchain.md` (G-DES1c/G-DES1d), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                  |
+| RES-67 no-show status CHECK (`res-67_no_show_status_check_a8e1c4d2`)                              | 2026-09-20 | `specs/booking-rules.md` (RES-STATUS-NOSHOW / RES-STATUS-FORWARD), `specs/reservation-analytics.md` (RA-5 persist), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
 
 ## Seed path
 
