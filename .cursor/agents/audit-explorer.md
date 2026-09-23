@@ -1,6 +1,6 @@
 ---
 name: audit-explorer
-model: inherit
+model: grok-4.7[context=256k,reasoning_effort=low,fast=false]
 description: Read-only cross-cutting spec-conformance explorer for the /audit workflow   (PARTS 3-6 — cross-cutting conformance, production security, spec test   coverage, App Router & dependency integrity). Reused per part/subsection; the   orchestrator hands it the part text and a report path, and it writes exactly   ONE report. Invoke with "Use the audit-explorer subagent to run <PART/section>   against docs/specs/ and write its report to <REPORT PATH>".
 readonly: true
 ---

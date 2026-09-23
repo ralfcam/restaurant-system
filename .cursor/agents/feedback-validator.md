@@ -1,6 +1,6 @@
 ---
 name: feedback-validator
-model: inherit
+model: grok-4.7[context=256k,reasoning_effort=low,fast=false]
 description: Read-only Feedback Validator for the /capture workflow (PHASE 1). Validates ONE   operator observation from manual UAT/exploration against the codebase, returns a   validation brief (verdict + evidence), and writes NOTHING. Parent waves at the   Task fan-out cap; one agent per observation. Invoke with "Use the feedback-validator   subagent to validate this observation: <OBSERVATION> (class: <SUGGESTED CLASS>)".
 readonly: true
 ---
