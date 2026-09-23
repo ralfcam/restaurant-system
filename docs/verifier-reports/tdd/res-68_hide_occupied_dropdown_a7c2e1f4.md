@@ -22,3 +22,7 @@ Suggested review order:
 - C2 assertions (untouched) · `tests/unit/reservations/selectable-tables.test.ts:91-130`
 
 Reusable pattern: Collect occupying claims with `row.id === candidate.id` skipped so a reservation’s own assigned label stays selectable; do not use `currentLabel` as the omit-exemption (write path already skips `row.id === reservationId`).
+
+## BLOCKED
+
+C3 Red could not start: named `tdd-red` pin `inherit` → `cursor-grok-4.6-high-fast` is over quota. Guard forbids a model override on `tdd-red`/`tdd-green`/`tdd-refactor`. Alternate Task models (composer, gpt, gemini, claude) also quota-blocked. C3–C4 not shipped. C1–C2 preserved on this branch.
