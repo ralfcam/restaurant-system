@@ -16,15 +16,19 @@ type OccupancyBag = {
       "id" | "date" | "time" | "status" | "table_label"
     >
   >
+  /** Already clamped by the caller. Omitted values use the 90+15 defaults. */
+  occupancyDurationMinutes?: number
+  safetyBufferMinutes?: number
 }
 
 /**
- * Manual-assign dropdown inventory (FP-5): available tables that fit the
- * party (`seats >= partySize`). The reservation's current label is always
- * kept, even when undersize or not available. Optional occupancy omits
- * labels claimed by overlapping same-date occupying rows (BW-9 90+15);
- * the candidate's own occupying row is skipped so its label is not a
- * foreign claim.
+ * Manual-assign dropdown inventory (FP-5): keep a table when it is not
+ * `out_of_service` and fits the party (`seats >= partySize`). The
+ * reservation's current label is always kept, even when undersize or
+ * `out_of_service`. Optional occupancy omits labels claimed by overlapping
+ * same-date occupying rows, using the bag's occupancy and safety-buffer
+ * minutes; omitted values fall back to 90+15. The candidate's own
+ * occupying row is skipped so its label is not a foreign claim.
  */
 export function selectableTablesForAssignment<
   T extends { label: string; seats: number; status: TableStatus },
@@ -38,16 +42,20 @@ export function selectableTablesForAssignment<
   return tables.filter((table) => {
     if (table.label === currentLabel) return true
     if (claimed.has(table.label)) return false
-    return table.status === "available" && table.seats >= partySize
+    return table.status !== "out_of_service" && table.seats >= partySize
   })
 }
 
 function claimedOccupyingLabels(occupancy?: OccupancyBag): Set<string> {
   if (!occupancy) return new Set()
+  const occupancyDurationMinutes =
+    occupancy.occupancyDurationMinutes ?? DEFAULT_EXPECTED_MINUTES
+  const safetyBufferMinutes =
+    occupancy.safetyBufferMinutes ?? DEFAULT_SAFETY_BUFFER_MINUTES
   const candidateWindow = occupyingWindowMinutes(
     occupancy.candidate.time,
-    DEFAULT_EXPECTED_MINUTES,
-    DEFAULT_SAFETY_BUFFER_MINUTES,
+    occupancyDurationMinutes,
+    safetyBufferMinutes,
   )
   if (!candidateWindow) return new Set()
 
@@ -59,8 +67,8 @@ function claimedOccupyingLabels(occupancy?: OccupancyBag): Set<string> {
     if (!ACTIVE_RESERVATION_STATUSES.includes(row.status)) continue
     const window = occupyingWindowMinutes(
       row.time,
-      DEFAULT_EXPECTED_MINUTES,
-      DEFAULT_SAFETY_BUFFER_MINUTES,
+      occupancyDurationMinutes,
+      safetyBufferMinutes,
     )
     if (window && occupyingWindowsOverlap(candidateWindow, window)) {
       labels.add(row.table_label)

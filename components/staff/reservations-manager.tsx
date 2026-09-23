@@ -84,10 +84,15 @@ export function ReservationsManager({
   initialReservations = [],
   selectedDate,
   today,
+  occupancyWindow,
 }: {
   initialReservations?: ReservationRow[]
   selectedDate?: string
   today?: string
+  occupancyWindow: {
+    occupancyDurationMinutes: number
+    safetyBufferMinutes: number
+  }
 }) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -385,6 +390,8 @@ export function ReservationsManager({
                     tables={tables}
                     assigning={assigningId === r.id}
                     onAssign={assignTable}
+                    reservations={reservations}
+                    occupancyWindow={occupancyWindow}
                   />
                   <div className="flex items-center justify-between gap-2 md:justify-start">
                     <ReservationStatusBadge status={r.status} />
@@ -406,21 +413,44 @@ export function ReservationsManager({
   )
 }
 
-function TableAssignment({
+export function TableAssignment({
   reservation,
   tables,
   assigning,
   onAssign,
+  reservations,
+  occupancyWindow,
 }: {
   reservation: Reservation
   tables: ReservationTableOption[]
   assigning: boolean
   onAssign: (id: string, tableLabel: string) => void
+  reservations: Reservation[]
+  occupancyWindow: {
+    occupancyDurationMinutes: number
+    safetyBufferMinutes: number
+  }
 }) {
   const selectableTables = selectableTablesForAssignment(
     tables,
     reservation.partySize,
     reservation.tableLabel,
+    {
+      candidate: {
+        id: reservation.id,
+        date: reservation.date,
+        time: reservation.time,
+      },
+      occupying: reservations.map((row) => ({
+        id: row.id,
+        date: row.date,
+        time: row.time,
+        status: row.status,
+        table_label: row.tableLabel || null,
+      })),
+      occupancyDurationMinutes: occupancyWindow.occupancyDurationMinutes,
+      safetyBufferMinutes: occupancyWindow.safetyBufferMinutes,
+    },
   )
 
   return (

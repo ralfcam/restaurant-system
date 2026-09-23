@@ -1,6 +1,9 @@
 import { StaffShell } from "@/components/staff/staff-shell"
 import { ReservationsManager } from "@/components/staff/reservations-manager"
-import { getReservationsByDate } from "@/app/actions/reservations"
+import {
+  getReservationOccupancyWindow,
+  getReservationsByDate,
+} from "@/app/actions/reservations"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
@@ -18,9 +21,10 @@ export default async function ReservationsPage({
   const today = getTodayInRestaurantTZ()
   const selectedDate = dateParam ?? today
 
-  const [{ reservations }, authUser] = await Promise.all([
+  const [{ reservations }, authUser, occupancyWindow] = await Promise.all([
     getReservationsByDate(selectedDate),
     getAuthUser(),
+    getReservationOccupancyWindow(),
   ])
 
   const formattedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString(
@@ -39,6 +43,7 @@ export default async function ReservationsPage({
         initialReservations={reservations}
         selectedDate={selectedDate}
         today={today}
+        occupancyWindow={occupancyWindow}
       />
     </StaffShell>
   )
