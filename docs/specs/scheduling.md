@@ -1,7 +1,7 @@
 # Scheduling & floor plan
 
 **Status:** Draft  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-09-21
 
 ## Scope
 
@@ -90,8 +90,23 @@ Operating hours and blocked dates: `operating_windows` / `blocked_dates` in
    window overlaps another occupying reservation on that assignable label. The
    write path enforces both rules even if the UI is bypassed. Undersized tables
    MUST NOT appear in the dropdown except the reservation's currently assigned
-   label. Clearing `table_label` is always allowed and skips fit/overlap.
-   Closed reservations (`completed`, `cancelled`, `no_show`) stay unassignable.
+   label. **FP-5-DROPDOWN-OCCUPANCY** — The `/admin/reservations` Table
+   assignment dropdown MUST omit a table label claimed by another occupying
+   reservation (`confirmed` or `seated`, BW-10) on the same reservation `date`
+   whose BW-9 occupying window overlaps the candidate. Floor `tables.status`
+   MUST NOT be the occupancy source: a stale `available` row MUST still be
+   omitted when claimed, and a non-`available` floor status MUST NOT hide a
+   label that occupancy windows leave free (except `out_of_service`). The
+   candidate reservation’s own assigned label MUST remain visible even when
+   that reservation is occupying. A label claimed only by a non-overlapping
+   occupying reservation MUST remain selectable when seats fit. Completing,
+   cancelling, marking no-show, or unassigning a claim MUST make the label
+   selectable again for other eligible reservations without a full page
+   reload: the dropdown recomputes from the in-memory reservation list after
+   assign/status writes (no `getReservationTables` refetch or
+   `router.refresh()` required for occupancy). Clearing `table_label` is
+   always allowed and skips fit/overlap. Closed reservations (`completed`,
+   `cancelled`, `no_show`) stay unassignable.
 
 9. **FP-6 — Seat capacity drives table shape** — On `/admin/floor`, **odd**
    seat capacity is depicted as a **round** table; **even** seat capacity is
