@@ -1,6 +1,6 @@
 ---
 name: spec-verifier
-model: inherit
+model: grok-4.7[context=256k,reasoning_effort=low,fast=false]
 description: Read-only spec-vs-code diagnostic for the /audit workflow (PART 2 — the   canonical per-spec pass). Owns exactly ONE spec under docs/specs/ and writes   exactly ONE verifier report. Parent waves at the Task fan-out cap; one agent per   spec. Invoke with "Use the spec-verifier subagent to verify <SPEC PATH> against   the codebase and write its report to <REPORT PATH>". model: inherit
 readonly: true
 ---

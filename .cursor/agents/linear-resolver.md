@@ -1,6 +1,6 @@
 ---
 name: linear-resolver
-model: inherit
+model: grok-4.7[context=256k,reasoning_effort=low,fast=false]
 description: Linear writer for /sdd-to-tdd, /capture, /triage, /dispatch, /design, and /audit. Six duties: CLARIFY comment, START comment, CLOSE-OUT comment, REGISTER FINDINGS, operator-confirmed GROOM intake/scheduling, and idempotent PROJECT-UPDATE audit health. Never edits local files or writes In Progress/In Review/Done. Invoke with "Use the linear-resolver subagent to request the approved clarification on <issue>, using this exact bounded comment: <body>", "Use the linear-resolver subagent to start work on <issue> (plan: <plan-slug>)", "Use the linear-resolver subagent to post the resolution for <issue>", "Use the linear-resolver subagent to register the out-of-scope findings", "Use the linear-resolver subagent to apply the confirmed grooming batch: <changes>", or "Use the linear-resolver subagent to publish the audit project update for <project> with run key <key>, health <health>, and this bounded digest: <digest>".
 ---
 

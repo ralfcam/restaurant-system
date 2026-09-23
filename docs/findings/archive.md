@@ -744,3 +744,15 @@ Filed 6 (RES-96 review-email hosted activation, RES-97 Hyper-V local ports, RES-
 - [x] Orders page loop has no stable `order` · `app/actions/reservations.ts:592-596` · Offset `.range` without `.order("id")` can skip or duplicate rows across PostgREST pages under real Postgres · med · (found: tdd/pr126_cr_fp15_majors_7c2e9d14/C1/green; sharpened: C1/refactor) → resolved in-run (tdd/pr126_cr_stable_order_c3a91e08/C1)
 - [x] Restaurant-wide Floor Plan seat-capacity maximum · /admin/floor / RES-69 · Inventory cap is a different product surface · high · spec: docs/specs/scheduling.md · (found: tdd/res-71_slot_service_covers_a8c1e2f4/plan) → RES-69 (attached)
 - [x] Staff Save and guest load still omit cover limits · flattenDaysToRows / groupRowsByDay / WINDOW_COLUMNS · resolved in-run C9b: flatten emits fields, WINDOW_COLUMNS names them, toOperatingDays copies them · high · spec: docs/specs/scheduling.md · (found: tdd/res-71_slot_service_covers_a8c1e2f4/C9/red) → resolved in-run (C9b)
+
+## restaurant-system backlog triage 2026-09-15
+
+Filed 2 (RES-113 C8 SELECT allowlist, RES-114 RA-2 analytics reader DML) · attached 2 (convert inquiry + event pricing → RES-91) · stamped 188 (below-floor first sighting) · TTL-archived 0. GROOM: RES-103/104/105/107/108/109/110/111/112 → V-0.2 Backlog/no cycle; RES-106 stayed V-0.5 Backlog/no cycle. RES-77 and RES-101 left in Triage (unresolved clarifications).
+
+### Filed / attached
+
+- [x] C8 still does not pin the SELECT allowlist string · tests/unit/analytics/staff-page.test.ts vs app/actions/analytics.ts:24-25 · thenables ignore .select(); select("*") would still pass C8; a live * would still load guest columns into data before the map · med · (found: tdd/analytics_tdd_wave_44867fc0/C8/green) → RES-113 (filed)
+- [x] RA-2 is application-only · supabase/migrations/00000000000000_baseline.sql service_role FOR ALL + GRANT ALL on reservations / tables / status_events · createServiceClient() can still mutate; a later .update in this action would succeed at the DB · med · (found: tdd/analytics_tdd_wave_44867fc0/C9/refactor) → RES-114 (filed)
+- [x] Convert inquiry into a standard reservation · event_inquiries → reservations · conversion deferred; closed does not INSERT reservations; party>8 still blocked by booking-rules AC-1 · high · spec: docs/specs/event-inquiries.md · related RES-91 · (found: design/event_inquiries_spec/convert) → RES-91 (attached)
+- [x] Event pricing, private menus, buyout capacity · not configured · RES-91 forbids inventing them · high · spec: docs/specs/event-inquiries.md · related RES-91 · (found: design/event_inquiries_spec/pricing-menus) → RES-91 (attached)
+- [x] Windows globSync backslashes fail the menus STRICT pin · `tests/unit/menu/menus-integ-strict.test.ts` · `node:fs` globSync returns backslashes, so the forward-slash `toContain` misses the privileges integ file on Windows; Linux CI still matches · low · (found: tdd/res-68_hide_occupied_dropdown_a7c2e1f4/C4/refactor) → fixed by mt4b_windows_glob_pin_7c2a9e14 (separator-normalized globSync containment)

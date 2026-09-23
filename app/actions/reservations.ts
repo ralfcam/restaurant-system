@@ -417,17 +417,8 @@ export async function assignReservationTable(
   if (table && table.seats < reservation.party_size)
     return { error: "That table does not have enough seats for this party." }
   if (label && label !== reservation.table_label) {
-    const { data: settings } = await db
-      .from("restaurant_settings")
-      .select("occupancy_duration_minutes, safety_buffer_minutes")
-      .eq("id", 1)
-      .maybeSingle()
-    const occupancyDurationMinutes = occupancyDurationFromSettings(
-      settings?.occupancy_duration_minutes,
-    )
-    const safetyBufferMinutes = clampSafetyBufferMinutes(
-      settings?.safety_buffer_minutes ?? DEFAULT_SAFETY_BUFFER_MINUTES,
-    )
+    const { occupancyDurationMinutes, safetyBufferMinutes } =
+      await loadReservationOccupancyWindow(db)
     const window = occupyingWindowMinutes(
       reservation.time,
       occupancyDurationMinutes,
@@ -673,6 +664,41 @@ function occupancyDurationFromSettings(
   minutes: number | null | undefined,
 ): number {
   return clampExpectedMinutes(minutes ?? DEFAULT_EXPECTED_MINUTES)
+}
+
+async function loadReservationOccupancyWindow(
+  db: ReturnType<typeof createServiceClient>,
+): Promise<{ occupancyDurationMinutes: number; safetyBufferMinutes: number }> {
+  const { data: settings } = await db
+    .from("restaurant_settings")
+    .select("occupancy_duration_minutes, safety_buffer_minutes")
+    .eq("id", 1)
+    .maybeSingle()
+  return {
+    occupancyDurationMinutes: occupancyDurationFromSettings(
+      settings?.occupancy_duration_minutes,
+    ),
+    safetyBufferMinutes: clampSafetyBufferMinutes(
+      settings?.safety_buffer_minutes ?? DEFAULT_SAFETY_BUFFER_MINUTES,
+    ),
+  }
+}
+
+/** Staff-gated occupancy window for the reservations dropdown. */
+export async function getReservationOccupancyWindow(): Promise<{
+  occupancyDurationMinutes: number
+  safetyBufferMinutes: number
+}> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) {
+    return {
+      occupancyDurationMinutes: occupancyDurationFromSettings(undefined),
+      safetyBufferMinutes: clampSafetyBufferMinutes(
+        DEFAULT_SAFETY_BUFFER_MINUTES,
+      ),
+    }
+  }
+  return loadReservationOccupancyWindow(createServiceClient())
 }
 
 /**

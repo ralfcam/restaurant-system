@@ -1,6 +1,6 @@
 ---
 name: docs-updater
-model: inherit
+model: grok-4.7[context=256k,reasoning_effort=low,fast=false]
 description: >-
   MANDATORY docs sync subagent after non-docs implementation commits. Triggered
   by project hooks (postToolUse after git commit, stop follow-up), rule

@@ -1,12 +1,16 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-09-23
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
 Table statuses: `available` | `reserved` | `seated` | `cleaning` | `out_of_service`
 (see `lib/data.ts`). Transitions are enforced in `app/actions/operations.ts`.
+The `/admin/reservations` Table assignment dropdown does not use
+`tables.status` as occupancy: `getReservationOccupancyWindow` /
+`loadReservationOccupancyWindow` and `selectableTablesForAssignment` follow
+[../specs/scheduling.md](../specs/scheduling.md) FP-5-DROPDOWN-OCCUPANCY.
 
 Each table has an admin-managed **expected turn time** (`tables.expected_minutes`,
 default 90). Restaurant-wide occupancy duration and safety buffer (guest
