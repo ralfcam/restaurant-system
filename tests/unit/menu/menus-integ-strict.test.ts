@@ -22,7 +22,9 @@ describe("menus privilege integ STRICT fail-closed (MT-4b)", () => {
       /if \(integrationStrict && !authEnvReady\) \{\s*throw new Error\(/,
     )
 
-    const matched = globSync(INTEG_INCLUDE, { cwd: root })
+    const matched = globSync(INTEG_INCLUDE, { cwd: root }).map((hit) =>
+      hit.replaceAll("\\", "/"),
+    )
     expect(matched).toContain(MENUS_PRIVILEGE_INTEG)
   })
 
