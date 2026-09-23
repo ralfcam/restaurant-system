@@ -7,7 +7,7 @@ description: >-
   new test fails for the right reason (an assertion failure, not a
   compile/import error). Invoke with "Use the tdd-red subagent to write the
   failing test for <criterion>".
-model: inherit
+model: grok-4.7[context=256k,reasoning_effort=high,fast=false]
 readonly: false
 is_background: false
 ---
