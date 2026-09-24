@@ -56,6 +56,9 @@
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
   `tests/unit/floor/pos-menu-availability.test.ts`
+- Floor drag (FP-9): `tests/unit/floor/layout.test.ts` (`floorDropCell`),
+  `tests/unit/floor/drag-follow.test.ts` (follow, grab-offset drop, `touch-none`),
+  `tests/unit/floor/schema.test.ts` (`floorDropCell` source pin)
 - Weekly service overview (WA-1–WA-7):
   `tests/unit/floor/weekly-service-overview.test.ts`,
   `tests/unit/floor/dashboard-weekly-overview.test.ts`

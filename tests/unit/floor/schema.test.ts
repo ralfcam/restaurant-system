@@ -55,7 +55,7 @@ describe("floor tables schema and live surfaces", () => {
     expect(floor).toMatch(/Unlock a table/)
     expect(floor).toMatch(/Drag a merged table/)
     expect(floor).toMatch(/onPointerDown/)
-    expect(floor).toMatch(/clientToFloorCell/)
+    expect(floor).toMatch(/floorDropCell/)
     expect(floor).toMatch(/spreadOverlappingTables/)
     expect(floor).toMatch(/resolveMergeDrop/)
     expect(floor).toMatch(/resolveSplitDrop/)

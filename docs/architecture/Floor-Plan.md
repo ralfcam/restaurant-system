@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-23
+**Last updated:** 2026-09-24
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -32,9 +32,15 @@ JSON event so the fallback reader drops the arrangement.
 Tables sit on a persisted grid (`tables.x`, `tables.y`). `/admin/floor`
 renders that grid as a canvas (`lib/floor/layout.ts`). Each chip has a
 **move-lock** (default locked) so a click does not drag. Unlocking a table
-lets staff drag it to a new cell; coordinates persist through
-`updateTableState`. Dropping an unlocked available table on another still
-merges (FP-8). New tables take the next free cell. An occupying overlay
+lets staff drag it. Past the 8px threshold the chip follows the pointer
+in CSS pixels (`translate3d` on the drag-layer ref; no per-move cell writes).
+Release snaps with `floorDropCell` (`origin + round(delta / FLOOR_CELL_PX)`);
+coordinates persist through `updateTableState`. `pointerDelta` is shared by
+the move threshold, merge highlight, and drop cell. `touch-none` is only on
+movable chips (edit mode, unlocked, not merging) so locked and service-mode
+chips keep the browser default `touch-action` and the floor can still pan.
+Dropping an unlocked available table on another still merges (FP-8).
+New tables take the next free cell. An occupying overlay
 (`confirmed` / `seated`) paints guest name, reservation `partySize`, and
 reservation `time` on the chip (FP-4; party slot is `{t.reservation.partySize}`,
 not `tables.seats`). Seated chips show `CHF` only when

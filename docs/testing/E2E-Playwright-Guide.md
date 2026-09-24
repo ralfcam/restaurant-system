@@ -9,6 +9,9 @@
 - Tests: `tests/e2e/**/*.spec.ts`
 - Localization: `tests/e2e/localization.spec.ts` (AC-11 Staff/Book CTAs use
   `getByRole("button")`; login shows a French heading and `html lang` `fr`)
+- Floor drag (FP-9): `tests/e2e/floor/floor-drag.spec.ts` (mouse follow, snap,
+  persist). Staff login helper: `tests/e2e/helpers/staff-login.ts`. iPhone
+  touch drag (M-1) stays manual-UAT.
 
 ## Running
 

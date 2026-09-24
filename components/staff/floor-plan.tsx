@@ -69,9 +69,9 @@ import {
 import {
   FLOOR_CELL_PX,
   FLOOR_DRAG_THRESHOLD_PX,
-  clientToFloorCell,
   floorCanvasCells,
   floorCellStyle,
+  floorDropCell,
   mergeCellBounds,
   shouldOpenMobileInspector,
   spreadOverlappingTables,
@@ -128,6 +128,16 @@ type FloorDrag = {
   startClientY: number
   origin: FloorCell
   moved: boolean
+}
+
+function pointerDelta(
+  drag: FloorDrag,
+  point: { clientX: number; clientY: number },
+): { dx: number; dy: number } {
+  return {
+    dx: point.clientX - drag.startClientX,
+    dy: point.clientY - drag.startClientY,
+  }
 }
 
 async function persistOptimisticSetting<T>(
@@ -262,13 +272,12 @@ export function FloorPlan({
   const [safetyBuffer, setSafetyBuffer] = useState(
     clampSafetyBufferMinutes(initialSafetyBuffer),
   )
-  const [draftPositions, setDraftPositions] = useState<
-    Record<string, FloorCell>
-  >({})
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dropTargetKey, setDropTargetKey] = useState<string | null>(null)
   const canvasRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<FloorDrag | null>(null)
+  const dragLayerRef = useRef<HTMLElement | null>(null)
+  const dropTargetKeyRef = useRef<string | null>(null)
   const skipClickAfterDrag = useRef(false)
 
   const selected = tables.find((t) => t.id === selectedId) ?? tables[0] ?? null
@@ -277,19 +286,7 @@ export function FloorPlan({
     tables.flatMap((table) => (table.merge ? [table.merge.id] : [])),
   ).size
 
-  const displayedTables = useMemo(
-    () =>
-      tables.map((table) => {
-        const draft = draftPositions[table.id]
-        return draft ? { ...table, x: draft.x, y: draft.y } : table
-      }),
-    [tables, draftPositions],
-  )
-
-  const groups = useMemo(
-    () => groupTablesForDisplay(displayedTables),
-    [displayedTables],
-  )
+  const groups = useMemo(() => groupTablesForDisplay(tables), [tables])
   const visibleIds = useMemo(
     () =>
       new Set(
@@ -302,10 +299,7 @@ export function FloorPlan({
       ),
     [tables, activeFilter],
   )
-  const canvas = useMemo(
-    () => floorCanvasCells(displayedTables),
-    [displayedTables],
-  )
+  const canvas = useMemo(() => floorCanvasCells(tables), [tables])
   const statusCounts = useMemo(
     () =>
       STATUS_ORDER.map((status) => ({
@@ -350,19 +344,6 @@ export function FloorPlan({
 
   function dropKeyFor(table: (typeof tables)[number]) {
     return table.merge ? `merge:${table.merge.id}` : table.id
-  }
-
-  function cellOf(table: { id: string; x: number; y: number }): FloorCell {
-    return draftPositions[table.id] ?? { x: table.x, y: table.y }
-  }
-
-  function clearDraft(id: string) {
-    setDraftPositions((current) => {
-      if (!(id in current)) return current
-      const next = { ...current }
-      delete next[id]
-      return next
-    })
   }
 
   function toggleUnlock(id: string) {
@@ -589,15 +570,7 @@ export function FloorPlan({
       await mutate()
     } catch {
       toast.error(t("staff.floor.moveTableFailed"))
-    } finally {
-      clearDraft(id)
     }
-  }
-
-  function pointerCell(event: PointerEvent<HTMLElement>): FloorCell | null {
-    const rect = canvasRef.current?.getBoundingClientRect()
-    if (!rect) return null
-    return clientToFloorCell(event.clientX, event.clientY, rect)
   }
 
   function onChipPointerDown(
@@ -607,7 +580,8 @@ export function FloorPlan({
     if (!unlockedIds.has(table.id) || merging) return
     if ((event.target as HTMLElement).closest("[data-floor-lock]")) return
     event.currentTarget.setPointerCapture(event.pointerId)
-    const origin = cellOf(table)
+    dragLayerRef.current = event.currentTarget.parentElement
+    const origin = { x: table.x, y: table.y }
     dragRef.current = {
       id: table.id,
       pointerId: event.pointerId,
@@ -622,41 +596,43 @@ export function FloorPlan({
   function onChipPointerMove(event: PointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
-    const distance = Math.hypot(
-      event.clientX - drag.startClientX,
-      event.clientY - drag.startClientY,
-    )
+    const delta = pointerDelta(drag, event)
+    const distance = Math.hypot(delta.dx, delta.dy)
     if (!drag.moved && distance < FLOOR_DRAG_THRESHOLD_PX) return
     if (!drag.moved) {
       drag.moved = true
       skipClickAfterDrag.current = true
     }
-    const cell = pointerCell(event)
-    if (!cell) return
-    setDraftPositions((current) => ({ ...current, [drag.id]: cell }))
-    const occupant = tableAtCell(cell, displayedTables, drag.id)
-    setDropTargetKey(occupant ? dropKeyFor(occupant) : null)
+    const cell = floorDropCell(drag.origin, delta)
+    if (dragLayerRef.current) {
+      dragLayerRef.current.style.transform = `translate3d(${delta.dx}px, ${delta.dy}px, 0)`
+    }
+    const occupant = tableAtCell(cell, tables, drag.id)
+    const nextKey = occupant ? dropKeyFor(occupant) : null
+    if (dropTargetKeyRef.current !== nextKey) {
+      dropTargetKeyRef.current = nextKey
+      setDropTargetKey(occupant ? dropKeyFor(occupant) : null)
+    }
   }
 
   async function finishPointerDrag(event: PointerEvent<HTMLButtonElement>) {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
     dragRef.current = null
+    if (dragLayerRef.current) dragLayerRef.current.style.transform = ""
+    dragLayerRef.current = null
     setDraggingId(null)
+    dropTargetKeyRef.current = null
     setDropTargetKey(null)
 
-    if (!drag.moved) {
-      clearDraft(drag.id)
-      return
-    }
+    if (!drag.moved) return
 
     lockTable(drag.id)
-    const cell = pointerCell(event) ?? draftPositions[drag.id] ?? drag.origin
-    const occupant = tableAtCell(cell, displayedTables, drag.id)
+    const cell = floorDropCell(drag.origin, pointerDelta(drag, event))
+    const occupant = tableAtCell(cell, tables, drag.id)
 
     if (occupant) {
       const result = resolveMergeDrop(drag.id, occupant.id, dropTables)
-      clearDraft(drag.id)
       if (!result.tableIds) {
         const catalogKey = /^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*)+$/.test(
           result.error,
@@ -670,16 +646,12 @@ export function FloorPlan({
       return
     }
 
-    if (cell.x === drag.origin.x && cell.y === drag.origin.y) {
-      clearDraft(drag.id)
-      return
-    }
+    if (cell.x === drag.origin.x && cell.y === drag.origin.y) return
 
     const source = dropTables.find((table) => table.id === drag.id)
     if (source && isDragSplittable(source)) {
       const split = resolveSplitDrop(drag.id, dropTables)
       if (!split.mergeId) {
-        clearDraft(drag.id)
         if (split.error) {
           const catalogKey = /^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*)+$/.test(
             split.error,
@@ -695,10 +667,7 @@ export function FloorPlan({
         split.mergeId,
         sourceTable?.merge?.label,
       )
-      if (!splitOk) {
-        clearDraft(drag.id)
-        return
-      }
+      if (!splitOk) return
     }
 
     await persistPosition(drag.id, cell)
@@ -1023,7 +992,7 @@ export function FloorPlan({
                   )
                 })}
 
-                {displayedTables
+                {tables
                   .filter((t) => visibleIds.has(t.id))
                   .map((t) => {
                     const meta = TABLE_STATUS_META[t.displayStatus]
@@ -1119,9 +1088,13 @@ export function FloorPlan({
                             if (!drag || drag.pointerId !== event.pointerId)
                               return
                             dragRef.current = null
+                            if (dragLayerRef.current) {
+                              dragLayerRef.current.style.transform = ""
+                            }
+                            dragLayerRef.current = null
                             setDraggingId(null)
+                            dropTargetKeyRef.current = null
                             setDropTargetKey(null)
-                            clearDraft(drag.id)
                           }}
                           className={cn(
                             "relative flex flex-col items-center justify-center border-2 text-center transition-shadow duration-200 ease-out",
@@ -1131,7 +1104,7 @@ export function FloorPlan({
                             tableChipSizeClass(t.seats),
                             meta.color,
                             canMove
-                              ? "cursor-grab active:cursor-grabbing"
+                              ? "cursor-grab active:cursor-grabbing touch-none"
                               : "cursor-pointer",
                             draggingId === t.id ? "opacity-80" : null,
                             isSelected
