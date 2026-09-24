@@ -56,7 +56,9 @@ describe("updateGuestProfilePii", () => {
 
     mocks.requireStaffUser.mockResolvedValue(null)
     const unauthorized = await updateGuestProfilePii(piiDraft)
-    expect(unauthorized).toMatchObject({ error: "Unauthorized." })
+    expect(unauthorized).toMatchObject({
+      error: "errors.guestProfiles.unauthorized",
+    })
     expect(mocks.update).not.toHaveBeenCalled()
     expect(mocks.from).not.toHaveBeenCalled()
     expect(mocks.createServiceClient).not.toHaveBeenCalled()

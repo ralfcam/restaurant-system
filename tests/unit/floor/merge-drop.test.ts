@@ -52,13 +52,13 @@ describe("resolveMergeDrop", () => {
         table("t3"),
         table("t4", { status: "reserved", displayStatus: "reserved" }),
       ]),
-    ).toEqual({ error: "Only available tables can be merged." })
+    ).toEqual({ error: "errors.floor.onlyAvailableTables" })
     expect(
       resolveMergeDrop("t3", "t4", [
         table("t3"),
         table("t4", { displayStatus: "reserved", reservation: { id: "r1" } }),
       ]),
-    ).toEqual({ error: "Only available tables can be merged." })
+    ).toEqual({ error: "errors.floor.onlyAvailableTables" })
     expect(
       resolveMergeDrop("t3", "t5", [
         table("t3", {
@@ -72,7 +72,7 @@ describe("resolveMergeDrop", () => {
         }),
       ]),
     ).toEqual({
-      error: "Split an arrangement before combining it with another.",
+      error: "errors.floor.splitBeforeCombine",
     })
     expect(
       isDragMergeable(
@@ -98,7 +98,7 @@ describe("resolveSplitDrop", () => {
     expect(isDragMergeable(merged)).toBe(false)
     expect(resolveSplitDrop("t3", tables)).toEqual({ mergeId: "m-34" })
     expect(resolveSplitDrop("t5", [table("t5")])).toEqual({
-      error: "That table is not in an arrangement.",
+      error: "errors.floor.notInArrangement",
     })
   })
 })

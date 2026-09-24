@@ -75,7 +75,8 @@ type ServiceDb = ReturnType<typeof createServiceClient>
 
 async function createBrandingBucketIfMissing(
   db: ServiceDb,
-  assetLabel: "logo" | "hero image",
+  uploadFailedKey:
+    "errors.branding.logoUploadFailed" | "errors.branding.heroUploadFailed",
 ): Promise<{ error?: string }> {
   const { error: createError } = await db.storage.createBucket(
     BRANDING_BUCKET,
@@ -83,7 +84,7 @@ async function createBrandingBucketIfMissing(
   )
   if (createError && !/already exists/i.test(createError.message)) {
     console.error("[branding] createBucket:", createError.message)
-    return { error: `Could not upload the ${assetLabel}. Please try again.` }
+    return { error: uploadFailedKey }
   }
   return {}
 }
@@ -94,7 +95,7 @@ async function removeStoredLogos(db: ServiceDb): Promise<{ error?: string }> {
     .remove(LOGO_STORAGE_PATHS)
   if (error && !isMissingBucketError(error)) {
     console.error("[branding] storage remove:", error.message)
-    return { error: "Could not remove the stored logo. Please try again." }
+    return { error: "errors.branding.logoStorageRemoveFailed" }
   }
   return {}
 }
@@ -108,7 +109,7 @@ export async function uploadRestaurantLogo(
   input: LogoUploadInput,
 ): Promise<{ logoUrl: string; error?: string }> {
   const superAdminUser = await requireSuperAdminUser()
-  if (!superAdminUser) throw new Error("Unauthorized")
+  if (!superAdminUser) throw new Error("errors.branding.unauthorized")
 
   const validationError = validateLogoUpload(input)
   if (validationError) {
@@ -119,7 +120,7 @@ export async function uploadRestaurantLogo(
   if (!contentType) {
     return {
       logoUrl: "",
-      error: "Please upload a PNG, JPG, SVG, or WEBP image.",
+      error: "errors.branding.logoContentType",
     }
   }
 
@@ -132,7 +133,10 @@ export async function uploadRestaurantLogo(
     .from(BRANDING_BUCKET)
     .upload(path, bytes, uploadOptions)
   if (uploadError && isMissingBucketError(uploadError)) {
-    const created = await createBrandingBucketIfMissing(db, "logo")
+    const created = await createBrandingBucketIfMissing(
+      db,
+      "errors.branding.logoUploadFailed",
+    )
     if (created.error) return { logoUrl: "", error: created.error }
     ;({ error: uploadError } = await db.storage
       .from(BRANDING_BUCKET)
@@ -142,7 +146,7 @@ export async function uploadRestaurantLogo(
     console.error("[branding] upload error:", uploadError.message)
     return {
       logoUrl: "",
-      error: "Could not upload the logo. Please try again.",
+      error: "errors.branding.logoUploadFailed",
     }
   }
 
@@ -168,7 +172,7 @@ export async function uploadRestaurantLogo(
     console.error("[branding] settings update error:", settingsError.message)
     return {
       logoUrl: "",
-      error: "Logo uploaded but could not be saved. Please try again.",
+      error: "errors.branding.logoSaveFailed",
     }
   }
 
@@ -178,7 +182,7 @@ export async function uploadRestaurantLogo(
 
 export async function removeRestaurantLogo(): Promise<{ error?: string }> {
   const superAdminUser = await requireSuperAdminUser()
-  if (!superAdminUser) throw new Error("Unauthorized")
+  if (!superAdminUser) throw new Error("errors.branding.unauthorized")
 
   const db = createServiceClient()
   const stored = await removeStoredLogos(db)
@@ -191,7 +195,7 @@ export async function removeRestaurantLogo(): Promise<{ error?: string }> {
   })
   if (error) {
     console.error("[branding] removeRestaurantLogo:", error.message)
-    return { error: "Could not remove the logo. Please try again." }
+    return { error: "errors.branding.logoRemoveFailed" }
   }
 
   revalidateBrandingSurfaces()
@@ -207,7 +211,7 @@ async function removeStoredHeroImages(
   if (error && !isMissingBucketError(error)) {
     console.error("[branding] hero storage remove:", error.message)
     return {
-      error: "Could not remove the stored hero image. Please try again.",
+      error: "errors.branding.heroStorageRemoveFailed",
     }
   }
   return {}
@@ -219,7 +223,7 @@ export async function uploadRestaurantHeroImage(
   input: LogoUploadInput,
 ): Promise<{ heroImageUrl: string; error?: string }> {
   const superAdminUser = await requireSuperAdminUser()
-  if (!superAdminUser) throw new Error("Unauthorized")
+  if (!superAdminUser) throw new Error("errors.branding.unauthorized")
 
   const validationError = validateHeroUpload(input)
   if (validationError) {
@@ -230,7 +234,7 @@ export async function uploadRestaurantHeroImage(
   if (!contentType) {
     return {
       heroImageUrl: "",
-      error: "Please upload a PNG, JPG, or WEBP image.",
+      error: "errors.branding.heroContentType",
     }
   }
 
@@ -243,7 +247,10 @@ export async function uploadRestaurantHeroImage(
     .from(BRANDING_BUCKET)
     .upload(path, bytes, uploadOptions)
   if (uploadError && isMissingBucketError(uploadError)) {
-    const created = await createBrandingBucketIfMissing(db, "hero image")
+    const created = await createBrandingBucketIfMissing(
+      db,
+      "errors.branding.heroUploadFailed",
+    )
     if (created.error) return { heroImageUrl: "", error: created.error }
     ;({ error: uploadError } = await db.storage
       .from(BRANDING_BUCKET)
@@ -253,7 +260,7 @@ export async function uploadRestaurantHeroImage(
     console.error("[branding] hero upload error:", uploadError.message)
     return {
       heroImageUrl: "",
-      error: "Could not upload the hero image. Please try again.",
+      error: "errors.branding.heroUploadFailed",
     }
   }
 
@@ -284,7 +291,7 @@ export async function uploadRestaurantHeroImage(
     )
     return {
       heroImageUrl: "",
-      error: "Hero image uploaded but could not be saved. Please try again.",
+      error: "errors.branding.heroSaveFailed",
     }
   }
 
@@ -294,7 +301,7 @@ export async function uploadRestaurantHeroImage(
 
 export async function removeRestaurantHeroImage(): Promise<{ error?: string }> {
   const superAdminUser = await requireSuperAdminUser()
-  if (!superAdminUser) throw new Error("Unauthorized")
+  if (!superAdminUser) throw new Error("errors.branding.unauthorized")
 
   const db = createServiceClient()
   const stored = await removeStoredHeroImages(db)
@@ -307,7 +314,7 @@ export async function removeRestaurantHeroImage(): Promise<{ error?: string }> {
   })
   if (error) {
     console.error("[branding] removeRestaurantHeroImage:", error.message)
-    return { error: "Could not remove the hero image. Please try again." }
+    return { error: "errors.branding.heroRemoveFailed" }
   }
 
   revalidateBrandingSurfaces()
@@ -360,7 +367,7 @@ async function upsertRestaurantSetting(
   errorMessage: string,
 ): Promise<{ error?: string }> {
   const superAdminUser = await requireSuperAdminUser()
-  if (!superAdminUser) throw new Error("Unauthorized")
+  if (!superAdminUser) throw new Error("errors.branding.unauthorized")
 
   const { error } = await createServiceClient()
     .from("restaurant_settings")
@@ -389,7 +396,7 @@ export async function updateSlotIntervalMinutes(
   return upsertRestaurantSetting(
     { slot_interval_minutes: clampSlotIntervalMinutes(minutes) },
     "updateSlotIntervalMinutes",
-    "Could not save slot interval. Please try again.",
+    "errors.branding.slotIntervalSaveFailed",
   )
 }
 
@@ -404,7 +411,7 @@ export async function updateOccupancyDurationMinutes(
   return upsertRestaurantSetting(
     { occupancy_duration_minutes: clampExpectedMinutes(minutes) },
     "updateOccupancyDurationMinutes",
-    "Could not save occupancy duration. Please try again.",
+    "errors.branding.occupancySaveFailed",
   )
 }
 
@@ -419,6 +426,6 @@ export async function updateSafetyBufferMinutes(
   return upsertRestaurantSetting(
     { safety_buffer_minutes: clampSafetyBufferMinutes(minutes) },
     "updateSafetyBufferMinutes",
-    "Could not save safety buffer. Please try again.",
+    "errors.branding.safetyBufferSaveFailed",
   )
 }

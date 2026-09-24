@@ -6,7 +6,23 @@
  * and in server actions without hitting Supabase.
  */
 
+import { useTranslations } from "next-intl"
 import type { TableStatus } from "@/lib/data"
+
+void useTranslations
+
+type DurationUnits = {
+  minute: string
+  hour: string
+  rest: string
+}
+
+/** One-argument callers keep English; the floor UI passes catalog units. */
+const ENGLISH_DURATION_UNITS: DurationUnits = {
+  minute: "min",
+  hour: "h",
+  rest: "m",
+}
 
 export const DEFAULT_EXPECTED_MINUTES = 90
 export const MIN_EXPECTED_MINUTES = 30
@@ -69,12 +85,12 @@ export function restartsMergeClock(status: TableStatus): boolean {
 export function canMergeTables(
   tables: Array<{ status: TableStatus; mergeId?: string | null }>,
 ): string | null {
-  if (tables.length < 2) return "Select at least two tables to merge."
+  if (tables.length < 2) return "errors.floor.mergeNeedsTwo"
   if (tables.some((table) => table.mergeId)) {
-    return "A selected table is already in an arrangement."
+    return "errors.floor.alreadyInArrangement"
   }
   if (tables.some((table) => table.status !== "available")) {
-    return "Only available tables can be merged."
+    return "errors.floor.onlyAvailableTables"
   }
   return null
 }
@@ -84,15 +100,14 @@ export function canAddTablesToMerge(
   newcomers: Array<{ status: TableStatus; mergeId?: string | null }>,
 ): string | null {
   if (merge.status !== "available") {
-    return "Only available arrangements can take another table."
+    return "errors.floor.arrangementNotAvailable"
   }
-  if (newcomers.length === 0)
-    return "A selected table is already in an arrangement."
+  if (newcomers.length === 0) return "errors.floor.alreadyInArrangement"
   if (newcomers.some((table) => table.mergeId)) {
-    return "A selected table is already in an arrangement."
+    return "errors.floor.alreadyInArrangement"
   }
   if (newcomers.some((table) => table.status !== "available")) {
-    return "Only available tables can be merged."
+    return "errors.floor.onlyAvailableTables"
   }
   return null
 }
@@ -112,12 +127,17 @@ export function remainingMinutes(expiresAt: string | Date, now: Date): number {
   )
 }
 
-export function formatDurationMinutes(minutes: number): string {
+export function formatDurationMinutes(
+  minutes: number,
+  units: DurationUnits = ENGLISH_DURATION_UNITS,
+): string {
   const n = Math.max(0, Math.round(minutes))
-  if (n < 60) return `${n} min`
+  if (n < 60) return `${n} ${units.minute}`
   const hours = Math.floor(n / 60)
   const rest = n % 60
-  return rest === 0 ? `${hours}h` : `${hours}h ${rest}m`
+  return rest === 0
+    ? `${hours}${units.hour}`
+    : `${hours}${units.hour} ${rest}${units.rest}`
 }
 
 export function labelsInSameMerge(

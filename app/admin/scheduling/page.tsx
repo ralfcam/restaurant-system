@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { SchedulingManager } from "@/components/staff/scheduling-manager"
 import {
@@ -12,6 +13,7 @@ import { getTodayInRestaurantTZ } from "@/lib/timezone"
 export const dynamic = "force-dynamic"
 
 export default async function SchedulingPage() {
+  const t = await getTranslations()
   const today = getTodayInRestaurantTZ()
   // Fetch blocked dates for a rolling 6-month window
   const sixMonthsOut = new Date(today)
@@ -28,13 +30,13 @@ export default async function SchedulingPage() {
       getAllOperatingWindows(),
       getBlockedDatesInRange(startISO, endISO),
       getAuthUser(),
-      getRestaurantInfoBar(),
+      getRestaurantInfoBar("fr"),
     ])
 
   return (
     <StaffShell
-      title="Scheduling"
-      description="Configure opening-hour segments and block specific dates"
+      title={t("staff.scheduling.title")}
+      description={t("staff.scheduling.description")}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
     >

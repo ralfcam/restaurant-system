@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it, vi } from "vitest"
 import type { TableStatus } from "@/lib/data"
+import fr from "@/messages/fr.json"
 
 const mocks = vi.hoisted(() => ({
   requireStaffUser: vi.fn(),
@@ -144,8 +145,8 @@ describe("dashboard weekly service overview chrome", () => {
     expect(surface).toMatch(/days\.map\(/)
     expect(surface).toMatch(/service\.label/)
 
-    expect(surface).toMatch(/\bavailable\b/i)
-    expect(surface).toMatch(/fully booked/i)
+    expect(surface).toMatch(/["']status\.weekly\.available["']/)
+    expect(surface).toMatch(/["']status\.weekly\.fullyBooked["']/)
     expect(surface).toMatch(/\bgreen\b/i)
     expect(surface).toMatch(/\bred\b/i)
   })
@@ -187,13 +188,12 @@ describe("dashboard weekly service overview chrome", () => {
     expect(weekly[0]?.props.days).toEqual([])
 
     const cards = collectByType(tree, StatCard)
-    expect(
-      cards.find((card) => card.props.label === "Bookings tonight")?.props
-        .value,
-    ).toBe(1)
-    expect(
-      cards.find((card) => card.props.label === "Floor occupancy")?.props.value,
-    ).toBe("7/9")
+    const bookings = cards.find((card) => card.props.tone === "primary")
+    const occupancy = cards.find((card) => card.props.tone === "accent")
+    expect(bookings?.props.label).toBe(fr.staff.dashboard.bookingsTonight)
+    expect(bookings?.props.value).toBe(1)
+    expect(occupancy?.props.label).toBe(fr.staff.dashboard.floorOccupancy)
+    expect(occupancy?.props.value).toBe("7/9")
     expect(collectStrings(tree)).toContain("Ada Lovelace")
   })
 

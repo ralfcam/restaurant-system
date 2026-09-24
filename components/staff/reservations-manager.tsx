@@ -13,8 +13,10 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react"
+import { createTranslator, useTranslations } from "next-intl"
+import fr from "@/messages/fr.json"
 import { toast } from "sonner"
-import { type ReservationStatus } from "@/lib/data"
+import { TABLE_STATUS_META, type ReservationStatus } from "@/lib/data"
 import { guestProfileHref } from "@/lib/guest-profiles"
 import { staffListEmptyCopy } from "@/lib/reservations/list-empty-copy"
 import { selectableTablesForAssignment } from "@/lib/reservations/selectable-tables"
@@ -27,10 +29,15 @@ import {
   undoReservationStatus,
   getReservationsByDate,
 } from "@/app/actions/reservations"
-import { ReservationStatusBadge } from "@/components/staff/reservation-status"
+import {
+  RESERVATION_STATUS_META,
+  ReservationStatusBadge,
+} from "@/components/staff/reservation-status"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+
+const staffT = createTranslator({ locale: "fr", messages: fr })
 
 // Map DB row shape to a UI-friendly type
 type Reservation = {
@@ -65,13 +72,13 @@ function rowToReservation(r: ReservationRow): Reservation {
 
 type Tab = "all" | ReservationStatus
 
-const TABS: { value: Tab; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "confirmed", label: "Confirmed" },
-  { value: "seated", label: "Seated" },
-  { value: "completed", label: "Completed" },
-  { value: "cancelled", label: "Cancelled" },
-  { value: "no_show", label: "No-show" },
+const TAB_VALUES: Tab[] = [
+  "all",
+  "confirmed",
+  "seated",
+  "completed",
+  "cancelled",
+  "no_show",
 ]
 
 function offsetDate(iso: string, days: number): string {
@@ -95,6 +102,7 @@ export function ReservationsManager({
   }
 }) {
   const router = useRouter()
+  const t = useTranslations()
   const [isPending, startTransition] = useTransition()
   const currentDate = selectedDate ?? new Date().toISOString().slice(0, 10)
   const todayISO = today ?? new Date().toISOString().slice(0, 10)
@@ -124,14 +132,14 @@ export function ReservationsManager({
       if (!cancelled) {
         setReservations(result.reservations.map(rowToReservation))
         setListError(result.error)
-        if (result.error) toast.error(result.error)
+        if (result.error) toast.error(t(result.error))
         setLoadingDate(false)
       }
     })
     return () => {
       cancelled = true
     }
-  }, [currentDate])
+  }, [currentDate, t])
 
   function navigateToDate(date: string) {
     startTransition(() => {
@@ -174,13 +182,13 @@ export function ReservationsManager({
             : reservation,
         ),
       )
-      toast.error(error)
+      toast.error(t(error))
       return
     }
     toast.success(
       tableLabel
-        ? `Assigned to Table ${tableLabel}`
-        : "Table assignment cleared",
+        ? t("staff.reservations.assignedToTable", { label: tableLabel })
+        : t("staff.reservations.assignmentCleared"),
     )
   }
 
@@ -190,16 +198,11 @@ export function ReservationsManager({
       prev.map((r) => (r.id === id ? { ...r, status } : r)),
     )
     const previous = reservations.find((r) => r.id === id)?.status
-    const labels: Record<ReservationStatus, string> = {
-      confirmed: "marked confirmed",
-      seated: "seated",
-      completed: "completed",
-      cancelled: "cancelled",
-      no_show: "marked no-show",
-    }
     const { error } = await transitionReservationStatus(id, status)
     if (error) {
-      toast.error("Update failed", { description: error })
+      toast.error(t("staff.reservations.updateFailed"), {
+        description: t(error),
+      })
       // Roll back optimistic update
       setReservations((prev) =>
         prev.map((r) =>
@@ -208,9 +211,9 @@ export function ReservationsManager({
       )
       return
     }
-    toast.success(`Reservation ${labels[status]}`, {
+    toast.success(t(RESERVATION_STATUS_META[status].label), {
       action: {
-        label: "Undo",
+        label: t("staff.reservations.undo"),
         onClick: () => {
           void undoStatus(id, status)
         },
@@ -221,12 +224,14 @@ export function ReservationsManager({
   async function undoStatus(id: string, changedStatus: ReservationStatus) {
     const current = reservations.find((r) => r.id === id)
     if (!current || current.status !== changedStatus) {
-      toast.error("This status change is no longer available to undo.")
+      toast.error(t("staff.reservations.undoUnavailable"))
       return
     }
     const result = await undoReservationStatus(id)
     if (result.error || !result.restoredStatus) {
-      toast.error("Undo failed", { description: result.error })
+      toast.error(t("staff.reservations.undoFailed"), {
+        description: result.error ? t(result.error) : undefined,
+      })
       return
     }
     setReservations((prev) =>
@@ -236,7 +241,21 @@ export function ReservationsManager({
           : r,
       ),
     )
-    toast.success(`Restored to ${result.restoredStatus.replace("_", " ")}`)
+    toast.success(
+      t(
+        RESERVATION_STATUS_META[result.restoredStatus as ReservationStatus]
+          .label,
+      ),
+    )
+  }
+
+  const tabLabels: Record<Tab, string> = {
+    all: t("staff.reservations.tabAll"),
+    confirmed: t("staff.reservations.tabConfirmed"),
+    seated: t("staff.reservations.tabSeated"),
+    completed: t("staff.reservations.tabCompleted"),
+    cancelled: t("staff.reservations.tabCancelled"),
+    no_show: t("staff.reservations.tabNoShow"),
   }
 
   return (
@@ -248,10 +267,10 @@ export function ReservationsManager({
           size="icon"
           onClick={() => navigateToDate(offsetDate(currentDate, -1))}
           disabled={isPending}
-          title="Previous day"
+          title={t("staff.reservations.previousDay")}
         >
           <ChevronLeft className="size-4" />
-          <span className="sr-only">Previous day</span>
+          <span className="sr-only">{t("staff.reservations.previousDay")}</span>
         </Button>
         <input
           type="date"
@@ -264,10 +283,10 @@ export function ReservationsManager({
           size="icon"
           onClick={() => navigateToDate(offsetDate(currentDate, 1))}
           disabled={isPending}
-          title="Next day"
+          title={t("staff.reservations.nextDay")}
         >
           <ChevronRight className="size-4" />
-          <span className="sr-only">Next day</span>
+          <span className="sr-only">{t("staff.reservations.nextDay")}</span>
         </Button>
         {currentDate !== todayISO && (
           <Button
@@ -276,7 +295,7 @@ export function ReservationsManager({
             onClick={() => navigateToDate(todayISO)}
             disabled={isPending}
           >
-            Today
+            {t("staff.reservations.today")}
           </Button>
         )}
         <Button
@@ -285,27 +304,27 @@ export function ReservationsManager({
           className="ml-auto"
           onClick={() => startTransition(() => router.refresh())}
           disabled={isPending}
-          title="Refresh"
+          title={t("staff.reservations.refresh")}
         >
           <RefreshCw className={cn("size-4", isPending && "animate-spin")} />
-          <span className="sr-only">Refresh</span>
+          <span className="sr-only">{t("staff.reservations.refresh")}</span>
         </Button>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 overflow-x-auto">
-          {TABS.map((t) => (
+          {TAB_VALUES.map((value) => (
             <button
-              key={t.value}
-              onClick={() => setTab(t.value)}
+              key={value}
+              onClick={() => setTab(value)}
               className={cn(
                 "whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                tab === t.value
+                tab === value
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
-              {t.label}
+              {tabLabels[value]}
             </button>
           ))}
         </div>
@@ -314,7 +333,7 @@ export function ReservationsManager({
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name or phone"
+            placeholder={t("staff.reservations.searchPlaceholder")}
             className="pl-9"
           />
         </div>
@@ -328,23 +347,25 @@ export function ReservationsManager({
       >
         {/* Header row (desktop) */}
         <div className="hidden grid-cols-[80px_1fr_120px_120px_140px] gap-4 border-b border-border bg-secondary/50 px-5 py-3 text-xs font-medium uppercase tracking-wide text-muted-foreground md:grid">
-          <span>Time</span>
-          <span>Guest</span>
-          <span>Party</span>
-          <span>Table</span>
-          <span>Status</span>
+          <span>{t("staff.reservations.columnTime")}</span>
+          <span>{t("staff.reservations.columnGuest")}</span>
+          <span>{t("staff.reservations.columnParty")}</span>
+          <span>{t("staff.reservations.columnTable")}</span>
+          <span>{t("staff.reservations.columnStatus")}</span>
         </div>
 
         <ul className="divide-y divide-border">
           {filtered.length === 0 ? (
             <li className="px-5 py-10 text-center text-sm text-muted-foreground">
-              {staffListEmptyCopy({
-                error: listError,
-                loadedCount: reservations.length,
-                filteredCount: filtered.length,
-                statusFilterActive: tab !== "all",
-                nameOrPhoneFilterActive: query.trim() !== "",
-              })}
+              {t(
+                staffListEmptyCopy({
+                  error: listError,
+                  loadedCount: reservations.length,
+                  filteredCount: filtered.length,
+                  statusFilterActive: tab !== "all",
+                  nameOrPhoneFilterActive: query.trim() !== "",
+                }),
+              )}
             </li>
           ) : (
             filtered.map((r) => {
@@ -370,7 +391,7 @@ export function ReservationsManager({
                         href={fichaHref}
                         className="mt-0.5 inline-block text-xs text-primary hover:underline"
                       >
-                        Guest profile
+                        {t("staff.reservations.guestProfile")}
                       </Link>
                     ) : null}
                     {r.notes ? (
@@ -381,9 +402,10 @@ export function ReservationsManager({
                   </div>
                   <span className="text-sm">
                     <span className="md:hidden text-muted-foreground">
-                      Party:{" "}
+                      {t("staff.reservations.partyPrefix")}{" "}
                     </span>
-                    {r.partySize} guests
+                    {r.partySize}{" "}
+                    {t("staff.reservations.guests", { count: r.partySize })}
                   </span>
                   <TableAssignment
                     reservation={r}
@@ -407,7 +429,10 @@ export function ReservationsManager({
         </ul>
       </div>
       <p className="mt-3 text-xs text-muted-foreground">
-        Showing {filtered.length} of {reservations.length} reservations
+        {t("staff.reservations.showing", {
+          shown: filtered.length,
+          total: reservations.length,
+        })}
       </p>
     </div>
   )
@@ -431,6 +456,10 @@ export function TableAssignment({
     safetyBufferMinutes: number
   }
 }) {
+  const t = staffT
+  const assignTableFor = t("staff.reservations.assignTableFor", {
+    name: reservation.guestName,
+  })
   const selectableTables = selectableTablesForAssignment(
     tables,
     reservation.partySize,
@@ -455,7 +484,7 @@ export function TableAssignment({
 
   return (
     <label className="flex items-center gap-2 text-sm">
-      <span className="sr-only">Assign table for {reservation.guestName}</span>
+      <span className="sr-only">{assignTableFor}</span>
       <select
         value={reservation.tableLabel ?? ""}
         disabled={
@@ -465,13 +494,22 @@ export function TableAssignment({
         }
         onChange={(event) => onAssign(reservation.id, event.target.value)}
         className="h-9 min-w-28 rounded-md border border-border bg-background px-2 text-sm font-medium outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-        aria-label={`Assign table for ${reservation.guestName}`}
+        aria-label={assignTableFor}
       >
-        <option value="">Unassigned</option>
+        <option value="">{t("staff.reservations.unassigned")}</option>
         {selectableTables.map((table) => (
           <option key={table.id} value={table.label}>
-            Table {table.groupLabel ?? table.label} · {table.seats} seats
-            {table.status !== "available" ? ` · ${table.status}` : ""}
+            {t("staff.reservations.tableOption", {
+              label: table.groupLabel ?? table.label,
+              seats: table.seats,
+            })}
+            {table.status !== "available"
+              ? t("staff.reservations.tableStatusSuffix", {
+                  status: (t as (key: string) => string)(
+                    TABLE_STATUS_META[table.status].label,
+                  ),
+                })
+              : null}
           </option>
         ))}
       </select>
@@ -492,6 +530,7 @@ function ReservationActions({
   reservation: Reservation
   onUpdate: (id: string, status: ReservationStatus) => void
 }) {
+  const t = useTranslations()
   if (reservation.status === "confirmed") {
     return (
       <div className="flex gap-1">
@@ -499,31 +538,31 @@ function ReservationActions({
           size="icon"
           variant="ghost"
           className="size-8"
-          title="Seat guest"
+          title={t("staff.reservations.seatGuest")}
           onClick={() => onUpdate(reservation.id, "seated")}
         >
           <Armchair className="size-4" />
-          <span className="sr-only">Seat</span>
+          <span className="sr-only">{t("staff.reservations.seat")}</span>
         </Button>
         <Button
           size="icon"
           variant="ghost"
           className="size-8 text-destructive hover:text-destructive"
-          title="Mark no-show"
+          title={t("staff.reservations.markNoShow")}
           onClick={() => onUpdate(reservation.id, "no_show")}
         >
           <X className="size-4" />
-          <span className="sr-only">Mark no-show</span>
+          <span className="sr-only">{t("staff.reservations.markNoShow")}</span>
         </Button>
         <Button
           size="icon"
           variant="ghost"
           className="size-8 text-muted-foreground hover:text-muted-foreground"
-          title="Cancel"
+          title={t("staff.reservations.cancel")}
           onClick={() => onUpdate(reservation.id, "cancelled")}
         >
           <X className="size-4" />
-          <span className="sr-only">Cancel</span>
+          <span className="sr-only">{t("staff.reservations.cancel")}</span>
         </Button>
       </div>
     )
@@ -534,11 +573,11 @@ function ReservationActions({
         size="icon"
         variant="ghost"
         className="size-8 text-accent hover:text-accent"
-        title="Complete"
+        title={t("staff.reservations.complete")}
         onClick={() => onUpdate(reservation.id, "completed")}
       >
         <Check className="size-4" />
-        <span className="sr-only">Complete</span>
+        <span className="sr-only">{t("staff.reservations.complete")}</span>
       </Button>
     )
   }

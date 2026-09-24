@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useTranslations } from "next-intl"
 import { ImagePlus } from "lucide-react"
 import { RESTAURANT } from "@/lib/data"
 import { useRestaurantLogo } from "@/hooks/use-restaurant-logo"
@@ -24,6 +25,10 @@ export function SidebarLogoManager({
 }: {
   isSuperAdmin: boolean
 }) {
+  const t = useTranslations("staff.shell")
+  const staffConsole = t("staffConsole")
+  const restaurantLogo = t("restaurantLogo")
+  const logoDescription = t("logoDescription", { name: RESTAURANT.name })
   const { logoUrl } = useRestaurantLogo()
   const [open, setOpen] = React.useState(false)
 
@@ -44,18 +49,15 @@ export function SidebarLogoManager({
           <p className="font-heading text-lg font-semibold">
             {RESTAURANT.name}
           </p>
-          <p className="text-xs text-sidebar-foreground/60">Staff Console</p>
+          <p className="text-xs text-sidebar-foreground/60">{staffConsole}</p>
         </div>
         <ImagePlus className="size-4 shrink-0 text-sidebar-foreground/0 transition-colors group-hover:text-sidebar-foreground/50" />
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Restaurant logo</DialogTitle>
-          <DialogDescription>
-            Upload a square image to represent {RESTAURANT.name} on the guest
-            site and staff console. PNG, JPG, SVG, or WEBP, up to 2MB.
-          </DialogDescription>
+          <DialogTitle>{restaurantLogo}</DialogTitle>
+          <DialogDescription>{logoDescription}</DialogDescription>
         </DialogHeader>
         <RestaurantLogoEditor
           onSaved={() => setOpen(false)}

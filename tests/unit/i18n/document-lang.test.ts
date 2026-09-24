@@ -27,17 +27,17 @@ function resolveLocalModule(
 }
 
 describe("document language", () => {
-  it("resolveDocumentLang follows public locale and staff English", async () => {
+  it("resolveDocumentLang follows public locale and staff French", async () => {
     const { resolveDocumentLang } = await import("@/lib/i18n/document-lang")
 
     expect(resolveDocumentLang("/")).toBe("fr")
     expect(resolveDocumentLang("/menu")).toBe("fr")
     expect(resolveDocumentLang("/en")).toBe("en")
     expect(resolveDocumentLang("/en/menu")).toBe("en")
-    expect(resolveDocumentLang("/admin")).toBe("en")
-    expect(resolveDocumentLang("/pos")).toBe("en")
-    expect(resolveDocumentLang("/kds")).toBe("en")
-    expect(resolveDocumentLang("/auth/login")).toBe("en")
+    expect(resolveDocumentLang("/admin")).toBe("fr")
+    expect(resolveDocumentLang("/pos")).toBe("fr")
+    expect(resolveDocumentLang("/kds")).toBe("fr")
+    expect(resolveDocumentLang("/auth/login")).toBe("fr")
 
     const source = readFileSync(layoutPath, "utf8")
     expect(source).toMatch(/resolveDocumentLang\s*\(/)

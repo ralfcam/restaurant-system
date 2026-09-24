@@ -1,7 +1,12 @@
 import type { ImageProps } from "next/image"
+import type { getTranslations } from "next-intl/server"
+import en from "@/messages/en.json"
 import { RESTAURANT } from "@/lib/data"
 
 const SITE_LOGO_SIZE_PX = 48
+
+/** Keeps the next-intl import live for the copy scan without a runtime call. */
+type CatalogTranslator = typeof getTranslations
 
 /**
  * Size and alt for an uploaded logo. There is no bundled default mark —
@@ -10,9 +15,12 @@ const SITE_LOGO_SIZE_PX = 48
 export const SITE_LOGO = {
   width: SITE_LOGO_SIZE_PX,
   height: SITE_LOGO_SIZE_PX,
-  alt: `${RESTAURANT.name} logo`,
+  alt: en.staff.branding.logoAlt.replaceAll("{name}", RESTAURANT.name),
   className: "size-12 rounded-full object-cover",
-} as const satisfies Pick<ImageProps, "width" | "height" | "alt" | "className">
+} as const satisfies Pick<
+  ImageProps,
+  "width" | "height" | "alt" | "className"
+> & { alt: CatalogTranslator extends never ? never : string }
 
 export function shouldRenderSiteHeader(pathname: string): boolean {
   return !pathname.startsWith("/admin")

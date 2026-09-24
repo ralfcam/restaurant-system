@@ -46,7 +46,7 @@ export function HomePageClient({
             <>
               <Image
                 src={heroImageUrl!}
-                alt={`${RESTAURANT.name} dining room`}
+                alt={t("hero.diningRoomAlt", { name: RESTAURANT.name })}
                 fill
                 priority
                 className="object-cover brightness-[0.48] saturate-[0.90] animate-slow-zoom"
@@ -274,7 +274,7 @@ export function HomePageClient({
       <section className="relative isolate overflow-hidden border-t border-border">
         <Image
           src="/images/bar-counter.png"
-          alt="Restaurant bar and prep counter"
+          alt={t("experience.imageAlt")}
           fill
           sizes="100vw"
           className="-z-10 object-cover brightness-[0.32] saturate-75"

@@ -64,7 +64,7 @@ describe("saveReviewEmailSettings", () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
 
     const unauthResult = await saveReviewEmailSettings(settings)
-    expect(unauthResult).toEqual({ error: "Unauthorized." })
+    expect(unauthResult).toEqual({ error: "errors.marketing.unauthorized" })
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
 
@@ -73,14 +73,13 @@ describe("saveReviewEmailSettings", () => {
     const { saveReviewEmailSettings } = await import("@/app/actions/marketing")
 
     const result = await saveReviewEmailSettings(settings)
-    expect(result).toEqual({ error: "Unauthorized." })
+    expect(result).toEqual({ error: "errors.marketing.unauthorized" })
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
 
   it("enable requires non-blank copy and valid https Maps URL", async () => {
     const { saveReviewEmailSettings } = await import("@/app/actions/marketing")
-    const pv10Error =
-      "Review email cannot be enabled without thank-you copy and a valid https Maps URL."
+    const pv10Error = "errors.marketing.reviewEmailRequiresCopyAndHttps"
 
     const blankCopy = await saveReviewEmailSettings({
       ...settings,

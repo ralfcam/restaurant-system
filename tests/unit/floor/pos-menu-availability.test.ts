@@ -112,7 +112,7 @@ describe("POS live menu availability", () => {
         server: "Maya",
         lines: [{ itemId: liveItem.id, qty: 1 }],
       }),
-    ).rejects.toThrow(/unavailable/i)
+    ).rejects.toThrow("errors.pos.itemUnavailable")
 
     expect(mocks.insertOrder).not.toHaveBeenCalled()
     expect(mocks.insertOrderItems).not.toHaveBeenCalled()

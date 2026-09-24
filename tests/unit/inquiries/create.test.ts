@@ -79,7 +79,9 @@ describe("createInquiry", () => {
 
     mocks.requireStaffUser.mockResolvedValue(null)
     const unauthorized = await createInquiry(draft)
-    expect(unauthorized).toMatchObject({ error: "Unauthorized." })
+    expect(unauthorized).toMatchObject({
+      error: "errors.inquiries.unauthorized",
+    })
     expect(mocks.insert).not.toHaveBeenCalled()
     expect(mocks.from).not.toHaveBeenCalled()
 
@@ -96,7 +98,7 @@ describe("createInquiry", () => {
       mocks.from.mockClear()
       const rejected = await createInquiry(input)
       expect(rejected.error).toBeTruthy()
-      expect(rejected.error).not.toBe("Unauthorized.")
+      expect(rejected.error).not.toBe("errors.inquiries.unauthorized")
       expect(mocks.insert).not.toHaveBeenCalled()
     }
 

@@ -204,7 +204,8 @@ function SlotCard({
         data-testid="until"
         className={cn(dark ? "bg-white/15 text-white/80" : "")}
       >
-        {t("until")} {slotUntilTime(time, occupancyDurationMinutes)}
+        {t("reservationWidget.until")}{" "}
+        {slotUntilTime(time, occupancyDurationMinutes)}
       </Badge>
     </Button>
   )
@@ -293,6 +294,7 @@ export function ReservationWidget({
   phone?: string
 }) {
   const t = useTranslations("reservationWidget")
+  const tAll = useTranslations()
   const locale = useLocale()
   const [party, setParty] = useState("2")
   // Date is intentionally empty on first render (server + first client paint)
@@ -466,7 +468,8 @@ export function ReservationWidget({
     setSubmitting(false)
     if (error) {
       // BW-16: stay on step 2 and render this rejection in-form (no page toast).
-      if (error === "Booking denied: This time is fully booked.") {
+      const fullyBooked = error === "errors.reservation.fullyBooked"
+      if (fullyBooked) {
         setFullyBookedError(error)
         return
       }
@@ -474,25 +477,33 @@ export function ReservationWidget({
       // dedicated toast. Form inputs (name, phone, email) are intentionally
       // NOT reset so the guest can pick a new slot without re-typing.
       const isSlotError =
-        error.toLowerCase().includes("blocked") ||
-        error.toLowerCase().includes("operating hours") ||
-        error.toLowerCase().includes("closed")
+        error === "errors.reservation.bookingDateBlocked" ||
+        error === "errors.reservation.bookingClosed" ||
+        error === "errors.reservation.bookingOutsideHours" ||
+        error === "errors.reservation.closed" ||
+        error === "errors.reservation.outsideHours"
       if (isSlotError) {
         setSlot(null)
         setStep(1)
-        toast.error("Time slot unavailable", {
-          description:
-            "This slot was just booked or is outside operating hours.",
+        toast.error(tAll("reservationWidget.slotUnavailableTitle"), {
+          description: tAll("reservationWidget.slotUnavailableDescription"),
         })
       } else {
-        toast.error("Could not confirm reservation", { description: error })
+        toast.error(tAll("reservationWidget.confirmFailedTitle"), {
+          description: tAll(error),
+        })
       }
       return
     }
     setConfCode(code)
     setStep(3)
-    toast.success("Reservation confirmed", {
-      description: `${name}, party of ${party} · ${formatDate(date, locale)} at ${slot}`,
+    toast.success(tAll("reservationWidget.confirmedTitle"), {
+      description: tAll("reservationWidget.confirmedDescription", {
+        name,
+        party,
+        date: formatDate(date, locale),
+        time: slot ?? "",
+      }),
     })
   }
 
@@ -553,7 +564,7 @@ export function ReservationWidget({
                   dark ? "text-white" : "",
                 )}
               >
-                Table reserved
+                {tAll("reservationWidget.tableReserved")}
               </h3>
               <p
                 className={cn(
@@ -561,7 +572,9 @@ export function ReservationWidget({
                   dark ? "text-white/55" : "text-muted-foreground",
                 )}
               >
-                We&apos;re looking forward to hosting you, {name || "you"}.
+                {tAll("reservationWidget.hosting", {
+                  name: name || tAll("reservationWidget.guestFallback"),
+                })}
               </p>
 
               <dl
@@ -573,17 +586,25 @@ export function ReservationWidget({
                 )}
               >
                 {[
-                  { label: "Guest", value: name || "Guest" },
                   {
-                    label: "When",
-                    value: `${formatDate(date, locale)} · ${slot}`,
+                    label: tAll("reservationWidget.guestLabel"),
+                    value: name || tAll("reservationWidget.guestLabel"),
                   },
                   {
-                    label: "Party",
-                    value: `${party} ${partyNum === 1 ? "guest" : "guests"}`,
+                    label: tAll("reservationWidget.whenLabel"),
+                    value: tAll("reservationWidget.whenValue", {
+                      date: formatDate(date, locale),
+                      time: slot ?? "",
+                    }),
                   },
                   {
-                    label: "Confirmation",
+                    label: tAll("reservationWidget.partyLabel"),
+                    value: tAll("reservationWidget.guestsSummary", {
+                      count: partyNum,
+                    }),
+                  },
+                  {
+                    label: tAll("reservationWidget.confirmationLabel"),
                     value: (
                       <span
                         className={cn(
@@ -633,7 +654,7 @@ export function ReservationWidget({
                     : "text-muted-foreground",
                 )}
               >
-                Make another reservation
+                {tAll("reservationWidget.makeAnother")}
               </button>
             </div>
           </div>
@@ -647,12 +668,18 @@ export function ReservationWidget({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <Accordion type="single" defaultValue="time">
                 <AccordionItem value="guests" data-testid="guests">
-                  <AccordionTrigger className={accordionTriggerCls}>
+                  <AccordionTrigger
+                    className={accordionTriggerCls}
+                    data-chrome={`${t("guests")}${t("guestsSummary", { count: partyNum })}`}
+                  >
                     <span className="flex items-center gap-1.5">
-                      <Users className="size-3.5" /> {t("guests")}
+                      <Users className="size-3.5" />{" "}
+                      {tAll("reservationWidget.guests")}
                     </span>
                     <span className="group-aria-expanded/accordion-trigger:hidden">
-                      {t("guestsSummary", { count: partyNum })}
+                      {tAll("reservationWidget.guestsSummary", {
+                        count: partyNum,
+                      })}
                     </span>
                   </AccordionTrigger>
                   <AccordionContent>
@@ -664,7 +691,8 @@ export function ReservationWidget({
                           lbl,
                         )}
                       >
-                        <Users className="size-3.5" /> Party size
+                        <Users className="size-3.5" />{" "}
+                        {tAll("reservationWidget.partySize")}
                       </Label>
                       <Select
                         value={String(
@@ -699,7 +727,9 @@ export function ReservationWidget({
                                   : "",
                               )}
                             >
-                              {n} {n === 1 ? "guest" : "guests"}
+                              {tAll("reservationWidget.guestsSummary", {
+                                count: n,
+                              })}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -713,8 +743,9 @@ export function ReservationWidget({
                             : "border-border/40 text-muted-foreground",
                         )}
                       >
-                        For groups of more than {ONLINE_MAX_PARTY}, please call
-                        us directly at{" "}
+                        {tAll("reservationWidget.largeGroupLead", {
+                          max: ONLINE_MAX_PARTY,
+                        })}{" "}
                         <a
                           href={`tel:${restaurantPhone}`}
                           className={cn(
@@ -733,13 +764,19 @@ export function ReservationWidget({
                 </AccordionItem>
 
                 <AccordionItem value="date" data-testid="date">
-                  <AccordionTrigger className={accordionTriggerCls}>
+                  <AccordionTrigger
+                    className={accordionTriggerCls}
+                    data-chrome={`${t("date")}${t("dateSummary", { date: formatDate(date, locale) })}`}
+                  >
                     <span className="flex items-center gap-1.5">
-                      <CalendarDays className="size-3.5" /> {t("date")}
+                      <CalendarDays className="size-3.5" />{" "}
+                      {tAll("reservationWidget.date")}
                     </span>
                     <span className="group-aria-expanded/accordion-trigger:hidden">
                       {date
-                        ? t("dateSummary", { date: formatDate(date, locale) })
+                        ? tAll("reservationWidget.dateSummary", {
+                            date: formatDate(date, locale),
+                          })
                         : null}
                     </span>
                   </AccordionTrigger>
@@ -767,7 +804,7 @@ export function ReservationWidget({
                             <span>
                               {date
                                 ? formatDate(date, locale)
-                                : "Select a date"}
+                                : tAll("reservationWidget.selectDate")}
                             </span>
                             <CalendarDays className="size-3.5 opacity-60" />
                           </DialogTrigger>
@@ -787,7 +824,7 @@ export function ReservationWidget({
                                   dark ? "text-white" : "text-foreground",
                                 )}
                               >
-                                Select a date
+                                {tAll("reservationWidget.selectDate")}
                               </DialogTitle>
                             </DialogHeader>
                             <ReservationCalendar
@@ -809,12 +846,18 @@ export function ReservationWidget({
                 </AccordionItem>
 
                 <AccordionItem value="time" data-testid="time">
-                  <AccordionTrigger className={accordionTriggerCls}>
+                  <AccordionTrigger
+                    className={accordionTriggerCls}
+                    data-chrome={`${t("time")}${t("timeSummary", { time: slot ?? "" })}`}
+                  >
                     <span className="flex items-center gap-1.5">
-                      <Clock className="size-3.5" /> {t("time")}
+                      <Clock className="size-3.5" />{" "}
+                      {tAll("reservationWidget.time")}
                     </span>
                     <span className="group-aria-expanded/accordion-trigger:hidden">
-                      {slot ? t("timeSummary", { time: slot }) : null}
+                      {slot
+                        ? tAll("reservationWidget.timeSummary", { time: slot })
+                        : null}
                     </span>
                   </AccordionTrigger>
                   <AccordionContent className="[&_p:not(:last-child)]:mb-0">
@@ -827,8 +870,9 @@ export function ReservationWidget({
                             : "bg-secondary text-muted-foreground",
                         )}
                       >
-                        For parties larger than {MAX_CAPACITY}, please call us
-                        to arrange seating.
+                        {tAll("reservationWidget.overCapacity", {
+                          max: MAX_CAPACITY,
+                        })}
                       </p>
                     ) : displayLoadingSlots ? (
                       <SlotGroupsSkeleton dark={dark} />
@@ -839,7 +883,7 @@ export function ReservationWidget({
                           dark ? "text-white/50" : "text-muted-foreground",
                         )}
                       >
-                        No availability for this date. Try another day.
+                        {tAll("reservationWidget.noAvailability")}
                       </p>
                     ) : (
                       <div className="space-y-3">
@@ -851,7 +895,7 @@ export function ReservationWidget({
                             dark={dark}
                             selectedTime={slot}
                             onPick={pickSlot}
-                            t={t}
+                            t={tAll}
                           />
                         ))}
                       </div>
@@ -872,7 +916,7 @@ export function ReservationWidget({
                   : "",
               )}
             >
-              {t("reserve")}
+              {tAll("reservationWidget.reserve")}
             </Button>
           </div>
         </StepPanel>
@@ -908,8 +952,9 @@ export function ReservationWidget({
                     dark ? "text-white" : "",
                   )}
                 >
-                  {partyNum} {partyNum === 1 ? "guest" : "guests"} &middot;{" "}
-                  {formatDate(date, locale)} at{" "}
+                  {tAll("reservationWidget.guestsSummary", { count: partyNum })}
+                  {" · "}
+                  {formatDate(date, locale)} {tAll("reservationWidget.at")}{" "}
                   <span className={dark ? "text-[#C45A3B]" : "text-primary"}>
                     {slot}
                   </span>
@@ -920,7 +965,7 @@ export function ReservationWidget({
                     dark ? "text-white/45" : "text-muted-foreground",
                   )}
                 >
-                  Real-time availability confirmed
+                  {tAll("reservationWidget.availabilityConfirmed")}
                 </p>
               </div>
               <button
@@ -937,7 +982,8 @@ export function ReservationWidget({
                     : "border border-border text-muted-foreground hover:bg-secondary hover:text-foreground",
                 )}
               >
-                <ArrowLeft className="size-3" /> Back
+                <ArrowLeft className="size-3" />{" "}
+                {tAll("reservationWidget.back")}
               </button>
             </div>
 
@@ -949,7 +995,7 @@ export function ReservationWidget({
                     htmlFor="res-name"
                     className={cn("text-xs", dark ? "text-white/70" : "")}
                   >
-                    Full name
+                    {tAll("reservationWidget.fullName")}
                   </Label>
                   <Input
                     id="res-name"
@@ -957,7 +1003,7 @@ export function ReservationWidget({
                     value={name}
                     className={inp}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Jamie Rivera"
+                    placeholder={tAll("reservationWidget.namePlaceholder")}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -965,7 +1011,7 @@ export function ReservationWidget({
                     htmlFor="res-phone"
                     className={cn("text-xs", dark ? "text-white/70" : "")}
                   >
-                    Phone
+                    {tAll("reservationWidget.phone")}
                   </Label>
                   <Input
                     id="res-phone"
@@ -973,7 +1019,7 @@ export function ReservationWidget({
                     value={phone}
                     className={inp}
                     onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+1 (503) 555-0100"
+                    placeholder={tAll("reservationWidget.phonePlaceholder")}
                   />
                 </div>
               </div>
@@ -982,7 +1028,7 @@ export function ReservationWidget({
                   htmlFor="res-email"
                   className={cn("text-xs", dark ? "text-white/70" : "")}
                 >
-                  Email
+                  {tAll("reservationWidget.email")}
                 </Label>
                 <Input
                   id="res-email"
@@ -991,13 +1037,13 @@ export function ReservationWidget({
                   value={email}
                   className={inp}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="jamie@email.com"
+                  placeholder={tAll("reservationWidget.emailPlaceholder")}
                 />
               </div>
 
               {fullyBookedError ? (
                 <p className="text-sm text-destructive" role="alert">
-                  {fullyBookedError}
+                  {tAll("errors.reservation.fullyBooked")}
                 </p>
               ) : null}
 
@@ -1013,10 +1059,11 @@ export function ReservationWidget({
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="size-4 animate-spin" /> Confirming…
+                    <Loader2 className="size-4 animate-spin" />{" "}
+                    {tAll("reservationWidget.confirming")}
                   </>
                 ) : (
-                  <>Confirm reservation</>
+                  <>{tAll("reservationWidget.confirmReservation")}</>
                 )}
               </Button>
             </form>

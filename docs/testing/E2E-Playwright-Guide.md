@@ -1,14 +1,14 @@
 # E2E Playwright guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-24
 
 ## Layout
 
 - Config: `playwright.config.ts`
 - Tests: `tests/e2e/**/*.spec.ts`
 - Localization: `tests/e2e/localization.spec.ts` (AC-11 Staff/Book CTAs use
-  `getByRole("button")`)
+  `getByRole("button")`; login shows a French heading and `html lang` `fr`)
 
 ## Running
 

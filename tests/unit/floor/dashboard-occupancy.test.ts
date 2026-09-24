@@ -43,21 +43,21 @@ describe("dashboard occupancy from live floor snapshot", () => {
     expect(page).not.toMatch(/\bTABLES\b/)
 
     const occupancyWidget = page.slice(
-      page.indexOf("Floor occupancy"),
-      page.indexOf("Service is live"),
+      page.indexOf("label={copy.floorOccupancy}"),
+      page.indexOf("{copy.serviceLive}"),
     )
     expect(occupancyWidget).toMatch(/seated/)
     expect(occupancyWidget).toMatch(/total/)
     expect(occupancyWidget).toMatch(/available/)
 
     const serviceLive = page.slice(
-      page.indexOf("Service is live"),
-      page.indexOf("Floor status"),
+      page.indexOf("{copy.serviceLive}"),
+      page.indexOf("{copy.floorStatus}"),
     )
     expect(serviceLive).toMatch(/seated/)
     expect(serviceLive).toMatch(/available/)
 
-    const floorStatus = page.slice(page.indexOf("Floor status"))
+    const floorStatus = page.slice(page.indexOf("{copy.floorStatus}"))
     expect(floorStatus).toMatch(/byStatus/)
   })
 })

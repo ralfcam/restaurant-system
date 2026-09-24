@@ -156,7 +156,7 @@ describe("createReservation", () => {
       email: "not-an-email",
     })
 
-    expect(result.error).toBe("Please provide a valid email.")
+    expect(result.error).toBe("errors.reservation.emailInvalid")
     expect(mocks.insert).not.toHaveBeenCalled()
     expect(mocks.sendBookingConfirmation).not.toHaveBeenCalled()
   })

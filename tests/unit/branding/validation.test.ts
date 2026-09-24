@@ -28,22 +28,22 @@ describe("validateLogoUpload", () => {
 
   it("rejects a missing file", () => {
     expect(validateLogoUpload({ ...valid, base64: "" })).toBe(
-      "Please choose an image file.",
+      "errors.branding.chooseImage",
     )
     expect(validateLogoUpload({ ...valid, size: 0 })).toBe(
-      "Please choose an image file.",
+      "errors.branding.chooseImage",
     )
   })
 
   it("rejects an unsupported content type", () => {
     expect(validateLogoUpload({ ...valid, contentType: "image/gif" })).toBe(
-      "Please upload a PNG, JPG, SVG, or WEBP image.",
+      "errors.branding.logoContentType",
     )
   })
 
   it("rejects a file larger than 2MB", () => {
     expect(validateLogoUpload({ ...valid, size: MAX_LOGO_BYTES + 1 })).toBe(
-      "Logo image must be smaller than 2MB.",
+      "errors.branding.logoTooLarge",
     )
   })
 
@@ -116,25 +116,25 @@ describe("validateHeroUpload", () => {
 
   it("rejects a missing file", () => {
     expect(validateHeroUpload({ ...valid, base64: "" })).toBe(
-      "Please choose an image file.",
+      "errors.branding.chooseImage",
     )
     expect(validateHeroUpload({ ...valid, size: 0 })).toBe(
-      "Please choose an image file.",
+      "errors.branding.chooseImage",
     )
   })
 
   it("rejects an unsupported content type, including SVG (logo-only)", () => {
     expect(validateHeroUpload({ ...valid, contentType: "image/gif" })).toBe(
-      "Please upload a PNG, JPG, or WEBP image.",
+      "errors.branding.heroContentType",
     )
     expect(validateHeroUpload({ ...valid, contentType: "image/svg+xml" })).toBe(
-      "Please upload a PNG, JPG, or WEBP image.",
+      "errors.branding.heroContentType",
     )
   })
 
   it("rejects a file larger than 4MB", () => {
     expect(validateHeroUpload({ ...valid, size: MAX_HERO_BYTES + 1 })).toBe(
-      "Hero image must be smaller than 4MB.",
+      "errors.branding.heroTooLarge",
     )
   })
 

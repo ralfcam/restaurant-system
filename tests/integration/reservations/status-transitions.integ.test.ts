@@ -76,7 +76,7 @@ describe.skipIf(!authEnvReady)("reservation status transitions", () => {
 
     const result = await transitionReservationStatus(seeded!.id, "no_show")
     expect(result.error).toBeUndefined()
-    expect(result.error).not.toBe("Could not update reservation status.")
+    expect(result.error).not.toBe("errors.reservation.statusUpdateFailed")
 
     const { data: refreshed, error: readError } = await supabase
       .from("reservations")

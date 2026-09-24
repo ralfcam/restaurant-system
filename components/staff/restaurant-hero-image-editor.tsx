@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { ImagePlus, Loader2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -38,6 +39,7 @@ export function RestaurantHeroImageEditor({
 }: {
   isSuperAdmin: boolean
 }) {
+  const t = useTranslations()
   const { heroImageUrl, mutate } = useRestaurantHeroImage()
   const [preview, setPreview] = React.useState<string | null>(null)
   const [file, setFile] = React.useState<File | null>(null)
@@ -74,15 +76,15 @@ export function RestaurantHeroImageEditor({
         fileName: file.name,
       })
       if (result.error) {
-        toast.error(result.error)
+        toast.error(t(result.error))
         return
       }
       await mutate(result.heroImageUrl)
-      toast.success("Hero image updated")
+      toast.success(t("staff.branding.heroUpdated"))
       resetPicker()
     } catch (err) {
       console.error("[branding] hero handleSave:", err)
-      toast.error("Could not upload the hero image. Please try again.")
+      toast.error(t("staff.branding.heroUploadFailed"))
     } finally {
       setIsSaving(false)
     }
@@ -93,16 +95,14 @@ export function RestaurantHeroImageEditor({
     try {
       const result = await removeRestaurantHeroImage()
       if (result.error) {
-        toast.error(result.error)
+        toast.error(t(result.error))
         return
       }
       await mutate(null)
-      toast.success(
-        "Hero image removed — homepage now shows a blank background",
-      )
+      toast.success(t("staff.branding.heroRemoved"))
       resetPicker()
     } catch {
-      toast.error("Could not remove the hero image. Please try again.")
+      toast.error(t("staff.branding.heroRemovalFailed"))
     } finally {
       setIsRemoving(false)
     }
@@ -121,20 +121,20 @@ export function RestaurantHeroImageEditor({
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={preview}
-            alt="Hero image preview"
+            alt={t("staff.branding.heroPreviewAlt")}
             className="size-full object-cover"
           />
         ) : displaySrc ? (
           <Image
             src={displaySrc}
-            alt="Homepage hero background preview"
+            alt={t("staff.branding.heroBackgroundAlt")}
             fill
             className="object-cover"
             sizes="(min-width: 640px) 512px, 100vw"
           />
         ) : (
           <span className="px-4 text-center text-xs text-muted-foreground">
-            No hero image set — homepage shows a blank background
+            {t("staff.branding.noHero")}
           </span>
         )}
       </span>
@@ -158,7 +158,9 @@ export function RestaurantHeroImageEditor({
           onClick={() => fileInputRef.current?.click()}
         >
           <ImagePlus className="size-4" />
-          {heroImageUrl ? "Choose a different image" : "Choose an image"}
+          {heroImageUrl
+            ? t("staff.branding.chooseDifferentHero")
+            : t("staff.branding.chooseHeroImage")}
         </Button>
         {file ? (
           <p className="truncate text-xs text-muted-foreground">{file.name}</p>
@@ -184,7 +186,7 @@ export function RestaurantHeroImageEditor({
             ) : (
               <Trash2 className="size-4" />
             )}
-            Remove hero image
+            {t("staff.branding.removeHero")}
           </Button>
         ) : null}
         <Button
@@ -193,7 +195,7 @@ export function RestaurantHeroImageEditor({
           disabled={!file || isSaving || !isSuperAdmin}
         >
           {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
-          Save hero image
+          {t("staff.branding.saveHero")}
         </Button>
       </div>
     </div>

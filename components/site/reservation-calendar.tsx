@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { useLocale, useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
 import {
   getTodayInRestaurantTZ,
@@ -40,6 +41,8 @@ export function ReservationCalendar({
   blockedDates = [],
   adminMode = false,
 }: ReservationCalendarProps) {
+  const locale = useLocale()
+  const t = useTranslations()
   const [viewMonth, setViewMonth] = useState<Date>(() => {
     const date = value ? new Date(value + "T00:00:00") : new Date()
     return new Date(date.getFullYear(), date.getMonth(), 1)
@@ -123,10 +126,16 @@ export function ReservationCalendar({
     }
   }
 
-  const monthName = firstDay.toLocaleString("default", {
+  const monthName = firstDay.toLocaleString(locale, {
     month: "long",
     year: "numeric",
   })
+  // 2024-01-07 is a Sunday, so labels stay aligned with the Sunday-first grid.
+  const weekdayLabels = [0, 1, 2, 3, 4, 5, 6].map((offset) =>
+    new Date(2024, 0, 7 + offset).toLocaleDateString(locale, {
+      weekday: "narrow",
+    }),
+  )
 
   return (
     <div
@@ -173,15 +182,15 @@ export function ReservationCalendar({
 
       {/* Weekday headers */}
       <div className="mb-1 grid grid-cols-7 gap-0.5">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+        {weekdayLabels.map((label, index) => (
           <div
-            key={day}
+            key={index}
             className={cn(
               "text-center text-[9px] font-semibold tracking-wide py-0.5",
               dark ? "text-white/60" : "text-foreground/60",
             )}
           >
-            {day.charAt(0)}
+            {label}
           </div>
         ))}
       </div>
@@ -264,7 +273,7 @@ export function ReservationCalendar({
             dark ? "text-white/40" : "text-foreground/40",
           )}
         >
-          Loading schedule...
+          {t("reservationCalendar.loading")}
         </div>
       )}
     </div>

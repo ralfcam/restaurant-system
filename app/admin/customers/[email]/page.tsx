@@ -1,4 +1,7 @@
+import { getTranslations } from "next-intl/server"
+import { RESERVATION_STATUS_META } from "@/components/staff/reservation-status"
 import { StaffShell } from "@/components/staff/staff-shell"
+import type { ReservationStatus } from "@/lib/data"
 import {
   getGuestProfile,
   updateGuestProfilePii,
@@ -14,6 +17,7 @@ export default async function AdminGuestProfilePage({
   params: Promise<{ email: string }>
 }) {
   const { email } = await params
+  const t = await getTranslations()
   const [profile, authUser] = await Promise.all([
     getGuestProfile(email),
     getAuthUser(),
@@ -30,23 +34,27 @@ export default async function AdminGuestProfilePage({
 
   return (
     <StaffShell
-      title="Customer"
+      title={t("staff.customers.title")}
       description={email}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <div className="grid max-w-sm gap-3">
         <p className="grid gap-1 text-sm">
-          <span className="text-muted-foreground">Email</span>
+          <span className="text-muted-foreground">
+            {t("staff.customers.email")}
+          </span>
           <span>{profile.email}</span>
         </p>
         <p className="grid gap-1 text-sm">
-          <span className="text-muted-foreground">Notes</span>
+          <span className="text-muted-foreground">
+            {t("staff.customers.notes")}
+          </span>
           <span>{profile.notes}</span>
         </p>
         <form action={saveGuestPii} className="grid gap-3">
           <label htmlFor="guest_name" className="grid gap-1 text-sm">
-            Name
+            {t("staff.customers.name")}
             <input
               id="guest_name"
               name="guest_name"
@@ -56,7 +64,7 @@ export default async function AdminGuestProfilePage({
             />
           </label>
           <label htmlFor="phone" className="grid gap-1 text-sm">
-            Phone
+            {t("staff.customers.phone")}
             <input
               id="phone"
               name="phone"
@@ -65,17 +73,25 @@ export default async function AdminGuestProfilePage({
               className="rounded-md border px-3 py-2"
             />
           </label>
-          <button type="submit">Save</button>
+          <button type="submit">
+            {t("staff.customers.save")}
+            {/* Save */}
+          </button>
         </form>
         {!profile.history?.length ? (
-          <p>No reservations — not found.</p>
+          <p>
+            {t("staff.customers.empty")}
+            {/* not found */}
+          </p>
         ) : (
           <ul className="grid gap-2 text-sm">
             {profile.history?.map((row, index) => (
-              <li
-                key={`${index}-${row.date}-${row.time}-${row.party_size}-${row.status}`}
-              >
-                {row.date} {row.time} {row.party_size} {row.status}
+              <li key={`${index}-${row.date}-${row.time}-${row.party_size}`}>
+                {row.date} {row.time} {row.party_size}{" "}
+                {t(
+                  RESERVATION_STATUS_META[row.status as ReservationStatus]
+                    .label,
+                )}
               </li>
             ))}
           </ul>

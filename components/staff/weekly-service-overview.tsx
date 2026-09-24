@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
+import { getTranslations } from "next-intl/server"
 import { Button } from "@/components/ui/button"
 import {
   shiftSelectedWeek,
@@ -7,26 +8,29 @@ import {
 } from "@/lib/floor/weekly-service-overview"
 import { cn } from "@/lib/utils"
 
-export function WeeklyServiceOverview({
+export async function WeeklyServiceOverview({
   selectedDate,
   days,
 }: {
   selectedDate: string
   days: WeeklyOverviewDay[]
 }) {
+  const t = await getTranslations("staff.dashboard")
+  const tStatus = await getTranslations()
+  const weeklyOverview = t("weeklyOverview")
+  const previousWeek = t("previousWeek")
+  const nextWeekLabel = t("nextWeek")
   const prevWeek = shiftSelectedWeek(selectedDate, -1)
   const nextWeek = shiftSelectedWeek(selectedDate, 1)
 
   return (
     <section
-      aria-label="Weekly service overview"
+      aria-label={weeklyOverview}
       data-testid="week-overview"
       className="mt-6 rounded-xl border border-border bg-card"
     >
       <div className="flex items-center justify-between border-b border-border px-5 py-4">
-        <h2 className="font-heading text-lg font-semibold">
-          Weekly service overview
-        </h2>
+        <h2 className="font-heading text-lg font-semibold">{weeklyOverview}</h2>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -35,7 +39,7 @@ export function WeeklyServiceOverview({
             render={<Link href={`/admin?week=${prevWeek}`} />}
           >
             <ChevronLeft data-icon="inline-start" />
-            Previous week
+            {previousWeek}
           </Button>
           <Button
             variant="outline"
@@ -43,7 +47,7 @@ export function WeeklyServiceOverview({
             data-testid="next-week"
             render={<Link href={`/admin?week=${nextWeek}`} />}
           >
-            Next week
+            {nextWeekLabel}
             <ChevronRight data-icon="inline-end" />
           </Button>
         </div>
@@ -55,6 +59,10 @@ export function WeeklyServiceOverview({
             <ul className="mt-2 space-y-2">
               {day.services.map((service, index) => {
                 const available = service.status === "available"
+                const weeklyStatus = {
+                  available: "status.weekly.available",
+                  fully_booked: "status.weekly.fullyBooked",
+                } as const
                 return (
                   <li key={`${day.date}:${index}:${service.label}`}>
                     <p className="text-sm">{service.label}</p>
@@ -64,7 +72,11 @@ export function WeeklyServiceOverview({
                         available ? "text-green-600" : "text-red-600",
                       )}
                     >
-                      {available ? "available" : "fully booked"}
+                      {tStatus(
+                        available
+                          ? weeklyStatus.available
+                          : weeklyStatus.fully_booked,
+                      )}
                     </p>
                   </li>
                 )

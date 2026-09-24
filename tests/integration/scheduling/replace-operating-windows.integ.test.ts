@@ -229,6 +229,10 @@ describe.skipIf(!authEnvReady)("replace_operating_windows (PostgREST)", () => {
       }
     } finally {
       await execLocalHoursPrivilegeSql(HOURS_SERVICE_ROLE_REVOKE)
+      // Migration baseline (REAZED-297). The early-return path still hits this finally.
+      await execLocalHoursPrivilegeSql(
+        "GRANT ALL ON TABLE operating_windows TO service_role;",
+      )
     }
   })
 

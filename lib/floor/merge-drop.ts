@@ -65,11 +65,11 @@ export function resolveSplitDrop(
   | { mergeId: string; error?: undefined }
   | { mergeId?: undefined; error: string } {
   const source = tables.find((table) => table.id === sourceId)
-  if (!source) return { error: "Tables not found." }
+  if (!source) return { error: "errors.floor.tablesNotFound" }
   const mergeId = arrangementId(source)
-  if (!mergeId) return { error: "That table is not in an arrangement." }
+  if (!mergeId) return { error: "errors.floor.notInArrangement" }
   if (!isDragSplittable(source)) {
-    return { error: "Only available arrangements can be split." }
+    return { error: "errors.floor.splitNotAvailable" }
   }
   return { mergeId }
 }
@@ -91,34 +91,35 @@ export function resolveMergeDrop(
   tables: MergeDropTable[],
 ): MergeDropResult {
   if (!sourceId || !targetId || sourceId === targetId) {
-    return { error: "Drop a table onto a different table to merge." }
+    return { error: "errors.floor.dropDifferentTable" }
   }
 
   const source = tables.find((table) => table.id === sourceId)
   const target = tables.find((table) => table.id === targetId)
-  if (!source || !target) return { error: "Tables not found." }
+  if (!source || !target) return { error: "errors.floor.tablesNotFound" }
 
   const sourceMerge = arrangementId(source)
   const targetMerge = arrangementId(target)
   if (sourceMerge && targetMerge) {
     if (sourceMerge === targetMerge) {
-      return { error: "Those tables are already merged." }
+      return { error: "errors.floor.alreadyMerged" }
     }
-    return { error: "Split an arrangement before combining it with another." }
+    return { error: "errors.floor.splitBeforeCombine" }
   }
 
   const wanted = new Set([...idsForDrop(source), ...idsForDrop(target)])
   const involved = tables.filter((table) => wanted.has(table.id))
   const tableIds = involved.map((table) => table.id)
 
-  if (involved.length !== wanted.size) return { error: "Tables not found." }
+  if (involved.length !== wanted.size)
+    return { error: "errors.floor.tablesNotFound" }
 
   if (
     involved.some(
       (table) => table.reservation || floorStatus(table) !== "available",
     )
   ) {
-    return { error: "Only available tables can be merged." }
+    return { error: "errors.floor.onlyAvailableTables" }
   }
 
   const existing = involved.find((table) => arrangementId(table))

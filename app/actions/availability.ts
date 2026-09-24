@@ -13,6 +13,7 @@ import {
   flattenDaysToRows,
   groupRowsByDay,
   validateOperatingDays,
+  type SchedulingMessage,
 } from "@/lib/reservations/operating-hours"
 
 export type {
@@ -42,7 +43,16 @@ function isSchemaCacheError(
   )
 }
 
-const BLOCKED_DATES_LOAD_ERROR = "Could not load blocked dates."
+const BLOCKED_DATES_LOAD_ERROR = "errors.availability.blockedDatesLoadFailed"
+
+function blockedDateErrorKey(error: {
+  code?: string
+  message?: string
+}): string {
+  return isSchemaCacheError(error)
+    ? "errors.availability.schemaUnavailable"
+    : "errors.availability.unmapped"
+}
 
 function rejectBlockedDatesRead(
   operation: string,
@@ -214,13 +224,17 @@ export async function getAllOperatingWindows(): Promise<OperatingDay[]> {
 /**
  * Replace the full weekly opening-hour schedule in one staff-authorized batch.
  * Accepts seven `OperatingDay` values (closed flag + segments).
- * Returns a strict { success: true } | { success: false; error: string } contract.
+ * Returns a strict { success: true } | { success: false; error } contract.
+ * `error` is an `errors.*` catalog key, or `{ key, params }` when the
+ * message names a day or limit.
  */
 export async function upsertOperatingWindows(
   days: OperatingDay[],
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<{ success: true } | { success: false; error: SchedulingMessage }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { success: false, error: "Unauthorized." }
+  if (!staffUser) {
+    return { success: false, error: "errors.availability.unauthorized" }
+  }
 
   const validationError = validateOperatingDays(days)
   if (validationError) return { success: false, error: validationError }
@@ -234,7 +248,7 @@ export async function upsertOperatingWindows(
 
   if (error) {
     console.error("[availability] upsertOperatingWindows error:", error.message)
-    return { success: false, error: error.message }
+    return { success: false, error: "errors.availability.unmapped" }
   }
 
   return { success: true }
@@ -251,7 +265,9 @@ export async function toggleBlockedDate(
   dateISO: string,
 ): Promise<{ blocked: boolean; error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { blocked: false, error: "Unauthorized." }
+  if (!staffUser) {
+    return { blocked: false, error: "errors.availability.unauthorized" }
+  }
 
   // Strictly re-format the incoming string through the restaurant timezone to
   // guarantee the payload is always YYYY-MM-DD in Europe/Zurich, regardless of
@@ -272,13 +288,8 @@ export async function toggleBlockedDate(
     .eq("date", safeISO)
     .maybeSingle()
 
-  // Surface schema-cache / missing-table errors with a recognizable PGRST code
-  // prefix so the client can render an action-oriented message.
-  if (selectError && isSchemaCacheError(selectError)) {
-    return { blocked: false, error: `PGRST116: ${selectError.message}` }
-  }
   if (selectError) {
-    return { blocked: false, error: selectError.message }
+    return { blocked: false, error: blockedDateErrorKey(selectError) }
   }
 
   if (data) {
@@ -288,9 +299,7 @@ export async function toggleBlockedDate(
       .delete()
       .eq("date", safeISO)
     if (error) {
-      if (isSchemaCacheError(error))
-        return { blocked: true, error: `PGRST116: ${error.message}` }
-      return { blocked: true, error: error.message }
+      return { blocked: true, error: blockedDateErrorKey(error) }
     }
     return { blocked: false }
   } else {
@@ -299,9 +308,7 @@ export async function toggleBlockedDate(
       .from("blocked_dates")
       .insert({ date: safeISO, reason: "Admin blocked" })
     if (error) {
-      if (isSchemaCacheError(error))
-        return { blocked: false, error: `PGRST116: ${error.message}` }
-      return { blocked: false, error: error.message }
+      return { blocked: false, error: blockedDateErrorKey(error) }
     }
     return { blocked: true }
   }

@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState, useCallback } from "react"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -31,17 +32,42 @@ import {
   validateOperatingDays,
   type OperatingSegment,
   type OperatingWindowRow,
+  type SchedulingMessage,
 } from "@/lib/reservations/operating-hours"
 import { Copy, Plus, Save, Trash2 } from "lucide-react"
 
 function isSchemaCacheError(error: string): boolean {
-  const e = error.toLowerCase()
-  return (
-    e.includes("pgrst116") ||
-    e.includes("pgrst205") ||
-    e.includes("schema cache") ||
-    e.includes("does not exist")
-  )
+  return error === "errors.availability.schemaUnavailable"
+}
+
+type SchedulingTranslator = (
+  key: string,
+  values?: Record<string, string | number>,
+) => string
+
+function schedulingDetail(
+  message: SchedulingMessage,
+  translate: SchedulingTranslator,
+): string {
+  return typeof message === "string"
+    ? translate(message)
+    : translate(message.key, message.params)
+}
+
+function caughtDetail(err: unknown, translate: SchedulingTranslator): string {
+  const message = err instanceof Error ? err.message : ""
+  if (/^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*)+$/.test(message)) {
+    return translate(message)
+  }
+  return message || translate("staff.scheduling.unexpectedError")
+}
+
+function formatBlockedDateLabel(iso: string): string {
+  return new Date(`${iso}T00:00:00`).toLocaleDateString("fr", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  })
 }
 
 type SegmentDraft = OperatingSegment & { key: string }
@@ -126,6 +152,7 @@ export function SchedulingManager({
   initialPhone: string
   isSuperAdmin: boolean
 }) {
+  const t = useTranslations()
   const [days, setDays] = useState<DayDraft[]>(() =>
     toDraftDays(initialOperatingWindows),
   )
@@ -143,7 +170,7 @@ export function SchedulingManager({
     [operatingDays],
   )
   const hoursSummary = useMemo(
-    () => summarizeOperatingDays(operatingDays),
+    () => summarizeOperatingDays(operatingDays, "fr"),
     [operatingDays],
   )
   const hoursError = useMemo(
@@ -227,7 +254,9 @@ export function SchedulingManager({
         }
       }),
     )
-    toast.success(`Copied ${DAY_NAMES[sourceDay]} hours to Mon–Sat.`)
+    toast.success(
+      t("staff.scheduling.copiedToWeekdays", { day: DAY_NAMES[sourceDay] }),
+    )
   }
 
   const handleSaveContact = async () => {
@@ -236,16 +265,15 @@ export function SchedulingManager({
     try {
       const result = await updateRestaurantContactInfo({ address, phone })
       if (result.error) {
-        toast.error("Could not save contact information", {
-          description: result.error,
+        toast.error(t("staff.scheduling.contactSaveFailed"), {
+          description: t(result.error),
         })
         return
       }
-      toast.success("Homepage contact information updated.")
+      toast.success(t("staff.scheduling.contactSaved"))
     } catch (err) {
-      toast.error("Could not save contact information", {
-        description:
-          err instanceof Error ? err.message : "An unexpected error occurred.",
+      toast.error(t("staff.scheduling.contactSaveFailed"), {
+        description: caughtDetail(err, t),
       })
     } finally {
       setSavingContact(false)
@@ -254,7 +282,9 @@ export function SchedulingManager({
 
   const handleSaveHours = async () => {
     if (hoursError) {
-      toast.error("Cannot save opening hours", { description: hoursError })
+      toast.error(t("staff.scheduling.cannotSaveHours"), {
+        description: schedulingDetail(hoursError, t),
+      })
       return
     }
 
@@ -262,14 +292,15 @@ export function SchedulingManager({
     try {
       const result = await upsertOperatingWindows(operatingDays)
       if (result.success) {
-        toast.success("Opening hours updated successfully.")
+        toast.success(t("staff.scheduling.hoursSaved"))
       } else {
-        toast.error("Failed to save", { description: result.error })
+        toast.error(t("staff.scheduling.saveFailed"), {
+          description: schedulingDetail(result.error, t),
+        })
       }
     } catch (err) {
-      toast.error("Failed to save", {
-        description:
-          err instanceof Error ? err.message : "An unexpected error occurred.",
+      toast.error(t("staff.scheduling.saveFailed"), {
+        description: caughtDetail(err, t),
       })
     } finally {
       setSavingHours(false)
@@ -295,14 +326,15 @@ export function SchedulingManager({
 
       if (result.error) {
         setBlockedDates(previousDates)
-        if (isSchemaCacheError(result.error)) {
-          toast.error("Database not configured", {
-            description:
-              "Missing database table. Please run the SQL migration for 'blocked_dates' in your Supabase dashboard.",
+        if (isSchemaCacheError(result.error ?? "")) {
+          toast.error(t("staff.scheduling.databaseNotConfigured"), {
+            description: t("staff.scheduling.missingBlockedDatesTable"),
           })
         } else {
-          toast.error("Failed to update blocked date", {
-            description: result.error ?? "Database rejected the date block.",
+          toast.error(t("staff.scheduling.blockedDateUpdateFailed"), {
+            description: result.error
+              ? t(result.error)
+              : t("staff.scheduling.databaseRejectedBlock"),
           })
         }
         return
@@ -318,9 +350,8 @@ export function SchedulingManager({
     } catch (err) {
       setTogglingDate(null)
       setBlockedDates(previousDates)
-      toast.error("Failed to update blocked date", {
-        description:
-          err instanceof Error ? err.message : "An unexpected error occurred.",
+      toast.error(t("staff.scheduling.blockedDateUpdateFailed"), {
+        description: caughtDetail(err, t),
       })
     }
   }
@@ -330,42 +361,43 @@ export function SchedulingManager({
       <Card>
         <CardHeader>
           <CardTitle className="text-sm font-semibold tracking-wide">
-            Homepage info bar
+            {t("staff.scheduling.homepageInfoBar")}
           </CardTitle>
           <CardDescription className="text-xs">
-            Control the address and reservation number shown beneath the
-            homepage hero. Hours are generated automatically from the
-            opening-hour segments below.
+            {t("staff.scheduling.homepageInfoBarDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <div className="rounded-lg border border-border/60 bg-muted/30 p-4">
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Hours preview
+              {t("staff.scheduling.hoursPreview")}
             </p>
             <p className="mt-1 text-sm font-medium leading-relaxed text-foreground">
               {hoursSummary}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Auto-generated from opening hours below. Save those hours to
-              publish changes.
+              {t("staff.scheduling.hoursPreviewHint")}
             </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="restaurant-address">Address</Label>
+              <Label htmlFor="restaurant-address">
+                {t("staff.scheduling.address")}
+              </Label>
               <Input
                 id="restaurant-address"
                 value={address}
                 onChange={(event) => setAddress(event.target.value)}
                 maxLength={240}
-                placeholder="Restaurant address"
+                placeholder={t("staff.scheduling.addressPlaceholder")}
                 disabled={!isSuperAdmin}
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="restaurant-phone">Reservation phone</Label>
+              <Label htmlFor="restaurant-phone">
+                {t("staff.scheduling.reservationPhone")}
+              </Label>
               <Input
                 id="restaurant-phone"
                 value={phone}
@@ -387,7 +419,10 @@ export function SchedulingManager({
             className="w-full sm:w-fit"
           >
             <Save className="size-3.5" />
-            {savingContact ? "Saving…" : "Save contact info"}
+            {/* Save contact info */}
+            {savingContact
+              ? t("staff.scheduling.saving")
+              : t("staff.scheduling.saveContactInfo")}
           </Button>
         </CardContent>
       </Card>
@@ -396,13 +431,10 @@ export function SchedulingManager({
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-semibold tracking-wide">
-              Opening hours
+              {t("staff.scheduling.openingHours")}
             </CardTitle>
             <CardDescription className="text-xs">
-              Set one or more service segments per day — for example morning
-              09:00–11:00, lunch 12:00–14:00, dinner 18:00–22:00. Guests can
-              only book inside these windows. Changes are batched — click
-              &ldquo;Save Changes&rdquo; to persist.
+              {t("staff.scheduling.openingHoursDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent className="pb-4">
@@ -421,7 +453,9 @@ export function SchedulingManager({
                           handleToggleOpen(day.day_of_week, checked)
                         }
                         size="sm"
-                        aria-label={`${DAY_NAMES[day.day_of_week]} open`}
+                        aria-label={t("staff.scheduling.dayOpen", {
+                          day: DAY_NAMES[day.day_of_week],
+                        })}
                       />
                       <Label
                         className={cn(
@@ -436,7 +470,7 @@ export function SchedulingManager({
                     </div>
                     {day.is_closed ? (
                       <span className="text-xs text-muted-foreground">
-                        Closed
+                        {t("staff.scheduling.closed")}
                       </span>
                     ) : (
                       <button
@@ -445,7 +479,7 @@ export function SchedulingManager({
                         className="inline-flex items-center gap-1 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <Copy className="size-3" />
-                        Copy to weekdays
+                        {t("staff.scheduling.copyToWeekdays")}
                       </button>
                     )}
                   </div>
@@ -465,8 +499,11 @@ export function SchedulingManager({
                               type="text"
                               value={segment.label ?? ""}
                               placeholder={
-                                ["Morning", "Lunch", "Dinner"][index] ??
-                                "Segment"
+                                [
+                                  t("staff.scheduling.morning"),
+                                  t("staff.scheduling.lunch"),
+                                  t("staff.scheduling.dinner"),
+                                ][index] ?? t("staff.scheduling.segment")
                               }
                               onChange={(e) =>
                                 handleSegmentChange(
@@ -477,7 +514,10 @@ export function SchedulingManager({
                                   },
                                 )
                               }
-                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} label`}
+                              aria-label={t("staff.scheduling.segmentLabel", {
+                                day: DAY_NAMES[day.day_of_week],
+                                index: index + 1,
+                              })}
                               className={LABEL_INPUT_CLS}
                             />
                             <input
@@ -492,7 +532,10 @@ export function SchedulingManager({
                                   },
                                 )
                               }
-                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} opens`}
+                              aria-label={t("staff.scheduling.segmentOpens", {
+                                day: DAY_NAMES[day.day_of_week],
+                                index: index + 1,
+                              })}
                               className={TIME_INPUT_CLS}
                             />
                             <span className="text-[10px] text-muted-foreground">
@@ -510,13 +553,17 @@ export function SchedulingManager({
                                   },
                                 )
                               }
-                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} closes`}
+                              aria-label={t("staff.scheduling.segmentCloses", {
+                                day: DAY_NAMES[day.day_of_week],
+                                index: index + 1,
+                              })}
                               className={TIME_INPUT_CLS}
                             />
                             <input
+                              // Guest note
                               type="text"
                               value={segment.guest_note ?? ""}
-                              placeholder="Guest note"
+                              placeholder={t("staff.scheduling.guestNote")}
                               onChange={(e) =>
                                 handleSegmentChange(
                                   day.day_of_week,
@@ -526,7 +573,13 @@ export function SchedulingManager({
                                   },
                                 )
                               }
-                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} guest note`}
+                              aria-label={t(
+                                "staff.scheduling.segmentGuestNote",
+                                {
+                                  day: DAY_NAMES[day.day_of_week],
+                                  index: index + 1,
+                                },
+                              )}
                               maxLength={MAX_GUEST_NOTE_LENGTH}
                               className={NOTE_INPUT_CLS}
                             />
@@ -545,7 +598,10 @@ export function SchedulingManager({
                                 )
                               }
                               className="ml-0.5 rounded-sm p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                              aria-label={`Remove ${DAY_NAMES[day.day_of_week]} segment ${index + 1}`}
+                              aria-label={t("staff.scheduling.removeSegment", {
+                                day: DAY_NAMES[day.day_of_week],
+                                index: index + 1,
+                              })}
                             >
                               <Trash2 className="size-3" />
                             </button>
@@ -554,7 +610,13 @@ export function SchedulingManager({
                           segment.bookable_slots.length > 0 ? (
                             <ul
                               className="list-none space-y-1 p-0"
-                              aria-label={`${DAY_NAMES[day.day_of_week]} segment ${index + 1} bookable slots`}
+                              aria-label={t(
+                                "staff.scheduling.segmentBookableSlots",
+                                {
+                                  day: DAY_NAMES[day.day_of_week],
+                                  index: index + 1,
+                                },
+                              )}
                             >
                               {segment.bookable_slots.map((slot) => (
                                 <li
@@ -589,7 +651,8 @@ export function SchedulingManager({
                         data-testid="add-segment"
                       >
                         <Plus className="size-3.5" />
-                        Add segment
+                        {/* Add segment */}
+                        {t("staff.scheduling.addSegment")}
                       </Button>
                     </div>
                   )}
@@ -599,7 +662,7 @@ export function SchedulingManager({
 
             {hoursError && (
               <p className="mt-3 text-xs text-destructive" role="alert">
-                {hoursError}
+                {schedulingDetail(hoursError, t)}
               </p>
             )}
 
@@ -610,7 +673,9 @@ export function SchedulingManager({
               className="mt-5 w-full gap-1.5"
             >
               <Save className="size-3.5" />
-              {savingHours ? "Saving…" : "Save Changes"}
+              {savingHours
+                ? t("staff.scheduling.saving")
+                : t("staff.scheduling.saveChanges")}
             </Button>
           </CardContent>
         </Card>
@@ -618,14 +683,14 @@ export function SchedulingManager({
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-semibold tracking-wide">
-              Blocked Dates
+              {t("staff.scheduling.blockedDates")}
             </CardTitle>
             <CardDescription className="text-xs">
-              Click a date to toggle it as blocked. Blocked dates are
-              highlighted in red and instantly persisted — no save step
-              required.
+              {t("staff.scheduling.blockedDatesDescription")}
               {togglingDate && (
-                <span className="ml-1 text-muted-foreground">Updating…</span>
+                <span className="ml-1 text-muted-foreground">
+                  {t("staff.scheduling.updating")}
+                </span>
               )}
             </CardDescription>
           </CardHeader>
@@ -641,8 +706,9 @@ export function SchedulingManager({
             {blockedDates.length > 0 && (
               <div className="mt-4 space-y-1 border-t border-border/40 pt-4">
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {blockedDates.length} blocked{" "}
-                  {blockedDates.length === 1 ? "date" : "dates"}
+                  {t("staff.scheduling.blockedCount", {
+                    count: blockedDates.length,
+                  })}
                 </p>
                 {[...blockedDates].sort().map((d) => (
                   <div
@@ -650,18 +716,14 @@ export function SchedulingManager({
                     className="flex items-center justify-between rounded-sm border border-destructive/20 bg-destructive/5 px-2 py-1"
                   >
                     <span className="text-xs text-destructive">
-                      {new Date(d + "T00:00:00").toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      })}
+                      {formatBlockedDateLabel(d)}
                     </span>
                     <button
                       type="button"
                       onClick={() => handleCalendarDateClick(d)}
                       className="text-[10px] text-destructive/60 transition-colors hover:text-destructive"
                     >
-                      Remove
+                      {t("staff.scheduling.remove")}
                     </button>
                   </div>
                 ))}

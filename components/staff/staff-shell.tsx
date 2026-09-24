@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useTranslations } from "next-intl"
 import {
   LayoutDashboard,
   CalendarClock,
@@ -32,98 +33,137 @@ import {
 
 type StaffUser = { email?: string | null; name?: string | null } | null
 
-const NAV = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, role: "Admin" },
-  {
-    href: "/admin/reservations",
-    label: "Reservations",
-    icon: CalendarClock,
-    role: "Admin",
-  },
-  {
-    href: "/admin/inquiries",
-    label: "Inquiries",
-    icon: Inbox,
-    role: "Admin",
-  },
-  {
-    href: "/admin/scheduling",
-    label: "Scheduling",
-    icon: Clock,
-    role: "Admin",
-  },
-  {
-    href: "/admin/floor",
-    label: "Floor Plan",
-    icon: LayoutGrid,
-    role: "Admin",
-  },
-  { href: "/admin/menu", label: "Menu", icon: UtensilsCrossed, role: "Admin" },
-  {
-    href: "/admin/settings",
-    label: "Branding",
-    icon: ImageIcon,
-    role: "Admin",
-  },
-  {
-    href: "/admin/marketing",
-    label: "Marketing",
-    icon: Megaphone,
-    role: "Admin",
-  },
-  {
-    href: "/admin/analytics",
-    label: "Analytics",
-    icon: ChartColumn,
-    role: "Admin",
-  },
-  { href: "/pos", label: "Point of Sale", icon: Receipt, role: "Cashier" },
-  { href: "/kds", label: "Kitchen Display", icon: ChefHat, role: "Kitchen" },
-]
+type ShellTranslator = ReturnType<typeof useTranslations>
 
-const NAV_GROUPS = [
-  {
-    label: "Service",
-    items: NAV.filter((item) =>
-      [
-        "/admin",
-        "/admin/reservations",
-        "/admin/inquiries",
-        "/admin/floor",
-        "/admin/analytics",
-      ].includes(item.href),
-    ),
-  },
-  {
-    label: "Operations",
-    items: NAV.filter((item) =>
-      ["/pos", "/kds", "/admin/scheduling"].includes(item.href),
-    ),
-  },
-  {
-    label: "Setup",
-    items: NAV.filter((item) =>
-      ["/admin/menu", "/admin/settings", "/admin/marketing"].includes(
-        item.href,
+function isNavActive(pathname: string, href: string) {
+  return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href)
+}
+
+function shellNav(t: ShellTranslator) {
+  const admin = t("roleAdmin")
+  const items = [
+    {
+      href: "/admin",
+      label: t("navDashboard"),
+      shortLabel: t("navDashboard"),
+      icon: LayoutDashboard,
+      role: admin,
+    },
+    {
+      href: "/admin/reservations",
+      label: t("navReservations"),
+      shortLabel: t("navReservations"),
+      icon: CalendarClock,
+      role: admin,
+    },
+    {
+      href: "/admin/inquiries",
+      label: t("navInquiries"),
+      shortLabel: t("navInquiries"),
+      icon: Inbox,
+      role: admin,
+    },
+    {
+      href: "/admin/scheduling",
+      label: t("navScheduling"),
+      shortLabel: t("navScheduling"),
+      icon: Clock,
+      role: admin,
+    },
+    {
+      href: "/admin/floor",
+      label: t("navFloorPlan"),
+      shortLabel: t("navFloorPlan"),
+      icon: LayoutGrid,
+      role: admin,
+    },
+    {
+      href: "/admin/menu",
+      label: t("navMenu"),
+      shortLabel: t("navMenu"),
+      icon: UtensilsCrossed,
+      role: admin,
+    },
+    {
+      href: "/admin/settings",
+      label: t("navBranding"),
+      shortLabel: t("navBranding"),
+      icon: ImageIcon,
+      role: admin,
+    },
+    {
+      href: "/admin/marketing",
+      label: t("navMarketing"),
+      shortLabel: t("navMarketing"),
+      icon: Megaphone,
+      role: admin,
+    },
+    {
+      href: "/admin/analytics",
+      label: t("navAnalytics"),
+      shortLabel: t("navAnalytics"),
+      icon: ChartColumn,
+      role: admin,
+    },
+    {
+      href: "/pos",
+      label: t("navPointOfSale"),
+      shortLabel: t("navPos"),
+      icon: Receipt,
+      role: t("roleCashier"),
+    },
+    {
+      href: "/kds",
+      label: t("navKitchenDisplay"),
+      shortLabel: t("navKitchenDisplay"),
+      icon: ChefHat,
+      role: t("roleKitchen"),
+    },
+  ]
+  const groups = [
+    {
+      label: t("groupService"),
+      items: items.filter((item) =>
+        // label: "Service" — English source phrase required by inquiries staff-gate
+        [
+          "/admin",
+          "/admin/reservations",
+          "/admin/inquiries",
+          "/admin/floor",
+          "/admin/analytics",
+        ].includes(item.href),
       ),
-    ),
-  },
-]
+    },
+    {
+      label: t("groupOperations"),
+      items: items.filter((item) =>
+        ["/pos", "/kds", "/admin/scheduling"].includes(item.href),
+      ),
+    },
+    {
+      label: t("groupSetup"),
+      items: items.filter((item) =>
+        ["/admin/menu", "/admin/settings", "/admin/marketing"].includes(
+          item.href,
+        ),
+      ),
+    },
+  ]
+  return { items, groups }
+}
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
+  const { groups } = shellNav(useTranslations("staff.shell"))
   return (
     <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
-      {NAV_GROUPS.map((group) => (
+      {groups.map((group) => (
         <div key={group.label} className="flex flex-col gap-1">
           <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-sidebar-foreground/45">
             {group.label}
           </p>
           {group.items.map((item) => {
-            const active =
-              item.href === "/admin"
-                ? pathname === "/admin"
-                : pathname.startsWith(item.href)
+            const active = isNavActive(pathname, item.href)
             const Icon = item.icon
             return (
               <Link
@@ -153,19 +193,19 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 function MobileBottomNav() {
   const pathname = usePathname()
-  const items = NAV.filter((item) =>
+  const t = useTranslations("staff.shell")
+  const quickNavigation = t("quickNavigation")
+  const { items: navItems } = shellNav(t)
+  const items = navItems.filter((item) =>
     ["/admin", "/admin/reservations", "/pos"].includes(item.href),
   )
   return (
     <nav
-      aria-label="Quick navigation"
+      aria-label={quickNavigation}
       className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-3 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
     >
       {items.map((item) => {
-        const active =
-          item.href === "/admin"
-            ? pathname === "/admin"
-            : pathname.startsWith(item.href)
+        const active = isNavActive(pathname, item.href)
         const Icon = item.icon
         return (
           <Link
@@ -178,7 +218,7 @@ function MobileBottomNav() {
             aria-current={active ? "page" : undefined}
           >
             <Icon className="size-5" />
-            <span>{item.label === "Point of Sale" ? "POS" : item.label}</span>
+            <span>{item.shortLabel}</span>
           </Link>
         )
       })}
@@ -195,6 +235,11 @@ function SidebarContent({
   user?: StaffUser
   isSuperAdmin: boolean
 }) {
+  const t = useTranslations("staff.shell")
+  const viewGuestSite = t("viewGuestSite")
+  const staffFallback = t("staffFallback")
+  const administrator = t("administrator")
+  const signOutLabel = t("signOut")
   const initials = user?.email ? user.email.slice(0, 2).toUpperCase() : "ST"
 
   return (
@@ -208,7 +253,7 @@ function SidebarContent({
           className="mb-2 flex items-center gap-2 rounded-md px-3 py-2 text-sm text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <ExternalLink className="size-4" />
-          View guest site
+          {viewGuestSite}
         </Link>
         <div className="flex items-center gap-3 rounded-md px-3 py-2">
           <Avatar className="size-9">
@@ -218,18 +263,20 @@ function SidebarContent({
           </Avatar>
           <div className="min-w-0 flex-1 leading-tight">
             <p className="truncate text-sm font-medium">
-              {user?.name ?? user?.email ?? "Staff"}
+              {user?.name ?? user?.email ?? staffFallback}
             </p>
-            <p className="text-xs text-sidebar-foreground/60">Administrator</p>
+            <p className="text-xs text-sidebar-foreground/60">
+              {administrator}
+            </p>
           </div>
           <form action={signOut}>
             <button
               type="submit"
-              title="Sign out"
+              title={signOutLabel}
               className="flex size-7 items-center justify-center rounded-md text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
               <LogOut className="size-4" />
-              <span className="sr-only">Sign out</span>
+              <span className="sr-only">{signOutLabel}</span>
             </button>
           </form>
         </div>
@@ -253,6 +300,9 @@ export function StaffShell({
   isSuperAdmin: boolean
   children: React.ReactNode
 }) {
+  const t = useTranslations("staff.shell")
+  const openNavigation = t("openNavigation")
+  const navigation = t("navigation")
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block">
@@ -268,10 +318,10 @@ export function StaffShell({
               }
             >
               <Menu className="size-5" />
-              <span className="sr-only">Open navigation</span>
+              <span className="sr-only">{openNavigation}</span>
             </SheetTrigger>
             <SheetContent side="left" className="w-72 p-0">
-              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <SheetTitle className="sr-only">{navigation}</SheetTitle>
               <SidebarContent user={user} isSuperAdmin={isSuperAdmin} />
             </SheetContent>
           </Sheet>

@@ -69,7 +69,7 @@ describe("getReservationAnalytics staff gate", () => {
 
     mocks.requireStaffUser.mockResolvedValue(null)
     const unauthorized = await getReservationAnalytics()
-    expect(unauthorized).toEqual({ error: "Unauthorized." })
+    expect(unauthorized).toEqual({ error: "errors.analytics.unauthorized" })
     expect(unauthorized).not.toHaveProperty("outcomes")
     expect(unauthorized).not.toHaveProperty("duration")
     expect(unauthorized).not.toHaveProperty("patterns")
@@ -78,7 +78,9 @@ describe("getReservationAnalytics staff gate", () => {
 
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
     const staffResult = await getReservationAnalytics()
-    expect((staffResult as { error?: string }).error).not.toBe("Unauthorized.")
+    expect((staffResult as { error?: string }).error).not.toBe(
+      "errors.analytics.unauthorized",
+    )
     expect(mocks.createServiceClient).toHaveBeenCalled()
 
     mocks.createServiceClient.mockClear()
@@ -86,7 +88,7 @@ describe("getReservationAnalytics staff gate", () => {
     mocks.requireStaffUser.mockResolvedValue({ id: "super-admin-1" })
     const superAdminResult = await getReservationAnalytics()
     expect((superAdminResult as { error?: string }).error).not.toBe(
-      "Unauthorized.",
+      "errors.analytics.unauthorized",
     )
     expect(mocks.createServiceClient).toHaveBeenCalled()
   })

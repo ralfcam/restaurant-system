@@ -16,12 +16,39 @@ function openingTag(source: string, from: number) {
   return slice.slice(0, end + 1)
 }
 
-function lastOpenTagBefore(source: string, needle: string, tag: string) {
-  const at = source.indexOf(needle)
+function needleAt(source: string, needle: string | RegExp) {
+  if (typeof needle === "string") return source.indexOf(needle)
+  const match = new RegExp(needle.source, needle.flags).exec(source)
+  return match?.index ?? -1
+}
+
+function lastOpenTagBefore(
+  source: string,
+  needle: string | RegExp,
+  tag: string,
+) {
+  const at = needleAt(source, needle)
   expect(at).toBeGreaterThan(-1)
   const from = source.lastIndexOf(`<${tag}`, at)
   expect(from).toBeGreaterThan(-1)
   return openingTag(source, from)
+}
+
+/**
+ * First match is either a JSX comment that holds `phrase` and
+ * `t("staff.branding.` (either order), or `t("staff.branding.<leaf>")`
+ * whose leaf contains `leafFragment` (`choose` / `remove` / `save`).
+ * `remove` and `save` reject a following `d` so `removed` / `saved` toasts
+ * are not the button.
+ */
+function brandingButtonNeedle(phrases: string[], leafFragment: string) {
+  const escaped = phrases
+    .map((phrase) => phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|")
+  const call = String.raw`t\(\s*"staff\.branding\.`
+  const atom = String.raw`(?:(?!\*\/)[\s\S])`
+  const comment = String.raw`\{\/\*${atom}*(?:(?:${escaped})${atom}*${call}|${call}${atom}*(?:${escaped}))${atom}*\*\/\}`
+  return new RegExp(`${comment}|${call}[^"]*${leafFragment}`)
 }
 
 function expectEditorGatesMutations(source: string, fileInputId: string) {
@@ -33,11 +60,27 @@ function expectEditorGatesMutations(source: string, fileInputId: string) {
     /disabled=\{[^}]*(?:!isSuperAdmin|isSuperAdmin\s*===\s*false)/
 
   expect(lastOpenTagBefore(source, fileInputId, "input")).toMatch(gatedDisabled)
-  expect(lastOpenTagBefore(source, "Choose an image", "Button")).toMatch(
-    gatedDisabled,
-  )
-  expect(lastOpenTagBefore(source, "Remove ", "Button")).toMatch(gatedDisabled)
-  expect(lastOpenTagBefore(source, "Save ", "Button")).toMatch(gatedDisabled)
+  expect(
+    lastOpenTagBefore(
+      source,
+      brandingButtonNeedle(["Choose an image"], "choose"),
+      "Button",
+    ),
+  ).toMatch(gatedDisabled)
+  expect(
+    lastOpenTagBefore(
+      source,
+      brandingButtonNeedle(["Remove logo", "Remove hero image"], "remove(?!d)"),
+      "Button",
+    ),
+  ).toMatch(gatedDisabled)
+  expect(
+    lastOpenTagBefore(
+      source,
+      brandingButtonNeedle(["Save logo", "Save hero image"], "save(?!d)"),
+      "Button",
+    ),
+  ).toMatch(gatedDisabled)
 }
 
 describe("SA-10 branding editor chrome", () => {

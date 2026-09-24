@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { InquiriesManager } from "@/components/staff/inquiries-manager"
 import { getEventInquiries } from "@/app/actions/inquiries"
@@ -7,6 +8,7 @@ import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 export const dynamic = "force-dynamic"
 
 export default async function AdminInquiriesPage() {
+  const t = await getTranslations()
   const [listed, authUser] = await Promise.all([
     getEventInquiries(),
     getAuthUser(),
@@ -14,8 +16,8 @@ export default async function AdminInquiriesPage() {
 
   return (
     <StaffShell
-      title="Inquiries"
-      description="Group and private-event requests"
+      title={t("staff.inquiries.title")}
+      description={t("staff.inquiries.description")}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
     >

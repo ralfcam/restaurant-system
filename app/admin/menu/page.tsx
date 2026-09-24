@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { MenuManager } from "@/components/staff/menu-manager"
 import {
@@ -11,6 +12,7 @@ import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 export const dynamic = "force-dynamic"
 
 export default async function AdminMenuPage() {
+  const t = await getTranslations()
   const [items, authUser, chefsPicks, menuTabOptions] = await Promise.all([
     getAllMenuItems(),
     getAuthUser(),
@@ -20,8 +22,8 @@ export default async function AdminMenuPage() {
 
   return (
     <StaffShell
-      title="Menu"
-      description="Add, edit, and 86 dishes — changes publish to the guest menu"
+      title={t("staff.menu.title")}
+      description={t("staff.menu.description")}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
     >

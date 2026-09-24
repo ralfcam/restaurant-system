@@ -18,10 +18,8 @@ import { MENU_ITEMS } from "@/lib/menu-catalog"
 
 export const RESTAURANT = {
   name: "Restaurant Link",
-  tagline: "Reservations, menu, and service — one platform",
   address: "123 Main Street",
   phone: "+1 555 0100",
-  hours: "Mon–Sat · 11:00–22:00",
 }
 
 export type TableStatus =
@@ -148,27 +146,27 @@ export const TABLE_STATUS_META: Record<
   { label: string; color: string; dot: string }
 > = {
   available: {
-    label: "Available",
+    label: "status.table.available",
     color: "bg-accent/10 text-accent border-accent/30",
     dot: "bg-accent",
   },
   seated: {
-    label: "Seated",
+    label: "status.table.seated",
     color: "bg-primary/10 text-primary border-primary/30",
     dot: "bg-primary",
   },
   reserved: {
-    label: "Reserved",
+    label: "status.table.reserved",
     color: "bg-chart-3/15 text-chart-3 border-chart-3/30",
     dot: "bg-chart-3",
   },
   cleaning: {
-    label: "Cleaning",
+    label: "status.table.cleaning",
     color: "bg-muted text-muted-foreground border-border",
     dot: "bg-muted-foreground",
   },
   out_of_service: {
-    label: "Out of service",
+    label: "status.table.outOfService",
     color: "bg-destructive/10 text-destructive border-destructive/30",
     dot: "bg-destructive",
   },

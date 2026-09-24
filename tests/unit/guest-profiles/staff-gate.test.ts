@@ -87,14 +87,16 @@ describe("guest profile staff gate", () => {
     mocks.requireStaffUser.mockResolvedValue(null)
     mocks.createServiceClient.mockClear()
     const unauthorized = await actions.getGuestProfile("ada@ex.com")
-    expect(unauthorized).toMatchObject({ error: "Unauthorized." })
+    expect(unauthorized).toMatchObject({
+      error: "errors.guestProfiles.unauthorized",
+    })
     expect(mocks.createServiceClient).not.toHaveBeenCalled()
 
     for (const user of [{ id: "staff-1" }, { id: "super-admin-1" }]) {
       mocks.requireStaffUser.mockResolvedValue(user)
       mocks.createServiceClient.mockClear()
       const result = await actions.getGuestProfile("ada@ex.com")
-      expect(result.error).not.toBe("Unauthorized.")
+      expect(result.error).not.toBe("errors.guestProfiles.unauthorized")
       expect(mocks.createServiceClient).toHaveBeenCalled()
     }
   })

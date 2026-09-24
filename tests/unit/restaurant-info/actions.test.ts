@@ -38,7 +38,7 @@ describe("updateRestaurantContactInfo", () => {
   it("updateRestaurantContactInfo requires super_admin", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(updateRestaurantContactInfo(contact)).rejects.toThrow(
-      "Unauthorized",
+      "errors.restaurantInfo.unauthorized",
     )
     expect(mocks.upsert).not.toHaveBeenCalled()
 

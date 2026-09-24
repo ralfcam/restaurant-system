@@ -75,7 +75,10 @@ describe("autoAssignDueReservations", () => {
     const { autoAssignDueReservations } =
       await import("@/app/actions/reservations")
     const result = await autoAssignDueReservations()
-    expect(result).toEqual({ assigned: [], error: "Unauthorized." })
+    expect(result).toEqual({
+      assigned: [],
+      error: "errors.reservation.unauthorized",
+    })
     expect(mocks.from).not.toHaveBeenCalled()
   })
 

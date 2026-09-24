@@ -54,13 +54,23 @@ describe("cover limits — staff bookable slots (CL-1)", () => {
 
     expect(validateOperatingDays(dinnerWeek([]), SLOT_INTERVAL)).toBeNull()
 
-    expect(
-      validateOperatingDays(dinnerWeek([{ time: "19:15" }]), SLOT_INTERVAL),
-    ).toEqual(expect.any(String))
+    const offGrid: unknown = validateOperatingDays(
+      dinnerWeek([{ time: "19:15" }]),
+      SLOT_INTERVAL,
+    )
+    expect(offGrid).toEqual({
+      key: "errors.scheduling.slotOffGrid",
+      params: { day: "Monday", interval: SLOT_INTERVAL },
+    })
 
-    expect(
-      validateOperatingDays(dinnerWeek([{ time: "17:30" }]), SLOT_INTERVAL),
-    ).toEqual(expect.any(String))
+    const outsideWindow: unknown = validateOperatingDays(
+      dinnerWeek([{ time: "17:30" }]),
+      SLOT_INTERVAL,
+    )
+    expect(outsideWindow).toEqual({
+      key: "errors.scheduling.slotOutsideWindow",
+      params: { day: "Monday" },
+    })
 
     const manager = readFileSync(
       path.join(process.cwd(), "components/staff/scheduling-manager.tsx"),
@@ -90,26 +100,16 @@ describe("cover limits — independent slot maxima (CL-2)", () => {
       ),
     ).toBeNull()
 
-    expect(
-      validateOperatingDays(
-        dinnerWeek([{ time: "19:00", max_covers: 0 }]),
+    for (const max_covers of [0, -1, 1.5]) {
+      const message: unknown = validateOperatingDays(
+        dinnerWeek([{ time: "19:00", max_covers }]),
         SLOT_INTERVAL,
-      ),
-    ).toEqual(expect.any(String))
-
-    expect(
-      validateOperatingDays(
-        dinnerWeek([{ time: "19:00", max_covers: -1 }]),
-        SLOT_INTERVAL,
-      ),
-    ).toEqual(expect.any(String))
-
-    expect(
-      validateOperatingDays(
-        dinnerWeek([{ time: "19:00", max_covers: 1.5 }]),
-        SLOT_INTERVAL,
-      ),
-    ).toEqual(expect.any(String))
+      )
+      expect(message).toEqual({
+        key: "errors.scheduling.invalidSlotMax",
+        params: { day: "Monday" },
+      })
+    }
 
     const manager = readFileSync(
       path.join(process.cwd(), "components/staff/scheduling-manager.tsx"),
@@ -131,17 +131,16 @@ describe("cover limits — service maximum (CL-3)", () => {
       validateOperatingDays(dinnerWeekWithServiceMax(null), SLOT_INTERVAL),
     ).toBeNull()
 
-    expect(
-      validateOperatingDays(dinnerWeekWithServiceMax(0), SLOT_INTERVAL),
-    ).toEqual(expect.any(String))
-
-    expect(
-      validateOperatingDays(dinnerWeekWithServiceMax(-1), SLOT_INTERVAL),
-    ).toEqual(expect.any(String))
-
-    expect(
-      validateOperatingDays(dinnerWeekWithServiceMax(1.5), SLOT_INTERVAL),
-    ).toEqual(expect.any(String))
+    for (const maxCovers of [0, -1, 1.5]) {
+      const message: unknown = validateOperatingDays(
+        dinnerWeekWithServiceMax(maxCovers),
+        SLOT_INTERVAL,
+      )
+      expect(message).toEqual({
+        key: "errors.scheduling.invalidServiceMax",
+        params: { day: "Monday" },
+      })
+    }
 
     const manager = readFileSync(
       path.join(process.cwd(), "components/staff/scheduling-manager.tsx"),

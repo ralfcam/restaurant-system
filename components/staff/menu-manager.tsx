@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { useTranslations } from "next-intl"
 import {
   Plus,
   Pencil,
@@ -111,6 +112,7 @@ export function MenuManager({
   initialChefsPicksEnabled?: boolean
   menuTabOptions?: { id: string; title: string }[]
 }) {
+  const t = useTranslations()
   const [items, setItems] = useState<MenuItemRow[]>(initialItems)
   const [chefsPicksEnabled, setChefsPicksEnabledState] = useState(
     initialChefsPicksEnabled,
@@ -154,19 +156,19 @@ export function MenuManager({
 
   async function save() {
     if (!draft.name.trim()) {
-      toast.error("French name is required")
+      toast.error(t("staff.menu.frenchNameRequired"))
       return
     }
     if (!draft.name_en.trim()) {
-      toast.error("English name is required")
+      toast.error(t("staff.menu.englishNameRequired"))
       return
     }
     if (!draft.price.trim()) {
-      toast.error("Enter a price label")
+      toast.error(t("staff.menu.priceRequired"))
       return
     }
     if (!draft.section.trim() || !draft.section_en.trim()) {
-      toast.error("Section labels are required")
+      toast.error(t("staff.menu.sectionLabelsRequired"))
       return
     }
     const existing = draft.id
@@ -178,8 +180,8 @@ export function MenuManager({
       !existing?.popular &&
       chefsPicksCount >= 5
     ) {
-      toast.error("Chef's picks are full", {
-        description: "Unpin one of the five dishes before adding another.",
+      toast.error(t("staff.menu.chefsPicksFull"), {
+        description: t("staff.menu.chefsPicksFullDetail"),
       })
       return
     }
@@ -208,25 +210,25 @@ export function MenuManager({
         slug: draft.slug,
       })
       if (error) {
-        toast.error("Could not save", { description: error })
+        toast.error(t("staff.menu.saveFailed"), { description: t(error) })
         setSaving(false)
         return
       }
       setItems((prev) =>
         prev.map((i) => (i.id === draft.id ? (row ?? { ...i, ...base }) : i)),
       )
-      toast.success(`Updated ${base.name}`)
+      toast.success(t("staff.menu.updated", { name: base.name }))
     } else {
       const { row, error } = await createMenuItem(base)
       if (error) {
-        toast.error("Could not create dish", { description: error })
+        toast.error(t("staff.menu.createFailed"), { description: t(error) })
         setSaving(false)
         return
       }
       if (row) {
         setItems((prev) => [row, ...prev])
       }
-      toast.success(`Added ${base.name}`)
+      toast.success(t("staff.menu.added", { name: base.name }))
     }
     setSaving(false)
     setOpen(false)
@@ -236,11 +238,11 @@ export function MenuManager({
     setItems((prev) => prev.filter((i) => i.id !== item.id))
     const { error } = await deleteMenuItem(item.id)
     if (error) {
-      toast.error("Could not delete", { description: error })
+      toast.error(t("staff.menu.deleteFailed"), { description: t(error) })
       setItems((prev) => [...prev, item])
       return
     }
-    toast.success(`Removed ${item.name}`)
+    toast.success(t("staff.menu.removed", { name: item.name }))
   }
 
   async function handleChefsPicksVisibility(enabled: boolean) {
@@ -251,11 +253,15 @@ export function MenuManager({
     setSavingChefsPicks(false)
     if (error) {
       setChefsPicksEnabledState(previous)
-      toast.error("Could not update chef's picks", { description: error })
+      toast.error(t("staff.menu.chefsPicksUpdateFailed"), {
+        description: t(error),
+      })
       return
     }
     toast.success(
-      enabled ? "Chef's picks are visible." : "Chef's picks are hidden.",
+      enabled
+        ? t("staff.menu.chefsPicksVisible")
+        : t("staff.menu.chefsPicksHidden"),
     )
   }
 
@@ -266,7 +272,9 @@ export function MenuManager({
     )
     const { error } = await toggleMenuItemAvailability(item.id, next)
     if (error) {
-      toast.error("Could not update availability", { description: error })
+      toast.error(t("staff.menu.availabilityUpdateFailed"), {
+        description: t(error),
+      })
       setItems((prev) =>
         prev.map((i) =>
           i.id === item.id ? { ...i, available: item.available } : i,
@@ -287,49 +295,52 @@ export function MenuManager({
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-sm font-semibold">
-                Homepage chef&apos;s picks
+                {t("staff.menu.chefsPicksHeading")}
               </h2>
               <Badge variant="secondary">
-                {displayedChefsPicksCount}/5 displayed
+                {t("staff.menu.displayedCount", {
+                  count: displayedChefsPicksCount,
+                })}
               </Badge>
             </div>
             <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-              The first 5 pinned dishes appear on the homepage, ordered by sort
-              order. The section hides automatically when no dishes are pinned.
+              {t("staff.menu.chefsPicksHint")}
               {chefsPicksCount > 5
-                ? ` ${chefsPicksCount - 5} older pin${chefsPicksCount - 5 === 1 ? " is" : "s are"} currently hidden; unpin them to match the new limit.`
+                ? ` ${t("staff.menu.pinOverflow", {
+                    count: chefsPicksCount - 5,
+                  })}`
                 : ""}
             </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           <span className="text-xs font-medium text-muted-foreground">
-            {chefsPicksEnabled ? "Shown" : "Hidden"}
+            {chefsPicksEnabled ? t("staff.menu.shown") : t("staff.menu.hidden")}
           </span>
           <Switch
             checked={chefsPicksEnabled}
             onCheckedChange={handleChefsPicksVisibility}
             disabled={savingChefsPicks}
-            aria-label="Show chef's picks on homepage"
+            aria-label={t("staff.menu.showChefsPicksAria")}
           />
         </div>
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-1 overflow-x-auto">
-          {tabs.map((t) => (
+          {tabs.map((tab) => (
             <button
-              key={t}
+              key={tab}
               type="button"
-              onClick={() => setFilter(t)}
+              onClick={() => setFilter(tab)}
               className={cn(
                 "whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                filter === t
+                filter === tab
                   ? "bg-primary text-primary-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
-              {t === "All" ? "All menus" : menuLabel(t)}
+              {tab === "All" ? t("staff.menu.allMenus") : menuLabel(tab)}
             </button>
           ))}
         </div>
@@ -339,12 +350,12 @@ export function MenuManager({
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search dishes"
+              placeholder={t("staff.menu.searchPlaceholder")}
               className="pl-9"
             />
           </div>
           <Button onClick={openCreate} className="shrink-0">
-            <Plus className="size-4" /> New item
+            <Plus className="size-4" /> {t("staff.menu.newItem")}
           </Button>
         </div>
       </div>
@@ -354,7 +365,7 @@ export function MenuManager({
           {filtered.length === 0 ? (
             <li className="flex flex-col items-center gap-2 px-5 py-12 text-center text-sm text-muted-foreground">
               <UtensilsCrossed className="size-6" />
-              No dishes match your filters.
+              {t("staff.menu.noMatches")}
             </li>
           ) : (
             filtered.map((item) => (
@@ -380,7 +391,7 @@ export function MenuManager({
                         variant="secondary"
                         className="shrink-0 text-destructive"
                       >
-                        86&apos;d
+                        {t("staff.menu.eightySixed")}
                       </Badge>
                     ) : null}
                   </div>
@@ -393,10 +404,14 @@ export function MenuManager({
                   <Switch
                     checked={item.available}
                     onCheckedChange={() => handleToggle(item)}
-                    aria-label={`Toggle availability for ${item.name}`}
+                    aria-label={t("staff.menu.toggleAvailability", {
+                      name: item.name,
+                    })}
                   />
                   <span className="w-16 text-xs text-muted-foreground">
-                    {item.available ? "Available" : "Unavailable"}
+                    {item.available
+                      ? t("staff.menu.available")
+                      : t("staff.menu.unavailable")}
                   </span>
                 </div>
 
@@ -405,21 +420,25 @@ export function MenuManager({
                     size="icon"
                     variant="ghost"
                     className="size-8"
-                    title="Edit"
+                    title={t("staff.menu.edit")}
                     onClick={() => openEdit(item)}
                   >
                     <Pencil className="size-4" />
-                    <span className="sr-only">Edit {item.name}</span>
+                    <span className="sr-only">
+                      {t("staff.menu.editNamed", { name: item.name })}
+                    </span>
                   </Button>
                   <Button
                     size="icon"
                     variant="ghost"
                     className="size-8 text-destructive hover:text-destructive"
-                    title="Delete"
+                    title={t("staff.menu.delete")}
                     onClick={() => remove(item)}
                   >
                     <Trash2 className="size-4" />
-                    <span className="sr-only">Delete {item.name}</span>
+                    <span className="sr-only">
+                      {t("staff.menu.deleteNamed", { name: item.name })}
+                    </span>
                   </Button>
                 </div>
               </li>
@@ -429,72 +448,81 @@ export function MenuManager({
       </div>
 
       <p className="mt-3 text-xs text-muted-foreground">
-        {availableCount} of {items.length} dishes live on the guest menu
+        {t("staff.menu.liveCount", {
+          available: availableCount,
+          total: items.length,
+        })}
       </p>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{draft.id ? "Edit dish" : "New dish"}</DialogTitle>
+            <DialogTitle>
+              {draft.id ? t("staff.menu.editDish") : t("staff.menu.newDish")}
+            </DialogTitle>
             <DialogDescription>
-              Changes publish to the guest menu after the next page load.
+              {t("staff.menu.dialogDescription")}
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid max-h-[60vh] gap-4 overflow-y-auto px-0.5 py-1">
             <div className="grid gap-1.5">
-              <Label htmlFor="name">Name (FR)</Label>
+              <Label htmlFor="name">{t("staff.menu.nameFr")}</Label>
               <Input
                 id="name"
                 value={draft.name}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, name: e.target.value }))
                 }
-                placeholder="e.g. Entrecôte de bœuf 350g"
+                placeholder={t("staff.menu.nameFrPlaceholder")}
               />
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="name_en">Name (EN)</Label>
+              <Label htmlFor="name_en">{t("staff.menu.nameEn")}</Label>
               <Input
                 id="name_en"
                 value={draft.name_en}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, name_en: e.target.value }))
                 }
-                placeholder="e.g. Beef ribeye steak 350g"
+                placeholder={t("staff.menu.nameEnPlaceholder")}
               />
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="description">Description (FR)</Label>
+              <Label htmlFor="description">
+                {t("staff.menu.descriptionFr")}
+              </Label>
               <Textarea
                 id="description"
                 value={draft.description}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, description: e.target.value }))
                 }
-                placeholder="Short, appetizing description"
+                placeholder={t("staff.menu.descriptionFrPlaceholder")}
                 rows={2}
               />
             </div>
 
             <div className="grid gap-1.5">
-              <Label htmlFor="description_en">Description (EN)</Label>
+              <Label htmlFor="description_en">
+                {t("staff.menu.descriptionEn")}
+              </Label>
               <Textarea
                 id="description_en"
                 value={draft.description_en}
                 onChange={(e) =>
                   setDraft((d) => ({ ...d, description_en: e.target.value }))
                 }
-                placeholder="English description"
+                placeholder={t("staff.menu.descriptionEnPlaceholder")}
                 rows={2}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label htmlFor="price">Price (CHF label)</Label>
+                <Label htmlFor="price">{t("staff.menu.priceLabel")}</Label>
                 <Input
                   id="price"
                   value={draft.price}
@@ -505,7 +533,7 @@ export function MenuManager({
                 />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="sort_order">Sort order</Label>
+                <Label htmlFor="sort_order">{t("staff.menu.sortOrder")}</Label>
                 <Input
                   id="sort_order"
                   inputMode="numeric"
@@ -521,7 +549,7 @@ export function MenuManager({
             </div>
 
             <div className="grid gap-1.5">
-              <Label>Menu</Label>
+              <Label>{t("staff.menu.menuField")}</Label>
               <Select
                 value={draft.menu_id}
                 onValueChange={(v) => {
@@ -551,7 +579,7 @@ export function MenuManager({
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
-                <Label>Section (FR)</Label>
+                <Label>{t("staff.menu.sectionFr")}</Label>
                 <Select
                   value={draft.section}
                   onValueChange={(v) => {
@@ -576,7 +604,7 @@ export function MenuManager({
                 </Select>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="section_en">Section (EN)</Label>
+                <Label htmlFor="section_en">{t("staff.menu.sectionEn")}</Label>
                 <Input
                   id="section_en"
                   value={draft.section_en}
@@ -589,25 +617,28 @@ export function MenuManager({
 
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div>
-                <p className="text-sm font-medium">Pin to chef&apos;s picks</p>
+                <p className="text-sm font-medium">
+                  {t("staff.menu.pinHeading")}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Shows this dish on the homepage and keeps its star badge on
-                  the menu. Up to 5 dishes.
+                  {t("staff.menu.pinHint")}
                 </p>
               </div>
               <Switch
                 checked={draft.popular}
                 onCheckedChange={(v) => setDraft((d) => ({ ...d, popular: v }))}
                 disabled={!draft.popular && chefsPicksCount >= 5}
-                aria-label="Pin dish to chef's picks"
+                aria-label={t("staff.menu.pinAria")}
               />
             </div>
 
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
               <div>
-                <p className="text-sm font-medium">Available</p>
+                <p className="text-sm font-medium">
+                  {t("staff.menu.available")}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Turn off to 86 the dish and hide it from guests.
+                  {t("staff.menu.availableHint")}
                 </p>
               </div>
               <Switch
@@ -625,17 +656,18 @@ export function MenuManager({
               onClick={() => setOpen(false)}
               disabled={saving}
             >
-              Cancel
+              {t("staff.menu.cancel")}
             </Button>
             <Button onClick={save} disabled={saving}>
               {saving ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Saving…
+                  <Loader2 className="size-4 animate-spin" />{" "}
+                  {t("staff.menu.saving")}
                 </>
               ) : draft.id ? (
-                "Save changes"
+                t("staff.menu.saveChanges")
               ) : (
-                "Add to menu"
+                t("staff.menu.addToMenu")
               )}
             </Button>
           </DialogFooter>

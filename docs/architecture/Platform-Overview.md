@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-24
 
 ## Stack
 
@@ -44,7 +44,7 @@ upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
 Public guest routes live under `app/[locale]/` with **next-intl** (`i18n/routing.ts`,
 `messages/fr.json`, `messages/en.json`). Default locale is **fr**; English uses an
 `/en` prefix. A navbar `LanguageSwitcher` replaces the old in-menu EN/FR toggle.
-Spec: [../specs/site-localization.md](../specs/site-localization.md).
+Staff `/admin`, `/pos`, `/kds`, and `/auth` stay unprefixed and mount the French catalog. Spec: [../specs/site-localization.md](../specs/site-localization.md).
 
 ## Request boundary
 

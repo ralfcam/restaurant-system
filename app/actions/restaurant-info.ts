@@ -13,7 +13,9 @@ export type RestaurantInfoBar = {
   phone: string
 }
 
-export async function getRestaurantInfoBar(): Promise<RestaurantInfoBar> {
+export async function getRestaurantInfoBar(
+  locale: string,
+): Promise<RestaurantInfoBar> {
   const [operatingDays, settings] = await Promise.all([
     getAllOperatingWindows(),
     createServiceClient()
@@ -31,7 +33,7 @@ export async function getRestaurantInfoBar(): Promise<RestaurantInfoBar> {
   }
 
   return {
-    hours: summarizeOperatingDays(operatingDays),
+    hours: summarizeOperatingDays(operatingDays, locale),
     address: settings.data?.address?.trim() || RESTAURANT.address,
     phone: settings.data?.phone?.trim() || RESTAURANT.phone,
   }
@@ -42,15 +44,15 @@ export async function updateRestaurantContactInfo(input: {
   phone: string
 }): Promise<{ error?: string }> {
   const superAdminUser = await requireSuperAdminUser()
-  if (!superAdminUser) throw new Error("Unauthorized")
+  if (!superAdminUser) throw new Error("errors.restaurantInfo.unauthorized")
 
   const address = input.address.trim()
   const phone = input.phone.trim()
   if (!address || !phone) {
-    return { error: "Address and phone are required." }
+    return { error: "errors.restaurantInfo.contactRequired" }
   }
   if (address.length > 240 || phone.length > 40) {
-    return { error: "Address or phone is too long." }
+    return { error: "errors.restaurantInfo.contactTooLong" }
   }
 
   const { error } = await createServiceClient()
@@ -66,7 +68,7 @@ export async function updateRestaurantContactInfo(input: {
       "[restaurant-info] updateRestaurantContactInfo:",
       error.message,
     )
-    return { error: "Could not save contact information. Please try again." }
+    return { error: "errors.restaurantInfo.saveFailed" }
   }
 
   revalidatePath("/", "layout")

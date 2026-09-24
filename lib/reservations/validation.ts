@@ -44,22 +44,22 @@ export function validateReservationPayload(
   today: string,
 ): string | null {
   const guestName = payload.guestName?.trim() ?? ""
-  if (!guestName) return "Please enter your name."
-  if (guestName.length > MAX_NAME_LEN) return "Name is too long."
+  if (!guestName) return "errors.reservation.nameRequired"
+  if (guestName.length > MAX_NAME_LEN) return "errors.reservation.nameTooLong"
 
   if (
     typeof payload.partySize !== "number" ||
     !Number.isInteger(payload.partySize) ||
     payload.partySize < 1
   ) {
-    return "Party size must be a whole number of at least 1."
+    return "errors.reservation.partySizeInvalid"
   }
   if (payload.partySize > RESERVATION_ONLINE_MAX_PARTY) {
-    return `Online reservations are limited to a maximum of ${RESERVATION_ONLINE_MAX_PARTY} people. For larger groups please call us directly.`
+    return "errors.reservation.partyTooLarge"
   }
 
   if (typeof payload.date !== "string" || !DATE_RE.test(payload.date)) {
-    return "Please provide a valid date."
+    return "errors.reservation.dateInvalid"
   }
   // The Date constructor silently rolls over out-of-range days (e.g.
   // 2026-02-30 becomes March 2), so a NaN check alone can't catch calendar-
@@ -73,27 +73,27 @@ export function validateReservationPayload(
     parsedDate.getUTCMonth() !== month - 1 ||
     parsedDate.getUTCDate() !== day
   ) {
-    return "Please provide a valid date."
+    return "errors.reservation.dateInvalid"
   }
 
-  if (payload.date < today) return "Reservation date cannot be in the past."
+  if (payload.date < today) return "errors.reservation.dateInPast"
 
   if (typeof payload.time !== "string" || !TIME_RE.test(payload.time)) {
-    return "Please provide a valid time."
+    return "errors.reservation.timeInvalid"
   }
 
   const phone = payload.phone?.trim() ?? ""
   if (phone && !PHONE_RE.test(phone)) {
-    return "Please provide a valid phone number."
+    return "errors.reservation.phoneInvalid"
   }
 
   const email = payload.email?.trim() ?? ""
   if (!email || !EMAIL_RE.test(email)) {
-    return "Please provide a valid email."
+    return "errors.reservation.emailInvalid"
   }
 
   if (payload.notes && payload.notes.length > MAX_NOTES_LEN)
-    return "Notes are too long."
+    return "errors.reservation.notesTooLong"
 
   return null
 }

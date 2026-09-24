@@ -19,16 +19,20 @@ describe("POS server picker from live server inventory", () => {
     expect(page).toMatch(/getServers\(/)
     expect(page).toMatch(/<PosTerminal[\s\S]*servers=/)
 
-    const serverSelect = terminal.slice(terminal.indexOf(">Server</label>"))
+    const serverLabelAt = terminal.indexOf('t("staff.pos.serverLabel")')
+    const serverSelect =
+      serverLabelAt === -1 ? "" : terminal.slice(serverLabelAt)
     expect(serverSelect).toMatch(/servers\.map\(/)
     expect(terminal).toMatch(/useState\(\s*servers\[0\]\?\.name/)
   })
 
   it("server select disables with a placeholder when no servers are available", () => {
     const terminal = read("components/staff/pos-terminal.tsx")
-    const serverSelect = terminal.slice(terminal.indexOf(">Server</label>"))
+    const serverLabelAt = terminal.indexOf('t("staff.pos.serverLabel")')
+    const serverSelect =
+      serverLabelAt === -1 ? "" : terminal.slice(serverLabelAt)
 
     expect(serverSelect).toMatch(/disabled=\{servers\.length === 0\}/)
-    expect(serverSelect).toMatch(/<SelectValue[^>]*placeholder=["'][^"']+["']/)
+    expect(serverSelect).toMatch(/placeholder=\{t\("staff\.pos\.noServers"\)\}/)
   })
 })

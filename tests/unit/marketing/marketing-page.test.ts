@@ -32,7 +32,8 @@ describe("/admin/marketing staff page", () => {
     expect(shell).toMatch(/href:\s*["']\/admin\/marketing["']/)
 
     const setupGroup =
-      shell.match(/label:\s*["']Setup["'][\s\S]{0,500}/)?.[0] ?? ""
+      shell.match(/label:\s*t\(\s*["']groupSetup["']\s*\)[\s\S]{0,500}/)?.[0] ??
+      ""
     expect(setupGroup).toMatch(/["']\/admin\/marketing["']/)
   })
 })

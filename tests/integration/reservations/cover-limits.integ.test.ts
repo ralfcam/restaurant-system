@@ -108,7 +108,7 @@ describe.skipIf(!authEnvReady)(
         email: "guest@test.local",
       } as Parameters<typeof createReservation>[0])
       expect(denied.confCode).toBe("")
-      expect(denied.error).toBe("Booking denied: This time is fully booked.")
+      expect(denied.error).toBe("errors.reservation.fullyBooked")
 
       const inLimit = await createReservation({
         guestName: "In Limit Party of 2",

@@ -291,30 +291,42 @@ export function formatSegmentsSummary(segments: OperatingSegment[]): string {
     .join(", ")
 }
 
-const DAY_LABELS_SHORT = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
-] as const
+const HOURS_SUMMARY_COPY = {
+  en: {
+    shortDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    closed: "Closed",
+    unavailable: "Hours unavailable",
+  },
+  fr: {
+    shortDays: ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"],
+    closed: "Fermé",
+    unavailable: "Horaires indisponibles",
+  },
+} as const
 const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0] as const
+
+function hoursCopyLocale(locale: string): keyof typeof HOURS_SUMMARY_COPY {
+  return locale === "fr" ? "fr" : "en"
+}
 
 /**
  * Builds a compact, guest-facing weekly summary from the operational schedule.
  * Consecutive Monday-first days with identical hours are grouped together.
  */
-export function summarizeOperatingDays(days: OperatingDay[]): string {
-  if (days.length === 0) return "Hours unavailable"
+export function summarizeOperatingDays(
+  days: OperatingDay[],
+  locale: string,
+): string {
+  const copy = HOURS_SUMMARY_COPY[hoursCopyLocale(locale)]
+  if (days.length === 0) return copy.unavailable
 
+  const { shortDays, closed } = copy
   const byDay = new Map(days.map((day) => [day.day_of_week, day]))
   const ordered = MONDAY_FIRST.map((dayOfWeek) => {
     const day = byDay.get(dayOfWeek)
     const summary =
       !day || day.is_closed || day.segments.length === 0
-        ? "Closed"
+        ? closed
         : formatSegmentsSummary(day.segments)
     return { dayOfWeek, summary }
   })
@@ -337,8 +349,8 @@ export function summarizeOperatingDays(days: OperatingDay[]): string {
     .map(({ start, end, summary }) => {
       const daysLabel =
         start === end
-          ? DAY_LABELS_SHORT[start]
-          : `${DAY_LABELS_SHORT[start]}–${DAY_LABELS_SHORT[end]}`
+          ? shortDays[start]
+          : `${shortDays[start]}–${shortDays[end]}`
       return `${daysLabel} · ${summary}`
     })
     .join("; ")
@@ -450,33 +462,50 @@ function isInvalidCoverMax(value: number | null | undefined): boolean {
   return value != null && (!Number.isInteger(value) || value < 1)
 }
 
+/** Catalog key, or a key plus ICU params when the message names a day or limit. */
+export type SchedulingMessage =
+  string | { key: string; params: Record<string, string | number> }
+
+function schedulingMessage(
+  key: string,
+  params?: Record<string, string | number>,
+): SchedulingMessage {
+  return params === undefined ? key : { key, params }
+}
+
 export function validateOperatingDays(
   days: OperatingDay[],
   slotIntervalMinutes?: number,
-): string | null {
+): SchedulingMessage | null {
   const interval = clampSlotIntervalMinutes(
     slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL_MINUTES,
   )
-  if (days.length !== 7) return "All 7 days of the week must be provided."
+  if (days.length !== 7) return "errors.scheduling.weekRequired"
 
   const seen = new Set<number>()
   for (const day of days) {
     if (day.day_of_week < 0 || day.day_of_week > 6) {
-      return "Invalid day of week."
+      return "errors.scheduling.invalidDay"
     }
-    if (seen.has(day.day_of_week)) return "Duplicate day of week."
+    if (seen.has(day.day_of_week)) return "errors.scheduling.duplicateDay"
     seen.add(day.day_of_week)
 
     if (day.is_closed) continue
 
+    const dayName = DAY_NAMES[day.day_of_week]
+
     if (day.segments.length === 0) {
-      return `${DAY_NAMES[day.day_of_week]} is open but has no segments.`
+      return schedulingMessage("errors.scheduling.openWithoutSegments", {
+        day: dayName,
+      })
     }
 
     for (const segment of day.segments) {
       const note = trimmedGuestNote(segment.guest_note)
       if (note && note.length > MAX_GUEST_NOTE_LENGTH) {
-        return `Guest note must be at most ${MAX_GUEST_NOTE_LENGTH} characters.`
+        return schedulingMessage("errors.scheduling.guestNoteTooLong", {
+          max: MAX_GUEST_NOTE_LENGTH,
+        })
       }
     }
 
@@ -487,26 +516,33 @@ export function validateOperatingDays(
 
     for (const range of ranges) {
       if (!TIME_RE.test(range.start) || !TIME_RE.test(range.end)) {
-        return `${DAY_NAMES[day.day_of_week]} has an invalid segment time.`
+        return schedulingMessage("errors.scheduling.invalidSegmentTime", {
+          day: dayName,
+        })
       }
       if (range.start >= range.end) {
-        return `${DAY_NAMES[day.day_of_week]} has a segment that closes before it opens.`
+        return schedulingMessage("errors.scheduling.closesBeforeOpen", {
+          day: dayName,
+        })
       }
     }
 
     const sorted = [...ranges].sort((a, b) => a.start.localeCompare(b.start))
     for (let i = 1; i < sorted.length; i++) {
       if (sorted[i].start < sorted[i - 1].end) {
-        return `${DAY_NAMES[day.day_of_week]} has overlapping segments.`
+        return schedulingMessage("errors.scheduling.overlapping", {
+          day: dayName,
+        })
       }
     }
 
     // CL-1: non-empty bookable_slots — HH:MM, [opens, closes), interval grid from opens.
     // Empty/omitted list stays valid (BW-5 generated times). Duplicates are not rejected here.
-    const dayName = DAY_NAMES[day.day_of_week]
     for (const segment of day.segments) {
       if (isInvalidCoverMax(segment.max_covers)) {
-        return `${dayName} has an invalid service max_covers.`
+        return schedulingMessage("errors.scheduling.invalidServiceMax", {
+          day: dayName,
+        })
       }
       const slots = segment.bookable_slots
       if (!slots || slots.length === 0) continue
@@ -515,17 +551,26 @@ export function validateOperatingDays(
       for (const slot of slots) {
         const slotTime = normalizeTime(slot.time)
         if (!TIME_RE.test(slotTime)) {
-          return `${dayName} has an invalid bookable slot time.`
+          return schedulingMessage("errors.scheduling.invalidSlotTime", {
+            day: dayName,
+          })
         }
         const minutes = timeToMinutes(slotTime)
         if (minutes < opens || minutes >= closes) {
-          return `${dayName} has a bookable slot outside its segment window.`
+          return schedulingMessage("errors.scheduling.slotOutsideWindow", {
+            day: dayName,
+          })
         }
         if ((minutes - opens) % interval !== 0) {
-          return `${dayName} has a bookable slot that is not on the ${interval}-minute grid.`
+          return schedulingMessage("errors.scheduling.slotOffGrid", {
+            day: dayName,
+            interval,
+          })
         }
         if (isInvalidCoverMax(slot.max_covers)) {
-          return `${dayName} has a bookable slot with an invalid max_covers.`
+          return schedulingMessage("errors.scheduling.invalidSlotMax", {
+            day: dayName,
+          })
         }
       }
     }

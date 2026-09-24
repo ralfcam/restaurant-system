@@ -9,7 +9,20 @@ const reservationWidgetPath = path.join(
   "reservation-widget.tsx",
 )
 
-const FULLY_BOOKED_REJECTION = "Booking denied: This time is fully booked."
+const FULLY_BOOKED_KEY = "errors.reservation.fullyBooked"
+
+/** Messages that today match the slot-unavailable toast (blocked / hours / closed). */
+const SLOT_ERROR_KEYS = [
+  "errors.reservation.bookingDateBlocked",
+  "errors.reservation.bookingClosed",
+  "errors.reservation.bookingOutsideHours",
+  "errors.reservation.closed",
+  "errors.reservation.outsideHours",
+] as const
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
 
 function readReservationWidgetSource() {
   return readFileSync(reservationWidgetPath, "utf8")
@@ -67,14 +80,17 @@ function isolateFullyBookedHandling(confirmSrc: string): string {
   const errorIf = extractIfBody(confirmSrc, /if\s*\(\s*error\s*\)/)
   const errorBlock = errorIf?.body ?? confirmSrc
 
+  const keyPattern = escapeRegExp(FULLY_BOOKED_KEY)
   const dedicatedIf = extractIfBody(
     errorBlock,
-    /if\s*\((?:[^()]*|\([^()]*\))*fully booked(?:[^()]*|\([^()]*\))*\)/i,
+    new RegExp(
+      `if\\s*\\((?:[^()]*|\\([^()]*\\))*${keyPattern}(?:[^()]*|\\([^()]*\\))*\\)`,
+    ),
   )
   if (dedicatedIf) return dedicatedIf.body
 
   const flag = errorBlock.match(
-    /(?:const|let)\s+(\w+)\s*=\s*[\s\S]{0,240}fully booked/i,
+    new RegExp(`(?:const|let)\\s+(\\w+)\\s*=\\s*[\\s\\S]{0,240}${keyPattern}`),
   )
   if (flag) {
     const flagIf = extractIfBody(
@@ -98,7 +114,7 @@ function step2RendersFullyBookedRejection(
   step2: string,
   fullyBookedBranch: string,
 ): boolean {
-  if (step2.includes(FULLY_BOOKED_REJECTION)) return true
+  if (step2.includes(FULLY_BOOKED_KEY)) return true
 
   // Identifier-only mentions (`fullyBooked` / `fullyBookedError` in a
   // condition or setter) are not guest-visible rejection copy — sibling
@@ -166,6 +182,8 @@ describe("reservation widget fully booked confirmation error", () => {
     const confirmSrc = extractConfirm(source)
     expect(confirmSrc.length).toBeGreaterThan(0)
 
+    expect(confirmSrc).toContain(FULLY_BOOKED_KEY)
+
     const fullyBookedBranch = isolateFullyBookedHandling(confirmSrc)
     expect(fullyBookedBranch.length).toBeGreaterThan(0)
 
@@ -196,6 +214,8 @@ describe("reservation widget fully booked confirmation error", () => {
     const confirmSrc = extractConfirm(source)
     expect(confirmSrc.length).toBeGreaterThan(0)
 
+    expect(confirmSrc).toContain(FULLY_BOOKED_KEY)
+
     const fullyBookedBranch = isolateFullyBookedHandling(confirmSrc)
     expect(fullyBookedBranch.length).toBeGreaterThan(0)
 
@@ -213,5 +233,26 @@ describe("reservation widget fully booked confirmation error", () => {
         expect(handler).toMatch(denialClearPattern(setter))
       }
     }
+  })
+
+  it("slot-unavailable toast branches on reservation error keys", () => {
+    const source = readReservationWidgetSource()
+    const confirmSrc = extractConfirm(source)
+    expect(confirmSrc.length).toBeGreaterThan(0)
+
+    for (const key of SLOT_ERROR_KEYS) {
+      expect(confirmSrc).toContain(key)
+    }
+
+    const slotBranch = extractIfBody(confirmSrc, /if\s*\(\s*isSlotError\s*\)/)
+    expect(slotBranch?.body.length ?? 0).toBeGreaterThan(0)
+    expect(slotBranch!.body).toMatch(/setSlot\s*\(\s*null\s*\)/)
+    expect(slotBranch!.body).toMatch(/setStep\s*\(\s*1\s*\)/)
+    expect(slotBranch!.body).toMatch(/toast\.error/)
+    expect(slotBranch!.body).not.toMatch(/setStep\s*\(\s*3\s*\)/)
+    expect(slotBranch!.body).not.toMatch(/\breset\s*\(/)
+    expect(slotBranch!.body).not.toMatch(/setName\s*\(\s*["'`]{2}\s*\)/)
+    expect(slotBranch!.body).not.toMatch(/setEmail\s*\(\s*["'`]{2}\s*\)/)
+    expect(slotBranch!.body).not.toMatch(/setPhone\s*\(\s*["'`]{2}\s*\)/)
   })
 })

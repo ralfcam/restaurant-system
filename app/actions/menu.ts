@@ -53,8 +53,8 @@ function menuItemToRow(item: MenuItem): MenuItemRow {
 }
 
 const CHEFS_PICKS_LIMIT = 5
-const CHEFS_PICKS_LIMIT_ERROR =
-  "You can pin up to 5 dishes as chef's picks — unpin one first."
+const CHEFS_PICKS_LIMIT_ERROR = "errors.menu.chefsPicksLimit"
+const MENU_UNMAPPED_ERROR = "errors.menu.unmapped"
 
 async function wouldExceedChefsPicksLimit(
   supabase: ReturnType<typeof createServiceClient>,
@@ -139,7 +139,7 @@ export async function setChefsPicksEnabled(
   enabled: boolean,
 ): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.menu.unauthorized" }
 
   const { error } = await createServiceClient()
     .from("restaurant_settings")
@@ -150,7 +150,7 @@ export async function setChefsPicksEnabled(
     })
   if (error) {
     console.error("[menu] setChefsPicksEnabled error:", error.message)
-    return { error: "Could not update the chef's-picks section." }
+    return { error: "errors.menu.chefsPicksUpdateFailed" }
   }
   revalidatePath("/", "layout")
   revalidatePath("/admin/menu")
@@ -183,7 +183,7 @@ export async function upsertMenuItem(
   item: Omit<MenuItemRow, "created_at">,
 ): Promise<{ row?: MenuItemRow; error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.menu.unauthorized" }
 
   const supabase = createServiceClient()
   if (item.popular) {
@@ -207,7 +207,7 @@ export async function upsertMenuItem(
     .single()
   if (error) {
     console.error("[menu] upsertMenuItem error:", error.message)
-    return { error: error.message }
+    return { error: MENU_UNMAPPED_ERROR }
   }
   revalidatePath("/menu")
   revalidatePath("/")
@@ -219,7 +219,7 @@ export async function createMenuItem(
   item: Omit<MenuItemRow, "id" | "slug" | "created_at">,
 ): Promise<{ row?: MenuItemRow; error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.menu.unauthorized" }
 
   const supabase = createServiceClient()
   if (item.popular && (await wouldExceedChefsPicksLimit(supabase))) {
@@ -234,7 +234,7 @@ export async function createMenuItem(
     .single()
   if (error) {
     console.error("[menu] createMenuItem error:", error.message)
-    return { error: error.message }
+    return { error: MENU_UNMAPPED_ERROR }
   }
   revalidatePath("/menu")
   revalidatePath("/")
@@ -244,13 +244,13 @@ export async function createMenuItem(
 
 export async function deleteMenuItem(id: string): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.menu.unauthorized" }
 
   const supabase = createServiceClient()
   const { error } = await supabase.from("menu_items").delete().eq("id", id)
   if (error) {
     console.error("[menu] deleteMenuItem error:", error.message)
-    return { error: error.message }
+    return { error: MENU_UNMAPPED_ERROR }
   }
   revalidatePath("/menu")
   revalidatePath("/")
@@ -263,7 +263,7 @@ export async function toggleMenuItemAvailability(
   available: boolean,
 ): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.menu.unauthorized" }
 
   const supabase = createServiceClient()
   const { error } = await supabase
@@ -272,7 +272,7 @@ export async function toggleMenuItemAvailability(
     .eq("id", id)
   if (error) {
     console.error("[menu] toggleMenuItemAvailability error:", error.message)
-    return { error: error.message }
+    return { error: MENU_UNMAPPED_ERROR }
   }
   revalidatePath("/menu")
   revalidatePath("/")

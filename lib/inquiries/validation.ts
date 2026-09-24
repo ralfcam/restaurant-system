@@ -43,39 +43,39 @@ export function validateInquiryPayload(
   payload: InquiryCreateInput,
 ): { error: string } | { row: InquiryInsertRow } {
   const guest_name = trimmed(payload.guest_name)
-  if (!guest_name) return { error: "Please enter a guest name." }
+  if (!guest_name) return { error: "errors.inquiries.nameRequired" }
 
   if (
     typeof payload.party_size !== "number" ||
     !Number.isInteger(payload.party_size) ||
     payload.party_size < 1
   ) {
-    return { error: "Party size must be a whole number of at least 1." }
+    return { error: "errors.inquiries.partySizeInvalid" }
   }
 
   if (
     typeof payload.requested_date !== "string" ||
     !DATE_RE.test(payload.requested_date)
   ) {
-    return { error: "Please provide a valid date." }
+    return { error: "errors.inquiries.dateInvalid" }
   }
 
   const email = trimmed(payload.email)
   const phone = trimmed(payload.phone)
   if (!email && !phone) {
-    return { error: "Please provide an email or phone number." }
+    return { error: "errors.inquiries.contactRequired" }
   }
   if (email && !EMAIL_RE.test(email)) {
-    return { error: "Please provide a valid email." }
+    return { error: "errors.inquiries.emailInvalid" }
   }
   if (phone && !PHONE_RE.test(phone)) {
-    return { error: "Please provide a valid phone number." }
+    return { error: "errors.inquiries.phoneInvalid" }
   }
 
   let kind: InquiryInsertRow["kind"]
   if (payload.kind != null && payload.kind !== "") {
     if (payload.kind !== "group" && payload.kind !== "private_event") {
-      return { error: "Please provide a valid inquiry kind." }
+      return { error: "errors.inquiries.kindInvalid" }
     }
     kind = payload.kind
   }

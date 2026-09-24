@@ -5,7 +5,7 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const TIME_RE = /^\d{2}:\d{2}$/
-const INVALID_PERIOD = { error: "Invalid reporting period." } as const
+const INVALID_PERIOD = { error: "errors.analytics.invalidPeriod" } as const
 
 export type AnalyticsPeriodInput = {
   from?: string
@@ -59,7 +59,7 @@ function lastNRestaurantDays(days: 7 | 30 | 90): AnalyticsPeriod {
 /** Inclusive `from`/`to` as YYYY-MM-DD, or a stable period error (RA-3). */
 export function resolveAnalyticsPeriod(
   period?: AnalyticsPeriodInput,
-): AnalyticsPeriod | typeof INVALID_PERIOD {
+): (AnalyticsPeriod & { error?: undefined }) | typeof INVALID_PERIOD {
   if (period == null) return lastNRestaurantDays(7)
 
   if (period.from != null || period.to != null) {

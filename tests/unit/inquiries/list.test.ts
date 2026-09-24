@@ -176,7 +176,7 @@ describe("getEventInquiries", () => {
     const unauthorized = await getEventInquiries()
     expect(unauthorized).toEqual({
       inquiries: [],
-      error: "Unauthorized.",
+      error: "errors.inquiries.unauthorized",
     })
     expect(mocks.from).not.toHaveBeenCalled()
     expect(mocks.createServiceClient).not.toHaveBeenCalled()
@@ -189,7 +189,7 @@ describe("getEventInquiries", () => {
     const queryFailed = await getEventInquiries()
     expect(queryFailed).toEqual({
       inquiries: [],
-      error: "Could not load inquiries.",
+      error: "errors.inquiries.loadFailed",
     })
 
     queryResult = { data: [], error: null }

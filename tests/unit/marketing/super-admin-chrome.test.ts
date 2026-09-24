@@ -27,13 +27,36 @@ function controlRegion(
   return source.slice(from, end)
 }
 
-function lastTagRegionBefore(source: string, needle: string, tag: string) {
-  const at = source.indexOf(needle)
+function needleAt(source: string, needle: string | RegExp) {
+  if (typeof needle === "string") return source.indexOf(needle)
+  const match = new RegExp(needle.source, needle.flags).exec(source)
+  return match?.index ?? -1
+}
+
+function lastTagRegionBefore(
+  source: string,
+  needle: string | RegExp,
+  tag: string,
+) {
+  const at = needleAt(source, needle)
   expect(at).toBeGreaterThan(-1)
   const from = source.lastIndexOf(`<${tag}`, at)
   expect(from).toBeGreaterThan(-1)
   return source.slice(from, at)
 }
+
+/**
+ * Submit control: JSX comment holding "Saving…" or "Save" plus
+ * `t("staff.marketing.`, or `t("staff.marketing.<leaf>")` whose leaf
+ * contains `save` but not the toast fragment `saved`.
+ */
+const marketingSaveNeedle = (() => {
+  const call = String.raw`t\(\s*"staff\.marketing\.`
+  const atom = String.raw`(?:(?!\*\/)[\s\S])`
+  const phrase = "Saving…|Save"
+  const comment = String.raw`\{\/\*${atom}*(?:(?:${phrase})${atom}*${call}|${call}${atom}*(?:${phrase}))${atom}*\*\/\}`
+  return new RegExp(`${comment}|${call}[^"]*save(?!d)`)
+})()
 
 const gatedDisabled =
   /disabled=\{[^}]*(?:!isSuperAdmin|isSuperAdmin\s*===\s*false)/
@@ -79,7 +102,9 @@ describe("SA-10 review-email settings chrome", () => {
         "<Button",
       ),
     ).toMatch(gatedDisabled)
-    expect(lastTagRegionBefore(form, "Save", "Button")).toMatch(gatedDisabled)
+    expect(lastTagRegionBefore(form, marketingSaveNeedle, "Button")).toMatch(
+      gatedDisabled,
+    )
 
     expect(page).toMatch(
       /<ReviewEmailSettingsForm[\s\S]*?\bisSuperAdmin=\{isSuperAdminUser\(authUser\)\}/,

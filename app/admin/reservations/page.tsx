@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { ReservationsManager } from "@/components/staff/reservations-manager"
 import {
@@ -15,6 +16,8 @@ export default async function ReservationsPage({
 }: {
   searchParams: Promise<{ date?: string }>
 }) {
+  const t = await getTranslations("staff.reservations")
+  const title = t("title")
   const { date: dateParam } = await searchParams
   // Use the restaurant's local timezone to determine "today" — avoids UTC
   // midnight boundary mismatches when the server runs in a different TZ.
@@ -28,13 +31,13 @@ export default async function ReservationsPage({
   ])
 
   const formattedDate = new Date(selectedDate + "T00:00:00").toLocaleDateString(
-    undefined,
+    "fr",
     { weekday: "long", month: "long", day: "numeric" },
   )
 
   return (
     <StaffShell
-      title="Reservations"
+      title={title}
       description={formattedDate}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}

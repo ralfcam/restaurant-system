@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { ChefHat } from "lucide-react"
+import { getTranslations } from "next-intl/server"
 import { getTables, getServers } from "@/app/actions/operations"
 import { getMenuItems } from "@/app/actions/menu"
 import { getAuthUser } from "@/app/actions/auth"
@@ -11,6 +12,7 @@ import { Button } from "@/components/ui/button"
 export const dynamic = "force-dynamic"
 
 export default async function PosPage() {
+  const t = await getTranslations()
   const [tables, servers, menuItems, authUser] = await Promise.all([
     getTables(),
     getServers(),
@@ -20,12 +22,12 @@ export default async function PosPage() {
 
   return (
     <StaffShell
-      title="Point of Sale"
-      description="Build an order and fire it to the kitchen"
+      title={t("staff.pos.title")}
+      description={t("staff.pos.description")}
       isSuperAdmin={isSuperAdminUser(authUser)}
       actions={
         <Button variant="outline" render={<Link href="/kds" />}>
-          <ChefHat className="size-4" /> Open KDS
+          <ChefHat className="size-4" /> {t("staff.pos.openKds")}
         </Button>
       }
     >

@@ -20,21 +20,27 @@ describe("POS table picker from live floor inventory", () => {
     expect(page).toMatch(/dynamic\s*=\s*["']force-dynamic["']/)
     expect(page).toMatch(/<PosTerminal[\s\S]*tables=/)
 
-    const tableSelect = terminal.slice(
-      terminal.indexOf(">Table</label>"),
-      terminal.indexOf(">Server</label>"),
-    )
-    expect(tableSelect).toMatch(/tables\.map\(/)
+    expect(terminal).toMatch(/tables\.map\(/)
+
+    const tableLabelAt = terminal.indexOf('t("staff.pos.tableLabel")')
+    const serverLabelAt = terminal.indexOf('t("staff.pos.serverLabel")')
+    const tableSelect =
+      tableLabelAt === -1 || serverLabelAt === -1
+        ? ""
+        : terminal.slice(tableLabelAt, serverLabelAt)
+    expect(tableSelect).toMatch(/tableChoices\.map\(/)
     expect(terminal).toMatch(/useState\(\s*tables\[0\]\?\.label/)
   })
 
   it("table select disables with a placeholder when no tables are available", () => {
     const terminal = read("components/staff/pos-terminal.tsx")
-    const tableSelect = terminal.slice(
-      terminal.indexOf(">Table</label>"),
-      terminal.indexOf(">Server</label>"),
-    )
+    const tableLabelAt = terminal.indexOf('t("staff.pos.tableLabel")')
+    const serverLabelAt = terminal.indexOf('t("staff.pos.serverLabel")')
+    const tableSelect =
+      tableLabelAt === -1 || serverLabelAt === -1
+        ? ""
+        : terminal.slice(tableLabelAt, serverLabelAt)
     expect(tableSelect).toMatch(/disabled=\{tables\.length === 0\}/)
-    expect(tableSelect).toMatch(/<SelectValue[^>]*placeholder=["'][^"']+["']/)
+    expect(tableSelect).toMatch(/placeholder=\{t\("staff\.pos\.noTables"\)\}/)
   })
 })
