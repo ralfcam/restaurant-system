@@ -20,8 +20,10 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AdminLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode
+  modal?: React.ReactNode
 }) {
   setRequestLocale("fr")
   const messages = await getMessages()
@@ -29,6 +31,7 @@ export default async function AdminLayout({
   return (
     <NextIntlClientProvider locale="fr" messages={messages}>
       {children}
+      {modal}
     </NextIntlClientProvider>
   )
 }

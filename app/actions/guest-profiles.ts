@@ -27,17 +27,20 @@ export async function updateGuestProfilePii(input: {
   email: string
   guest_name: string
   phone: string
-}): Promise<{ error?: string } | undefined> {
+}): Promise<{ ok?: true; error?: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
 
-  const { error } = await createServiceClient()
+  const { data, error } = await createServiceClient()
     .from("reservations")
     .update({ guest_name: input.guest_name, phone: input.phone })
     // GP-10: write the GP-2 generated-key group — not exact stored email.
     .eq("email_normalized", normalizeGuestEmail(input.email))
+    .select("id")
   if (error) {
     console.error("[guest-profiles] updateGuestProfilePii:", error.message)
     return { error: "errors.guestProfiles.unmapped" }
   }
+  if (!data?.length) return { error: "errors.guestProfiles.notFound" }
+  return { ok: true }
 }

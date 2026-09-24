@@ -521,12 +521,27 @@
     },
     "customers": {
       "title": "Client",
-      "email": "E-mail",
-      "notes": "Remarques",
       "name": "Nom",
       "phone": "Téléphone",
       "save": "Enregistrer",
-      "empty": "Aucune réservation — introuvable."
+      "saved": "Enregistré",
+      "empty": "Aucune réservation — introuvable.",
+      "totalReservations": "Total des réservations",
+      "completedVisits": "Visites effectuées",
+      "lastVisit": "Dernière visite",
+      "lastVisitNone": "Aucune",
+      "staffOnly": "Réservé au personnel • Données opérationnelles uniquement",
+      "emailReadOnly": "E-mail (lecture seule)",
+      "notesOperational": "Remarques (exploitation uniquement)",
+      "notesHelper": "À réserver aux notes liées aux réservations.",
+      "operationalLimit": "Les données affichées se limitent aux opérations de réservation.",
+      "date": "Date de réservation",
+      "time": "Heure",
+      "partySize": "Taille du groupe",
+      "table": "N° de table",
+      "status": "Statut",
+      "historyNotes": "Remarques",
+      "visit": "Visite"
     },
     "analytics": {
       "title": "Analytique",
@@ -688,7 +703,8 @@
     },
     "guestProfiles": {
       "unauthorized": "Non autorisé.",
-      "unmapped": "Une erreur s'est produite. Veuillez réessayer."
+      "unmapped": "Une erreur s'est produite. Veuillez réessayer.",
+      "notFound": "Fiche convive introuvable."
     }
   },
   "auth": {

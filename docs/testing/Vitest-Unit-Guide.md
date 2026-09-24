@@ -117,9 +117,9 @@
   schema CHECKs, create allowlist, STAFF-LIST, status-only update, no
   convert/confirm export, EI-9 isolation scan)
 - Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
-  `buildGuestProfile`, RES-PRIV, staff gate + ficha Save/PII/history
-  chrome, PII update, live `email_normalized` read, reservation-row
-  `fichaHref` `Link`)
+  `guestEmailFromRouteParam`, `buildGuestProfile` summary, RES-PRIV, staff
+  gate + ficha Save/PII/history table, PII `ok` / `notFound`, live
+  `email_normalized` read, reservation-row `fichaHref` `Link`)
 
 ## Conventions
 

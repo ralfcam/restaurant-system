@@ -12,6 +12,8 @@
 - Floor drag (FP-9): `tests/e2e/floor/floor-drag.spec.ts` (mouse follow, snap,
   persist). Staff login helper: `tests/e2e/helpers/staff-login.ts`. iPhone
   touch drag (M-1) stays manual-UAT.
+- Guest profile overlay (GP-13): `tests/e2e/admin/guest-profile-overlay.spec.ts`.
+  Run with `CI=true` so the Playwright `webServer` inherits the local Supabase env.
 
 ## Running
 

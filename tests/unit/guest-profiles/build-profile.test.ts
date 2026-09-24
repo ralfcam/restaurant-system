@@ -166,6 +166,35 @@ describe("buildGuestProfile", () => {
     ])
   })
 
+  it("summary counts total reservations completed visits and last visit", () => {
+    const withVisit = buildGuestProfile("ada@ex.com", [
+      { email: "ada@ex.com", date: "2026-09-20", status: "completed" },
+      { email: "ada@ex.com", date: "2026-09-20", status: "no_show" },
+      { email: "ada@ex.com", date: "2026-09-20", status: "confirmed" },
+    ] as Array<{ email: string; date: string; status: string }>) as {
+      summary: {
+        totalReservations: number
+        completedVisits: number
+        lastVisit: string | null
+      }
+    }
+
+    expect(withVisit.summary).toEqual({
+      totalReservations: 3,
+      completedVisits: 1,
+      lastVisit: "2026-09-20",
+    })
+
+    const withoutVisit = buildGuestProfile("ada@ex.com", [
+      { email: "ada@ex.com", date: "2026-09-20", status: "no_show" },
+      { email: "ada@ex.com", date: "2026-09-20", status: "confirmed" },
+    ] as Array<{ email: string; date: string; status: string }>) as {
+      summary: { lastVisit: string | null }
+    }
+
+    expect(withoutVisit.summary.lastVisit).toBeNull()
+  })
+
   it("empty matching set is empty not other guests", () => {
     const reservations = [{ email: "ada@ex.com" }, { email: "ben@ex.com" }]
     const profile = buildGuestProfile("nobody@ex.com", reservations)

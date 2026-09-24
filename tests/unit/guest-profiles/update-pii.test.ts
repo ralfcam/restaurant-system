@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { normalizeGuestEmail } from "@/lib/guest-profiles"
+import { expectCatalogKey } from "@/tests/unit/i18n/helpers/catalog"
 
 const mocks = vi.hoisted(() => ({
   requireStaffUser: vi.fn(),
@@ -7,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   update: vi.fn(),
   eq: vi.fn(),
+  select: vi.fn(),
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -22,7 +24,7 @@ type UpdateGuestProfilePii = (input: {
   email: string
   guest_name: string
   phone: string
-}) => Promise<{ error?: string } | undefined>
+}) => Promise<{ ok?: true; error?: string } | undefined>
 
 const piiDraft = {
   email: "  Ada@Ex.com ",
@@ -41,8 +43,10 @@ describe("updateGuestProfilePii", () => {
     mocks.from.mockReset()
     mocks.update.mockReset()
     mocks.eq.mockReset()
+    mocks.select.mockReset()
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
-    mocks.eq.mockResolvedValue({ error: null })
+    mocks.select.mockResolvedValue({ data: [{ id: "row-1" }], error: null })
+    mocks.eq.mockImplementation(() => ({ select: mocks.select }))
     mocks.update.mockImplementation(() => ({ eq: mocks.eq }))
     mocks.from.mockImplementation(() => ({ update: mocks.update }))
     mocks.createServiceClient.mockReturnValue({ from: mocks.from })
@@ -82,5 +86,23 @@ describe("updateGuestProfilePii", () => {
       "email_normalized",
       normalizeGuestEmail(piiDraft.email),
     )
+  })
+
+  it("updateGuestProfilePii returns ok when rows update and notFound when none match", async () => {
+    const { updateGuestProfilePii } =
+      (await import("@/app/actions/guest-profiles")) as {
+        updateGuestProfilePii: UpdateGuestProfilePii
+      }
+
+    mocks.select.mockResolvedValue({ data: [{ id: "row-1" }], error: null })
+    const updated = await updateGuestProfilePii(piiDraft)
+    expect(updated).toEqual({ ok: true })
+
+    mocks.select.mockResolvedValue({ data: [], error: null })
+    const missing = await updateGuestProfilePii(piiDraft)
+    expect(missing).toEqual({ error: "errors.guestProfiles.notFound" })
+
+    expect(updatePayload()).not.toHaveProperty("email")
+    expectCatalogKey("errors.guestProfiles.notFound")
   })
 })

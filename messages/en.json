@@ -521,12 +521,27 @@
     },
     "customers": {
       "title": "Customer",
-      "email": "Email",
-      "notes": "Notes",
       "name": "Name",
       "phone": "Phone",
       "save": "Save",
-      "empty": "No reservations — not found."
+      "saved": "Saved",
+      "empty": "No reservations — not found.",
+      "totalReservations": "Total reservations",
+      "completedVisits": "Completed visits",
+      "lastVisit": "Last visit",
+      "lastVisitNone": "None",
+      "staffOnly": "Staff-only • Operational data only",
+      "emailReadOnly": "Email (read-only)",
+      "notesOperational": "Notes (operational only)",
+      "notesHelper": "Use for reservation-related notes only.",
+      "operationalLimit": "Data shown is limited to reservation operations.",
+      "date": "Date",
+      "time": "Time",
+      "partySize": "Party Size",
+      "table": "Table",
+      "status": "Status",
+      "historyNotes": "Notes",
+      "visit": "Visit"
     },
     "analytics": {
       "title": "Analytics",
@@ -688,7 +703,8 @@
     },
     "guestProfiles": {
       "unauthorized": "Unauthorized.",
-      "unmapped": "Something went wrong. Please try again."
+      "unmapped": "Something went wrong. Please try again.",
+      "notFound": "Guest profile not found."
     }
   },
   "auth": {
