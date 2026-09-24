@@ -636,6 +636,7 @@
       "overlapping": "{day} a des créneaux qui se chevauchent.",
       "invalidServiceMax": "{day} a un nombre maximal de couverts de service invalide.",
       "invalidSlotTime": "{day} a une heure de réservation invalide.",
+      "duplicateSlotTime": "{day} a une heure de réservation en double.",
       "slotOutsideWindow": "{day} a un créneau de réservation en dehors de sa plage.",
       "slotOffGrid": "{day} a un créneau de réservation qui n'est pas sur la grille de {interval} minutes.",
       "invalidSlotMax": "{day} a un créneau de réservation avec un nombre maximal de couverts invalide."
@@ -644,7 +645,8 @@
       "unauthorized": "Non autorisé.",
       "blockedDatesLoadFailed": "Impossible de charger les dates bloquées.",
       "schemaUnavailable": "Les dates bloquées sont indisponibles.",
-      "unmapped": "Une erreur s'est produite. Veuillez réessayer."
+      "unmapped": "Une erreur s'est produite. Veuillez réessayer.",
+      "settingsLoadFailed": "Impossible de charger les paramètres d'horaires."
     },
     "restaurantInfo": {
       "unauthorized": "Non autorisé.",

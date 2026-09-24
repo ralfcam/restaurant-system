@@ -537,7 +537,7 @@ export function validateOperatingDays(
     }
 
     // CL-1: non-empty bookable_slots — HH:MM, [opens, closes), interval grid from opens.
-    // Empty/omitted list stays valid (BW-5 generated times). Duplicates are not rejected here.
+    // Empty/omitted list stays valid (BW-5 generated times).
     for (const segment of day.segments) {
       if (isInvalidCoverMax(segment.max_covers)) {
         return schedulingMessage("errors.scheduling.invalidServiceMax", {
@@ -548,6 +548,7 @@ export function validateOperatingDays(
       if (!slots || slots.length === 0) continue
       const opens = timeToMinutes(segment.opens_at)
       const closes = timeToMinutes(segment.closes_at)
+      const seenSlotTimes = new Set<string>()
       for (const slot of slots) {
         const slotTime = normalizeTime(slot.time)
         if (!TIME_RE.test(slotTime)) {
@@ -572,6 +573,12 @@ export function validateOperatingDays(
             day: dayName,
           })
         }
+        if (seenSlotTimes.has(slotTime)) {
+          return schedulingMessage("errors.scheduling.duplicateSlotTime", {
+            day: dayName,
+          })
+        }
+        seenSlotTimes.add(slotTime)
       }
     }
   }

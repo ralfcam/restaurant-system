@@ -145,12 +145,14 @@ export function SchedulingManager({
   initialAddress,
   initialPhone,
   isSuperAdmin,
+  slotIntervalMinutes,
 }: {
   initialOperatingWindows: OperatingDay[]
   initialBlockedDates?: string[]
   initialAddress: string
   initialPhone: string
   isSuperAdmin: boolean
+  slotIntervalMinutes?: number
 }) {
   const t = useTranslations()
   const [days, setDays] = useState<DayDraft[]>(() =>
@@ -174,8 +176,8 @@ export function SchedulingManager({
     [operatingDays],
   )
   const hoursError = useMemo(
-    () => validateOperatingDays(operatingDays),
-    [operatingDays],
+    () => validateOperatingDays(operatingDays, slotIntervalMinutes),
+    [operatingDays, slotIntervalMinutes],
   )
 
   const patchDay = useCallback(

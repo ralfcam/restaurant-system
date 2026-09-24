@@ -433,8 +433,14 @@ export async function assignReservationTable(
   if (table && table.seats < reservation.party_size)
     return { error: "errors.reservation.tableTooSmall" }
   if (label && label !== reservation.table_label) {
-    const { occupancyDurationMinutes, safetyBufferMinutes } =
-      await loadReservationOccupancyWindow(db)
+    const {
+      occupancyDurationMinutes,
+      safetyBufferMinutes,
+      settingsReadFailed,
+    } = await loadReservationOccupancyWindow(db)
+    if (settingsReadFailed) {
+      return { error: "errors.reservation.assignFailed" }
+    }
     const window = occupyingWindowMinutes(
       reservation.time,
       occupancyDurationMinutes,
@@ -685,12 +691,22 @@ function occupancyDurationFromSettings(
 
 async function loadReservationOccupancyWindow(
   db: ReturnType<typeof createServiceClient>,
-): Promise<{ occupancyDurationMinutes: number; safetyBufferMinutes: number }> {
-  const { data: settings } = await db
+): Promise<{
+  occupancyDurationMinutes: number
+  safetyBufferMinutes: number
+  settingsReadFailed: boolean
+}> {
+  const { data: settings, error } = await db
     .from("restaurant_settings")
     .select("occupancy_duration_minutes, safety_buffer_minutes")
     .eq("id", 1)
     .maybeSingle()
+  if (error) {
+    console.error(
+      "[reservations] loadReservationOccupancyWindow:",
+      error.message,
+    )
+  }
   return {
     occupancyDurationMinutes: occupancyDurationFromSettings(
       settings?.occupancy_duration_minutes,
@@ -698,6 +714,7 @@ async function loadReservationOccupancyWindow(
     safetyBufferMinutes: clampSafetyBufferMinutes(
       settings?.safety_buffer_minutes ?? DEFAULT_SAFETY_BUFFER_MINUTES,
     ),
+    settingsReadFailed: error != null,
   }
 }
 
@@ -715,7 +732,11 @@ export async function getReservationOccupancyWindow(): Promise<{
       ),
     }
   }
-  return loadReservationOccupancyWindow(createServiceClient())
+  const window = await loadReservationOccupancyWindow(createServiceClient())
+  return {
+    occupancyDurationMinutes: window.occupancyDurationMinutes,
+    safetyBufferMinutes: window.safetyBufferMinutes,
+  }
 }
 
 /**

@@ -81,6 +81,45 @@ describe("cover limits — staff bookable slots (CL-1)", () => {
   })
 })
 
+describe("cover limits — duplicate bookable-slot times (CL-1-DUP)", () => {
+  it("rejects duplicate bookable-slot times in one segment", () => {
+    const exactDuplicate: unknown = validateOperatingDays(
+      dinnerWeek([{ time: "19:00" }, { time: "19:00" }]),
+      SLOT_INTERVAL,
+    )
+    expect(exactDuplicate).toEqual({
+      key: "errors.scheduling.duplicateSlotTime",
+      params: { day: "Monday" },
+    })
+
+    const normalizedDuplicate: unknown = validateOperatingDays(
+      dinnerWeek([{ time: "19:00" }, { time: "19:00:00" }]),
+      SLOT_INTERVAL,
+    )
+    expect(normalizedDuplicate).toEqual({
+      key: "errors.scheduling.duplicateSlotTime",
+      params: { day: "Monday" },
+    })
+
+    expect(
+      validateOperatingDays(
+        dinnerWeek([{ time: "19:00" }, { time: "20:00" }]),
+        SLOT_INTERVAL,
+      ),
+    ).toBeNull()
+
+    for (const locale of ["en", "fr"]) {
+      const catalog = JSON.parse(
+        readFileSync(
+          path.join(process.cwd(), "messages", `${locale}.json`),
+          "utf8",
+        ),
+      ) as { errors: { scheduling: Record<string, unknown> } }
+      expect(catalog.errors.scheduling).toHaveProperty("duplicateSlotTime")
+    }
+  })
+})
+
 describe("cover limits — independent slot maxima (CL-2)", () => {
   it("allows different max_covers on slots in the same service and rejects non-positive values", () => {
     expect(

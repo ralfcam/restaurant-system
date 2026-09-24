@@ -636,6 +636,7 @@
       "overlapping": "{day} has overlapping segments.",
       "invalidServiceMax": "{day} has an invalid service max_covers.",
       "invalidSlotTime": "{day} has an invalid bookable slot time.",
+      "duplicateSlotTime": "{day} has a duplicate bookable slot time.",
       "slotOutsideWindow": "{day} has a bookable slot outside its segment window.",
       "slotOffGrid": "{day} has a bookable slot that is not on the {interval}-minute grid.",
       "invalidSlotMax": "{day} has a bookable slot with an invalid max_covers."
@@ -644,7 +645,8 @@
       "unauthorized": "Unauthorized.",
       "blockedDatesLoadFailed": "Could not load blocked dates.",
       "schemaUnavailable": "Blocked dates are unavailable.",
-      "unmapped": "Something went wrong. Please try again."
+      "unmapped": "Something went wrong. Please try again.",
+      "settingsLoadFailed": "Could not load scheduling settings."
     },
     "restaurantInfo": {
       "unauthorized": "Unauthorized.",

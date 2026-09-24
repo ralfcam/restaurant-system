@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-09-25
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-22 for the segmented homepage widget, occupancy window,
@@ -81,8 +81,10 @@ all-day service sums. Confirm-path BW-20 is the same predicates in
 (same P0001). Staff `validateOperatingDays` gates CL-1–CL-3;
 `replace_operating_windows` INSERTs both columns. Staff Save
 `flattenDaysToRows` / `toOperatingDays` and guest `WINDOW_COLUMNS` round-trip
-them so `getOperatingWindowForDate` sees persisted caps. Chrome on
-`/admin/scheduling` is still display-only testids. Criteria:
+them so `getOperatingWindowForDate` sees persisted caps. The
+`/admin/scheduling` Save preview in `SchedulingManager` takes
+`slotIntervalMinutes` from the scheduling page (absent/null settings → 30).
+Criteria:
 [../specs/booking-rules.md](../specs/booking-rules.md) BW-18–BW-22 and
 [../specs/scheduling.md](../specs/scheduling.md) CL-1–CL-4.
 

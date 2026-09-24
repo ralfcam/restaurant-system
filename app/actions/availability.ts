@@ -9,6 +9,7 @@ import {
   type OperatingWindow,
   type OperatingWindowRow,
   DEFAULT_OPERATING_DAYS,
+  DEFAULT_SLOT_INTERVAL_MINUTES,
   daysToWindowsMap,
   flattenDaysToRows,
   groupRowsByDay,
@@ -236,10 +237,33 @@ export async function upsertOperatingWindows(
     return { success: false, error: "errors.availability.unauthorized" }
   }
 
-  const validationError = validateOperatingDays(days)
+  const needsSlotInterval = days.some(
+    (day) =>
+      !day.is_closed &&
+      day.segments.some((segment) => (segment.bookable_slots?.length ?? 0) > 0),
+  )
+  const supabase = createServiceClient()
+  let slotIntervalMinutes: number | undefined
+  if (needsSlotInterval) {
+    const { data, error: settingsError } = await supabase
+      .from("restaurant_settings")
+      .select("slot_interval_minutes")
+      .eq("id", 1)
+      .maybeSingle()
+    if (settingsError) {
+      console.error(
+        "[availability] upsertOperatingWindows settings error:",
+        settingsError.message,
+      )
+      return { success: false, error: "errors.availability.settingsLoadFailed" }
+    }
+    slotIntervalMinutes =
+      data?.slot_interval_minutes ?? DEFAULT_SLOT_INTERVAL_MINUTES
+  }
+
+  const validationError = validateOperatingDays(days, slotIntervalMinutes)
   if (validationError) return { success: false, error: validationError }
 
-  const supabase = createServiceClient()
   const rows = flattenDaysToRows(days)
 
   const { error } = await supabase.rpc("replace_operating_windows", {
