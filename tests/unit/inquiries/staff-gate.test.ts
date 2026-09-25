@@ -109,7 +109,9 @@ describe("event inquiries staff gate", () => {
     for (const run of inquiryActionRuns(actions)) {
       mocks.createServiceClient.mockClear()
       const unauthorized = await run()
-      expect(unauthorized).toMatchObject({ error: "Unauthorized." })
+      expect(unauthorized).toMatchObject({
+        error: "errors.inquiries.unauthorized",
+      })
       expect(mocks.createServiceClient).not.toHaveBeenCalled()
     }
 
@@ -118,7 +120,7 @@ describe("event inquiries staff gate", () => {
       for (const run of inquiryActionRuns(actions)) {
         mocks.createServiceClient.mockClear()
         const result = await run()
-        expect(result.error).not.toBe("Unauthorized.")
+        expect(result.error).not.toBe("errors.inquiries.unauthorized")
         expect(mocks.createServiceClient).toHaveBeenCalled()
       }
     }

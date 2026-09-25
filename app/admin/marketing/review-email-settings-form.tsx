@@ -1,6 +1,7 @@
 "use client"
 
 import { type FormEvent, useState, useTransition } from "react"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { saveReviewEmailSettings } from "@/app/actions/marketing"
 import { Button } from "@/components/ui/button"
@@ -16,6 +17,7 @@ export function ReviewEmailSettingsForm({
 }: {
   isSuperAdmin: boolean
 }) {
+  const t = useTranslations()
   const [enabled, setEnabled] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -38,10 +40,10 @@ export function ReviewEmailSettingsForm({
         delayHours,
       })
       if (result.error) {
-        toast.error(result.error)
+        toast.error(t(result.error))
         return
       }
-      toast.success("Review email settings saved.")
+      toast.success(t("staff.marketing.settingsSaved"))
     })
   }
 
@@ -60,10 +62,14 @@ export function ReviewEmailSettingsForm({
           aria-labelledby={ENABLED_LABEL_ID}
         />
         <input type="hidden" name="enabled" value={enabled ? "on" : ""} />
-        <Label id={ENABLED_LABEL_ID}>Enable review emails</Label>
+        <Label id={ENABLED_LABEL_ID}>
+          {t("staff.marketing.enableReviewEmails")}
+        </Label>
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="review-email-copy">Thank-you copy</Label>
+        <Label htmlFor="review-email-copy">
+          {t("staff.marketing.thankYouCopy")}
+        </Label>
         <Textarea
           id="review-email-copy"
           name="copy"
@@ -73,7 +79,9 @@ export function ReviewEmailSettingsForm({
         />
       </div>
       <div className="grid gap-1.5">
-        <Label htmlFor="review-email-maps-url">Google Maps URL</Label>
+        <Label htmlFor="review-email-maps-url">
+          {t("staff.marketing.mapsUrl")}
+        </Label>
         <Input
           id="review-email-maps-url"
           name="mapsUrl"
@@ -85,7 +93,7 @@ export function ReviewEmailSettingsForm({
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="review-email-delay">
-          Delay after completed (hours)
+          {t("staff.marketing.delayHours")}
         </Label>
         <Input
           id="review-email-delay"
@@ -100,7 +108,9 @@ export function ReviewEmailSettingsForm({
         />
       </div>
       <Button type="submit" disabled={isPending || !isSuperAdmin}>
-        {isPending ? "Saving…" : "Save"}
+        {isPending
+          ? t("staff.marketing.saving")
+          : t("staff.marketing.saveSettings")}
       </Button>
     </form>
   )

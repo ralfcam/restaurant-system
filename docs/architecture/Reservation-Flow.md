@@ -1,12 +1,13 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-25
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
-(BW-1…BW-14 for the segmented homepage widget, occupancy window,
-compatible-table bookability, guest email intake, and post-booking
-confirmation).
+(BW-1…BW-22 for the segmented homepage widget, occupancy window,
+compatible-table bookability, slot/service cover caps, last-slot fully booked
+in-widget reject, collapsed accordion label/summary gap, guest email intake,
+and post-booking confirmation).
 
 ```mermaid
 flowchart LR
@@ -30,9 +31,17 @@ flowchart LR
 truncate), and renders until-badges via
 `slotUntilTime(time, occupancyDurationMinutes)` (occupancy duration from
 `getGuestOccupancyDurationMinutes`, default 90; wraps past midnight; no
-safety buffer). Guests/date/time are exclusive accordions; Réserver advances
+safety buffer). Guests/date/time are exclusive accordions; collapsed chrome labels stay
+separated from their summaries by an unprefixed `accordionTriggerCls` `gap-1.5`
+(BW-17). Réserver advances
 to guest details only after a slot is selected (no `createReservation` on pick).
 Step 2 requires guest name and a valid email; phone is optional (BW-7 / BW-13).
+When `createReservation` returns `Booking denied: This time is fully booked.`,
+step 2 stays visible and renders that string in-widget (`role="alert"`); this
+path does not toast or change step, and does not clear guest name / email / phone
+(BW-16). Step-2 Back calls `setFullyBookedError(null)` with `setStep(1)` /
+`setSlot(null)` so the denial is attempt-scoped. Other confirm errors keep their
+existing toasts.
 After INSERT succeeds, `createReservation` calls `sendBookingConfirmation` from
 the in-memory payload (no `.select()` of the inserted row). A throwing mailer
 is caught; `conf_code` is still returned (AC-4 / BW-14). Live provider stays
@@ -52,10 +61,32 @@ elapsed `TIME`; table-fit after cover-count; date-scoped
 `pg_advisory_xact_lock(305, days-since-epoch)`; P0001
 `Booking denied: This time is fully booked.`). Last-writer body is
 byte-identical in baseline, `20260818162000_operating_hour_segments.sql`,
-`20260827180000_occupancy_duration_buffer.sql`, and
-`20260828121224_table_fit_availability.sql`. Guest INSERT does not write
+`20260827180000_occupancy_duration_buffer.sql`,
+`20260828121224_table_fit_availability.sql`, and
+`20260918140655_slot_service_cover_limits.sql`. Guest INSERT does not write
 `table_label`. `completed` / `cancelled` / `no_show` do not occupy (BW-10).
 Criteria: [../specs/booking-rules.md](../specs/booking-rules.md) BW-9–BW-12.
+
+**Slot and service cover caps.** Optional `operating_windows.max_covers`
+(`INT NULL`, `CHECK (max_covers IS NULL OR max_covers >= 1)`) and
+`bookable_slots` JSONB (`NOT NULL DEFAULT '[]'`; empty = all generated times;
+non-empty = exclusive allowlist on the interval grid in `[opens_at, closes_at)`)
+are the BW-18 / BW-19 caps. `getAvailableSlots` keeps BW-18 occupying covers in
+`occupyingCoversByExactTime` (not BW-9 `bookedBySlot`) and BW-19 by
+`sort_order` + `opens_at`, then ANDs `coversFitSlotAndService` with BW-9 /
+BW-12 (`available: slotAndServiceFit && coversFit && tableFit`, BW-22).
+The helper is occupancy-sum only; the caller supplies exact-time slot and
+all-day service sums. Confirm-path BW-20 is the same predicates in
+`validate_reservation_availability` after lock + inventory + table-fit
+(same P0001). Staff `validateOperatingDays` gates CL-1–CL-3;
+`replace_operating_windows` INSERTs both columns. Staff Save
+`flattenDaysToRows` / `toOperatingDays` and guest `WINDOW_COLUMNS` round-trip
+them so `getOperatingWindowForDate` sees persisted caps. The
+`/admin/scheduling` Save preview in `SchedulingManager` takes
+`slotIntervalMinutes` from the scheduling page (absent/null settings → 30).
+Criteria:
+[../specs/booking-rules.md](../specs/booking-rules.md) BW-18–BW-22 and
+[../specs/scheduling.md](../specs/scheduling.md) CL-1–CL-4.
 
 **Blocked-date reads.** `isDateBlocked`, `getBlockedDatesInMonth`, and
 `getBlockedDatesInRange` in `app/actions/availability.ts` query `blocked_dates`

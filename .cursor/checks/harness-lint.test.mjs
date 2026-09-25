@@ -396,6 +396,33 @@ test("sdd-to-tdd.md pins managed Cloud one-shot contract", () => {
   assert.ok(cmd.includes("unattended Agent-mode launches"))
 })
 
+test("capture.md pins managed Cloud one-shot contract", () => {
+  const cmd = readFileSync(
+    join(ROOT, ".cursor", "commands", "capture.md"),
+    "utf8",
+  )
+  assert.ok(cmd.includes("/v1/meta-data/agent/runtime"))
+  assert.ok(cmd.includes("exactly `managed`"))
+  assert.ok(cmd.includes(".cursor/plans/<plan-slug>.plan.md"))
+  assert.ok(
+    cmd.includes(
+      "repository work-order, not a silently accepted native Cursor Plan",
+    ),
+  )
+  assert.ok(cmd.includes("Cloud one-shot does not waive"))
+  assert.ok(cmd.includes("do not auto-confirm"))
+  assert.ok(cmd.includes("Do **not** invoke `CreatePlan`"))
+  assert.ok(cmd.includes("unattended Agent-mode launches"))
+  assert.ok(cmd.includes("STEP 0B — MANAGED CLOUD ONE-SHOT"))
+  assert.ok(
+    cmd.includes(
+      "/capture runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the",
+    ),
+  )
+  assert.ok(cmd.includes("CLOUD-MANAGED (one-shot)"))
+  assert.ok(cmd.includes("PHASE 1 fan-out barrier"))
+})
+
 function walk(dir, ext, acc = []) {
   if (!existsSync(dir)) return acc
   for (const name of readdirSync(dir)) {

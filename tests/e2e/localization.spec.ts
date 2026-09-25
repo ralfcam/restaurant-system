@@ -6,7 +6,7 @@ const ENGLISH_HEADLINE =
   "Your restaurant, online — reservations, menu, and the floor in one place."
 
 test.describe("site localization", () => {
-  test("admin stays unlocalized", async ({ page }) => {
+  test("staff routes stay unprefixed", async ({ page }) => {
     const response = await page.goto("/admin")
     expect(response?.url()).not.toMatch(/\/fr\/admin/)
     expect(response?.url()).not.toMatch(/\/en\/admin/)
@@ -74,6 +74,35 @@ test.describe("site localization", () => {
       await expect(
         page.getByRole("button", { name: "Book a table" }),
       ).toBeVisible()
+    },
+  )
+
+  test(
+    "login shows a French heading and html lang fr",
+    { tag: "@p1" },
+    async ({ page }) => {
+      await page.goto("/auth/login")
+      await expect(page.locator("html")).toHaveAttribute("lang", "fr")
+      await expect(
+        page.getByText("Console personnel", { exact: true }),
+      ).toBeVisible()
+    },
+  )
+
+  test(
+    "booking widget shows French labels on / and English labels on /en",
+    { tag: "@p1" },
+    async ({ page }) => {
+      await page.goto("/")
+      const widget = page.locator("#reserve")
+      await expect(widget.getByTestId("guests")).toContainText("Convives")
+      await expect(widget.getByTestId("time")).toContainText("Heure")
+      await expect(widget.getByTestId("reserve")).toHaveText("Réserver")
+
+      await page.goto("/en")
+      await expect(widget.getByTestId("guests")).toContainText("Guests")
+      await expect(widget.getByTestId("time")).toContainText("Time")
+      await expect(widget.getByTestId("reserve")).toHaveText("Reserve")
     },
   )
 })

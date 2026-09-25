@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { FloorPlan } from "@/components/staff/floor-plan"
 import { getAuthUser } from "@/app/actions/auth"
@@ -13,6 +14,7 @@ import { getTodayInRestaurantTZ } from "@/lib/timezone"
 export const dynamic = "force-dynamic"
 
 export default async function FloorPage() {
+  const t = await getTranslations()
   const today = getTodayInRestaurantTZ()
   const [authUser, snapshot, slotInterval, occupancyDuration, safetyBuffer] =
     await Promise.all([
@@ -25,8 +27,8 @@ export default async function FloorPage() {
 
   return (
     <StaffShell
-      title="Floor Plan"
-      description="Live dining room — room layout, expected turn time, temporary merges, and auto-assign"
+      title={t("staff.floor.title")}
+      description={t("staff.floor.description")}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
     >

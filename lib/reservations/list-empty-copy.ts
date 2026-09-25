@@ -3,8 +3,8 @@
  * status/name-phone flags choose filter-empty vs date-empty. Row counts are
  * the caller snapshot (tests pass them) and are not consulted.
  */
-const FILTER_EMPTY = "No reservations match your filters."
-const DATE_EMPTY = "No reservations for this date."
+const FILTER_EMPTY = "errors.reservation.listFilterEmpty"
+const DATE_EMPTY = "errors.reservation.listDateEmpty"
 
 export function staffListEmptyCopy({
   error,

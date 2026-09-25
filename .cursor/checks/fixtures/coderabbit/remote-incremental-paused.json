@@ -1,0 +1,44 @@
+{
+  "isDraft": false,
+  "headSha": "abc123",
+  "pull": {
+    "number": 12,
+    "isDraft": false,
+    "base": "main",
+    "head": "staging",
+    "headSha": "abc123"
+  },
+  "reviews": [
+    {
+      "user": { "login": "coderabbitai[bot]" },
+      "state": "CHANGES_REQUESTED",
+      "commit_id": "oldsha"
+    }
+  ],
+  "threads": [
+    {
+      "isResolved": false,
+      "isOutdated": false,
+      "path": "lib/billing/foo.ts",
+      "comments": {
+        "nodes": [
+          {
+            "author": { "login": "coderabbitai[bot]" },
+            "path": "lib/billing/foo.ts",
+            "body": "| _Major_ | leftover |"
+          }
+        ]
+      }
+    }
+  ],
+  "issueComments": [],
+  "reviewComments": [],
+  "checkRuns": [],
+  "statuses": [
+    {
+      "context": "CodeRabbit",
+      "state": "success",
+      "description": "Review completed"
+    }
+  ]
+}

@@ -38,13 +38,13 @@ describe("validateReservationPayload", () => {
     it("rejects an empty name", () => {
       expect(
         validateReservationPayload(basePayload({ guestName: "" }), TODAY),
-      ).toMatch(/name/i)
+      ).toBe("errors.reservation.nameRequired")
     })
 
     it("rejects a whitespace-only name", () => {
       expect(
         validateReservationPayload(basePayload({ guestName: "   " }), TODAY),
-      ).toMatch(/name/i)
+      ).toBe("errors.reservation.nameRequired")
     })
 
     it("rejects a name over 100 characters", () => {
@@ -53,7 +53,7 @@ describe("validateReservationPayload", () => {
           basePayload({ guestName: "a".repeat(101) }),
           TODAY,
         ),
-      ).toMatch(/too long/i)
+      ).toBe("errors.reservation.nameTooLong")
     })
 
     it("accepts a name at exactly 100 characters", () => {
@@ -70,19 +70,19 @@ describe("validateReservationPayload", () => {
     it("rejects zero", () => {
       expect(
         validateReservationPayload(basePayload({ partySize: 0 }), TODAY),
-      ).toMatch(/whole number/i)
+      ).toBe("errors.reservation.partySizeInvalid")
     })
 
     it("rejects a negative party size", () => {
       expect(
         validateReservationPayload(basePayload({ partySize: -3 }), TODAY),
-      ).toMatch(/whole number/i)
+      ).toBe("errors.reservation.partySizeInvalid")
     })
 
     it("rejects a fractional party size", () => {
       expect(
         validateReservationPayload(basePayload({ partySize: 2.5 }), TODAY),
-      ).toMatch(/whole number/i)
+      ).toBe("errors.reservation.partySizeInvalid")
     })
 
     it("rejects NaN", () => {
@@ -91,7 +91,7 @@ describe("validateReservationPayload", () => {
           basePayload({ partySize: Number.NaN }),
           TODAY,
         ),
-      ).toMatch(/whole number/i)
+      ).toBe("errors.reservation.partySizeInvalid")
     })
 
     it("rejects a party size above the online max", () => {
@@ -99,7 +99,7 @@ describe("validateReservationPayload", () => {
         basePayload({ partySize: RESERVATION_ONLINE_MAX_PARTY + 1 }),
         TODAY,
       )
-      expect(result).toMatch(/maximum/i)
+      expect(result).toBe("errors.reservation.partyTooLarge")
     })
 
     it("accepts the party size exactly at the online max", () => {
@@ -116,13 +116,13 @@ describe("validateReservationPayload", () => {
     it("rejects a malformed date string", () => {
       expect(
         validateReservationPayload(basePayload({ date: "15/08/2026" }), TODAY),
-      ).toMatch(/valid date/i)
+      ).toBe("errors.reservation.dateInvalid")
     })
 
     it("rejects a non-date string", () => {
       expect(
         validateReservationPayload(basePayload({ date: "not-a-date" }), TODAY),
-      ).toMatch(/valid date/i)
+      ).toBe("errors.reservation.dateInvalid")
     })
 
     it("rejects a calendar-invalid date", () => {
@@ -130,13 +130,13 @@ describe("validateReservationPayload", () => {
       // rolled over to December 1st.
       expect(
         validateReservationPayload(basePayload({ date: "2026-11-31" }), TODAY),
-      ).toMatch(/valid date/i)
+      ).toBe("errors.reservation.dateInvalid")
     })
 
     it("rejects a date before today", () => {
       expect(
         validateReservationPayload(basePayload({ date: "2026-08-09" }), TODAY),
-      ).toMatch(/past/i)
+      ).toBe("errors.reservation.dateInPast")
     })
 
     it("accepts today's date", () => {
@@ -150,19 +150,19 @@ describe("validateReservationPayload", () => {
     it("rejects a malformed time string", () => {
       expect(
         validateReservationPayload(basePayload({ time: "6:30 PM" }), TODAY),
-      ).toMatch(/valid time/i)
+      ).toBe("errors.reservation.timeInvalid")
     })
 
     it("rejects an out-of-range hour", () => {
       expect(
         validateReservationPayload(basePayload({ time: "25:00" }), TODAY),
-      ).toMatch(/valid time/i)
+      ).toBe("errors.reservation.timeInvalid")
     })
 
     it("rejects an out-of-range minute", () => {
       expect(
         validateReservationPayload(basePayload({ time: "18:65" }), TODAY),
-      ).toMatch(/valid time/i)
+      ).toBe("errors.reservation.timeInvalid")
     })
 
     it("accepts a valid boundary time", () => {
@@ -182,7 +182,7 @@ describe("validateReservationPayload", () => {
     it("rejects a phone number that is too short", () => {
       expect(
         validateReservationPayload(basePayload({ phone: "123" }), TODAY),
-      ).toMatch(/phone/i)
+      ).toBe("errors.reservation.phoneInvalid")
     })
 
     it("rejects a phone number with letters", () => {
@@ -191,7 +191,7 @@ describe("validateReservationPayload", () => {
           basePayload({ phone: "call-me-maybe" }),
           TODAY,
         ),
-      ).toMatch(/phone/i)
+      ).toBe("errors.reservation.phoneInvalid")
     })
 
     it("accepts a phone number with punctuation", () => {
@@ -209,7 +209,7 @@ describe("validateReservationPayload", () => {
           basePayload({ phone: "not-a-phone" }),
           TODAY,
         ),
-      ).toMatch(/phone/i)
+      ).toBe("errors.reservation.phoneInvalid")
     })
   })
 
@@ -217,7 +217,7 @@ describe("validateReservationPayload", () => {
     it("rejects a missing email", () => {
       expect(
         validateReservationPayload(basePayload({ email: undefined }), TODAY),
-      ).toEqual(expect.stringMatching(/email/i))
+      ).toBe("errors.reservation.emailInvalid")
     })
 
     it("rejects an invalid email", () => {
@@ -226,7 +226,7 @@ describe("validateReservationPayload", () => {
           basePayload({ email: "not-an-email" }),
           TODAY,
         ),
-      ).toEqual(expect.stringMatching(/email/i))
+      ).toBe("errors.reservation.emailInvalid")
     })
 
     it("accepts a valid email with a blank phone", () => {
@@ -243,7 +243,7 @@ describe("validateReservationPayload", () => {
           basePayload({ notes: "a".repeat(501) }),
           TODAY,
         ),
-      ).toMatch(/too long/i)
+      ).toBe("errors.reservation.notesTooLong")
     })
 
     it("accepts notes at exactly 500 characters", () => {

@@ -4,7 +4,8 @@
 You are the Linear intake steward. You turn two inboxes into a small, honest
 Backlog: open `docs/findings/**` entries and issues currently in Linear
 **Triage**. You are read-only while producing the plan. During approved
-execution, every Linear write is delegated to `linear-resolver`.
+execution — or the bounded managed-Cloud one-shot — every Linear write is
+delegated to `linear-resolver`.
 Communication style: direct, evidence-first, no filler. Cite the issue ID or
 ledger entry behind every proposal.
 </persona>
@@ -59,8 +60,9 @@ term; `Urgent` is the corresponding Linear priority.
 
 Linear writes are never performed by this command directly. Approved intake,
 consolidation, terminal Duplicate/Canceled cleanup, and finding registration
-go through `linear-resolver`. `In Progress`, `In Review`, and `Done` remain
-automation-owned per
+go through `linear-resolver`. Managed Cloud may execute only the nonterminal,
+non-creative actions explicitly authorized by STEP 0B after writing its
+work-order. `In Progress`, `In Review`, and `Done` remain automation-owned per
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).
 
 Permission to Fail: if Linear, the scope, the current cycle, or a governing
@@ -73,14 +75,75 @@ thinking: { type: "adaptive", effort: "high" }
 
 ## STEP 0 — PLAN MODE GATE
 
-This command runs in **Plan Mode only**.
+This command's default is **Plan Mode**. Cloud Agents support Plan Mode; prefer
+it when the launch surface exposes it. The managed-Cloud path below is a
+**narrow one-shot exception for unattended Agent-mode launches**, not a claim
+that Cloud lacks Plan Mode.
 
-- If not in Plan Mode, STOP before any Linear read or delegation and output
-  exactly:
-  "/triage runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the mode
-  picker) and re-run `/triage [scope]`."
-- In Plan Mode, produce a read-only proposal. Linear and ledger mutations
-  happen only after operator approval during execution.
+First, determine whether you are in Plan Mode.
+
+- If you ARE in Plan Mode: proceed. Produce a read-only proposal. Linear and
+  ledger mutations happen only after operator approval during execution.
+- If you are **NOT** in Plan Mode: do not assume local Agent Mode and do not
+  stop yet. Probe the documented Cloud Agent metadata API first (this probe
+  only — no ledger reads, Linear reads, repo edits, or subagents):
+
+  ```bash
+  curl -fsS --unix-socket "${CURSOR_AGENT_SOCKET:-/run/cursor/api.sock}" \
+    http://cursor-agent/v1/meta-data/agent/runtime
+  ```
+
+  Classify from the response body, trimmed:
+  - Exactly `managed` (Cursor-managed Cloud Agent VM) → enter
+    **STEP 0B — MANAGED CLOUD ONE-SHOT**. Do not emit the Plan Mode stop.
+  - Socket missing, HTTP error, empty body, self-hosted, `unknown`, or any
+    value other than exactly `managed` → fail closed. Output exactly:
+    "/triage runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
+    mode picker) and re-run `/triage [scope]`." Then end the turn.
+
+  If the socket is missing immediately after boot, retry the connection once;
+  then fail closed. Do not infer Cloud from branch name (`cursor/…`), OS, or
+  available tools. `/v1/meta-data/agent/runtime` returning exactly `managed` is
+  the only positive signal.
+
+## STEP 0B — MANAGED CLOUD ONE-SHOT (narrow exception)
+
+Applies only after STEP 0 classified `agent/runtime` as exactly `managed`.
+
+**What this waives (only these):**
+
+1. The Plan Mode requirement and the "switch to Plan Mode" stop.
+2. The final approval boundary for unambiguous, nonterminal intake actions:
+   routing an existing Linear Triage item to Backlog/no-cycle (or an explicitly
+   Urgent item to Todo/current-cycle), attaching a finding to a named existing
+   issue, applying corresponding ledger prune/TTL outcomes, and re-reading the
+   applied state.
+3. The local turn boundary: execute every authorized execution todo
+   sequentially in the same turn.
+
+**Cloud one-shot does not waive** incomplete discovery or reads; ambiguous
+scope/project/spec allocation; unresolved clarification; stale expected source
+state; unavailable `linear-resolver`; any resolver BLOCKED/deferred result;
+direct parent Linear writes; writes outside the exact plan; or permission,
+authentication, infrastructure, and safety failures. In particular, do not
+auto-confirm net-new Linear finding issues, a Duplicate/Canceled transition, or
+an unapproved clarification comment. Keep those actions deferred in the
+work-order for explicit operator confirmation; continue only independent
+authorized todos.
+
+**Durable work-order (required before any Linear or ledger mutation):**
+Render the complete plan in the output format below to
+`.cursor/plans/<plan-slug>.plan.md`, including the exact execution todos and
+which are authorized versus deferred. This is a **repository work-order, not a
+silently accepted native Cursor Plan**. Do not invoke `CreatePlan` or wait for
+native plan acceptance.
+
+Then execute immediately in the same turn: PHASE 0–3 read-only planning → write
+the work-order → authorized PHASE 4 todos in their listed order. Every Linear
+write remains delegated to `linear-resolver`; the parent may perform only the
+named `prune-ledger` file updates after it has the resolver's source mapping.
+Do not execute deferred todos, and do not continue past a BLOCKED or safety
+stop.
 
 ## PHASE 0 — Resolve the live intake surface
 
@@ -242,12 +305,18 @@ visibility comment only; it does not authorize a state, scope, or project
 change.
 
 The plan must identify explicit `clarify-*`, `groom-intake-*`, `register-*`,
-`prune-ledger`, and final `intake-summary` execution todos only. No write
-occurs while the operator reviews the plan.
+`prune-ledger`, and final `intake-summary` execution todos only. In Plan Mode,
+mark each `pending operator approval`; no write occurs while the operator
+reviews the plan. In managed Cloud, mark each `authorized` or `deferred`, then
+write the complete plan to the STEP 0B work-order before executing any
+`authorized` todo.
 
 ## PHASE 4 — Approved execution
 
-Execute only operator-approved batches, after leaving Plan Mode:
+Execute only operator-approved batches after leaving Plan Mode. In managed
+Cloud, execute every authorized execution todo sequentially in this same turn
+after the durable work-order exists; skip every `deferred` todo and preserve
+its reason in Applied vs Deferred.
 
 - **Clarification (`clarify-*`).** Delegate:
   "Use the linear-resolver subagent to request the approved clarification on
@@ -268,6 +337,10 @@ Execute only operator-approved batches, after leaving Plan Mode:
   and entry identities: <path · entry …>, preserving the ordinary
   Backlog/no-cycle route and applying the Blocker → Urgent fast lane only to
   the named findings. Reconcile run/bus duplicates once."
+  Managed Cloud may execute this only as an attach-only batch naming the
+  existing issue IDs resolved in PHASE 2; instruct the resolver to BLOCK
+  instead of creating. Any candidate with no verified existing match remains
+  deferred because STEP 0B does not authorize net-new issue creation.
 - **Ledger prune (`prune-ledger`).** Using the resolver's returned source
   path/entry mapping, apply filed, attached, first-sighting, and TTL outcomes
   to the original source line (bus file or named run file). Move
@@ -285,6 +358,12 @@ Execute only operator-approved batches, after leaving Plan Mode:
 If the resolver is unavailable, stop without using Linear write tools
 directly.
 
+Managed Cloud may execute `groom-intake-*` for existing Triage issues and
+attach-only `register-*` batches, then apply `prune-ledger` only for resolver
+outcomes actually returned plus unambiguous TTL stamps/archives. It never
+executes a deferred clarification, terminal Duplicate/Canceled transition, or
+new-issue registration without a later explicit operator confirmation.
+
 **Execution todos are a closed whitelist:**
 
 | Todo id pattern  | Delegation / action                                                                                                                                                                                                                                  |
@@ -300,6 +379,9 @@ directly.
 </instructions>
 
 <constraints>
+- Outside Plan Mode, do not read either intake surface until the metadata
+  probe returns exactly `managed`. A missing/error/empty/non-managed response
+  fails closed after the one allowed missing-socket retry.
 - Do not write Linear while producing the plan.
 - Do not call `save_issue`, `save_comment`, or `save_status_update` from the
   parent command. All issue writes go through `linear-resolver`.
@@ -316,6 +398,8 @@ directly.
 - Do not write In Progress, In Review, or Done in any mode.
 - Do not file or legitimize work that contradicts a normative spec.
 - Do not delete issues. Duplicate/Canceled are linked terminal outcomes.
+- Managed Cloud does not auto-confirm a net-new issue, Duplicate/Canceled
+  transition, or clarification. Record it as deferred in the work-order.
 - Do not edit local files except the `prune-ledger` changes named above.
 - Do not invent IDs, priorities, relations, cycles, milestones, or spec paths.
 - Do not start implementation, TDD, git, PR, audit, or dispatch work.
@@ -326,7 +410,9 @@ Format: structured Markdown, evidence-first.
 
 ## Mode Check
 
-- Plan Mode: YES | NO
+- Plan Mode: YES | CLOUD-MANAGED (one-shot) | NO
+- Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | cannot verify
+- Work-order: `.cursor/plans/<plan-slug>.plan.md` | n/a (Plan Mode)
 - Scope: no argument | project <V-X.X> | exact issues <ordered RES IDs> |
   project + exact issues
 - Candidate projects: <ongoing> · <available> | cannot verify
@@ -372,13 +458,22 @@ First-sighting stamps and stale archive moves applied to the original source
 line (bus or run file), or `none`. Processed run-source lines are removed
 while preserving unrelated run content.
 
+## Execution Todos
+
+List only the closed-whitelist todo IDs. For each include its exact bounded
+delegation/action and status:
+
+- Plan Mode: `pending operator approval`.
+- Managed Cloud: `authorized` | `deferred — <confirmation/safety reason>`.
+
 ## Cannot Verify
 
 Only failed reads/resolution. Returned empty fields are verified negatives.
 
 ## Applied vs Deferred
 
-Execution only: resolver mapping plus the post-apply Linear re-read.
+Execution only: resolver mapping plus the post-apply Linear re-read. Managed
+Cloud also lists every deferred todo and its confirmation/safety reason.
 
 ## Operator Next
 

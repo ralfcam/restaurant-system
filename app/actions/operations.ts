@@ -62,6 +62,10 @@ export type PersistedMerge = {
 
 type ServiceDb = ReturnType<typeof createServiceClient>
 
+function failureKey(message: string | null | undefined, blankKey: string) {
+  return message?.trim() ? "errors.operations.unmapped" : blankKey
+}
+
 type MergeContext = {
   mergeId: string
   expectedMinutes: number
@@ -369,7 +373,7 @@ async function applyStatusToIds(
       .from("tables")
       .update({ status, updated_at: now })
       .eq("id", id)
-    if (error) throw new Error("Unable to update table")
+    if (error) throw new Error("errors.floor.updateTableFailed")
     await db.from("status_events").insert({
       entity_type: "table",
       entity_id: id,
@@ -388,7 +392,7 @@ export async function updateTableState(input: {
   y?: number
 }) {
   const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
 
   const db = createServiceClient()
   const { data: current, error: currentError } = await db
@@ -396,15 +400,13 @@ export async function updateTableState(input: {
     .select("status, x, y")
     .eq("id", input.id)
     .single()
-  if (currentError || !current) throw new Error("Table not found")
+  if (currentError || !current) throw new Error("errors.floor.tableNotFound")
   if (
     input.status &&
     (!TABLE_STATUSES.has(input.status) ||
       !TABLE_TRANSITIONS[current.status as TableStatus].includes(input.status))
   ) {
-    throw new Error(
-      `Invalid table transition: ${current.status} → ${input.status}`,
-    )
+    throw new Error("errors.floor.invalidTableTransition")
   }
 
   const merge =
@@ -424,7 +426,7 @@ export async function updateTableState(input: {
         updated_at: now.toISOString(),
       })
       .eq("id", input.id)
-    if (error) throw new Error("Unable to update table")
+    if (error) throw new Error("errors.floor.updateTableFailed")
   }
 
   if (input.expectedMinutes !== undefined) {
@@ -439,7 +441,7 @@ export async function updateTableState(input: {
           updated_at: now.toISOString(),
         })
         .eq("id", merge.mergeId)
-      if (error) throw new Error("Unable to update expected time")
+      if (error) throw new Error("errors.floor.expectedTimeFailed")
     } else {
       const { error } = await db
         .from("tables")
@@ -448,7 +450,7 @@ export async function updateTableState(input: {
           updated_at: now.toISOString(),
         })
         .eq("id", input.id)
-      if (error) throw new Error("Unable to update expected time")
+      if (error) throw new Error("errors.floor.expectedTimeFailed")
     }
   }
 
@@ -472,7 +474,7 @@ export async function updateTableState(input: {
           .from("table_merges")
           .update(patch)
           .eq("id", merge.mergeId)
-        if (error) throw new Error("Unable to update arrangement")
+        if (error) throw new Error("errors.floor.arrangementUpdateFailed")
       }
     }
   }
@@ -490,7 +492,7 @@ export async function updateTableState(input: {
         updated_at: now.toISOString(),
       })
       .eq("id", input.id)
-    if (error) throw new Error("Unable to update table")
+    if (error) throw new Error("errors.floor.updateTableFailed")
   }
 
   revalidatePath("/admin/floor")
@@ -499,8 +501,9 @@ export async function updateTableState(input: {
 
 export async function syncTableGroupStatus(label: string, status: TableStatus) {
   const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
-  if (!TABLE_STATUSES.has(status)) throw new Error("Invalid table status")
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
+  if (!TABLE_STATUSES.has(status))
+    throw new Error("errors.floor.invalidTableStatus")
 
   const db = createServiceClient()
   const { data: table, error } = await db
@@ -566,7 +569,7 @@ async function persistMergeViaEvents(
     status: "available",
   })
   if (payload.tableIds.length < 2)
-    return { error: "Select at least two tables to merge." }
+    return { error: "errors.floor.mergeNeedsTwo" }
   const eventError = await recordMergeEvent(
     db,
     mergeId,
@@ -575,7 +578,7 @@ async function persistMergeViaEvents(
     fromStatus,
   )
   if (eventError)
-    return { error: eventError.message || "Unable to merge tables" }
+    return { error: failureKey(eventError.message, "errors.floor.mergeFailed") }
   revalidatePath("/admin/floor")
   return {
     id: mergeId,
@@ -594,7 +597,7 @@ export async function mergeTables(input: {
 }): Promise<MergeTablesResult> {
   try {
     const staffUser = await requireStaffUser()
-    if (!staffUser) return { error: "Unauthorized" }
+    if (!staffUser) return { error: "errors.operations.unauthorized" }
 
     const ids = [...new Set(input.tableIds ?? [])]
     const db = createServiceClient()
@@ -603,7 +606,7 @@ export async function mergeTables(input: {
       .select("*")
       .in("id", ids)
     if (error || !rows || rows.length !== ids.length)
-      return { error: "Tables not found" }
+      return { error: "errors.floor.tablesNotFound" }
 
     const { data: existing, error: existingError } = await db
       .from("table_merge_members")
@@ -626,7 +629,7 @@ export async function mergeTables(input: {
       ...new Set((existing ?? []).map((row) => String(row.merge_id))),
     ]
     if (mergeIds.length > 1) {
-      return { error: "Split an arrangement before combining it with another." }
+      return { error: "errors.floor.splitBeforeCombine" }
     }
 
     if (mergeIds.length === 1) {
@@ -640,7 +643,7 @@ export async function mergeTables(input: {
         if (isMissingRelationError(mergeReadError)) {
           return mergeUsingEvents(db, mapped, ids, input.expectedMinutes)
         }
-        return { error: "Arrangement not found" }
+        return { error: "errors.floor.arrangementNotFound" }
       }
 
       const newcomers = mapped.filter((table) => !table.mergeId)
@@ -660,7 +663,9 @@ export async function mergeTables(input: {
         if (isMissingRelationError(memberError)) {
           return mergeUsingEvents(db, mapped, ids, input.expectedMinutes)
         }
-        return { error: memberError.message || "Unable to merge tables" }
+        return {
+          error: failureKey(memberError.message, "errors.floor.mergeFailed"),
+        }
       }
 
       const allMembers = await membersForMerge(db, mergeId)
@@ -691,7 +696,9 @@ export async function mergeTables(input: {
             String(merge.status),
           )
         }
-        return { error: updateError.message || "Unable to merge tables" }
+        return {
+          error: failureKey(updateError.message, "errors.floor.mergeFailed"),
+        }
       }
 
       const payload = mergeStateFromTables(
@@ -741,7 +748,9 @@ export async function mergeTables(input: {
           expiresAt,
         )
       }
-      return { error: mergeError?.message || "Unable to merge tables" }
+      return {
+        error: failureKey(mergeError?.message, "errors.floor.mergeFailed"),
+      }
     }
 
     const { error: memberError } = await db
@@ -759,7 +768,9 @@ export async function mergeTables(input: {
           expiresAt,
         )
       }
-      return { error: memberError.message || "Unable to merge tables" }
+      return {
+        error: failureKey(memberError.message, "errors.floor.mergeFailed"),
+      }
     }
 
     const payload = mergeStateFromTables(ids, mapped, {
@@ -778,7 +789,10 @@ export async function mergeTables(input: {
   } catch (error) {
     console.error("[operations] mergeTables unexpected:", error)
     return {
-      error: error instanceof Error ? error.message : "Unable to merge tables",
+      error:
+        error instanceof Error
+          ? failureKey(error.message, "errors.floor.mergeFailed")
+          : "errors.floor.mergeFailed",
     }
   }
 }
@@ -794,7 +808,7 @@ async function mergeUsingEvents(
     ids.some((id) => merge.tableIds.includes(id)),
   )
   if (touching.length > 1) {
-    return { error: "Split an arrangement before combining it with another." }
+    return { error: "errors.floor.splitBeforeCombine" }
   }
 
   if (touching.length === 1) {
@@ -856,7 +870,7 @@ async function mergeUsingEvents(
 export async function splitMerge(mergeId: string): Promise<{ error?: string }> {
   try {
     const staffUser = await requireStaffUser()
-    if (!staffUser) return { error: "Unauthorized" }
+    if (!staffUser) return { error: "errors.operations.unauthorized" }
 
     const db = createServiceClient()
     let merge: { id: string } | null = null
@@ -874,24 +888,29 @@ export async function splitMerge(mergeId: string): Promise<{ error?: string }> {
       const fallback = (await loadMergeEvents(db)).find(
         (row) => row.id === mergeId,
       )
-      if (!fallback) return { error: "Arrangement not found" }
+      if (!fallback) return { error: "errors.floor.arrangementNotFound" }
     }
     const dissolveError = await dissolveMerge(db, mergeId)
     if (dissolveError)
-      return { error: dissolveError.message || "Unable to split tables" }
+      return {
+        error: failureKey(dissolveError.message, "errors.floor.splitFailed"),
+      }
     revalidatePath("/admin/floor")
     return {}
   } catch (error) {
     console.error("[operations] splitMerge unexpected:", error)
     return {
-      error: error instanceof Error ? error.message : "Unable to split tables",
+      error:
+        error instanceof Error
+          ? failureKey(error.message, "errors.floor.splitFailed")
+          : "errors.floor.splitFailed",
     }
   }
 }
 
 export async function createTable() {
   const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
 
   const db = createServiceClient()
   const { data: existing } = await db
@@ -920,20 +939,20 @@ export async function createTable() {
     })
     .select("*")
     .single()
-  if (error) throw new Error("Unable to add table")
+  if (error) throw new Error("errors.floor.addTableFailed")
   revalidatePath("/admin/floor")
   return mapTable(data)
 }
 
 export async function deleteTable(id: string) {
   const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
 
   const db = createServiceClient()
   const merge = await loadMergeContext(db, id)
   if (merge) await dissolveMerge(db, merge.mergeId)
   const { error } = await db.from("tables").delete().eq("id", id)
-  if (error) throw new Error("Unable to remove table")
+  if (error) throw new Error("errors.floor.removeTableFailed")
   revalidatePath("/admin/floor")
 }
 
@@ -943,9 +962,9 @@ export async function createKitchenOrder(input: {
   lines: { itemId: string; qty: number; notes?: string }[]
 }) {
   const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
   if (!input.lines.length || input.lines.length > 50)
-    throw new Error("Order must contain items")
+    throw new Error("errors.pos.orderNeedsItems")
   const db = createServiceClient()
   const itemIds = [...new Set(input.lines.map((line) => line.itemId))]
   const { data: menuRows } = await db
@@ -957,7 +976,7 @@ export async function createKitchenOrder(input: {
     const item = menuById.get(line.itemId)
     const qty = Math.max(1, Math.min(99, Math.round(line.qty)))
     if (!item || item.available !== true)
-      throw new Error("Menu item is unavailable")
+      throw new Error("errors.pos.itemUnavailable")
     return {
       itemId: String(item.id),
       name: String(item.name),
@@ -989,7 +1008,7 @@ export async function createKitchenOrder(input: {
     })
     .select("*")
     .single()
-  if (error || !order) throw new Error("Unable to send order to kitchen")
+  if (error || !order) throw new Error("errors.pos.sendFailed")
   const { error: itemError } = await db.from("order_items").insert(
     normalized.map((line) => ({
       order_id: order.id,
@@ -1002,7 +1021,7 @@ export async function createKitchenOrder(input: {
   )
   if (itemError) {
     await db.from("orders").delete().eq("id", order.id)
-    throw new Error("Unable to save order items")
+    throw new Error("errors.pos.saveItemsFailed")
   }
   revalidatePath("/kds")
   return { id: order.id, orderNumber: Number(order.order_number) }
@@ -1029,7 +1048,7 @@ export async function getActiveKitchenOrders(): Promise<KdsOrder[]> {
     orderNumber: Number(row.order_number),
     table: row.table_label,
     server: row.server_name,
-    placedAt: new Date(row.created_at).toLocaleTimeString([], {
+    placedAt: new Date(row.created_at).toLocaleTimeString("fr", {
       hour: "2-digit",
       minute: "2-digit",
     }),
@@ -1068,7 +1087,7 @@ export async function updateKitchenOrderStatus(
   status: "preparing" | "ready" | "completed" | "cancelled" | "voided",
 ) {
   const staffUser = await requireStaffUser()
-  if (!staffUser) throw new Error("Unauthorized")
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
 
   const db = createServiceClient()
   const { data: current, error: readError } = await db
@@ -1076,18 +1095,18 @@ export async function updateKitchenOrderStatus(
     .select("status")
     .eq("id", id)
     .single()
-  if (readError || !current) throw new Error("Kitchen order not found")
+  if (readError || !current) throw new Error("errors.kds.orderNotFound")
   if (
     !ORDER_TRANSITIONS[
       current.status as keyof typeof ORDER_TRANSITIONS
     ]?.includes(status)
   )
-    throw new Error(`Invalid order transition: ${current.status} → ${status}`)
+    throw new Error("errors.kds.invalidTransition")
   const { error } = await db
     .from("orders")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", id)
-  if (error) throw new Error("Unable to update kitchen order")
+  if (error) throw new Error("errors.kds.updateFailed")
   await db.from("status_events").insert({
     entity_type: "order",
     entity_id: id,

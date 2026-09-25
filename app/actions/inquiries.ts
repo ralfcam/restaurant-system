@@ -36,7 +36,8 @@ export async function getEventInquiries(
   filter?: InquiryListFilter,
 ): Promise<{ inquiries: EventInquiryRow[]; error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { inquiries: [], error: "Unauthorized." }
+  if (!staffUser)
+    return { inquiries: [], error: "errors.inquiries.unauthorized" }
 
   const supabase = createServiceClient()
   let query = supabase.from("event_inquiries").select("*")
@@ -55,7 +56,7 @@ export async function getEventInquiries(
 
   if (error) {
     console.error("[inquiries] getEventInquiries:", error.message)
-    return { inquiries: [], error: "Could not load inquiries." }
+    return { inquiries: [], error: "errors.inquiries.loadFailed" }
   }
 
   return { inquiries: (data ?? []) as EventInquiryRow[] }
@@ -65,7 +66,7 @@ export async function createInquiry(
   input: InquiryCreateInput,
 ): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.inquiries.unauthorized" }
 
   const validated = validateInquiryPayload(input ?? {})
   if ("error" in validated) return { error: validated.error }
@@ -74,7 +75,7 @@ export async function createInquiry(
   const { error } = await supabase.from("event_inquiries").insert(validated.row)
   if (error) {
     console.error("[inquiries] createInquiry:", error.message)
-    return { error: "Could not save inquiry." }
+    return { error: "errors.inquiries.saveFailed" }
   }
   return {}
 }
@@ -84,10 +85,10 @@ export async function updateInquiryStatus(
   status: string,
 ): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.inquiries.unauthorized" }
 
   if (!(INQUIRY_STATUSES as readonly string[]).includes(status)) {
-    return { error: "Invalid inquiry status." }
+    return { error: "errors.inquiries.invalidStatus" }
   }
 
   const supabase = createServiceClient()
@@ -97,7 +98,7 @@ export async function updateInquiryStatus(
     .eq("id", id)
   if (error) {
     console.error("[inquiries] updateInquiryStatus:", error.message)
-    return { error: "Could not update inquiry." }
+    return { error: "errors.inquiries.updateFailed" }
   }
   return {}
 }

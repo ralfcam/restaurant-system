@@ -69,7 +69,9 @@ describe("restaurant-wide slot interval on the floor plan", () => {
   it("rejects staff-only callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
     const { updateSlotIntervalMinutes } = await import("@/app/actions/branding")
-    await expect(updateSlotIntervalMinutes(15)).rejects.toThrow("Unauthorized")
+    await expect(updateSlotIntervalMinutes(15)).rejects.toThrow(
+      "errors.branding.unauthorized",
+    )
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })

@@ -194,7 +194,7 @@ describe("mergeTables", () => {
     mocks.tables[1]!.status = "reserved"
     const { mergeTables } = await import("@/app/actions/operations")
     await expect(mergeTables({ tableIds: ["t3", "t4"] })).resolves.toEqual({
-      error: "Only available tables can be merged.",
+      error: "errors.floor.onlyAvailableTables",
     })
   })
 

@@ -66,7 +66,7 @@ describe.skipIf(!authEnvReady)(
         email: "guest@test.local",
       } as Parameters<typeof createReservation>[0])
       expect(denied.confCode).toBe("")
-      expect(denied.error).toMatch(/fully booked/i)
+      expect(denied.error).toBe("errors.reservation.fullyBooked")
 
       const small = await createReservation({
         guestName: "Small Party",

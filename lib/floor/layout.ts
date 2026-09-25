@@ -31,6 +31,17 @@ export function clampFloorCell(cell: FloorCell): FloorCell {
   }
 }
 
+/** Nearest in-grid cell of `origin + delta / FLOOR_CELL_PX` (FP-9-DROP). */
+export function floorDropCell(
+  origin: FloorCell,
+  delta: { dx: number; dy: number },
+): FloorCell {
+  return clampFloorCell({
+    x: origin.x + delta.dx / FLOOR_CELL_PX,
+    y: origin.y + delta.dy / FLOOR_CELL_PX,
+  })
+}
+
 /** Seed / mock dining-room cells (`supabase/seed.sql`, `lib/data.ts`). */
 export const SEED_FLOOR_LAYOUT: Record<string, FloorCell> = {
   "1": { x: 0, y: 0 },
@@ -130,17 +141,6 @@ export function floorCanvasCells(tables: FloorCell[]): {
     cols: Math.min(FLOOR_MAX_COLS, Math.max(FLOOR_MIN_COLS, maxX + 2)),
     rows: Math.min(FLOOR_MAX_ROWS, Math.max(FLOOR_MIN_ROWS, maxY + 2)),
   }
-}
-
-export function clientToFloorCell(
-  clientX: number,
-  clientY: number,
-  canvas: { left: number; top: number },
-): FloorCell {
-  return clampFloorCell({
-    x: (clientX - canvas.left) / FLOOR_CELL_PX,
-    y: (clientY - canvas.top) / FLOOR_CELL_PX,
-  })
 }
 
 export function tableAtCell<T extends FloorCell & { id: string }>(

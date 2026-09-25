@@ -3,7 +3,7 @@ import Image from "next/image"
 import type { Metadata } from "next"
 import { getTranslations, setRequestLocale } from "next-intl/server"
 import { RESTAURANT } from "@/lib/data"
-import { getMenuItems } from "@/app/actions/menu"
+import { getMenuItems, getPublicMenuTabs } from "@/app/actions/menu"
 import { Link } from "@/i18n/navigation"
 import { SiteHeader } from "@/components/site/site-header"
 import { MenuBrowser } from "@/components/site/menu-browser"
@@ -20,10 +20,11 @@ export async function generateMetadata({
 }: PageProps): Promise<Metadata> {
   const { locale } = await params
   const t = await getTranslations({ locale, namespace: "menuPage" })
+  const site = await getTranslations({ locale, namespace: "site" })
 
   return {
-    title: `${t("title", { name: RESTAURANT.name })} — ${RESTAURANT.name}`,
-    description: t("description", { tagline: RESTAURANT.tagline }),
+    title: t("title", { name: RESTAURANT.name }),
+    description: t("description", { tagline: site("tagline") }),
   }
 }
 
@@ -31,7 +32,11 @@ export default async function MenuPage({ params }: PageProps) {
   const { locale } = await params
   setRequestLocale(locale)
   const t = await getTranslations("menuPage")
-  const items = await getMenuItems()
+  const site = await getTranslations("site")
+  const [items, menus] = await Promise.all([
+    getMenuItems(),
+    getPublicMenuTabs(),
+  ])
 
   return (
     <div className="min-h-screen bg-background">
@@ -40,7 +45,7 @@ export default async function MenuPage({ params }: PageProps) {
       <section className="relative isolate overflow-hidden border-b border-border">
         <Image
           src="/images/bar-counter.png"
-          alt="Restaurant bar and prep counter"
+          alt={t("imageAlt")}
           fill
           sizes="100vw"
           priority
@@ -56,7 +61,7 @@ export default async function MenuPage({ params }: PageProps) {
             {t("title", { name: RESTAURANT.name })}
           </h1>
           <p className="max-w-md text-pretty text-white/65">
-            {t("description", { tagline: RESTAURANT.tagline })}
+            {t("description", { tagline: site("tagline") })}
           </p>
           <Button className="mt-2" render={<Link href="/#reserve" />}>
             {t("reserve")}
@@ -65,7 +70,7 @@ export default async function MenuPage({ params }: PageProps) {
       </section>
 
       <main className="mx-auto max-w-3xl px-4 py-8 md:px-6">
-        <MenuBrowser initialItems={items} locale={locale} />
+        <MenuBrowser initialItems={items} locale={locale} menus={menus} />
       </main>
 
       <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">

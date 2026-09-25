@@ -1,14 +1,19 @@
 # E2E Playwright guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-08
+**Last updated:** 2026-09-24
 
 ## Layout
 
 - Config: `playwright.config.ts`
 - Tests: `tests/e2e/**/*.spec.ts`
 - Localization: `tests/e2e/localization.spec.ts` (AC-11 Staff/Book CTAs use
-  `getByRole("button")`)
+  `getByRole("button")`; login shows a French heading and `html lang` `fr`)
+- Floor drag (FP-9): `tests/e2e/floor/floor-drag.spec.ts` (mouse follow, snap,
+  persist). Staff login helper: `tests/e2e/helpers/staff-login.ts`. iPhone
+  touch drag (M-1) stays manual-UAT.
+- Guest profile overlay (GP-13): `tests/e2e/admin/guest-profile-overlay.spec.ts`.
+  Run with `CI=true` so the Playwright `webServer` inherits the local Supabase env.
 
 ## Running
 

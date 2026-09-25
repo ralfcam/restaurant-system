@@ -70,7 +70,9 @@ function extractJsxTag(source: string, tagName: string): string | null {
 describe("site header mobile sheet language switcher", () => {
   it("mobile LanguageSwitcher closes the sheet", () => {
     const source = readSiteHeaderSource()
-    const sheetContent = /<SheetContent[\s\S]*?<\/SheetContent>/.exec(source)?.[0]
+    const sheetContent = /<SheetContent[\s\S]*?<\/SheetContent>/.exec(
+      source,
+    )?.[0]
     expect(sheetContent).toBeDefined()
 
     const switcher = extractJsxTag(sheetContent!, "LanguageSwitcher")

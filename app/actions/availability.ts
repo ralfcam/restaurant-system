@@ -9,10 +9,12 @@ import {
   type OperatingWindow,
   type OperatingWindowRow,
   DEFAULT_OPERATING_DAYS,
+  DEFAULT_SLOT_INTERVAL_MINUTES,
   daysToWindowsMap,
   flattenDaysToRows,
   groupRowsByDay,
   validateOperatingDays,
+  type SchedulingMessage,
 } from "@/lib/reservations/operating-hours"
 
 export type {
@@ -23,7 +25,7 @@ export type {
 } from "@/lib/reservations/operating-hours"
 
 const WINDOW_COLUMNS =
-  "day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note"
+  "day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note, max_covers, bookable_slots"
 
 /**
  * Detects PostgREST schema-cache / missing-table errors. These occur when the
@@ -42,7 +44,16 @@ function isSchemaCacheError(
   )
 }
 
-const BLOCKED_DATES_LOAD_ERROR = "Could not load blocked dates."
+const BLOCKED_DATES_LOAD_ERROR = "errors.availability.blockedDatesLoadFailed"
+
+function blockedDateErrorKey(error: {
+  code?: string
+  message?: string
+}): string {
+  return isSchemaCacheError(error)
+    ? "errors.availability.schemaUnavailable"
+    : "errors.availability.unmapped"
+}
 
 function rejectBlockedDatesRead(
   operation: string,
@@ -168,6 +179,31 @@ export async function getBlockedDatesInRange(
 }
 
 /**
+ * Configured `operating_windows` only (WA-1 weekly overview).
+ * Empty ledger or read error → [] — no DEFAULT_OPERATING_DAYS fill.
+ */
+export async function getConfiguredOperatingWindows(): Promise<OperatingDay[]> {
+  const supabase = createAnonClient()
+  const { data, error } = await supabase
+    .from("operating_windows")
+    .select(WINDOW_COLUMNS)
+    .order("day_of_week", { ascending: true })
+    .order("sort_order", { ascending: true })
+
+  if (error || !data || data.length === 0) {
+    return []
+  }
+
+  const rows = data as OperatingWindowRow[]
+  // groupRowsByDay seeds DEFAULT_OPERATING_DAYS for weekdays with no ledger
+  // rows — keep only days that actually appear in operating_windows.
+  const ledgerWeekdays = new Set(rows.map((row) => row.day_of_week))
+  return groupRowsByDay(rows).filter((day) =>
+    ledgerWeekdays.has(day.day_of_week),
+  )
+}
+
+/**
  * Fetch all operating days (for admin configuration page).
  */
 export async function getAllOperatingWindows(): Promise<OperatingDay[]> {
@@ -189,18 +225,45 @@ export async function getAllOperatingWindows(): Promise<OperatingDay[]> {
 /**
  * Replace the full weekly opening-hour schedule in one staff-authorized batch.
  * Accepts seven `OperatingDay` values (closed flag + segments).
- * Returns a strict { success: true } | { success: false; error: string } contract.
+ * Returns a strict { success: true } | { success: false; error } contract.
+ * `error` is an `errors.*` catalog key, or `{ key, params }` when the
+ * message names a day or limit.
  */
 export async function upsertOperatingWindows(
   days: OperatingDay[],
-): Promise<{ success: true } | { success: false; error: string }> {
+): Promise<{ success: true } | { success: false; error: SchedulingMessage }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { success: false, error: "Unauthorized." }
+  if (!staffUser) {
+    return { success: false, error: "errors.availability.unauthorized" }
+  }
 
-  const validationError = validateOperatingDays(days)
+  const needsSlotInterval = days.some(
+    (day) =>
+      !day.is_closed &&
+      day.segments.some((segment) => (segment.bookable_slots?.length ?? 0) > 0),
+  )
+  const supabase = createServiceClient()
+  let slotIntervalMinutes: number | undefined
+  if (needsSlotInterval) {
+    const { data, error: settingsError } = await supabase
+      .from("restaurant_settings")
+      .select("slot_interval_minutes")
+      .eq("id", 1)
+      .maybeSingle()
+    if (settingsError) {
+      console.error(
+        "[availability] upsertOperatingWindows settings error:",
+        settingsError.message,
+      )
+      return { success: false, error: "errors.availability.settingsLoadFailed" }
+    }
+    slotIntervalMinutes =
+      data?.slot_interval_minutes ?? DEFAULT_SLOT_INTERVAL_MINUTES
+  }
+
+  const validationError = validateOperatingDays(days, slotIntervalMinutes)
   if (validationError) return { success: false, error: validationError }
 
-  const supabase = createServiceClient()
   const rows = flattenDaysToRows(days)
 
   const { error } = await supabase.rpc("replace_operating_windows", {
@@ -209,7 +272,7 @@ export async function upsertOperatingWindows(
 
   if (error) {
     console.error("[availability] upsertOperatingWindows error:", error.message)
-    return { success: false, error: error.message }
+    return { success: false, error: "errors.availability.unmapped" }
   }
 
   return { success: true }
@@ -226,7 +289,9 @@ export async function toggleBlockedDate(
   dateISO: string,
 ): Promise<{ blocked: boolean; error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { blocked: false, error: "Unauthorized." }
+  if (!staffUser) {
+    return { blocked: false, error: "errors.availability.unauthorized" }
+  }
 
   // Strictly re-format the incoming string through the restaurant timezone to
   // guarantee the payload is always YYYY-MM-DD in Europe/Zurich, regardless of
@@ -247,13 +312,8 @@ export async function toggleBlockedDate(
     .eq("date", safeISO)
     .maybeSingle()
 
-  // Surface schema-cache / missing-table errors with a recognizable PGRST code
-  // prefix so the client can render an action-oriented message.
-  if (selectError && isSchemaCacheError(selectError)) {
-    return { blocked: false, error: `PGRST116: ${selectError.message}` }
-  }
   if (selectError) {
-    return { blocked: false, error: selectError.message }
+    return { blocked: false, error: blockedDateErrorKey(selectError) }
   }
 
   if (data) {
@@ -263,9 +323,7 @@ export async function toggleBlockedDate(
       .delete()
       .eq("date", safeISO)
     if (error) {
-      if (isSchemaCacheError(error))
-        return { blocked: true, error: `PGRST116: ${error.message}` }
-      return { blocked: true, error: error.message }
+      return { blocked: true, error: blockedDateErrorKey(error) }
     }
     return { blocked: false }
   } else {
@@ -274,9 +332,7 @@ export async function toggleBlockedDate(
       .from("blocked_dates")
       .insert({ date: safeISO, reason: "Admin blocked" })
     if (error) {
-      if (isSchemaCacheError(error))
-        return { blocked: false, error: `PGRST116: ${error.message}` }
-      return { blocked: false, error: error.message }
+      return { blocked: false, error: blockedDateErrorKey(error) }
     }
     return { blocked: true }
   }

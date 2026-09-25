@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Plus, Minus, Trash2, Send, Receipt, ChefHat } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { MENUS, type MenuId, type OrderLine } from "@/lib/data"
 import {
@@ -29,6 +30,7 @@ type PosTerminalProps = {
 }
 
 export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
+  const t = useTranslations()
   const [menuId, setMenuId] = useState<MenuId>(MENUS[0]?.id ?? "soir")
   const [cart, setCart] = useState<OrderLine[]>([])
   const [table, setTable] = useState(tables[0]?.label ?? "")
@@ -64,6 +66,13 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
   const subtotal = cart.reduce((s, l) => s + priceOf(l.itemId) * l.qty, 0)
   const tax = subtotal * TAX_RATE
   const total = subtotal + tax
+  const money = (amount: number) =>
+    t("staff.pos.money", { amount: amount.toFixed(2) })
+  const tableChoices = tables.map((row) => ({
+    id: row.id,
+    value: row.label,
+    label: t("staff.pos.tableOption", { label: row.label }),
+  }))
 
   async function sendToKitchen() {
     if (cart.length === 0 || sending) return
@@ -75,14 +84,19 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
         lines: cart.map(({ itemId, qty, notes }) => ({ itemId, qty, notes })),
       })
       toast.success(
-        `Order #${result.orderNumber} sent to kitchen · Table ${table}`,
+        t("staff.pos.sentToKitchen", {
+          orderNumber: result.orderNumber,
+          table,
+        }),
         {
-          description: `${cart.reduce((s, l) => s + l.qty, 0)} items fired`,
+          description: t("staff.pos.itemsFired", {
+            count: cart.reduce((sum, line) => sum + line.qty, 0),
+          }),
         },
       )
       setCart([])
     } catch {
-      toast.error("Could not send order to kitchen")
+      toast.error(t("staff.pos.sendFailed"))
     } finally {
       setSending(false)
     }
@@ -131,37 +145,42 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
       <div className="flex flex-col rounded-xl border border-border bg-card">
         <div className="border-b border-border p-4">
           <div className="mb-3 flex items-center gap-2 font-heading text-lg font-semibold">
-            <Receipt className="size-5 text-primary" /> Current Order
+            <Receipt className="size-5 text-primary" />{" "}
+            {t("staff.pos.currentOrder")}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-muted-foreground">Table</label>
+              <label className="text-xs text-muted-foreground">
+                {t("staff.pos.tableLabel")}
+              </label>
               <Select
                 value={table || undefined}
                 onValueChange={(v) => setTable(v ?? "")}
                 disabled={tables.length === 0}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No tables available" />
+                  <SelectValue placeholder={t("staff.pos.noTables")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {tables.map((row) => (
-                    <SelectItem key={row.id} value={row.label}>
-                      Table {row.label}
+                  {tableChoices.map((row) => (
+                    <SelectItem key={row.id} value={row.value}>
+                      {row.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Server</label>
+              <label className="text-xs text-muted-foreground">
+                {t("staff.pos.serverLabel")}
+              </label>
               <Select
                 value={server || undefined}
                 onValueChange={(v) => setServer(v ?? "")}
                 disabled={servers.length === 0}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="No servers available" />
+                  <SelectValue placeholder={t("staff.pos.noServers")} />
                 </SelectTrigger>
                 <SelectContent>
                   {servers.map((row) => (
@@ -178,7 +197,7 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
         <div className="flex-1 overflow-y-auto p-4">
           {cart.length === 0 ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
-              Tap menu items to build the order.
+              {t("staff.pos.emptyCart")}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -190,7 +209,7 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{line.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      CHF {priceOf(line.itemId).toFixed(2)}
+                      {money(priceOf(line.itemId))}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -215,7 +234,7 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
                     </Button>
                   </div>
                   <span className="w-16 text-right text-sm font-medium tabular-nums">
-                    CHF {(priceOf(line.itemId) * line.qty).toFixed(2)}
+                    {money(priceOf(line.itemId) * line.qty)}
                   </span>
                 </li>
               ))}
@@ -226,16 +245,18 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
         <div className="border-t border-border p-4">
           <dl className="space-y-1 text-sm">
             <div className="flex justify-between text-muted-foreground">
-              <dt>Subtotal</dt>
-              <dd className="tabular-nums">CHF {subtotal.toFixed(2)}</dd>
+              <dt>{t("staff.pos.subtotal")}</dt>
+              <dd className="tabular-nums">{money(subtotal)}</dd>
             </div>
             <div className="flex justify-between text-muted-foreground">
-              <dt>Tax (7.7%)</dt>
-              <dd className="tabular-nums">CHF {tax.toFixed(2)}</dd>
+              <dt>
+                {t("staff.pos.tax", { rate: (TAX_RATE * 100).toFixed(1) })}
+              </dt>
+              <dd className="tabular-nums">{money(tax)}</dd>
             </div>
             <div className="flex justify-between pt-1 font-heading text-lg font-semibold">
-              <dt>Total</dt>
-              <dd className="tabular-nums">CHF {total.toFixed(2)}</dd>
+              <dt>{t("staff.pos.total")}</dt>
+              <dd className="tabular-nums">{money(total)}</dd>
             </div>
           </dl>
           <div className="mt-3 flex gap-2">
@@ -245,7 +266,7 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
               disabled={cart.length === 0}
               onClick={() => setCart([])}
             >
-              <Trash2 className="size-4" /> Clear
+              <Trash2 className="size-4" /> {t("staff.pos.clear")}
             </Button>
             <Button
               className="flex-[2]"
@@ -253,12 +274,11 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
               onClick={sendToKitchen}
             >
               <Send className="size-4" />{" "}
-              {sending ? "Sending…" : "Send to kitchen"}
+              {sending ? t("staff.pos.sending") : t("staff.pos.send")}
             </Button>
           </div>
           <p className="mt-2 flex items-center justify-center gap-1 text-xs text-muted-foreground">
-            <ChefHat className="size-3.5" /> Fires instantly to the Kitchen
-            Display
+            <ChefHat className="size-3.5" /> {t("staff.pos.firesInstantly")}
           </p>
         </div>
       </div>

@@ -3,7 +3,7 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 
 const root = process.cwd()
-const FILTER_EMPTY = "No reservations match your filters."
+const FILTER_EMPTY = "errors.reservation.listFilterEmpty"
 
 function read(rel: string) {
   return readFileSync(path.join(root, rel), "utf8")
@@ -31,7 +31,7 @@ describe("staff list empty copy", () => {
       statusFilterActive: false,
       nameOrPhoneFilterActive: false,
     })
-    expect(emptyDate).toMatch(/no reservations for (this|that) date/i)
+    expect(emptyDate).toBe("errors.reservation.listDateEmpty")
     expect(emptyDate).not.toBe(FILTER_EMPTY)
 
     expect(

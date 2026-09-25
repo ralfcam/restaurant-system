@@ -6,7 +6,7 @@ description: >-
   Never edits tests. Finishes the moment the target test turns green and no
   previously-green test regresses. Invoke with "Use the tdd-green subagent to
   make <test> pass".
-model: inherit
+model: grok-4.7[context=256k,reasoning_effort=high,fast=false]
 readonly: false
 is_background: false
 ---

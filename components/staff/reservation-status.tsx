@@ -1,25 +1,35 @@
-import { cn } from "@/lib/utils"
-import type { ReservationStatus } from "@/lib/data"
+"use client"
 
-const META: Record<ReservationStatus, { label: string; className: string }> = {
+import { useTranslations } from "next-intl"
+import { cn } from "@/lib/utils"
+import {
+  TABLE_STATUS_META,
+  type ReservationStatus,
+  type TableStatus,
+} from "@/lib/data"
+
+export const RESERVATION_STATUS_META: Record<
+  ReservationStatus,
+  { label: string; className: string }
+> = {
   confirmed: {
-    label: "Confirmed",
+    label: "status.reservation.confirmed",
     className: "bg-chart-3/15 text-chart-3 border-chart-3/30",
   },
   seated: {
-    label: "Seated",
+    label: "status.reservation.seated",
     className: "bg-primary/10 text-primary border-primary/30",
   },
   completed: {
-    label: "Completed",
+    label: "status.reservation.completed",
     className: "bg-accent/10 text-accent border-accent/30",
   },
   cancelled: {
-    label: "Cancelled",
+    label: "status.reservation.cancelled",
     className: "bg-muted text-muted-foreground border-border",
   },
   no_show: {
-    label: "No-show",
+    label: "status.reservation.noShow",
     className: "bg-destructive/10 text-destructive border-destructive/30",
   },
 }
@@ -29,7 +39,8 @@ export function ReservationStatusBadge({
 }: {
   status: ReservationStatus
 }) {
-  const meta = META[status]
+  const t = useTranslations()
+  const meta = RESERVATION_STATUS_META[status]
   return (
     <span
       className={cn(
@@ -37,7 +48,12 @@ export function ReservationStatusBadge({
         meta.className,
       )}
     >
-      {meta.label}
+      {t(meta.label)}
     </span>
   )
+}
+
+export function TableStatusLabel({ status }: { status: TableStatus }) {
+  const t = useTranslations()
+  return t(TABLE_STATUS_META[status].label)
 }

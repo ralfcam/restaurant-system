@@ -3,8 +3,8 @@ import path from "node:path"
 import { describe, expect, it } from "vitest"
 import {
   clampFloorCell,
-  clientToFloorCell,
   floorCanvasCells,
+  floorDropCell,
   FLOOR_CELL_PX,
   mergeCellBounds,
   nextFreeCell,
@@ -25,10 +25,6 @@ function readAutoAssignSource() {
 describe("floor layout grid", () => {
   it("snaps pointer coordinates to a cell and finds the next free slot", () => {
     expect(clampFloorCell({ x: -2, y: 99 })).toEqual({ x: 0, y: 7 })
-    expect(clientToFloorCell(240, 120, { left: 0, top: 0 })).toEqual({
-      x: 2,
-      y: 1,
-    })
     expect(
       nextFreeCell([
         { x: 0, y: 0 },
@@ -115,5 +111,24 @@ describe("floor layout grid", () => {
     expect(liveFloorTableTypes).toMatch(/\bid:\s*string\b/)
     expect(liveFloorTableTypes).toMatch(/\bx:\s*number\b/)
     expect(liveFloorTableTypes).toMatch(/\by:\s*number\b/)
+  })
+
+  it("floorDropCell resolves the nearest cell from the drag delta, preserving the grab offset", () => {
+    const origin = { x: 1, y: 1 }
+    expect(floorDropCell(origin, { dx: 10, dy: -10 })).toEqual({ x: 1, y: 1 })
+    expect(floorDropCell(origin, { dx: 59, dy: 0 })).toEqual({ x: 1, y: 1 })
+    expect(floorDropCell(origin, { dx: 60, dy: 0 })).toEqual({ x: 2, y: 1 })
+    expect(floorDropCell(origin, { dx: -130, dy: 250 })).toEqual({
+      x: 0,
+      y: 3,
+    })
+    expect(floorDropCell(origin, { dx: -9999, dy: 0 })).toEqual({
+      x: 0,
+      y: 1,
+    })
+    expect(floorDropCell(origin, { dx: 99999, dy: 99999 })).toEqual({
+      x: 11,
+      y: 7,
+    })
   })
 })

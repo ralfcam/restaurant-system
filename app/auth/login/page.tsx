@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useTranslations } from "next-intl"
 import { Loader2, AlertCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { isStaffUser } from "@/lib/supabase/is-staff-user"
@@ -12,6 +13,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 export default function LoginPage() {
+  const t = useTranslations("auth")
+  const staffConsole = t("staffConsole")
+  const emailLabel = t("email")
+  const emailPlaceholder = t("emailPlaceholder")
+  const passwordLabel = t("password")
+  const signingIn = t("signingIn")
+  const signIn = t("signIn")
+  const staffAccessOnly = t("staffAccessOnly")
+  const invalidCredentials = t("invalidCredentials")
+  const unauthorized = t("unauthorized")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
@@ -29,11 +40,11 @@ export default function LoginPage() {
     })
     setLoading(false)
     if (error) {
-      setErrorMsg("Invalid email or password. Please try again.")
+      setErrorMsg(invalidCredentials)
       return
     }
     if (!isStaffUser(data.user)) {
-      setErrorMsg("This account is not authorized for staff access.")
+      setErrorMsg(unauthorized)
       return
     }
     // Full page navigation so the middleware session cookie is read correctly.
@@ -50,7 +61,7 @@ export default function LoginPage() {
             <h1 className="font-heading text-2xl font-semibold">
               {RESTAURANT.name}
             </h1>
-            <p className="text-sm text-muted-foreground">Staff console</p>
+            <p className="text-sm text-muted-foreground">{staffConsole}</p>
           </div>
         </div>
 
@@ -66,7 +77,7 @@ export default function LoginPage() {
               </div>
             )}
             <div className="grid gap-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{emailLabel}</Label>
               <Input
                 id="email"
                 type="email"
@@ -77,11 +88,11 @@ export default function LoginPage() {
                   setEmail(e.target.value)
                   setErrorMsg(null)
                 }}
-                placeholder="you@example.com"
+                placeholder={emailPlaceholder}
               />
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{passwordLabel}</Label>
               <Input
                 id="password"
                 type="password"
@@ -97,17 +108,17 @@ export default function LoginPage() {
             <Button type="submit" className="mt-1 w-full" disabled={loading}>
               {loading ? (
                 <>
-                  <Loader2 className="size-4 animate-spin" /> Signing in…
+                  <Loader2 className="size-4 animate-spin" /> {signingIn}
                 </>
               ) : (
-                "Sign in"
+                signIn
               )}
             </Button>
           </form>
         </div>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
-          Staff access only. Contact your manager to request an account.
+          {staffAccessOnly}
         </p>
       </div>
     </div>

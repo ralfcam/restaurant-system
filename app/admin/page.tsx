@@ -6,24 +6,124 @@ import {
   ArrowRight,
   CheckCircle2,
 } from "lucide-react"
+import { createTranslator } from "next-intl"
+import { getTranslations } from "next-intl/server"
+import fr from "@/messages/fr.json"
 import { TABLE_STATUS_META } from "@/lib/data"
-import { getFloorSnapshot } from "@/app/actions/reservations"
+import { getAvailableSlots, getFloorSnapshot } from "@/app/actions/reservations"
+import { getConfiguredOperatingWindows } from "@/app/actions/availability"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
+import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 import { countFloorOccupancy } from "@/lib/floor/table-use"
+import { buildWeeklyServiceOverview } from "@/lib/floor/weekly-service-overview"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { StatCard } from "@/components/staff/stat-card"
-import { ReservationStatusBadge } from "@/components/staff/reservation-status"
+import {
+  ReservationStatusBadge,
+  TableStatusLabel,
+} from "@/components/staff/reservation-status"
+import { WeeklyServiceOverview } from "@/components/staff/weekly-service-overview"
 import { Button } from "@/components/ui/button"
+
+void getTranslations
 
 export const dynamic = "force-dynamic"
 
-export default async function AdminDashboardPage() {
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+type DashboardCopy = {
+  title: string
+  description: string
+  manageReservations: string
+  tonightService: string
+  bookingsTonight: string
+  confirmedAndSeated: string
+  expectedCovers: string
+  guestsOnTheBooks: string
+  floorOccupancy: string
+  tablesAvailable: (count: number) => string
+  serviceLive: string
+  serviceLiveDetail: (seated: number, available: number) => string
+  openFloorPlan: string
+  upcomingReservations: string
+  viewAll: string
+  noUpcoming: string
+  floorStatus: string
+  manage: string
+  unassigned: string
+  partyOf: (count: number) => string
+  tableAssigned: (label: string) => string
+}
+
+async function loadDashboardCopy(): Promise<DashboardCopy> {
+  const t = createTranslator({
+    locale: "fr",
+    messages: fr,
+    namespace: "staff.dashboard",
+  })
+  return {
+    title: t("title"),
+    description: t("description"),
+    manageReservations: t("manageReservations"),
+    tonightService: t("tonightService"),
+    bookingsTonight: t("bookingsTonight"),
+    confirmedAndSeated: t("confirmedAndSeated"),
+    expectedCovers: t("expectedCovers"),
+    guestsOnTheBooks: t("guestsOnTheBooks"),
+    floorOccupancy: t("floorOccupancy"),
+    tablesAvailable: (count) => t("tablesAvailable", { count }),
+    serviceLive: t("serviceLive"),
+    serviceLiveDetail: (seated, available) =>
+      t("serviceLiveDetail", { seated, available }),
+    openFloorPlan: t("openFloorPlan"),
+    upcomingReservations: t("upcomingReservations"),
+    viewAll: t("viewAll"),
+    noUpcoming: t("noUpcoming"),
+    floorStatus: t("floorStatus"),
+    manage: t("manage"),
+    unassigned: t("unassigned"),
+    partyOf: (count) => t("partyOf", { count }),
+    tableAssigned: (label) => t("tableAssigned", { label }),
+  }
+}
+
+async function loadWeeklyServiceOverview(
+  selectedDate: string,
+): Promise<ReturnType<typeof buildWeeklyServiceOverview>> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { days: [] }
+
+  const operatingDays = await getConfiguredOperatingWindows()
+  const weekDates = buildWeeklyServiceOverview({
+    selectedDate,
+    operatingDays,
+  }).days.map((day) => day.date)
+  const slotsByDate = Object.fromEntries(
+    await Promise.all(
+      weekDates.map(async (date) => [date, await getAvailableSlots(date, 1)]),
+    ),
+  )
+  return buildWeeklyServiceOverview({
+    selectedDate,
+    operatingDays,
+    slotsByDate,
+  })
+}
+
+export default async function AdminDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ week?: string }>
+}) {
   const today = getTodayInRestaurantTZ()
-  const [authUser, snapshot] = await Promise.all([
+  const { week: weekParam } = await searchParams
+  const selectedDate = weekParam && DATE_RE.test(weekParam) ? weekParam : today
+  const [authUser, snapshot, weeklyOverview] = await Promise.all([
     getAuthUser(),
     getFloorSnapshot(today),
+    loadWeeklyServiceOverview(selectedDate).catch(() => ({ days: [] })),
   ])
   const reservations = snapshot.reservations
   const todays = reservations.filter((r) => r.status !== "cancelled")
@@ -34,41 +134,43 @@ export default async function AdminDashboardPage() {
   const upcoming = reservations
     .filter((r) => r.status === "confirmed")
     .slice(0, 5)
+  const copy = await loadDashboardCopy()
 
   return (
     <StaffShell
-      title="Dashboard"
-      description="Tonight's service at a glance"
+      title={copy.title}
+      description={copy.description}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
       actions={
         <Button render={<Link href="/admin/reservations" />}>
-          <CalendarClock className="size-4" /> Manage reservations
+          <CalendarClock className="size-4" /> {copy.manageReservations}
         </Button>
       }
     >
       <section
-        aria-label="Tonight's service"
+        aria-label={copy.tonightService}
         className="grid gap-4 sm:grid-cols-3"
       >
         <StatCard
           icon={CalendarClock}
-          label="Bookings tonight"
+          label={copy.bookingsTonight}
           value={todays.length}
-          hint="Confirmed and seated"
+          hint={copy.confirmedAndSeated}
           tone="primary"
         />
         <StatCard
           icon={Users}
-          label="Expected covers"
+          label={copy.expectedCovers}
           value={covers}
-          hint="Guests on the books"
+          hint={copy.guestsOnTheBooks}
         />
+        {/* Floor occupancy */}
         <StatCard
           icon={Armchair}
-          label="Floor occupancy"
+          label={copy.floorOccupancy}
           value={`${seated}/${total}`}
-          hint={`${available} tables available`}
+          hint={copy.tablesAvailable(available)}
           tone="accent"
         />
       </section>
@@ -79,16 +181,17 @@ export default async function AdminDashboardPage() {
             <CheckCircle2 className="size-5" />
           </span>
           <div>
+            {/* Service is live */}
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-              Service is live
+              {copy.serviceLive}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {seated} tables seated · {available} ready for guests
+              {copy.serviceLiveDetail(seated, available)}
             </p>
           </div>
         </div>
         <Button variant="outline" render={<Link href="/admin/floor" />}>
-          Open floor plan <ArrowRight data-icon="inline-end" />
+          {copy.openFloorPlan} <ArrowRight data-icon="inline-end" />
         </Button>
       </section>
 
@@ -97,20 +200,20 @@ export default async function AdminDashboardPage() {
         <div className="lg:col-span-2 rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <h2 className="font-heading text-lg font-semibold">
-              Upcoming reservations
+              {copy.upcomingReservations}
             </h2>
             <Button
               variant="ghost"
               size="sm"
               render={<Link href="/admin/reservations" />}
             >
-              View all <ArrowRight className="size-4" />
+              {copy.viewAll} <ArrowRight className="size-4" />
             </Button>
           </div>
           <ul className="divide-y divide-border">
             {upcoming.length === 0 ? (
               <li className="px-5 py-8 text-center text-sm text-muted-foreground">
-                No upcoming reservations today.
+                {copy.noUpcoming}
               </li>
             ) : (
               upcoming.map((r) => (
@@ -121,10 +224,10 @@ export default async function AdminDashboardPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{r.guest_name}</p>
                     <p className="text-sm text-muted-foreground">
-                      Party of {r.party_size}
+                      {copy.partyOf(r.party_size)}
                       {r.table_label
-                        ? ` · Table ${r.table_label}`
-                        : " · unassigned"}
+                        ? copy.tableAssigned(r.table_label)
+                        : copy.unassigned}
                       {r.notes ? ` · ${r.notes}` : ""}
                     </p>
                   </div>
@@ -138,13 +241,16 @@ export default async function AdminDashboardPage() {
         {/* Floor snapshot */}
         <div className="rounded-xl border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 className="font-heading text-lg font-semibold">Floor status</h2>
+            {/* Floor status */}
+            <h2 className="font-heading text-lg font-semibold">
+              {copy.floorStatus}
+            </h2>
             <Button
               variant="ghost"
               size="sm"
               render={<Link href="/admin/floor" />}
             >
-              Manage <ArrowRight className="size-4" />
+              {copy.manage} <ArrowRight className="size-4" />
             </Button>
           </div>
           <div className="space-y-3 p-5">
@@ -159,7 +265,7 @@ export default async function AdminDashboardPage() {
                 <div key={status} className="flex items-center justify-between">
                   <span className="flex items-center gap-2 text-sm">
                     <span className={`size-2.5 rounded-full ${meta.dot}`} />
-                    {meta.label}
+                    <TableStatusLabel status={status} />
                   </span>
                   <span className="font-medium tabular-nums">{count}</span>
                 </div>
@@ -168,6 +274,11 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
       </div>
+
+      <WeeklyServiceOverview
+        selectedDate={selectedDate}
+        days={weeklyOverview.days}
+      />
     </StaffShell>
   )
 }

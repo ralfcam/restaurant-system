@@ -58,7 +58,7 @@ describe("setChefsPicksEnabled", () => {
     mocks.requireStaffUser.mockResolvedValue(null)
 
     const unauth = await setChefsPicksEnabled(true)
-    expect(unauth).toEqual({ error: "Unauthorized." })
+    expect(unauth).toEqual({ error: "errors.menu.unauthorized" })
     expect(mocks.serviceUpsert).not.toHaveBeenCalled()
     expect(mocks.cookieUpsert).not.toHaveBeenCalled()
   })

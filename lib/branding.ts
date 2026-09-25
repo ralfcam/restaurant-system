@@ -108,13 +108,13 @@ export function validateLogoUpload(
   input: Partial<LogoUploadInput>,
 ): string | null {
   if (!input.base64 || typeof input.size !== "number" || input.size <= 0) {
-    return "Please choose an image file."
+    return "errors.branding.chooseImage"
   }
   if (!resolveLogoContentType(input.contentType, input.fileName)) {
-    return "Please upload a PNG, JPG, SVG, or WEBP image."
+    return "errors.branding.logoContentType"
   }
   if (input.size > MAX_LOGO_BYTES) {
-    return "Logo image must be smaller than 2MB."
+    return "errors.branding.logoTooLarge"
   }
   return null
 }
@@ -146,13 +146,13 @@ export function validateHeroUpload(
   input: Partial<LogoUploadInput>,
 ): string | null {
   if (!input.base64 || typeof input.size !== "number" || input.size <= 0) {
-    return "Please choose an image file."
+    return "errors.branding.chooseImage"
   }
   if (!resolveHeroContentType(input.contentType, input.fileName)) {
-    return "Please upload a PNG, JPG, or WEBP image."
+    return "errors.branding.heroContentType"
   }
   if (input.size > MAX_HERO_BYTES) {
-    return "Hero image must be smaller than 4MB."
+    return "errors.branding.heroTooLarge"
   }
   return null
 }

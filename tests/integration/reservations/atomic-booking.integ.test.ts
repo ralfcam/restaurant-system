@@ -128,7 +128,7 @@ describe.skipIf(!authEnvReady)(
           email: "guest@test.local",
         } as Parameters<typeof createReservation>[0])
         expect(result.confCode).toBe("")
-        expect(result.error).toMatch(/not available/i)
+        expect(result.error).toBe("errors.reservation.dateUnavailable")
       } finally {
         await supabase.from("blocked_dates").delete().eq("date", TEST_DATE)
       }
@@ -194,7 +194,7 @@ describe.skipIf(!authEnvReady)(
 
       expect(succeeded).toHaveLength(1)
       expect(failed).toHaveLength(1)
-      expect(failed[0].error).toMatch(/fully booked/i)
+      expect(failed[0].error).toBe("errors.reservation.fullyBooked")
 
       const { data: rows } = await supabase
         .from("reservations")

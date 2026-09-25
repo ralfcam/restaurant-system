@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+import path from "node:path"
 import { describe, expect, it } from "vitest"
 import {
   clampExpectedMinutes,
@@ -28,6 +30,10 @@ const EXAMPLE_SEGMENTS = [
   { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 1 },
   { label: "Dinner", opens_at: "18:00", closes_at: "22:00", sort_order: 2 },
 ]
+
+function readSource(rel: string): string {
+  return readFileSync(path.join(process.cwd(), rel), "utf8")
+}
 
 function openWeek(segments = EXAMPLE_SEGMENTS): OperatingDay[] {
   return Array.from({ length: 7 }, (_, day_of_week) => ({
@@ -171,20 +177,32 @@ describe("validateOperatingDays", () => {
       { label: "Brunch", opens_at: "09:00", closes_at: "13:00", sort_order: 0 },
       { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 1 },
     ])
-    expect(validateOperatingDays(days)).toMatch(/overlapping/i)
+    const message: unknown = validateOperatingDays(days)
+    expect(message).toEqual({
+      key: "errors.scheduling.overlapping",
+      params: { day: "Monday" },
+    })
   })
 
   it("rejects an open day with no segments", () => {
     const days = openWeek()
     days[1] = { day_of_week: 1, is_closed: false, segments: [] }
-    expect(validateOperatingDays(days)).toMatch(/no segments/i)
+    const message: unknown = validateOperatingDays(days)
+    expect(message).toEqual({
+      key: "errors.scheduling.openWithoutSegments",
+      params: { day: "Monday" },
+    })
   })
 
   it("rejects a segment that closes before it opens", () => {
     const days = openWeek([
       { label: "Broken", opens_at: "14:00", closes_at: "12:00", sort_order: 0 },
     ])
-    expect(validateOperatingDays(days)).toMatch(/closes before it opens/i)
+    const message: unknown = validateOperatingDays(days)
+    expect(message).toEqual({
+      key: "errors.scheduling.closesBeforeOpen",
+      params: { day: "Monday" },
+    })
   })
 })
 
@@ -257,7 +275,7 @@ describe("summarizeOperatingDays", () => {
     const days = openWeek([
       { label: "", opens_at: "09:00", closes_at: "22:00", sort_order: 0 },
     ])
-    expect(summarizeOperatingDays(days)).toBe(
+    expect(summarizeOperatingDays(days, "en")).toBe(
       "Mon–Sat · 09:00–22:00; Sun · Closed",
     )
   })
@@ -267,13 +285,59 @@ describe("summarizeOperatingDays", () => {
       { label: "Lunch", opens_at: "12:00", closes_at: "14:00", sort_order: 0 },
       { label: "Dinner", opens_at: "18:00", closes_at: "22:00", sort_order: 1 },
     ])
-    expect(summarizeOperatingDays(days)).toContain(
+    expect(summarizeOperatingDays(days, "en")).toContain(
       "Mon–Sat · Lunch 12:00–14:00, Dinner 18:00–22:00",
     )
   })
 
   it("returns a clear fallback for an empty schedule", () => {
-    expect(summarizeOperatingDays([])).toBe("Hours unavailable")
+    expect(summarizeOperatingDays([], "en")).toBe("Hours unavailable")
+  })
+})
+
+describe("locale-aware operating-hours labels", () => {
+  const week = openWeek([
+    { label: "", opens_at: "09:00", closes_at: "22:00", sort_order: 0 },
+  ])
+
+  it("summarizeOperatingDays yields French day and closed labels for fr and English for en", () => {
+    expect(summarizeOperatingDays(week, "fr")).toBe(
+      "Lun–Sam · 09:00–22:00; Dim · Fermé",
+    )
+    expect(summarizeOperatingDays([], "fr")).toBe("Horaires indisponibles")
+    expect(summarizeOperatingDays(week, "en")).toBe(
+      "Mon–Sat · 09:00–22:00; Sun · Closed",
+    )
+    expect(summarizeOperatingDays([], "en")).toBe("Hours unavailable")
+  })
+
+  it("guest info bar passes the route locale and staff callers pass fr", () => {
+    const action = readSource("app/actions/restaurant-info.ts")
+    const hook = readSource("hooks/use-restaurant-info-bar.ts")
+    const staff = readSource("components/staff/scheduling-manager.tsx")
+
+    const actionForwardsRouteLocale =
+      /summarizeOperatingDays\(\s*operatingDays\s*,\s*locale\s*\)/.test(
+        action,
+      ) &&
+      (/getLocale\(\)/.test(action) ||
+        (/function getRestaurantInfoBar\(\s*locale\b/.test(action) &&
+          /getRestaurantInfoBar\(\s*locale\s*\)/.test(hook) &&
+          /useLocale\(\)/.test(hook)))
+
+    const staffPassesFr =
+      /summarizeOperatingDays\(\s*operatingDays\s*,\s*["']fr["']\s*\)/.test(
+        staff,
+      ) ||
+      (/useLocale\(\)/.test(staff) &&
+        /summarizeOperatingDays\(\s*operatingDays\s*,\s*locale\s*\)/.test(
+          staff,
+        ))
+
+    expect({ actionForwardsRouteLocale, staffPassesFr }).toEqual({
+      actionForwardsRouteLocale: true,
+      staffPassesFr: true,
+    })
   })
 })
 

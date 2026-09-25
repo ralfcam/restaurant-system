@@ -62,7 +62,7 @@ function thenable(value: BlockedDateQueryResult) {
   return self
 }
 
-const BLOCKED_DATES_LOAD_ERROR = "Could not load blocked dates."
+const BLOCKED_DATES_LOAD_ERROR = "errors.availability.blockedDatesLoadFailed"
 
 function isBlockedDatesLoadFailure(err: unknown) {
   return err instanceof Error && err.message === BLOCKED_DATES_LOAD_ERROR
@@ -108,7 +108,10 @@ describe("upsertOperatingWindows", () => {
   it("rejects unauthenticated callers", async () => {
     mocks.requireStaffUser.mockResolvedValue(null)
     const result = await upsertOperatingWindows(segmentedMonday)
-    expect(result).toEqual({ success: false, error: "Unauthorized." })
+    expect(result).toEqual({
+      success: false,
+      error: "errors.availability.unauthorized",
+    })
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
@@ -137,7 +140,13 @@ describe("upsertOperatingWindows", () => {
     )
     const result = await upsertOperatingWindows(overlapping)
     expect(result.success).toBe(false)
-    if (!result.success) expect(result.error).toMatch(/overlapping/i)
+    if (!result.success) {
+      const error: unknown = result.error
+      expect(error).toEqual({
+        key: "errors.scheduling.overlapping",
+        params: { day: "Tuesday" },
+      })
+    }
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
@@ -256,7 +265,13 @@ describe("upsertOperatingWindows", () => {
 
     const rejected = await upsertOperatingWindows(daysWithNote("x".repeat(241)))
     expect(rejected.success).toBe(false)
-    if (!rejected.success) expect(rejected.error).toMatch(/240/)
+    if (!rejected.success) {
+      const error: unknown = rejected.error
+      expect(error).toEqual({
+        key: "errors.scheduling.guestNoteTooLong",
+        params: { max: 240 },
+      })
+    }
     expect(mocks.rpc).not.toHaveBeenCalled()
   })
 })

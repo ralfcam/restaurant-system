@@ -71,7 +71,9 @@ describe("updateInquiryStatus", () => {
 
     mocks.requireStaffUser.mockResolvedValue(null)
     const unauthorized = await updateInquiryStatus(INQUIRY_ID, "contacted")
-    expect(unauthorized).toMatchObject({ error: "Unauthorized." })
+    expect(unauthorized).toMatchObject({
+      error: "errors.inquiries.unauthorized",
+    })
     expect(mocks.update).not.toHaveBeenCalled()
     expect(mocks.from).not.toHaveBeenCalled()
     expect(mocks.createServiceClient).not.toHaveBeenCalled()
@@ -80,7 +82,7 @@ describe("updateInquiryStatus", () => {
 
     resetWriteSpies()
     const invalid = await updateInquiryStatus(INQUIRY_ID, "confirmed")
-    expect(invalid).toEqual({ error: "Invalid inquiry status." })
+    expect(invalid).toEqual({ error: "errors.inquiries.invalidStatus" })
     expect(mocks.update).not.toHaveBeenCalled()
     expect(mocks.from).not.toHaveBeenCalled()
 

@@ -139,7 +139,7 @@ describe("getReservationAnalytics fail-closed load", () => {
 
     mocks.requireStaffUser.mockResolvedValue(null)
     const unauthorized = await getReservationAnalytics()
-    expect(unauthorized).toEqual({ error: "Unauthorized." })
+    expect(unauthorized).toEqual({ error: "errors.analytics.unauthorized" })
     expect(unauthorized).not.toEqual({ noShow: 0, cancelled: 0 })
 
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
@@ -150,7 +150,7 @@ describe("getReservationAnalytics fail-closed load", () => {
       }),
     )
     const queryFailed = await getReservationAnalytics()
-    expect(queryFailed).toEqual({ error: "Could not load analytics." })
+    expect(queryFailed).toEqual({ error: "errors.analytics.loadFailed" })
     expect(queryFailed).not.toEqual({ noShow: 0, cancelled: 0 })
 
     mocks.from.mockImplementation(() => thenable({ data: [], error: null }))
@@ -189,15 +189,15 @@ describe("getReservationAnalytics reporting period", () => {
     }>
 
     const inverted = await load({ from: "2026-09-12", to: "2026-09-06" })
-    expect(inverted).toEqual({ error: "Invalid reporting period." })
+    expect(inverted).toEqual({ error: "errors.analytics.invalidPeriod" })
     expect(inverted).not.toEqual({ noShow: 0, cancelled: 0 })
 
     const garbage = await load({ from: "not-a-date", to: "2026-09-12" })
-    expect(garbage).toEqual({ error: "Invalid reporting period." })
+    expect(garbage).toEqual({ error: "errors.analytics.invalidPeriod" })
     expect(garbage).not.toEqual({ noShow: 0, cancelled: 0 })
 
     const missingTo = await load({ from: "2026-09-06" })
-    expect(missingTo).toEqual({ error: "Invalid reporting period." })
+    expect(missingTo).toEqual({ error: "errors.analytics.invalidPeriod" })
     expect(missingTo).not.toEqual({ noShow: 0, cancelled: 0 })
 
     mocks.gte.mockClear()

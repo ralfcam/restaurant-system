@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-13
+**Last updated:** 2026-09-18
 
 ## Auth flow
 
@@ -60,7 +60,7 @@ Every guest-facing table must have RLS **enabled** and **forced** where specs re
 Schema is consolidated in `supabase/migrations/00000000000000_baseline.sql` (single
 idempotent baseline; extend in place per `.cursor/rules/supabase-migrations.mdc`).
 Tables with RLS today: `operating_windows`, `blocked_dates`, `reservations`,
-`menu_items`, `restaurant_settings`, `tables`, `servers`, `event_inquiries`,
+`menus`, `menu_items`, `restaurant_settings`, `tables`, `servers`, `event_inquiries`,
 `orders`, `order_items`, `review_email_sends`. `servers` mirrors
 `tables` (`REVOKE ALL` from `PUBLIC`, `anon`, `authenticated`;
 `GRANT ALL` to `service_role`; `-- REAZED-329` / RES-42). `servers`,
@@ -81,6 +81,10 @@ create the bucket and storage RLS; `uploadRestaurantLogo` (service role) can cal
 `storage.createBucket` when upload returns bucket-not-found, then retry. Reference
 data (`operating_windows`, `menu_items`,
 `restaurant_settings` singleton, `servers`) loads from `supabase/seed.sql` on `db reset`.
+The five `menus` tab ids (`midi`, `soir`, `boissons`, `blanc`, `rouge`)
+`INSERT … ON CONFLICT (id) DO NOTHING` after GRANT on every
+`CREATE TABLE IF NOT EXISTS menus` file (MT-4e); `seed.sql` still inserts the
+same ids on `db reset`.
 
 `operating_windows` is SELECT-only for `anon` and `authenticated`
 (`GRANT SELECT` / `REVOKE INSERT, UPDATE, DELETE`). Table privileges
@@ -123,12 +127,16 @@ menu AC-2. Spec:
 [../specs/scheduling.md](../specs/scheduling.md) §17, §19.
 
 Staff list and mutation for those siblings (including `getReservations`,
-`getAllMenuItems`, and menu CRUD/toggle) is `requireStaffUser` plus
-`createServiceClient` (`lib/supabase/service.ts`). The cookie JWT client
+`getAllMenuItems`, menu CRUD/toggle, and `getMenuTabs` / `createMenuTab` /
+`renameMenuTab`) is `requireStaffUser` plus
+`createServiceClient` (`lib/supabase/service.ts`). `reorderMenuTabs` is the
+same gate then `.rpc("reorder_menu_tabs")` (`SET search_path = ''`, not
+SECURITY DEFINER, `GRANT EXECUTE` to `service_role` only). The cookie JWT client
 (`lib/supabase/server.ts`) is not used on those paths. Guest catalog reads
-stay on the anon client (`lib/supabase/client-server.ts`). Spec:
+(`getMenuItems`, `getPublicMenuTabs`) stay on the anon client
+(`lib/supabase/client-server.ts`). Spec:
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
-[../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-1, MT-6a.
 Staff analytics (`getReservationAnalytics`) uses the same
 `requireStaffUser` + `createServiceClient` path with SELECT-only queries;
 guest `SELECT` on `reservations` and `status_events` stays denied (RA-9).
@@ -142,7 +150,7 @@ service_role `FOR ALL`; `REVOKE ALL` from `PUBLIC`/`anon`/`authenticated`;
 `GRANT ALL` to `service_role`). Guest Data API has no SELECT. Spec:
 [../specs/event-inquiries.md](../specs/event-inquiries.md).
 
-Catalog guests: `blocked_dates` and `menu_items` are SELECT-only for `anon`
+Catalog guests: `blocked_dates`, `menu_items`, and `menus` are SELECT-only for `anon`
 and `authenticated` (`REVOKE ALL ON TABLE <t> FROM PUBLIC, anon, authenticated`
 then `GRANT SELECT` only).
 `reservations` is insert-only (`REVOKE ALL` then
@@ -154,7 +162,7 @@ immediately after the `reservations` table create, even though guests can set
 `created_at`, and `completed_at` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
-There is no authenticated `FOR ALL` (or other write) policy on those three
+There is no authenticated `FOR ALL` (or other write) policy on those catalog
 tables.
 Nullable `reservations.email` and `reservations.completed_at` are in baseline
 (CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
@@ -164,19 +172,30 @@ Spec: [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
 PV-9, PV-12, PV-13.
 Identical RES-PRIV and PUBLIC-READ-PRIV strings live in
 `00000000000000_baseline.sql`, `20260825140000_operating_windows_privilege.sql`,
-and `20260827160000_public_catalog_privileges.sql` (on an already-baselined
+and `20260827160000_public_catalog_privileges.sql` (companions
+`CREATE TABLE IF NOT EXISTS menus` plus ENABLE RLS and the two named
+public-read / service_role policies before GRANT, then the five-id
+`INSERT … ON CONFLICT (id) DO NOTHING` after the menus GRANT/REVOKE trio).
+On an already-baselined
 forked remote, apply `20260825140000_operating_windows_privilege.sql` when
 that version is absent; if `20260825140000` is already recorded, apply
 `20260827160000_public_catalog_privileges.sql` for catalog privilege changes
-instead of replaying the applied file; do not `db push`). Spec:
+and the five-id seed
+instead of replaying the applied file; if `20260827160000` is already
+recorded, apply `20260915180000_menus_bootstrap.sql` for hosted `menus`
+CREATE, RLS, five-id `INSERT … ON CONFLICT (id) DO NOTHING`, plus
+`reorder_menu_tabs` (do not `db push`). Remotes that already recorded
+`20260915180000` must re-run the file contents to pick up the INSERT.
+Spec:
 [../specs/scheduling.md](../specs/scheduling.md) §18,
 [../specs/booking-rules.md](../specs/booking-rules.md) AC-5,
-[../specs/menu-availability.md](../specs/menu-availability.md) AC-2.
+[../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-4, MT-4a, MT-4c, MT-4e, MT-6a.
 
 `validate_reservation_availability` (`enforce_booking_rules`) is
 `SECURITY DEFINER` so that insert-only path can still cover-count and
 table-fit `reservations` / `tables` for the occupancy window (booking-rules
-BW-9) and compatible-table bookability (BW-12). It is trigger-only, not a
+BW-9), compatible-table bookability (BW-12), and slot/service cover caps
+(BW-18 / BW-19 / BW-20). It is trigger-only, not a
 guest RPC: every migration that `CREATE OR REPLACE`s the function immediately
 follows the body with `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC`
 and `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated`
@@ -184,8 +203,9 @@ and `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon
 [../specs/booking-rules.md](../specs/booking-rules.md) RES-TRIGGER-EXEC.
 Last-writer body is identical in baseline,
 `20260818162000_operating_hour_segments.sql`,
-`20260827180000_occupancy_duration_buffer.sql`, and
-`20260828121224_table_fit_availability.sql`.
+`20260827180000_occupancy_duration_buffer.sql`,
+`20260828121224_table_fit_availability.sql`, and
+`20260918140655_slot_service_cover_limits.sql`.
 
 ## Env vars
 

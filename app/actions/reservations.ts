@@ -18,9 +18,11 @@ import {
 } from "@/lib/reservations/validation"
 import { sendBookingConfirmation } from "@/lib/marketing/booking-confirmation"
 import {
+  assignSegmentForTime,
   bookableTimesForDay,
   clampSafetyBufferMinutes,
   clampSlotIntervalMinutes,
+  coversFitSlotAndService,
   DEFAULT_SAFETY_BUFFER_MINUTES,
   formatSegmentsSummary,
   isTimeWithinSegments,
@@ -51,6 +53,7 @@ import {
   type PersistedTable,
 } from "@/app/actions/operations"
 import { toAssignableTables, type TableMergeRef } from "@/lib/floor/floor-units"
+import { sumOpenOrderTotalsByTableLabel } from "@/lib/floor/table-bills"
 
 export type ReservationRow = {
   id: string
@@ -60,6 +63,7 @@ export type ReservationRow = {
   time: string
   status: "confirmed" | "seated" | "completed" | "cancelled" | "no_show"
   phone: string
+  email?: string | null
   notes: string | null
   table_label: string | null
   conf_code: string
@@ -69,6 +73,31 @@ export type ReservationRow = {
 function generateConfCode(): string {
   const n = Math.floor(1000 + Math.random() * 9000)
   return `TVL-${n}`
+}
+
+const SAVE_FAILED = "errors.reservation.saveFailed"
+
+/** P0001 trigger texts from validate_reservation_availability. */
+const P0001_BOOKING_KEYS: Record<string, string> = {
+  "Booking denied: Date is explicitly blocked.":
+    "errors.reservation.bookingDateBlocked",
+  "Booking denied: Restaurant is closed on this day.":
+    "errors.reservation.bookingClosed",
+  "Booking denied: Outside operating hours.":
+    "errors.reservation.bookingOutsideHours",
+  "Booking denied: This time is fully booked.":
+    "errors.reservation.fullyBooked",
+}
+
+function reservationSaveErrorKey(
+  code: string | undefined,
+  message: string | undefined,
+) {
+  if (code === "P0001" && message) {
+    const clean = message.replace(/^ERROR:\s*/i, "").trim()
+    return P0001_BOOKING_KEYS[clean] ?? SAVE_FAILED
+  }
+  return SAVE_FAILED
 }
 
 export async function createReservation(
@@ -87,7 +116,7 @@ export async function createReservation(
   if (dateIsBlocked) {
     return {
       confCode: "",
-      error: "This date is not available for reservations.",
+      error: "errors.reservation.dateUnavailable",
     }
   }
 
@@ -95,7 +124,7 @@ export async function createReservation(
   if (!operatingWindow || operatingWindow.is_closed) {
     return {
       confCode: "",
-      error: "The restaurant is closed on this date.",
+      error: "errors.reservation.closed",
     }
   }
 
@@ -104,8 +133,8 @@ export async function createReservation(
     return {
       confCode: "",
       error: summary
-        ? `Reservations are only available during ${summary}.`
-        : "This time is outside operating hours.",
+        ? "errors.reservation.hoursWindow"
+        : "errors.reservation.outsideHours",
     }
   }
 
@@ -173,24 +202,15 @@ export async function createReservation(
       continue
     }
 
-    // PostgreSQL trigger raises use ERRCODE P0001 (raise_exception).
-    // Supabase surfaces these as code "P0001" on the error object.
-    // Expose the trigger message directly — it is safe, user-facing prose.
-    if (error.code === "P0001" && error.message) {
-      // Strip the Postgres "ERROR: " prefix if present and return clean text.
-      const clean = error.message.replace(/^ERROR:\s*/i, "").trim()
-      return { confCode: "", error: clean }
-    }
-
     return {
       confCode: "",
-      error: "Could not save your reservation. Please try again.",
+      error: reservationSaveErrorKey(error.code, error.message),
     }
   }
 
   return {
     confCode: "",
-    error: "Could not save your reservation. Please try again.",
+    error: SAVE_FAILED,
   }
 }
 
@@ -199,8 +219,9 @@ export async function createReservation(
  * Uses the service-role client to bypass RLS — safe only in server actions,
  * and only after confirming the caller has an authenticated staff session.
  * Fail-closed (STAFF-LIST): auth or query failure returns
- * `{ reservations: [], error }` with a stable message (`Unauthorized.` /
- * `Could not load reservations.`), never a successful empty array. Success
+ * `{ reservations: [], error }` with a catalog key
+ * (`errors.reservation.unauthorized` / `errors.reservation.loadFailed`),
+ * never a successful empty array. Success
  * with no rows is `{ reservations: [] }` and no `error` field.
  * The `date` column is a native DATE type so simple equality is correct; no
  * timezone boundary arithmetic is needed for this schema.
@@ -209,7 +230,8 @@ export async function getReservationsByDate(
   date: string,
 ): Promise<{ reservations: ReservationRow[]; error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { reservations: [], error: "Unauthorized." }
+  if (!staffUser)
+    return { reservations: [], error: "errors.reservation.unauthorized" }
 
   const supabase = createServiceClient()
 
@@ -221,7 +243,7 @@ export async function getReservationsByDate(
 
   if (error) {
     console.error("[reservations] getReservationsByDate error:", error.message)
-    return { reservations: [], error: "Could not load reservations." }
+    return { reservations: [], error: "errors.reservation.loadFailed" }
   }
 
   return { reservations: (data ?? []) as ReservationRow[] }
@@ -270,7 +292,7 @@ export async function transitionReservationStatus(
   nextStatus: ReservationRow["status"],
 ): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.reservation.unauthorized" }
 
   const db = createServiceClient()
   const { data: current, error: readError } = await db
@@ -278,15 +300,13 @@ export async function transitionReservationStatus(
     .select("status, table_label")
     .eq("id", reservationId)
     .single()
-  if (readError || !current) return { error: "Reservation not found." }
+  if (readError || !current) return { error: "errors.reservation.notFound" }
   if (
     !RESERVATION_TRANSITIONS[
       current.status as ReservationRow["status"]
     ].includes(nextStatus)
   ) {
-    return {
-      error: `Cannot change ${current.status.replace("_", " ")} to ${nextStatus.replace("_", " ")}.`,
-    }
+    return { error: "errors.reservation.invalidTransition" }
   }
 
   const patch: Record<string, unknown> = { status: nextStatus }
@@ -301,7 +321,7 @@ export async function transitionReservationStatus(
     .from("reservations")
     .update(patch)
     .eq("id", reservationId)
-  if (error) return { error: "Could not update reservation status." }
+  if (error) return { error: "errors.reservation.statusUpdateFailed" }
   await db.from("status_events").insert({
     entity_type: "reservation",
     entity_id: reservationId,
@@ -335,7 +355,7 @@ export async function undoReservationStatus(
   reservationId: string,
 ): Promise<{ error?: string; restoredStatus?: ReservationRow["status"] }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.reservation.unauthorized" }
 
   const db = createServiceClient()
   const { data: reservation, error: reservationError } = await db
@@ -344,7 +364,7 @@ export async function undoReservationStatus(
     .eq("id", reservationId)
     .single()
   if (reservationError || !reservation)
-    return { error: "Reservation not found." }
+    return { error: "errors.reservation.notFound" }
 
   const { data: latest, error: eventError } = await db
     .from("status_events")
@@ -355,9 +375,9 @@ export async function undoReservationStatus(
     .limit(1)
     .maybeSingle()
   if (eventError || !latest)
-    return { error: "There is no status change to undo." }
+    return { error: "errors.reservation.nothingToUndo" }
   if (latest.to_status !== reservation.status || !latest.from_status) {
-    return { error: "This status change is no longer the latest change." }
+    return { error: "errors.reservation.staleStatusChange" }
   }
 
   const restoredStatus = latest.from_status as ReservationRow["status"]
@@ -366,7 +386,7 @@ export async function undoReservationStatus(
     .update({ status: restoredStatus })
     .eq("id", reservationId)
     .eq("status", reservation.status)
-  if (updateError) return { error: "Could not undo the status change." }
+  if (updateError) return { error: "errors.reservation.undoFailed" }
 
   await db.from("status_events").insert({
     entity_type: "reservation",
@@ -386,7 +406,7 @@ export async function assignReservationTable(
   tableLabel: string | null,
 ): Promise<{ error?: string }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.reservation.unauthorized" }
 
   const db = createServiceClient()
   const label = tableLabel?.trim() || null
@@ -399,7 +419,7 @@ export async function assignReservationTable(
         .maybeSingle()
     : { data: null, error: null }
   if (label && (tableError || !table))
-    return { error: "That table is no longer available." }
+    return { error: "errors.reservation.tableUnavailable" }
 
   const { data: reservation, error: reservationError } = await db
     .from("reservations")
@@ -407,23 +427,20 @@ export async function assignReservationTable(
     .eq("id", reservationId)
     .single()
   if (reservationError || !reservation)
-    return { error: "Reservation not found." }
+    return { error: "errors.reservation.notFound" }
   if (["completed", "cancelled", "no_show"].includes(reservation.status))
-    return { error: "Closed reservations cannot be assigned." }
+    return { error: "errors.reservation.closedReservation" }
   if (table && table.seats < reservation.party_size)
-    return { error: "That table does not have enough seats for this party." }
+    return { error: "errors.reservation.tableTooSmall" }
   if (label && label !== reservation.table_label) {
-    const { data: settings } = await db
-      .from("restaurant_settings")
-      .select("occupancy_duration_minutes, safety_buffer_minutes")
-      .eq("id", 1)
-      .maybeSingle()
-    const occupancyDurationMinutes = occupancyDurationFromSettings(
-      settings?.occupancy_duration_minutes,
-    )
-    const safetyBufferMinutes = clampSafetyBufferMinutes(
-      settings?.safety_buffer_minutes ?? DEFAULT_SAFETY_BUFFER_MINUTES,
-    )
+    const {
+      occupancyDurationMinutes,
+      safetyBufferMinutes,
+      settingsReadFailed,
+    } = await loadReservationOccupancyWindow(db)
+    if (settingsReadFailed) {
+      return { error: "errors.reservation.assignFailed" }
+    }
     const window = occupyingWindowMinutes(
       reservation.time,
       occupancyDurationMinutes,
@@ -439,7 +456,7 @@ export async function assignReservationTable(
         .in("status", ACTIVE_RESERVATION_STATUSES)
         .order("time", { ascending: true })
       if (occupyingError) {
-        return { error: "Could not update the table assignment." }
+        return { error: "errors.reservation.assignFailed" }
       }
       const conflict = (occupying ?? []).some((row) => {
         if (row.id === reservationId || row.table_label !== label) return false
@@ -452,7 +469,7 @@ export async function assignReservationTable(
       })
       if (conflict) {
         return {
-          error: "That table is already reserved for an overlapping time.",
+          error: "errors.reservation.tableOverlap",
         }
       }
     }
@@ -467,7 +484,7 @@ export async function assignReservationTable(
     .eq("id", reservationId)
   if (error) {
     console.error("[reservations] assignReservationTable error:", error.message)
-    return { error: "Could not update the table assignment." }
+    return { error: "errors.reservation.assignFailed" }
   }
   if (label) {
     const tableStatus = reservation.status === "seated" ? "seated" : "reserved"
@@ -493,6 +510,11 @@ export type FloorSnapshot = {
   reservations: ReservationRow[]
   assigned: PlannedAssignment[]
   merges: PersistedMerge[]
+  /**
+   * FP-15: non-cancelled/voided `orders.total` by `table_label` (completed counts).
+   * Null when the orders read failed (FP-15-UNAVAILABLE).
+   */
+  tableTotals: Record<string, number> | null
 }
 
 /**
@@ -504,7 +526,8 @@ export async function autoAssignDueReservations(): Promise<{
   error?: string
 }> {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { assigned: [], error: "Unauthorized." }
+  if (!staffUser)
+    return { assigned: [], error: "errors.reservation.unauthorized" }
 
   const now = {
     date: getTodayInRestaurantTZ(),
@@ -524,7 +547,7 @@ export async function autoAssignDueReservations(): Promise<{
       "[reservations] autoAssignDueReservations:",
       reservationError.message,
     )
-    return { assigned: [], error: "Could not load reservations." }
+    return { assigned: [], error: "errors.reservation.loadFailed" }
   }
 
   const { data: tables, error: tableError } = await db
@@ -537,7 +560,7 @@ export async function autoAssignDueReservations(): Promise<{
       "[reservations] autoAssignDueReservations tables:",
       tableError.message,
     )
-    return { assigned: [], error: "Could not load tables." }
+    return { assigned: [], error: "errors.reservation.tablesLoadFailed" }
   }
 
   const merges = await getActiveMerges()
@@ -560,20 +583,70 @@ export async function autoAssignDueReservations(): Promise<{
   return { assigned }
 }
 
-/** Live floor payload: auto-assign due reservations, then return tables + today's book. */
+/** Live floor payload: auto-assign due reservations, then return tables, today's book, and seated-chip bill totals. */
 export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
   const staffUser = await requireStaffUser()
   if (!staffUser)
-    return { tables: [], reservations: [], assigned: [], merges: [] }
+    return {
+      tables: [],
+      reservations: [],
+      assigned: [],
+      merges: [],
+      tableTotals: {},
+    }
 
   await expireDueMerges()
   const { assigned } = await autoAssignDueReservations()
-  const [tables, { reservations }, merges] = await Promise.all([
+  const db = createServiceClient()
+  // FP-15-COMPLETE: page past PostgREST max_rows (supabase/config.toml) until a short page.
+  // Unique immutable orders.id order before .range keeps offset pages disjoint
+  // (id is PK; not required in select).
+  // minimality: FP-15 does not date-filter; schema pin is from("orders") + these columns.
+  const POSTGREST_MAX_ROWS = 1000
+  type OrderPageRow = {
+    table_label: string
+    total: number | string
+    status: string
+  }
+  const fetchAllOrderPages = async () => {
+    const rows: OrderPageRow[] = []
+    for (let start = 0; ; start += POSTGREST_MAX_ROWS) {
+      const page = await db
+        .from("orders")
+        .select("table_label, total, status")
+        .order("id", { ascending: true })
+        .range(start, start + POSTGREST_MAX_ROWS - 1)
+      if (page.error) return page
+      const pageRows = page.data ?? []
+      rows.push(...pageRows)
+      if (pageRows.length < POSTGREST_MAX_ROWS) {
+        return { data: rows, error: null }
+      }
+    }
+  }
+  const [tables, { reservations }, merges, ordersResult] = await Promise.all([
     getTables(),
     getReservationsByDate(date),
     getActiveMerges(),
+    fetchAllOrderPages(),
   ])
-  return { tables, reservations, assigned, merges }
+  if (ordersResult.error) {
+    console.error(
+      "[reservations] getFloorSnapshot orders:",
+      ordersResult.error.message,
+    )
+    // FP-15-UNAVAILABLE: query error is null totals, never a successful empty map.
+    return { tables, reservations, assigned, merges, tableTotals: null }
+  }
+  const tableTotals = sumOpenOrderTotalsByTableLabel(
+    (ordersResult.data ?? []).map((row) => ({
+      table_label: row.table_label,
+      // PostgREST NUMERIC often arrives as string; coerce before the IEEE sum.
+      total: Number(row.total),
+      status: row.status,
+    })),
+  )
+  return { tables, reservations, assigned, merges, tableTotals }
 }
 
 /** Fetch reservations across a date range (or all if no bounds given). */
@@ -616,6 +689,56 @@ function occupancyDurationFromSettings(
   return clampExpectedMinutes(minutes ?? DEFAULT_EXPECTED_MINUTES)
 }
 
+async function loadReservationOccupancyWindow(
+  db: ReturnType<typeof createServiceClient>,
+): Promise<{
+  occupancyDurationMinutes: number
+  safetyBufferMinutes: number
+  settingsReadFailed: boolean
+}> {
+  const { data: settings, error } = await db
+    .from("restaurant_settings")
+    .select("occupancy_duration_minutes, safety_buffer_minutes")
+    .eq("id", 1)
+    .maybeSingle()
+  if (error) {
+    console.error(
+      "[reservations] loadReservationOccupancyWindow:",
+      error.message,
+    )
+  }
+  return {
+    occupancyDurationMinutes: occupancyDurationFromSettings(
+      settings?.occupancy_duration_minutes,
+    ),
+    safetyBufferMinutes: clampSafetyBufferMinutes(
+      settings?.safety_buffer_minutes ?? DEFAULT_SAFETY_BUFFER_MINUTES,
+    ),
+    settingsReadFailed: error != null,
+  }
+}
+
+/** Staff-gated occupancy window for the reservations dropdown. */
+export async function getReservationOccupancyWindow(): Promise<{
+  occupancyDurationMinutes: number
+  safetyBufferMinutes: number
+}> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) {
+    return {
+      occupancyDurationMinutes: occupancyDurationFromSettings(undefined),
+      safetyBufferMinutes: clampSafetyBufferMinutes(
+        DEFAULT_SAFETY_BUFFER_MINUTES,
+      ),
+    }
+  }
+  const window = await loadReservationOccupancyWindow(createServiceClient())
+  return {
+    occupancyDurationMinutes: window.occupancyDurationMinutes,
+    safetyBufferMinutes: window.safetyBufferMinutes,
+  }
+}
+
 /**
  * Guest-readable occupancy duration for the until-badge (BW-2).
  * Named apart from the staff-gated `getOccupancyDurationMinutes` in branding
@@ -652,6 +775,11 @@ export async function getGuestOccupancyDurationMinutes(): Promise<number> {
  *    `[start, nextBookableTime(start))` plus `partySize` exceed total seats
  *  - Table-fit fails (BW-12): occupying overlapping parties plus `partySize`
  *    cannot be assigned to distinct units, even when covers still fit
+ *  - Slot allowlist / exact-time slot cover fails (BW-18): a non-empty
+ *    `bookable_slots` omits the time, or occupying same-time covers plus
+ *    `partySize` exceed that slot's `max_covers`
+ *  - Service cover fails (BW-19): occupying covers assigned to the
+ *    segment (BW-1) on that date plus `partySize` exceed `max_covers`
  */
 export async function getAvailableSlots(
   date: string,
@@ -782,10 +910,30 @@ export async function getAvailableSlots(
   // Compare exclusive-end to generatedSlots only (BW-5) — do not emit a
   // slot at the free instant unless bookableTimesForDay already did.
   const bookedBySlot: Record<string, number> = {}
+  // BW-18 slot-cover is exact reservation `time`, not the BW-9 window.
+  const occupyingCoversByExactTime: Record<string, number> = {}
+  // BW-19 service-cover is all-day assignment to the segment (BW-1), not the
+  // BW-9 occupancy window. Key by sort_order + opens_at, not object identity.
+  const occupyingCoversBySegment = new Map<string, number>()
+  const segmentCoverKey = (segment: { sort_order: number; opens_at: string }) =>
+    `${segment.sort_order}:${normalizeTime(segment.opens_at)}`
   const occupying: AssignableReservation[] = []
   for (const row of data ?? []) {
     if (!ACTIVE_RESERVATION_STATUSES.includes(row.status)) continue
     const start = normalizeTime(row.time)
+    occupyingCoversByExactTime[start] =
+      (occupyingCoversByExactTime[start] ?? 0) + Number(row.party_size)
+    const reservationSegment = assignSegmentForTime(
+      start,
+      operatingWindow.segments,
+    )
+    if (reservationSegment) {
+      const key = segmentCoverKey(reservationSegment)
+      occupyingCoversBySegment.set(
+        key,
+        (occupyingCoversBySegment.get(key) ?? 0) + Number(row.party_size),
+      )
+    }
     const exclusiveEnd = nextBookableTime(
       start,
       occupancyDurationMinutes,
@@ -836,6 +984,24 @@ export async function getAvailableSlots(
       safetyBufferMinutes,
     )
 
-    return { time, available: coversFit && tableFit }
+    const segment = assignSegmentForTime(time, operatingWindow.segments)
+    const serviceOccupied = segment
+      ? (occupyingCoversBySegment.get(segmentCoverKey(segment)) ?? 0)
+      : 0
+    const slotAndServiceFit = coversFitSlotAndService({
+      time,
+      partySize,
+      bookableSlots: segment?.bookable_slots ?? [],
+      serviceMaxCovers: segment?.max_covers ?? null,
+      occupyingCoversAtTime:
+        occupyingCoversByExactTime[normalizeTime(time)] ?? 0,
+      occupyingCoversInService: serviceOccupied,
+    })
+
+    return {
+      time,
+      // BW-22: slot/service caps never skip BW-9 inventory cover or BW-12 table-fit.
+      available: slotAndServiceFit && coversFit && tableFit,
+    }
   })
 }

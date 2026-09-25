@@ -2,6 +2,7 @@ import { Analytics } from "@vercel/analytics/next"
 import type { Metadata, Viewport } from "next"
 import { Inter, Geist_Mono, Playfair_Display } from "next/font/google"
 import { headers } from "next/headers"
+import { getTranslations } from "next-intl/server"
 import { resolveDocumentLang } from "@/lib/i18n/document-lang"
 import { DocumentLangSync } from "@/lib/i18n/document-lang-sync"
 import { Toaster } from "@/components/ui/sonner"
@@ -18,36 +19,41 @@ const playfair = Playfair_Display({
   weight: ["400", "500", "600", "700"],
 })
 
-export const metadata: Metadata = {
-  title: "Restaurant Link — Restaurant Management & Reservations",
-  description:
-    "Reservations, digital menus, floor planning, POS and kitchen display — one platform to run your restaurant.",
-  generator: "v0.app",
-  icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
-    apple: "/apple-icon.png",
-  },
-}
-
 export const viewport: Viewport = {
   colorScheme: "light dark",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "white" },
     { media: "(prefers-color-scheme: dark)", color: "black" },
   ],
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const headerStore = await headers()
+  const locale = resolveDocumentLang(pathnameFromRequestHeaders(headerStore))
+  const t = await getTranslations({ locale, namespace: "metadata.guest" })
+
+  return {
+    title: t("title"),
+    description: t("description"),
+    generator: "v0.app",
+    icons: {
+      icon: [
+        {
+          url: "/icon-light-32x32.png",
+          media: "(prefers-color-scheme: light)",
+        },
+        {
+          url: "/icon-dark-32x32.png",
+          media: "(prefers-color-scheme: dark)",
+        },
+        {
+          url: "/icon.svg",
+          type: "image/svg+xml",
+        },
+      ],
+      apple: "/apple-icon.png",
+    },
+  }
 }
 
 function pathnameFromRequestHeaders(headerStore: Headers): string {
@@ -72,6 +78,7 @@ function pathnameFromRequestHeaders(headerStore: Headers): string {
   if (intlLocale === "en") return "/en"
   if (intlLocale === "fr") return "/"
   // Staff / auth skip locale middleware, so the intl header is absent.
+  // Sentinel stays a staff path so resolveDocumentLang announces French.
   return "/admin"
 }
 

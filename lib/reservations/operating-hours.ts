@@ -21,6 +21,12 @@ export const DAY_NAMES = [
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 const MINUTES_PER_DAY = 24 * 60
 
+/** One allowlisted slot time plus optional per-slot cover cap (CL-1 / CL-2). */
+type BookableSlot = {
+  time: string
+  max_covers?: number | null
+}
+
 export type OperatingSegment = {
   opens_at: string
   closes_at: string
@@ -28,6 +34,10 @@ export type OperatingSegment = {
   sort_order: number
   /** Present only when non-blank. Persist via flatten as SQL NULL when omitted. */
   guest_note?: string | null
+  /** CL-3 / BW-19: null / omitted = no extra service cover cap. */
+  max_covers?: number | null
+  /** Empty/omitted = every generated time in the segment stays bookable (BW-18). */
+  bookable_slots?: BookableSlot[]
 }
 
 export type OperatingDay = {
@@ -47,6 +57,10 @@ export type OperatingWindowRow = {
   sort_order?: number
   /** Always set on flatten so replace_operating_windows can store/clear NULL. */
   guest_note?: string | null
+  /** Always set on flatten (open rows) so replace_operating_windows can store/clear NULL. */
+  max_covers?: number | null
+  /** Always set on flatten (open rows) so replace_operating_windows can store/clear []. */
+  bookable_slots?: BookableSlot[]
 }
 
 /**
@@ -277,30 +291,42 @@ export function formatSegmentsSummary(segments: OperatingSegment[]): string {
     .join(", ")
 }
 
-const DAY_LABELS_SHORT = [
-  "Sun",
-  "Mon",
-  "Tue",
-  "Wed",
-  "Thu",
-  "Fri",
-  "Sat",
-] as const
+const HOURS_SUMMARY_COPY = {
+  en: {
+    shortDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    closed: "Closed",
+    unavailable: "Hours unavailable",
+  },
+  fr: {
+    shortDays: ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"],
+    closed: "Fermé",
+    unavailable: "Horaires indisponibles",
+  },
+} as const
 const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0] as const
+
+function hoursCopyLocale(locale: string): keyof typeof HOURS_SUMMARY_COPY {
+  return locale === "fr" ? "fr" : "en"
+}
 
 /**
  * Builds a compact, guest-facing weekly summary from the operational schedule.
  * Consecutive Monday-first days with identical hours are grouped together.
  */
-export function summarizeOperatingDays(days: OperatingDay[]): string {
-  if (days.length === 0) return "Hours unavailable"
+export function summarizeOperatingDays(
+  days: OperatingDay[],
+  locale: string,
+): string {
+  const copy = HOURS_SUMMARY_COPY[hoursCopyLocale(locale)]
+  if (days.length === 0) return copy.unavailable
 
+  const { shortDays, closed } = copy
   const byDay = new Map(days.map((day) => [day.day_of_week, day]))
   const ordered = MONDAY_FIRST.map((dayOfWeek) => {
     const day = byDay.get(dayOfWeek)
     const summary =
       !day || day.is_closed || day.segments.length === 0
-        ? "Closed"
+        ? closed
         : formatSegmentsSummary(day.segments)
     return { dayOfWeek, summary }
   })
@@ -323,8 +349,8 @@ export function summarizeOperatingDays(days: OperatingDay[]): string {
     .map(({ start, end, summary }) => {
       const daysLabel =
         start === end
-          ? DAY_LABELS_SHORT[start]
-          : `${DAY_LABELS_SHORT[start]}–${DAY_LABELS_SHORT[end]}`
+          ? shortDays[start]
+          : `${shortDays[start]}–${shortDays[end]}`
       return `${daysLabel} · ${summary}`
     })
     .join("; ")
@@ -367,6 +393,40 @@ export function bookableTimesForDay(
   return generateSlotsForSegments(day.segments, stepMinutes)
 }
 
+/**
+ * BW-18 / BW-19 guest formula (BW-21). Empty `bookableSlots` is not an
+ * allowlist; null maxima add no extra cap. Occupancy sums are supplied by
+ * the caller (exact-time slot; all-day service assignment).
+ */
+export function coversFitSlotAndService(input: {
+  time: string
+  partySize: number
+  bookableSlots: readonly BookableSlot[]
+  serviceMaxCovers: number | null
+  occupyingCoversAtTime: number
+  occupyingCoversInService: number
+}): boolean {
+  const time = normalizeTime(input.time)
+  const allowlistEntry = input.bookableSlots.find(
+    (slot) => normalizeTime(slot.time) === time,
+  )
+  if (input.bookableSlots.length > 0 && allowlistEntry == null) return false
+  const slotMax = allowlistEntry?.max_covers
+  if (
+    slotMax != null &&
+    input.occupyingCoversAtTime + input.partySize > slotMax
+  ) {
+    return false
+  }
+  if (
+    input.serviceMaxCovers != null &&
+    input.occupyingCoversInService + input.partySize > input.serviceMaxCovers
+  ) {
+    return false
+  }
+  return true
+}
+
 export function lastBookableTime(day: OperatingDay | undefined): string | null {
   if (!day || day.is_closed || day.segments.length === 0) return null
   return day.segments.reduce((latest, segment) => {
@@ -397,27 +457,55 @@ export function nextSuggestedSegment(
   }
 }
 
-export function validateOperatingDays(days: OperatingDay[]): string | null {
-  if (days.length !== 7) return "All 7 days of the week must be provided."
+/** CL-2 / CL-3: omit or null is no extra cap; reject 0, negatives, and non-integers. */
+function isInvalidCoverMax(value: number | null | undefined): boolean {
+  return value != null && (!Number.isInteger(value) || value < 1)
+}
+
+/** Catalog key, or a key plus ICU params when the message names a day or limit. */
+export type SchedulingMessage =
+  string | { key: string; params: Record<string, string | number> }
+
+function schedulingMessage(
+  key: string,
+  params?: Record<string, string | number>,
+): SchedulingMessage {
+  return params === undefined ? key : { key, params }
+}
+
+export function validateOperatingDays(
+  days: OperatingDay[],
+  slotIntervalMinutes?: number,
+): SchedulingMessage | null {
+  const interval = clampSlotIntervalMinutes(
+    slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL_MINUTES,
+  )
+  if (days.length !== 7) return "errors.scheduling.weekRequired"
 
   const seen = new Set<number>()
   for (const day of days) {
     if (day.day_of_week < 0 || day.day_of_week > 6) {
-      return "Invalid day of week."
+      return "errors.scheduling.invalidDay"
     }
-    if (seen.has(day.day_of_week)) return "Duplicate day of week."
+    if (seen.has(day.day_of_week)) return "errors.scheduling.duplicateDay"
     seen.add(day.day_of_week)
 
     if (day.is_closed) continue
 
+    const dayName = DAY_NAMES[day.day_of_week]
+
     if (day.segments.length === 0) {
-      return `${DAY_NAMES[day.day_of_week]} is open but has no segments.`
+      return schedulingMessage("errors.scheduling.openWithoutSegments", {
+        day: dayName,
+      })
     }
 
     for (const segment of day.segments) {
       const note = trimmedGuestNote(segment.guest_note)
       if (note && note.length > MAX_GUEST_NOTE_LENGTH) {
-        return `Guest note must be at most ${MAX_GUEST_NOTE_LENGTH} characters.`
+        return schedulingMessage("errors.scheduling.guestNoteTooLong", {
+          max: MAX_GUEST_NOTE_LENGTH,
+        })
       }
     }
 
@@ -428,17 +516,69 @@ export function validateOperatingDays(days: OperatingDay[]): string | null {
 
     for (const range of ranges) {
       if (!TIME_RE.test(range.start) || !TIME_RE.test(range.end)) {
-        return `${DAY_NAMES[day.day_of_week]} has an invalid segment time.`
+        return schedulingMessage("errors.scheduling.invalidSegmentTime", {
+          day: dayName,
+        })
       }
       if (range.start >= range.end) {
-        return `${DAY_NAMES[day.day_of_week]} has a segment that closes before it opens.`
+        return schedulingMessage("errors.scheduling.closesBeforeOpen", {
+          day: dayName,
+        })
       }
     }
 
     const sorted = [...ranges].sort((a, b) => a.start.localeCompare(b.start))
     for (let i = 1; i < sorted.length; i++) {
       if (sorted[i].start < sorted[i - 1].end) {
-        return `${DAY_NAMES[day.day_of_week]} has overlapping segments.`
+        return schedulingMessage("errors.scheduling.overlapping", {
+          day: dayName,
+        })
+      }
+    }
+
+    // CL-1: non-empty bookable_slots — HH:MM, [opens, closes), interval grid from opens.
+    // Empty/omitted list stays valid (BW-5 generated times).
+    for (const segment of day.segments) {
+      if (isInvalidCoverMax(segment.max_covers)) {
+        return schedulingMessage("errors.scheduling.invalidServiceMax", {
+          day: dayName,
+        })
+      }
+      const slots = segment.bookable_slots
+      if (!slots || slots.length === 0) continue
+      const opens = timeToMinutes(segment.opens_at)
+      const closes = timeToMinutes(segment.closes_at)
+      const seenSlotTimes = new Set<string>()
+      for (const slot of slots) {
+        const slotTime = normalizeTime(slot.time)
+        if (!TIME_RE.test(slotTime)) {
+          return schedulingMessage("errors.scheduling.invalidSlotTime", {
+            day: dayName,
+          })
+        }
+        const minutes = timeToMinutes(slotTime)
+        if (minutes < opens || minutes >= closes) {
+          return schedulingMessage("errors.scheduling.slotOutsideWindow", {
+            day: dayName,
+          })
+        }
+        if ((minutes - opens) % interval !== 0) {
+          return schedulingMessage("errors.scheduling.slotOffGrid", {
+            day: dayName,
+            interval,
+          })
+        }
+        if (isInvalidCoverMax(slot.max_covers)) {
+          return schedulingMessage("errors.scheduling.invalidSlotMax", {
+            day: dayName,
+          })
+        }
+        if (seenSlotTimes.has(slotTime)) {
+          return schedulingMessage("errors.scheduling.duplicateSlotTime", {
+            day: dayName,
+          })
+        }
+        seenSlotTimes.add(slotTime)
       }
     }
   }
@@ -480,6 +620,10 @@ export function groupRowsByDay(rows: OperatingWindowRow[]): OperatingDay[] {
           label: row.label ?? null,
           sort_order: row.sort_order ?? index,
           ...(note ? { guest_note: note } : {}),
+          ...(row.max_covers != null ? { max_covers: row.max_covers } : {}),
+          ...(row.bookable_slots?.length
+            ? { bookable_slots: row.bookable_slots }
+            : {}),
         }
       })
 
@@ -491,6 +635,11 @@ export function groupRowsByDay(rows: OperatingWindowRow[]): OperatingDay[] {
   })
 }
 
+/**
+ * Flat ledger rows for `replace_operating_windows`. Open segments always
+ * emit `max_covers` (NULL if omitted) and `bookable_slots` ([] if omitted)
+ * so staff Save can persist or clear both columns.
+ */
 export function flattenDaysToRows(days: OperatingDay[]): OperatingWindowRow[] {
   const rows: OperatingWindowRow[] = []
   for (const day of days) {
@@ -516,6 +665,8 @@ export function flattenDaysToRows(days: OperatingDay[]): OperatingWindowRow[] {
         label: segment.label?.trim() || null,
         sort_order: index,
         guest_note: trimmedGuestNote(segment.guest_note) ?? null,
+        max_covers: segment.max_covers ?? null,
+        bookable_slots: segment.bookable_slots ?? [],
       })
     })
   }

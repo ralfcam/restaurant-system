@@ -35,9 +35,17 @@ env tools. Runbook:
 [`docs/runbooks/deploy.md`](../docs/runbooks/deploy.md). Rule:
 [`rules/vercel-project.mdc`](rules/vercel-project.mdc).
 
-**Plan Mode only:** [`/audit`](commands/audit.md), [`/triage`](commands/triage.md),
-[`/dispatch`](commands/dispatch.md), [`/sdd-to-tdd`](commands/sdd-to-tdd.md),
-[`/design`](commands/design.md).
+**Plan Mode only:** [`/audit`](commands/audit.md) and
+[`/dispatch`](commands/dispatch.md).
+
+**Managed Cloud-capable:** [`/sdd-to-tdd`](commands/sdd-to-tdd.md),
+[`/capture`](commands/capture.md), and
+[`/triage`](commands/triage.md) are the one-shot commands and default to
+Plan Mode; managed Cloud
+(`agent/runtime` = `managed`) may one-shot past that gate.
+[`/design`](commands/design.md) also defaults to Plan Mode; managed Cloud may
+bypass that gate but retains its interactive dialogue and approval stops.
+
 [`/intake`](commands/intake.md) has no Plan Mode gate.
 
 There is no GitHub QA workflow in this repo. Local gates are
@@ -106,7 +114,7 @@ flowchart TD
 | [`/push`](commands/push.md)                               | Human heads (`sdd/RES-###` or `staging` promotion). Never merges                                                   | `/ready-merge-release PR#` then you merge  |
 | [`/intake`](commands/intake.md)                           | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                                                    | `/ready-merge-release PR#` then you merge  |
 | [`/ready-merge-release`](commands/ready-merge-release.md) | Severity-routes CodeRabbit findings; readies and re-verifies only a clean PR. Never merges                         | You merge                                  |
-| [`/capture`](commands/capture.md)                         | Observation → ledger                                                                                               | `/triage`                                  |
+| [`/capture`](commands/capture.md)                         | Observation → ledger (Plan Mode default; managed Cloud one-shot)                                                   | `/triage`                                  |
 | [`/tldr`](commands/tldr.md)                               | Recap a plan, chat, or `RES-###` (Ask Mode)                                                                        | —                                          |
 | [`/reflect`](commands/reflect.md)                         | Re-check a thread’s claims against the tree                                                                        | —                                          |
 

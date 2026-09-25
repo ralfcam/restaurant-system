@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
@@ -13,22 +14,21 @@ import {
 export const dynamic = "force-dynamic"
 
 export default async function AdminMarketingPage() {
+  const t = await getTranslations()
   const authUser = await getAuthUser()
 
   return (
     <StaffShell
-      title="Marketing"
-      description="Post-visit thank-you and Google Maps review email"
+      title={t("staff.marketing.title")}
+      description={t("staff.marketing.description")}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <Card className="max-w-xl">
         <CardHeader className="border-b">
-          <CardTitle>Review email</CardTitle>
+          <CardTitle>{t("staff.marketing.reviewEmailTitle")}</CardTitle>
           <CardDescription>
-            After a visit is marked completed, send a thank-you with a Maps
-            review link. Off by default until copy and a https Maps URL are
-            saved.
+            {t("staff.marketing.reviewEmailDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>

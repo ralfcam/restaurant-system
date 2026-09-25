@@ -44,7 +44,7 @@ export function CountUp({
   return (
     <>
       {prefix}
-      {display.toLocaleString()}
+      {display.toLocaleString("fr")}
       {suffix}
     </>
   )

@@ -111,19 +111,79 @@ thinking: { type: "adaptive", effort: "high" }
 
 ## STEP 0 — PLAN MODE GATE (do this before anything else)
 
-This command runs in **Plan Mode only**, like `/triage` and `/audit`. First,
-determine whether you are in Plan Mode.
+This command's default is **Plan Mode**. Cloud Agents support Plan Mode; prefer
+it when the launch surface exposes it. The managed-Cloud path below is a
+**narrow one-shot exception for unattended Agent-mode launches**, not a claim
+that Cloud lacks Plan Mode.
 
-- If you are **NOT** in Plan Mode: STOP immediately. Make no ledger reads or
-  writes, and delegate to no subagents. Output exactly:
-  "/capture runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the mode
-  picker) and re-run `/capture [input]`." Then end the turn.
+First, determine whether you are in Plan Mode.
+
 - If you ARE in Plan Mode: proceed. Producing the capture plan must not write to
   the ledger — read-only inspection, validator delegation, and normalization only.
   Ledger appends happen later, during plan execution (PHASE 5), after the operator
   approves the Capture Plan.
+- If you are **NOT** in Plan Mode: do not assume local Agent Mode and do not
+  stop yet. Probe the documented Cloud Agent metadata API first (this probe
+  only — no ledger reads, no edits, no subagents):
 
-## Execution Protocol (PHASE 5 — after plan approval)
+  ```bash
+  curl -fsS --unix-socket "${CURSOR_AGENT_SOCKET:-/run/cursor/api.sock}" \
+    http://cursor-agent/v1/meta-data/agent/runtime
+  ```
+
+  Classify from the response body, trimmed:
+  - Exactly `managed` (Cursor-managed Cloud Agent VM) → enter
+    **STEP 0B — MANAGED CLOUD ONE-SHOT**. Do not emit the Plan Mode stop.
+  - Socket missing, HTTP error, empty body, self-hosted, `unknown`, or any
+    value other than exactly `managed` → fail closed. Output exactly:
+    "/capture runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
+    mode picker) and re-run `/capture [input]`." Then end the turn.
+
+  If the socket is missing immediately after boot, retry the connection once;
+  then fail closed. Do not infer Cloud from branch name (`cursor/…`), OS, or
+  available tools. `/v1/meta-data/agent/runtime` returning exactly `managed` is
+  the only positive signal.
+
+## STEP 0B — MANAGED CLOUD ONE-SHOT (narrow exception)
+
+Applies only after STEP 0 classified `agent/runtime` as exactly `managed`.
+
+**What this waives (only these):**
+
+1. The Plan Mode requirement and the "switch to Plan Mode" stop.
+2. The final "stop for operator approval before PHASE 5" boundary.
+3. The local "one PHASE 5 todo per turn" stop — execute every listed PHASE 5
+   todo sequentially in this same turn.
+
+**Cloud one-shot does not waive** (non-overridable; same methodology as local):
+missing or empty / unintelligible input; the PHASE 1 fan-out barrier (every
+`feedback-validator` must return before PHASE 2/3/4); grilling on genuinely
+ambiguous classification; unresolved `route-away:clarify` without explicit
+in-thread REQ/spec-change approval; auto-confirming the accelerator lane or
+any newly discovered Linear finding-issue (persist to the Capture Plan /
+ledger; stop for operator confirmation — do not auto-confirm); writing
+`docs/findings/*.md` yourself (PHASE 5 still delegates `docs-updater` only);
+any write or delegation targeting `docs/specs/**`, `app/**`, `components/**`,
+`hooks/**`, `lib/**`, `src/**`, `supabase/**`, or `tests/**`; skipping
+validator returns or back-filling a missing brief; unavailable Task /
+`docs-updater` / `feedback-validator`; emitting `/sdd-to-tdd`, `/commit`,
+`/push`, `/audit`, or `/triage` as execution todos or auto-running them.
+
+**Durable work-order (required before any ledger mutation):**
+Render the complete Capture Plan in the output format below to
+`.cursor/plans/<plan-slug>.plan.md`. This is a **repository work-order, not a
+silently accepted native Cursor Plan**. Do **not** invoke `CreatePlan` or wait
+for native plan acceptance — that blocks one-shot continuation. Hand every
+PHASE 5 Task this work-order path.
+
+Then execute immediately in the same turn: PHASE 1 validators → fan-out
+barrier → PHASE 2/3 → write the work-order → PHASE 5 `docs-updater`
+delegations (and only those `linear-register` / `clarify-*` todos this run
+already authorized). Bound by the Execution Protocol and the work-order text.
+Do not continue past a BLOCKED docs-updater, missing validator, or Linear
+confirmation stop.
+
+## Execution Protocol (PHASE 5 — after plan approval, or immediately after the managed-Cloud work-order)
 
 You are the **orchestrator**, not the ledger writer. When PHASE 5 runs:
 
@@ -339,7 +399,7 @@ line already carrying an issue id). For each proposed item:
 - **Re-home** if the rubric says a different category file.
 - **Do not read Linear** — `/triage` owns ledger↔Linear de-dupe.
 
-## PHASE 4 — Emit the Capture Plan (still read-only)
+## PHASE 4 — Emit the Capture Plan (read-only locally; managed Cloud writes the work-order only)
 
 **Carry the contract into execution.** The command's instructions (this file) do
 NOT bind the later execution turn — once the plan is approved and executed, the
@@ -377,6 +437,9 @@ these writes in order — `<append|sharpen> [<slug>]`, `<append|sharpen> [<slug>
 
 Group routed-away and rejected items separately. This is the plan the operator
 approves. **No ledger writes yet** — only planned `docs-updater` delegations.
+Managed Cloud (STEP 0B) writes this Capture Plan to
+`.cursor/plans/<plan-slug>.plan.md` instead of `CreatePlan`, then proceeds to
+PHASE 5 in the same turn.
 
 **PHASE 5 Execution Todos (mandatory — one per target file; plus the gated Linear
 todo):** For every ledger file that has at least one capturable item with reconcile
@@ -408,12 +471,13 @@ Capture Plan. When the accelerator lane fired, also emit exactly one
   at a time.
 - Validation Summary row count must equal PHASE 5 slug count.
 
-## PHASE 5 — EXECUTION (after plan approval; NOT in Plan Mode)
+## PHASE 5 — EXECUTION (after plan approval, or immediately after the managed-Cloud work-order)
 
 Runs once the operator approves the Capture Plan (per-item opt-out allowed — skip
-only the items they decline; drop those lines from their file's delegation).
+only the items they decline; drop those lines from their file's delegation),
+**or** — after STEP 0B — immediately after the work-order is written.
 
-Execute **PHASE 5 Execution Todos in order**, one todo per turn — the
+Execute **PHASE 5 Execution Todos in order**, one todo per turn locally unless STEP 0B — after STEP 0B, execute every listed PHASE 5 todo sequentially in this same turn: the
 `<category>-phase5` ledger todos first, then the gated `linear-register` todo (if
 present), then each approved `clarify-*` todo. A clarification-only plan
 executes only those `clarify-*` todos. For each todo `<category>-phase5`:
@@ -472,8 +536,9 @@ do not append unvalidated lines.
   </instructions>
 
 <constraints>
-- DO NOT run outside Plan Mode — the STEP 0 gate stops the command and instructs
-  the operator to switch.
+- DO NOT run outside Plan Mode unless STEP 0 classified `agent/runtime` as
+  exactly `managed` (STEP 0B). Local Agent Mode still fails closed with the
+  switch-to-Plan-Mode stop.
 - DO NOT call Linear write tools yourself in any phase. Read-only
   `get_issue`/`list_comments` is allowed only for an explicitly named tracked
   clarification. Linear writes are delegated: gated `linear-register` after
@@ -599,7 +664,9 @@ You are a **capture orchestrator, not an implementer**. When this plan is execut
 
 ## Mode Check
 
-- Plan Mode: YES (proceeding) | NO (stopped — instruction to switch)
+- Plan Mode: YES (proceeding) | NO (stopped — instruction to switch) | CLOUD-MANAGED (one-shot)
+- Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | (fail-closed if probed and not exactly `managed`)
+- Work-order: `.cursor/plans/<plan-slug>.plan.md` (repository work-order, not a silently accepted native Cursor Plan; managed Cloud) | n/a (Plan Mode — native plan)
 - Input source: <argument | @file | thread context>
 
 ## Input Summary
@@ -695,7 +762,7 @@ Per item not captured (route-away or reject):
 
 (or "none")
 
-## Captured to Ledger (execution only — omit while in Plan Mode)
+## Captured to Ledger (execution only — omit while in Plan Mode; include after Cloud PHASE 5)
 
 Grouped under each completed `<category>-phase5` todo / `docs-updater` delegation,
 one line per written finding: `<finding-ref> → docs/findings/<file>.md · line N` (or "sharpened existing at …")

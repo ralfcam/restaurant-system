@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react"
 import { Clock, ArrowRight, Check, AlarmClock } from "lucide-react"
+import { useTranslations } from "next-intl"
 import { type OrderTicketStatus } from "@/lib/data"
 import {
   getActiveKitchenOrders,
@@ -10,16 +11,6 @@ import {
 } from "@/app/actions/operations"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-
-const COLUMNS: {
-  status: OrderTicketStatus
-  title: string
-  accent: string
-}[] = [
-  { status: "new", title: "New", accent: "border-t-chart-3" },
-  { status: "preparing", title: "Preparing", accent: "border-t-primary" },
-  { status: "ready", title: "Ready", accent: "border-t-accent" },
-]
 
 // Service-level thresholds (minutes) used to color tickets by urgency.
 const WARN_MIN = 8
@@ -36,8 +27,35 @@ function useNow(intervalMs = 1000) {
 }
 
 export function KdsBoard() {
+  const t = useTranslations()
+  const COLUMNS: {
+    status: OrderTicketStatus
+    title: string
+    accent: string
+  }[] = [
+    {
+      status: "new",
+      title: t("status.kitchen.new"),
+      accent: "border-t-chart-3",
+    },
+    {
+      status: "preparing",
+      title: t("status.kitchen.preparing"),
+      accent: "border-t-primary",
+    },
+    {
+      status: "ready",
+      title: t("status.kitchen.ready"),
+      accent: "border-t-accent",
+    },
+  ]
   const [orders, setOrders] = useState<KdsOrder[]>([])
   const now = useNow()
+  const clock = new Date(now).toLocaleTimeString("fr", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  })
 
   useEffect(() => {
     let cancelled = false
@@ -66,23 +84,19 @@ export function KdsBoard() {
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-accent opacity-60" />
             <span className="relative inline-flex size-2.5 rounded-full bg-accent" />
           </span>
-          <span className="font-medium">Live</span>
+          <span className="font-medium">{t("staff.kds.live")}</span>
           <span className="text-muted-foreground">
-            · {active.length} active{" "}
-            {active.length === 1 ? "ticket" : "tickets"}
+            {t("staff.kds.activeTickets", { count: active.length })}
           </span>
           {lateCount > 0 ? (
             <span className="ml-1 flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-semibold text-destructive">
-              <AlarmClock className="size-3" /> {lateCount} running late
+              <AlarmClock className="size-3" />{" "}
+              {t("staff.kds.runningLate", { count: lateCount })}
             </span>
           ) : null}
         </div>
         <span className="font-heading text-xl font-semibold tabular-nums">
-          {new Date(now).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-          })}
+          {clock}
         </span>
       </div>
 
@@ -102,7 +116,7 @@ export function KdsBoard() {
               <div className="flex flex-col gap-3">
                 {colOrders.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-border py-10 text-center text-sm text-muted-foreground">
-                    No tickets
+                    {t("staff.kds.noTickets")}
                   </div>
                 ) : (
                   colOrders.map((order) => (
@@ -142,6 +156,7 @@ function TicketCard({
   now: number
   setOrders: Dispatch<SetStateAction<KdsOrder[]>>
 }) {
+  const t = useTranslations()
   const itemCount = order.lines.reduce((s, l) => s + l.qty, 0)
   const elapsedMs = now - order.placedAtMs
   const elapsedMin = elapsedMs / 60_000
@@ -160,7 +175,7 @@ function TicketCard({
     >
       <div className="flex items-center justify-between">
         <span className="font-heading text-lg font-semibold">
-          Table {order.table}
+          {t("staff.kds.table", { label: order.table })}
         </span>
         <span
           className={cn(
@@ -175,8 +190,9 @@ function TicketCard({
         </span>
       </div>
       <p className="text-xs text-muted-foreground">
-        {order.id.toUpperCase()} · {order.server} · {itemCount} items · in at{" "}
-        {order.placedAt}
+        {order.id.toUpperCase()} · {order.server} ·{" "}
+        {t("staff.kds.itemCount", { count: itemCount })} ·{" "}
+        {t("staff.kds.placedAt", { time: order.placedAt })}
       </p>
 
       <ul className="mt-3 space-y-1.5 border-t border-border pt-3">
@@ -209,7 +225,7 @@ function TicketCard({
               )
             }}
           >
-            <Check className="size-4" /> Picked up
+            <Check className="size-4" /> {t("staff.kds.pickedUp")}
           </Button>
         ) : (
           <Button
@@ -224,7 +240,9 @@ function TicketCard({
               )
             }}
           >
-            {order.status === "new" ? "Start preparing" : "Mark ready"}
+            {order.status === "new"
+              ? t("staff.kds.startPreparing")
+              : t("staff.kds.markReady")}
             <ArrowRight className="size-4" />
           </Button>
         )}

@@ -29,6 +29,12 @@ DECLARE
   v_pick TEXT;
   v_taken TEXT[] := ARRAY[]::TEXT[];
   rec RECORD;
+  v_segment_id UUID;
+  v_service_max INT;
+  v_bookable_slots JSONB;
+  v_slot JSONB;
+  v_slot_occupying INT;
+  v_service_occupying INT;
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -211,6 +217,85 @@ BEGIN
 
       v_taken := v_taken || v_pick;
     END LOOP;
+
+    -- RES-71: BW-18 / BW-19 after BW-15 lock + inventory + table-fit (BW-20).
+    -- Exact-time slot cover; service cover via BW-1 (later opens_at wins).
+    -- Last-writer body is byte-identical in
+    -- 00000000000000_baseline.sql,
+    -- 20260818162000_operating_hour_segments.sql,
+    -- 20260827180000_occupancy_duration_buffer.sql,
+    -- 20260828121224_table_fit_availability.sql, and
+    -- 20260918140655_slot_service_cover_limits.sql.
+    SELECT w.id, w.max_covers, w.bookable_slots
+      INTO v_segment_id, v_service_max, v_bookable_slots
+      FROM operating_windows w
+     WHERE w.day_of_week = v_dow
+       AND w.is_closed = false
+       AND NEW.time::TIME >= w.opens_at::TIME
+       AND NEW.time::TIME <= w.closes_at::TIME
+     ORDER BY
+       CASE WHEN w.opens_at::TIME = NEW.time::TIME THEN 0 ELSE 1 END,
+       CASE WHEN w.opens_at::TIME = NEW.time::TIME THEN w.sort_order END DESC NULLS LAST,
+       w.sort_order ASC
+     LIMIT 1;
+
+    IF v_segment_id IS NOT NULL THEN
+      IF jsonb_typeof(COALESCE(v_bookable_slots, '[]'::jsonb)) = 'array'
+         AND jsonb_array_length(COALESCE(v_bookable_slots, '[]'::jsonb)) > 0 THEN
+        SELECT slot
+          INTO v_slot
+          FROM jsonb_array_elements(v_bookable_slots) AS slot
+         WHERE (slot->>'time')::TIME = NEW.time::TIME
+         LIMIT 1;
+
+        IF v_slot IS NULL THEN
+          RAISE EXCEPTION 'Booking denied: This time is fully booked.'
+            USING ERRCODE = 'P0001';
+        END IF;
+
+        IF (v_slot->>'max_covers') IS NOT NULL THEN
+          SELECT COALESCE(SUM(r.party_size), 0)
+            INTO v_slot_occupying
+            FROM reservations r
+           WHERE r.date = NEW.date::DATE
+             AND r.status IN ('confirmed', 'seated')
+             AND r.id IS DISTINCT FROM NEW.id
+             AND r.time::TIME = NEW.time::TIME;
+
+          IF v_slot_occupying + NEW.party_size > (v_slot->>'max_covers')::INT THEN
+            RAISE EXCEPTION 'Booking denied: This time is fully booked.'
+              USING ERRCODE = 'P0001';
+          END IF;
+        END IF;
+      END IF;
+
+      IF v_service_max IS NOT NULL THEN
+        SELECT COALESCE(SUM(r.party_size), 0)
+          INTO v_service_occupying
+          FROM reservations r
+         WHERE r.date = NEW.date::DATE
+           AND r.status IN ('confirmed', 'seated')
+           AND r.id IS DISTINCT FROM NEW.id
+           AND (
+             SELECT s.id
+               FROM operating_windows s
+              WHERE s.day_of_week = v_dow
+                AND s.is_closed = false
+                AND r.time::TIME >= s.opens_at::TIME
+                AND r.time::TIME <= s.closes_at::TIME
+              ORDER BY
+                CASE WHEN s.opens_at::TIME = r.time::TIME THEN 0 ELSE 1 END,
+                CASE WHEN s.opens_at::TIME = r.time::TIME THEN s.sort_order END DESC NULLS LAST,
+                s.sort_order ASC
+              LIMIT 1
+           ) = v_segment_id;
+
+        IF v_service_occupying + NEW.party_size > v_service_max THEN
+          RAISE EXCEPTION 'Booking denied: This time is fully booked.'
+            USING ERRCODE = 'P0001';
+        END IF;
+      END IF;
+    END IF;
   END IF;
 
   RETURN NEW;

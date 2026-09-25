@@ -1,7 +1,9 @@
 "use client"
 
 import Image from "next/image"
+import { useTranslations } from "next-intl"
 import { cn } from "@/lib/utils"
+import { RESTAURANT } from "@/lib/data"
 import { SITE_LOGO } from "@/lib/site-chrome"
 
 /**
@@ -11,7 +13,7 @@ import { SITE_LOGO } from "@/lib/site-chrome"
  */
 export function BrandMark({
   src,
-  alt = SITE_LOGO.alt,
+  alt,
   size = SITE_LOGO.width,
   className,
 }: {
@@ -20,6 +22,8 @@ export function BrandMark({
   size?: number
   className?: string
 }) {
+  const t = useTranslations("staff.branding")
+  const resolvedAlt = alt ?? t("logoAlt", { name: RESTAURANT.name })
   if (!src) return null
 
   return (
@@ -32,7 +36,7 @@ export function BrandMark({
     >
       <Image
         src={src}
-        alt={alt}
+        alt={resolvedAlt}
         fill
         className="object-cover"
         sizes={`${size}px`}

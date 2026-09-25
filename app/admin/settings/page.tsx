@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { RestaurantLogoEditor } from "@/components/staff/restaurant-logo-editor"
 import { RestaurantHeroImageEditor } from "@/components/staff/restaurant-hero-image-editor"
@@ -15,24 +16,22 @@ import {
 export const dynamic = "force-dynamic"
 
 export default async function AdminSettingsPage() {
+  const t = await getTranslations()
   const authUser = await getAuthUser()
 
   return (
     <StaffShell
-      title="Branding"
-      description="Minimal CMS — guest-facing brand content"
+      title={t("staff.branding.title")}
+      description={t("staff.branding.description")}
       user={{ email: authUser?.email }}
       isSuperAdmin={isSuperAdminUser(authUser)}
     >
       <div className="flex flex-col gap-6">
         <Card className="max-w-xl">
           <CardHeader className="border-b">
-            <CardTitle>Restaurant logo</CardTitle>
+            <CardTitle>{t("staff.branding.logoTitle")}</CardTitle>
             <CardDescription>
-              Upload a logo for {RESTAURANT.name} on the guest header, staff
-              login, and console. PNG, JPG, SVG, or WEBP, up to 2MB. The
-              platform ships with no default mark — removing a logo leaves the
-              name only.
+              {t("staff.branding.logoDescription", { name: RESTAURANT.name })}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -42,11 +41,9 @@ export default async function AdminSettingsPage() {
 
         <Card className="max-w-xl">
           <CardHeader className="border-b">
-            <CardTitle>Homepage hero image</CardTitle>
+            <CardTitle>{t("staff.branding.heroTitle")}</CardTitle>
             <CardDescription>
-              Upload a background photo for the homepage hero. PNG, JPG, or
-              WEBP, up to 4MB. The platform ships with no default photo — until
-              one is uploaded, the hero renders a blank background.
+              {t("staff.branding.heroDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>

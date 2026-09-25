@@ -17,7 +17,7 @@ import { createServiceClient } from "@/lib/supabase/service"
 
 function analyticsQueryError(message: string): { error: string } {
   console.error("[analytics] getReservationAnalytics error:", message)
-  return { error: "Could not load analytics." }
+  return { error: "errors.analytics.loadFailed" }
 }
 
 /** RA-10: aggregates only — never `guest_name`, `email`, or `phone`. */
@@ -46,9 +46,10 @@ function analyticsReservationFields(row: {
  * Staff-only analytics reader. Queries are SELECT-only (RA-2): never INSERT,
  * UPDATE, or DELETE `reservations`, `tables`, or `status_events`. Fail-closed
  * (RA-8 / STAFF-LIST analogue): auth or a non-null query error returns `{ error }`
- * with a stable message (`Unauthorized.` / `Could not load analytics.`) and MUST
- * NOT include slice zeros. Genuine all-zero success omits `error`. Invalid
- * `from`/`to` or inverted range returns `{ error: "Invalid reporting period." }`
+ * with a stable catalog key (`errors.analytics.unauthorized` /
+ * `errors.analytics.loadFailed`) and MUST NOT include slice zeros.
+ * Genuine all-zero success omits `error`. Invalid
+ * `from`/`to` or inverted range returns `{ error: "errors.analytics.invalidPeriod" }`
  * (RA-3). Outcomes count only `no_show` and `cancelled` (RA-5). Duration uses
  * seated-event → `completed_at` (RA-6) and never occupancy settings. Patterns are
  * restaurant-level date/weekday/hour/party_size histograms (RA-7). JSON never
@@ -63,13 +64,14 @@ export async function getReservationAnalytics(
       AnalyticsOutcomes & {
         duration: AnalyticsDuration
         patterns: AnalyticsPatterns
+        error?: undefined
       })
 > {
   const staffUser = await requireStaffUser()
-  if (!staffUser) return { error: "Unauthorized." }
+  if (!staffUser) return { error: "errors.analytics.unauthorized" }
 
   const resolved = resolveAnalyticsPeriod(period)
-  if ("error" in resolved) return resolved
+  if (resolved.error) return resolved
 
   const supabase = createServiceClient()
   const { data, error } = await supabase

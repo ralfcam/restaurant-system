@@ -16,6 +16,11 @@ CREATE TABLE IF NOT EXISTS operating_windows (
   sort_order INT NOT NULL DEFAULT 0,
   -- Optional guest-facing helper for this segment; blank/whitespace stored as NULL.
   guest_note TEXT,
+  -- RES-71: optional service cover cap; NULL = no extra cap (BW-19 / CL-3).
+  max_covers INT NULL CONSTRAINT operating_windows_max_covers_check
+    CHECK (max_covers IS NULL OR max_covers >= 1),
+  -- RES-71: ordered bookable slots JSONB; empty = all generated times (BW-18 / CL-1).
+  bookable_slots JSONB NOT NULL DEFAULT '[]',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -43,6 +48,11 @@ GRANT SELECT ON TABLE operating_windows TO anon, authenticated;
 REVOKE INSERT, UPDATE, DELETE ON TABLE operating_windows FROM anon, authenticated;
 -- REAZED-297: default table privileges are REFERENCES/TRIGGER/TRUNCATE only.
 GRANT ALL ON TABLE operating_windows TO service_role;
+
+COMMENT ON COLUMN public.operating_windows.max_covers IS
+  'Optional service cover cap; NULL = no extra cap (RES-71 / BW-19 / CL-3).';
+COMMENT ON COLUMN public.operating_windows.bookable_slots IS
+  'Ordered bookable slots JSONB; empty = all generated times (RES-71 / BW-18 / CL-1).';
 
 -- ── blocked_dates ──────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS blocked_dates (
@@ -84,8 +94,9 @@ CREATE TABLE IF NOT EXISTS reservations (
   party_size INT NOT NULL,
   date DATE NOT NULL,
   time TEXT NOT NULL,
+  -- RES-67 / RES-STATUS-NOSHOW: staff-closed no_show is a legal persisted status.
   status TEXT NOT NULL DEFAULT 'confirmed'
-    CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled')),
+    CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled', 'no_show')),
   phone TEXT NOT NULL,
   notes TEXT,
   table_label TEXT,
@@ -93,6 +104,8 @@ CREATE TABLE IF NOT EXISTS reservations (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   -- PV-9: nullable guest email for post-visit review send (RES-PRIV: no GRANT SELECT).
   email TEXT,
+  -- RES-104 / GP-2: stored trim+lower membership key (not inserted; generated).
+  email_normalized TEXT GENERATED ALWAYS AS (lower(btrim(email))) STORED,
   -- RES-45 / PV-13: completion clock for post-visit review delay (not updated_at).
   completed_at TIMESTAMPTZ
 );
@@ -105,6 +118,20 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
 -- RES-45 / PV-13: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
 -- without completed_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- RES-67 / RES-STATUS-FORWARD: remotes already recorded baseline; same
+-- DROP/ADD last-writer as 20260920183000 so a fresh reset converges.
+ALTER TABLE reservations
+  DROP CONSTRAINT IF EXISTS reservations_status_check;
+ALTER TABLE reservations
+  ADD CONSTRAINT reservations_status_check
+  CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled', 'no_show'));
+-- RES-104 / GP-2: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without email_normalized; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email_normalized TEXT
+  GENERATED ALWAYS AS (lower(btrim(email))) STORED;
+-- RES-104 / GP-2: btree on the generated membership key for getGuestProfile .eq.
+CREATE INDEX IF NOT EXISTS reservations_email_normalized_idx
+  ON public.reservations (email_normalized);
 
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 
@@ -116,7 +143,8 @@ CREATE POLICY "Allow public insert reservations"
 
 -- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
 -- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
--- id, status, table_label, created_at, completed_at have no guest INSERT privilege.
+-- id, status, table_label, created_at, completed_at, email_normalized have no
+-- guest INSERT privilege.
 -- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 
@@ -154,6 +182,48 @@ CREATE POLICY "Allow service_role full access to review_email_sends"
 GRANT ALL ON TABLE review_email_sends TO service_role;
 -- PV-12: strip leftover default privs too (not DML-only REVOKE — no anon/authenticated GRANT).
 REVOKE ALL ON TABLE review_email_sends FROM anon, authenticated;
+
+-- ── menus (RES-70 / MT-4: PUBLIC-READ-PRIV catalog tabs) ─────────────────────
+CREATE TABLE IF NOT EXISTS menus (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  title_en TEXT NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0
+);
+
+ALTER TABLE menus ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow public read menus" ON menus;
+CREATE POLICY "Allow public read menus"
+  ON menus FOR SELECT
+  TO public
+  USING (true);
+
+-- RES-70 / MT-4: PUBLIC-READ-PRIV — public SELECT only; drop authenticated
+-- FOR ALL (keep DROP IF EXISTS; do not CREATE).
+DROP POLICY IF EXISTS "Allow authenticated full access to menus" ON menus;
+
+DROP POLICY IF EXISTS "Allow service_role full access to menus" ON menus;
+CREATE POLICY "Allow service_role full access to menus"
+  ON menus FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+REVOKE ALL ON TABLE menus FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON TABLE menus TO anon, authenticated;
+GRANT ALL ON TABLE menus TO service_role;
+
+-- RES-70 / MT-4e: hosted apply does not re-run seed.sql; seed the five
+-- compiled catalog tab ids so guest/admin tabs are not empty.
+INSERT INTO menus (id, title, title_en, sort_order)
+VALUES
+  ('midi', 'Menu Midi', 'Lunch Menu', 0),
+  ('soir', 'Menu Soir', 'Dinner Menu', 1),
+  ('boissons', 'Boissons & Philosophie', 'Drinks & Philosophy', 2),
+  ('blanc', 'Vins Blancs', 'White Wines', 3),
+  ('rouge', 'Vins Rouges', 'Red Wines', 4)
+ON CONFLICT (id) DO NOTHING;
 
 -- ── menu_items ───────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS menu_items (
@@ -220,6 +290,12 @@ DECLARE
   v_pick TEXT;
   v_taken TEXT[] := ARRAY[]::TEXT[];
   rec RECORD;
+  v_segment_id UUID;
+  v_service_max INT;
+  v_bookable_slots JSONB;
+  v_slot JSONB;
+  v_slot_occupying INT;
+  v_service_occupying INT;
 BEGIN
   IF EXISTS (
     SELECT 1
@@ -402,6 +478,85 @@ BEGIN
 
       v_taken := v_taken || v_pick;
     END LOOP;
+
+    -- RES-71: BW-18 / BW-19 after BW-15 lock + inventory + table-fit (BW-20).
+    -- Exact-time slot cover; service cover via BW-1 (later opens_at wins).
+    -- Last-writer body is byte-identical in
+    -- 00000000000000_baseline.sql,
+    -- 20260818162000_operating_hour_segments.sql,
+    -- 20260827180000_occupancy_duration_buffer.sql,
+    -- 20260828121224_table_fit_availability.sql, and
+    -- 20260918140655_slot_service_cover_limits.sql.
+    SELECT w.id, w.max_covers, w.bookable_slots
+      INTO v_segment_id, v_service_max, v_bookable_slots
+      FROM operating_windows w
+     WHERE w.day_of_week = v_dow
+       AND w.is_closed = false
+       AND NEW.time::TIME >= w.opens_at::TIME
+       AND NEW.time::TIME <= w.closes_at::TIME
+     ORDER BY
+       CASE WHEN w.opens_at::TIME = NEW.time::TIME THEN 0 ELSE 1 END,
+       CASE WHEN w.opens_at::TIME = NEW.time::TIME THEN w.sort_order END DESC NULLS LAST,
+       w.sort_order ASC
+     LIMIT 1;
+
+    IF v_segment_id IS NOT NULL THEN
+      IF jsonb_typeof(COALESCE(v_bookable_slots, '[]'::jsonb)) = 'array'
+         AND jsonb_array_length(COALESCE(v_bookable_slots, '[]'::jsonb)) > 0 THEN
+        SELECT slot
+          INTO v_slot
+          FROM jsonb_array_elements(v_bookable_slots) AS slot
+         WHERE (slot->>'time')::TIME = NEW.time::TIME
+         LIMIT 1;
+
+        IF v_slot IS NULL THEN
+          RAISE EXCEPTION 'Booking denied: This time is fully booked.'
+            USING ERRCODE = 'P0001';
+        END IF;
+
+        IF (v_slot->>'max_covers') IS NOT NULL THEN
+          SELECT COALESCE(SUM(r.party_size), 0)
+            INTO v_slot_occupying
+            FROM reservations r
+           WHERE r.date = NEW.date::DATE
+             AND r.status IN ('confirmed', 'seated')
+             AND r.id IS DISTINCT FROM NEW.id
+             AND r.time::TIME = NEW.time::TIME;
+
+          IF v_slot_occupying + NEW.party_size > (v_slot->>'max_covers')::INT THEN
+            RAISE EXCEPTION 'Booking denied: This time is fully booked.'
+              USING ERRCODE = 'P0001';
+          END IF;
+        END IF;
+      END IF;
+
+      IF v_service_max IS NOT NULL THEN
+        SELECT COALESCE(SUM(r.party_size), 0)
+          INTO v_service_occupying
+          FROM reservations r
+         WHERE r.date = NEW.date::DATE
+           AND r.status IN ('confirmed', 'seated')
+           AND r.id IS DISTINCT FROM NEW.id
+           AND (
+             SELECT s.id
+               FROM operating_windows s
+              WHERE s.day_of_week = v_dow
+                AND s.is_closed = false
+                AND r.time::TIME >= s.opens_at::TIME
+                AND r.time::TIME <= s.closes_at::TIME
+              ORDER BY
+                CASE WHEN s.opens_at::TIME = r.time::TIME THEN 0 ELSE 1 END,
+                CASE WHEN s.opens_at::TIME = r.time::TIME THEN s.sort_order END DESC NULLS LAST,
+                s.sort_order ASC
+              LIMIT 1
+           ) = v_segment_id;
+
+        IF v_service_occupying + NEW.party_size > v_service_max THEN
+          RAISE EXCEPTION 'Booking denied: This time is fully booked.'
+            USING ERRCODE = 'P0001';
+        END IF;
+      END IF;
+    END IF;
   END IF;
 
   RETURN NEW;
@@ -423,7 +578,8 @@ BEGIN
   DELETE FROM public.operating_windows WHERE TRUE;
 
   INSERT INTO public.operating_windows (
-    day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note
+    day_of_week, opens_at, closes_at, is_closed, label, sort_order, guest_note,
+    max_covers, bookable_slots
   )
   SELECT
     (w->>'day_of_week')::INT,
@@ -432,7 +588,9 @@ BEGIN
     COALESCE((w->>'is_closed')::BOOLEAN, false),
     NULLIF(BTRIM(w->>'label'), ''),
     COALESCE((w->>'sort_order')::INT, 0),
-    NULLIF(BTRIM(w->>'guest_note'), '')
+    NULLIF(BTRIM(w->>'guest_note'), ''),
+    (w->>'max_covers')::INT,
+    COALESCE(w->'bookable_slots', '[]'::jsonb)
   FROM jsonb_array_elements(p_windows) AS w;
 END;
 $$;
@@ -440,6 +598,26 @@ $$;
 REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION replace_operating_windows(jsonb) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION replace_operating_windows(jsonb) TO service_role;
+
+-- RES-70 / MT-6a: apply menus.sort_order as one service-role operation.
+-- Tab ids stay unchanged (MT-2). Invoker is service_role (not SECURITY DEFINER).
+CREATE OR REPLACE FUNCTION reorder_menu_tabs(p_ordered_ids jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = ''
+AS $$
+BEGIN
+  UPDATE public.menus AS m
+  SET sort_order = (o.ordinality - 1)::INT
+  FROM jsonb_array_elements_text(p_ordered_ids)
+    WITH ORDINALITY AS o(id, ordinality)
+  WHERE m.id = o.id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION reorder_menu_tabs(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION reorder_menu_tabs(jsonb) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION reorder_menu_tabs(jsonb) TO service_role;
 
 DROP TRIGGER IF EXISTS enforce_booking_rules ON reservations;
 

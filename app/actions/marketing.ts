@@ -11,13 +11,10 @@ export async function saveReviewEmailSettings(input: {
   delayHours: number
 }): Promise<{ error?: string }> {
   const superAdminUser = await requireSuperAdminUser()
-  if (!superAdminUser) return { error: "Unauthorized." }
+  if (!superAdminUser) return { error: "errors.marketing.unauthorized" }
 
   if (input.enabled && (!input.copy.trim() || !isHttpsUrl(input.mapsUrl))) {
-    return {
-      error:
-        "Review email cannot be enabled without thank-you copy and a valid https Maps URL.",
-    }
+    return { error: "errors.marketing.reviewEmailRequiresCopyAndHttps" }
   }
 
   const { error } = await createServiceClient()
@@ -32,7 +29,7 @@ export async function saveReviewEmailSettings(input: {
     })
   if (error) {
     console.error("[marketing] saveReviewEmailSettings:", error.message)
-    return { error: "Could not save review email settings." }
+    return { error: "errors.marketing.reviewEmailSaveFailed" }
   }
   return {}
 }

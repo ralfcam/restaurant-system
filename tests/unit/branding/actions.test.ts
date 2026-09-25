@@ -80,7 +80,7 @@ describe("uploadRestaurantLogo", () => {
   it("rejects unauthenticated callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(uploadRestaurantLogo(pngUpload)).rejects.toThrow(
-      "Unauthorized",
+      "errors.branding.unauthorized",
     )
     expect(mocks.upload).not.toHaveBeenCalled()
   })
@@ -88,7 +88,7 @@ describe("uploadRestaurantLogo", () => {
   it("rejects staff-only callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(uploadRestaurantLogo(pngUpload)).rejects.toThrow(
-      "Unauthorized",
+      "errors.branding.unauthorized",
     )
     expect(mocks.upload).not.toHaveBeenCalled()
   })
@@ -98,7 +98,7 @@ describe("uploadRestaurantLogo", () => {
       ...pngUpload,
       contentType: "image/gif",
     })
-    expect(result.error).toMatch(/PNG, JPG, SVG, or WEBP/)
+    expect(result.error).toBe("errors.branding.logoContentType")
     expect(mocks.upload).not.toHaveBeenCalled()
   })
 
@@ -151,7 +151,7 @@ describe("uploadRestaurantLogo", () => {
       error: { message: "permission denied" },
     })
     const result = await uploadRestaurantLogo(pngUpload)
-    expect(result.error).toBe("Could not upload the logo. Please try again.")
+    expect(result.error).toBe("errors.branding.logoUploadFailed")
     expect(mocks.upload).toHaveBeenCalledTimes(1)
   })
 
@@ -183,13 +183,17 @@ describe("removeRestaurantLogo", () => {
 
   it("rejects unauthenticated callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
-    await expect(removeRestaurantLogo()).rejects.toThrow("Unauthorized")
+    await expect(removeRestaurantLogo()).rejects.toThrow(
+      "errors.branding.unauthorized",
+    )
     expect(mocks.remove).not.toHaveBeenCalled()
   })
 
   it("rejects staff-only callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
-    await expect(removeRestaurantLogo()).rejects.toThrow("Unauthorized")
+    await expect(removeRestaurantLogo()).rejects.toThrow(
+      "errors.branding.unauthorized",
+    )
     expect(mocks.remove).not.toHaveBeenCalled()
   })
 
@@ -264,7 +268,7 @@ describe("uploadRestaurantHeroImage", () => {
   it("rejects unauthenticated callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(uploadRestaurantHeroImage(pngUpload)).rejects.toThrow(
-      "Unauthorized",
+      "errors.branding.unauthorized",
     )
     expect(mocks.upload).not.toHaveBeenCalled()
   })
@@ -272,7 +276,7 @@ describe("uploadRestaurantHeroImage", () => {
   it("rejects staff-only callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
     await expect(uploadRestaurantHeroImage(pngUpload)).rejects.toThrow(
-      "Unauthorized",
+      "errors.branding.unauthorized",
     )
     expect(mocks.upload).not.toHaveBeenCalled()
   })
@@ -282,7 +286,7 @@ describe("uploadRestaurantHeroImage", () => {
       ...pngUpload,
       contentType: "image/gif",
     })
-    expect(result.error).toMatch(/PNG, JPG, or WEBP/)
+    expect(result.error).toBe("errors.branding.heroContentType")
     expect(mocks.upload).not.toHaveBeenCalled()
   })
 
@@ -291,7 +295,7 @@ describe("uploadRestaurantHeroImage", () => {
       ...pngUpload,
       contentType: "image/svg+xml",
     })
-    expect(result.error).toMatch(/PNG, JPG, or WEBP/)
+    expect(result.error).toBe("errors.branding.heroContentType")
     expect(mocks.upload).not.toHaveBeenCalled()
   })
 
@@ -339,9 +343,7 @@ describe("uploadRestaurantHeroImage", () => {
       error: { message: "permission denied" },
     })
     const result = await uploadRestaurantHeroImage(pngUpload)
-    expect(result.error).toBe(
-      "Could not upload the hero image. Please try again.",
-    )
+    expect(result.error).toBe("errors.branding.heroUploadFailed")
     expect(mocks.upload).toHaveBeenCalledTimes(1)
   })
 })
@@ -359,13 +361,17 @@ describe("removeRestaurantHeroImage", () => {
 
   it("rejects unauthenticated callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
-    await expect(removeRestaurantHeroImage()).rejects.toThrow("Unauthorized")
+    await expect(removeRestaurantHeroImage()).rejects.toThrow(
+      "errors.branding.unauthorized",
+    )
     expect(mocks.remove).not.toHaveBeenCalled()
   })
 
   it("rejects staff-only callers", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
-    await expect(removeRestaurantHeroImage()).rejects.toThrow("Unauthorized")
+    await expect(removeRestaurantHeroImage()).rejects.toThrow(
+      "errors.branding.unauthorized",
+    )
     expect(mocks.remove).not.toHaveBeenCalled()
   })
 

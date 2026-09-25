@@ -110,7 +110,7 @@ describe("restaurant-wide occupancy duration and safety buffer on the floor plan
     const { updateOccupancyDurationMinutes } =
       await import("@/app/actions/branding")
     await expect(updateOccupancyDurationMinutes(30)).rejects.toThrow(
-      "Unauthorized",
+      "errors.branding.unauthorized",
     )
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
@@ -118,7 +118,9 @@ describe("restaurant-wide occupancy duration and safety buffer on the floor plan
   it("rejects staff-only callers for safety buffer", async () => {
     mocks.requireSuperAdminUser.mockResolvedValue(null)
     const { updateSafetyBufferMinutes } = await import("@/app/actions/branding")
-    await expect(updateSafetyBufferMinutes(30)).rejects.toThrow("Unauthorized")
+    await expect(updateSafetyBufferMinutes(30)).rejects.toThrow(
+      "errors.branding.unauthorized",
+    )
     expect(mocks.upsert).not.toHaveBeenCalled()
   })
 })

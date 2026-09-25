@@ -270,4 +270,91 @@ describe("assignReservationTable", () => {
     const exactFit = await assignReservationTable(partyOfFour.id, "4")
     expect(exactFit).toEqual({})
   })
+
+  it("refuses a new table label when restaurant_settings cannot be read", async () => {
+    const date = "2026-08-18"
+    const table = {
+      id: "t1",
+      label: "1",
+      seats: 4,
+      status: "available",
+    }
+    const reservation = {
+      id: "res-settings-fail",
+      guest_name: "Marcus Webb",
+      party_size: 2,
+      date,
+      time: "19:00",
+      status: "confirmed",
+      table_label: null as string | null,
+      phone: "555-0144",
+      notes: null,
+      conf_code: "TVL-SET",
+      created_at: "2026-08-01T10:00:00.000Z",
+    }
+    const reservationsUpdate = vi.fn()
+    const tablesUpdate = vi.fn()
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+
+    mocks.from.mockImplementation((name: string) => {
+      if (name === "restaurant_settings") {
+        return thenable({
+          data: null,
+          error: { message: "restaurant_settings unavailable" },
+        })
+      }
+      if (name === "tables") {
+        return {
+          select: () => thenable({ data: table, error: null }),
+          update: (patch: Row) => {
+            tablesUpdate(patch)
+            const chain = {
+              eq: () => chain,
+              in: () => chain,
+              then: (resolve: (value: unknown) => unknown) =>
+                Promise.resolve({ error: null }).then(resolve),
+            }
+            return chain
+          },
+        }
+      }
+      if (name === "reservations") {
+        return {
+          select: () => thenable({ data: [reservation], error: null }),
+          update: (patch: Row) => {
+            reservationsUpdate(patch)
+            const chain = {
+              eq: () => chain,
+              in: () => chain,
+              then: (resolve: (value: unknown) => unknown) =>
+                Promise.resolve({ error: null }).then(resolve),
+            }
+            return chain
+          },
+        }
+      }
+      return {
+        select: () => thenable({ data: [], error: null }),
+        insert: async () => ({ error: null }),
+        update: () => thenable({ error: null }),
+        delete: () => ({ eq: () => thenable({ error: null }) }),
+      }
+    })
+
+    const { assignReservationTable } =
+      await import("@/app/actions/reservations")
+
+    try {
+      const refused = await assignReservationTable(reservation.id, "1")
+      expect(refused).toEqual({ error: "errors.reservation.assignFailed" })
+      expect(reservationsUpdate).not.toHaveBeenCalled()
+      expect(tablesUpdate).not.toHaveBeenCalled()
+      expect(consoleError).toHaveBeenCalled()
+
+      const cleared = await assignReservationTable(reservation.id, null)
+      expect(cleared).toEqual({})
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
 })

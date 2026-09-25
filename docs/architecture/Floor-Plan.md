@@ -1,12 +1,16 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-10
+**Last updated:** 2026-09-24
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
 Table statuses: `available` | `reserved` | `seated` | `cleaning` | `out_of_service`
 (see `lib/data.ts`). Transitions are enforced in `app/actions/operations.ts`.
+The `/admin/reservations` Table assignment dropdown does not use
+`tables.status` as occupancy: `getReservationOccupancyWindow` /
+`loadReservationOccupancyWindow` and `selectableTablesForAssignment` follow
+[../specs/scheduling.md](../specs/scheduling.md) FP-5-DROPDOWN-OCCUPANCY.
 
 Each table has an admin-managed **expected turn time** (`tables.expected_minutes`,
 default 90). Restaurant-wide occupancy duration and safety buffer (guest
@@ -28,9 +32,23 @@ JSON event so the fallback reader drops the arrangement.
 Tables sit on a persisted grid (`tables.x`, `tables.y`). `/admin/floor`
 renders that grid as a canvas (`lib/floor/layout.ts`). Each chip has a
 **move-lock** (default locked) so a click does not drag. Unlocking a table
-lets staff drag it to a new cell; coordinates persist through
-`updateTableState`. Dropping an unlocked available table on another still
-merges (FP-8). New tables take the next free cell.
+lets staff drag it. Past the 8px threshold the chip follows the pointer
+in CSS pixels (`translate3d` on the drag-layer ref; no per-move cell writes).
+Release snaps with `floorDropCell` (`origin + round(delta / FLOOR_CELL_PX)`);
+coordinates persist through `updateTableState`. `pointerDelta` is shared by
+the move threshold, merge highlight, and drop cell. `touch-none` is only on
+movable chips (edit mode, unlocked, not merging) so locked and service-mode
+chips keep the browser default `touch-action` and the floor can still pan.
+Dropping an unlocked available table on another still merges (FP-8).
+New tables take the next free cell. An occupying overlay
+(`confirmed` / `seated`) paints guest name, reservation `partySize`, and
+reservation `time` on the chip (FP-4; party slot is `{t.reservation.partySize}`,
+not `tables.seats`). Seated chips show `CHF` only when
+`typeof t.billTotal === "number"` from `getFloorSnapshot.tableTotals` on the
+same 5s `useFloorPlan` refresh (FP-15; `lib/floor/table-bills.ts` sums persisted
+`orders.total` excluding `cancelled` / `voided`; orders-read error is
+`tableTotals: null`, not `{}`). Confirmed, unassigned, and unavailable-total
+chips omit the bill.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. From `lg` (1024px) up, table selection updates the
@@ -39,7 +57,17 @@ desktop selection (FP-12). Inventory is persisted in Postgres (`tables`), not
 mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
 live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
-static `TABLES` seed in `lib/data.ts`. `/pos`'s Table picker lists live
+static `TABLES` seed in `lib/data.ts`. The weekly service-availability
+overview (WA-1–WA-7) is `buildWeeklyServiceOverview` in
+`lib/floor/weekly-service-overview.ts` plus chrome
+`components/staff/weekly-service-overview.tsx`; `app/admin/page.tsx` loads
+configured windows via `getConfiguredOperatingWindows()` (empty/error → `[]`;
+guest `getAllOperatingWindowsMap` DEFAULT fallback unchanged) and
+`getAvailableSlots(date, 1)` per restaurant-TZ week day after
+`requireStaffUser`, isolates that load with
+`.catch(() => ({ days: [] }))` so it cannot reject FP-11
+`getFloorSnapshot`, and mounts prev/next `?week=` Links via
+`shiftSelectedWeek`. `/pos`'s Table picker lists live
 `getTables()` rows via `app/pos/page.tsx` (`dynamic = "force-dynamic"`) into
 `PosTerminal` `tables`, also not `TABLES`. The Server picker lists live
 `getServers()` rows (`servers` in baseline + seed; not a `lib/data.ts`

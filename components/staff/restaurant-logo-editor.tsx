@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import Image from "next/image"
+import { useTranslations } from "next-intl"
 import { toast } from "sonner"
 import { ImagePlus, Loader2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -40,6 +41,7 @@ export function RestaurantLogoEditor({
   onSaved?: () => void
   isSuperAdmin: boolean
 }) {
+  const t = useTranslations()
   const { logoUrl, mutate } = useRestaurantLogo()
   const [preview, setPreview] = React.useState<string | null>(null)
   const [file, setFile] = React.useState<File | null>(null)
@@ -76,16 +78,16 @@ export function RestaurantLogoEditor({
         fileName: file.name,
       })
       if (result.error) {
-        toast.error(result.error)
+        toast.error(t(result.error))
         return
       }
       await mutate(result.logoUrl)
-      toast.success("Logo updated")
+      toast.success(t("staff.branding.logoUpdated"))
       resetPicker()
       onSaved?.()
     } catch (err) {
       console.error("[branding] handleSave:", err)
-      toast.error("Could not upload the logo. Please try again.")
+      toast.error(t("staff.branding.logoUploadFailed"))
     } finally {
       setIsSaving(false)
     }
@@ -96,14 +98,14 @@ export function RestaurantLogoEditor({
     try {
       const result = await removeRestaurantLogo()
       if (result.error) {
-        toast.error(result.error)
+        toast.error(t(result.error))
         return
       }
       await mutate(null)
-      toast.success("Logo removed")
+      toast.success(t("staff.branding.logoRemoved"))
       resetPicker()
     } catch {
-      toast.error("Could not remove the logo. Please try again.")
+      toast.error(t("staff.branding.logoRemovalFailed"))
     } finally {
       setIsRemoving(false)
     }
@@ -123,13 +125,13 @@ export function RestaurantLogoEditor({
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview}
-              alt="Logo preview"
+              alt={t("staff.branding.logoPreviewAlt")}
               className="size-full object-cover"
             />
           ) : displaySrc ? (
             <Image
               src={displaySrc}
-              alt={`${RESTAURANT.name} logo`}
+              alt={t("staff.branding.logoAlt", { name: RESTAURANT.name })}
               fill
               className="object-cover"
               sizes="64px"
@@ -156,7 +158,9 @@ export function RestaurantLogoEditor({
             onClick={() => fileInputRef.current?.click()}
           >
             <ImagePlus className="size-4" />
-            {logoUrl ? "Choose a different image" : "Choose an image"}
+            {logoUrl
+              ? t("staff.branding.chooseDifferentImage")
+              : t("staff.branding.chooseImage")}
           </Button>
           {file ? (
             <p className="truncate text-xs text-muted-foreground">
@@ -185,7 +189,7 @@ export function RestaurantLogoEditor({
             ) : (
               <Trash2 className="size-4" />
             )}
-            Remove logo
+            {t("staff.branding.removeLogo")}
           </Button>
         ) : null}
         <Button
@@ -194,7 +198,7 @@ export function RestaurantLogoEditor({
           disabled={!file || isSaving || !isSuperAdmin}
         >
           {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
-          Save logo
+          {t("staff.branding.saveLogo")}
         </Button>
       </div>
     </div>

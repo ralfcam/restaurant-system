@@ -56,17 +56,17 @@ describe("merge arrangement defaults", () => {
 describe("merge status coherence", () => {
   it("only available tables that are not already merged can be combined", () => {
     expect(canMergeTables([{ status: "available" }])).toBe(
-      "Select at least two tables to merge.",
+      "errors.floor.mergeNeedsTwo",
     )
     expect(
       canMergeTables([{ status: "available" }, { status: "reserved" }]),
-    ).toBe("Only available tables can be merged.")
+    ).toBe("errors.floor.onlyAvailableTables")
     expect(
       canMergeTables([
         { status: "available", mergeId: "m1" },
         { status: "available" },
       ]),
-    ).toBe("A selected table is already in an arrangement.")
+    ).toBe("errors.floor.alreadyInArrangement")
     expect(
       canMergeTables([{ status: "available" }, { status: "available" }]),
     ).toBeNull()
@@ -75,7 +75,7 @@ describe("merge status coherence", () => {
     ).toBeNull()
     expect(
       canAddTablesToMerge({ status: "seated" }, [{ status: "available" }]),
-    ).toBe("Only available arrangements can take another table.")
+    ).toBe("errors.floor.arrangementNotAvailable")
   })
 
   it("dissolves on Available or Out of service and restarts the clock when held", () => {
