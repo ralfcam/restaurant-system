@@ -30,7 +30,7 @@ still need the three vars exported in the same shell from
 
 The test target for
 `tests/integration/scheduling/replace-operating-windows.integ.test.ts` is
-**local** Supabase (`http://127.0.0.1:54321`), not the linked remote. Per
+**local** Supabase (`http://127.0.0.1:45321`), not the linked remote. Per
 [../specs/scheduling.md](../specs/scheduling.md) §15, mutating coverage
 (snapshot, RPC replace, table insert/delete restore) MUST run only against a
 local host (`127.0.0.1`, `localhost`, or `[::1]`) and fails closed via
@@ -57,7 +57,7 @@ carries exact `SET search_path = ''` and qualified
 [../specs/scheduling.md](../specs/scheduling.md) §15.
 
 ```powershell
-$env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
+$env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:45321'
 $env:NEXT_PUBLIC_SUPABASE_ANON_KEY = '<local-anon-key>'
 $env:SUPABASE_SERVICE_ROLE_KEY = '<local-service-role-key>'
 $env:RESTAURANT_INTEGRATION_STRICT = 'true'
@@ -230,7 +230,7 @@ Unit pin: `tests/unit/reservations/reservation-integ-isolation.test.ts` → `"RE
 The named catalog `it()` stays outside `describe.skipIf(!authEnvReady)`. A child process/session can still unset the anon and service_role keys, but `vitest.integration.config.ts` `test.env.RESTAURANT_INTEGRATION_STRICT` is `"true"` (MT-4d), so a parent-shell `Remove-Item Env:RESTAURANT_INTEGRATION_STRICT` does not override the throw in `tests/integration/setup.ts`. Missing keys therefore throw at setup (do not skip-green).
 
 ```powershell
-$env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:54321'
+$env:NEXT_PUBLIC_SUPABASE_URL = 'http://127.0.0.1:45321'
 Remove-Item Env:NEXT_PUBLIC_SUPABASE_ANON_KEY -ErrorAction SilentlyContinue
 Remove-Item Env:SUPABASE_SERVICE_ROLE_KEY -ErrorAction SilentlyContinue
 pnpm test:integration tests/integration/security/sibling-privileges.integ.test.ts

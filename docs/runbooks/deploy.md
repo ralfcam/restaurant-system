@@ -65,7 +65,7 @@ Shipped example: `review-email` (PV-15).
 ## Env vars (production + preview)
 
 CLI `vercel env add` (targets `production,preview` — staging PRs use the same
-hosted backend). Never use local Docker keys (`127.0.0.1:54321`).
+hosted backend). Never use local Docker keys (`127.0.0.1:45321`).
 
 - `NEXT_PUBLIC_SUPABASE_URL` — `https://tilcqrudqxznnpepxjqq.supabase.co`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
