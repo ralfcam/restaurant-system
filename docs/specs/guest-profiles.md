@@ -1,7 +1,7 @@
 # Guest profiles
 
 **Status:** Draft
-**Last updated:** 2026-09-24
+**Last updated:** 2026-10-01
 
 ## Scope
 
@@ -123,14 +123,47 @@ ratings / no-show ledger (RES-105–111), returning-guest highlight
     "Staff-only • Operational data only". The footer shows "Data shown is
     limited to reservation operations."
 
+16. **GP-16 — Playwright guest-profile env is local or unset** — The default
+    Playwright config (`playwright.config.ts`) MUST set `globalSetup` to
+    `./playwright.global-setup.ts`. That module MUST load project env with
+    `@next/env` `loadEnvConfig(process.cwd())` (pnpm does not hoist
+    `@next/env`; resolve it from the installed `next` package, the same way
+    `tests/e2e/admin/guest-profile-overlay.spec.ts` does) and then call
+    `assertPlaywrightSupabaseUrlIsLocalOrUnset()` with no argument before any
+    e2e test runs. The guard's resolved URL is the argument when one is
+    passed, otherwise `process.env.NEXT_PUBLIC_SUPABASE_URL`. It MUST return
+    without throwing when that URL is omitted, empty, or a loopback host
+    (`127.0.0.1`, `localhost`, `[::1]`, or `::1`) on any port, reusing
+    `assertIsolatedHoursMutationTarget` for the host check. It MUST throw
+    when the host is anything else, including
+    `tilcqrudqxznnpepxjqq.supabase.co`. A hosted `.env.local` MUST stop
+    `pnpm test:e2e` before
+    `tests/e2e/admin/guest-profile-overlay.spec.ts` inserts reservations.
+    An omitted URL MUST NOT fail unrelated e2e specs.
+    - Regression guard: `tests/unit/guest-profiles/playwright-local-supabase.test.ts`
+      MUST import `assertPlaywrightSupabaseUrlIsLocalOrUnset` from
+      `playwright.global-setup.ts`, assert the hosted project throws, assert
+      loopback and omitted/empty do not, and read `playwright.config.ts` plus
+      `playwright.global-setup.ts` so `globalSetup` and a no-arg guard call
+      after `loadEnvConfig` are required. A test that only asserts the helper
+      MUST NOT satisfy this criterion.
+
 ## Implementation trace (non-normative)
 
 FEATURE `res-104_guest_profiles_f8c2e1a0` (RES-104, 2026-09-16) plus
 FIX `res-104_cr_majors_b3e8a1c2` (2026-09-16) plus
 FIX `res-104_cr_mutator_d4b2a9c1` (2026-09-16) plus
-FIX `res-116_guest_profile_overlay_7c41d9e2` (RES-116, 2026-09-24).
+FIX `res-116_guest_profile_overlay_7c41d9e2` (RES-116, 2026-09-24) plus
+FIX `res-120_playwright_local_supabase_41f0` (RES-120, 2026-10-01).
 GP-1–GP-15 shipped at the builder / action / reservation-row entry, panel,
-and overlay. Identity is `normalizeGuestEmail` (trim + lowercase). Route
+and overlay. GP-16: `playwright.config.ts` sets
+`globalSetup: "./playwright.global-setup.ts"`. That module's default export
+calls `loadEnvConfig(process.cwd())`, then
+`assertPlaywrightSupabaseUrlIsLocalOrUnset()` with no argument. The helper
+returns when the resolved URL (`url ?? process.env.NEXT_PUBLIC_SUPABASE_URL`)
+is omitted or empty and otherwise calls `assertIsolatedHoursMutationTarget`.
+`@next/env` is resolved with `createRequire` from
+`node_modules/next/package.json`. Identity is `normalizeGuestEmail` (trim + lowercase). Route
 params decode once via `guestEmailFromRouteParam` (one
 `decodeURIComponent` in try/catch, then `normalizeGuestEmail`). Live read is `requireStaffUser` then a fresh
 `createServiceClient` `.eq("email_normalized", normalizeGuestEmail(email))`
@@ -165,6 +198,7 @@ The same panel is the `@modal` intercept via `GuestProfileDialog`
 | GP-13     | `app/admin/layout.tsx` renders `{modal}`. `app/admin/@modal/default.tsx` returns `null`. Intercept `app/admin/@modal/(.)customers/[email]/page.tsx` loads `getGuestProfile` into `GuestProfileDialog` (`Dialog` `onOpenChange` → `router.back()`). Direct `/admin/customers/[email]` stays `StaffShell` + `GuestProfilePanel`                                                                                                                                          | `tests/e2e/admin/guest-profile-overlay.spec.ts` → "guest profile opens as a modal over reservations and closes back to the same date"                                                                                                                                                                                                                                                                                                                                                                  |
 | GP-14     | `buildGuestProfile` `summary`: `totalReservations: history.length`, `completedVisits` = `isVisit` count, `lastVisit` = newest completed `date` or `null`. Panel prints `profile.summary.totalReservations` / `completedVisits` / `lastVisit ?? t("staff.customers.lastVisitNone")`                                                                                                                                                                                     | `tests/unit/guest-profiles/build-profile.test.ts` → "summary counts total reservations completed visits and last visit"; `tests/unit/guest-profiles/staff-gate.test.ts` → "staff ficha shows reservation-derived summary only"                                                                                                                                                                                                                                                                         |
 | GP-15     | Panel header `t("staff.customers.staffOnly")`; notes `t("staff.customers.notesOperational")` and `t("staff.customers.notesHelper")`; footer `t("staff.customers.operationalLimit")`. Dialog shows decoded `profile.email`; full page shows it as `StaffShell` `description={profile.email}`                                                                                                                                                                            | `tests/unit/guest-profiles/staff-gate.test.ts` → "staff ficha shows operational-only labels and privacy notices"                                                                                                                                                                                                                                                                                                                                                                                       |
+| GP-16     | `playwright.config.ts` `globalSetup: "./playwright.global-setup.ts"`. Default export: `loadEnvConfig(process.cwd())` then zero-arg `assertPlaywrightSupabaseUrlIsLocalOrUnset()`. Helper returns on omitted or empty `NEXT_PUBLIC_SUPABASE_URL`; any other value goes to `assertIsolatedHoursMutationTarget`. `@next/env` via `createRequire` from `node_modules/next/package.json`                                                                                    | `tests/unit/guest-profiles/playwright-local-supabase.test.ts` → "playwright global setup rejects a hosted Supabase URL and allows loopback or unset"                                                                                                                                                                                                                                                                                                                                                   |
 
 ## References
 
@@ -173,3 +207,4 @@ The same panel is the `@modal` intercept via `GuestProfileDialog`
 - [site-localization.md](./site-localization.md) (AC-20 / AC-26, French on staff)
 - [RES-104](https://linear.app/realized/issue/RES-104)
 - [RES-116](https://linear.app/realized/issue/RES-116)
+- [RES-120](https://linear.app/realized/issue/RES-120)
