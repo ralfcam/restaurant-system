@@ -94,17 +94,20 @@ not the durable files. Each entry: `[category]` · one-line title · file:line/a
 
 **Curate continuously, merge + prune at close-out (active ledger = open only).**
 Every phase subagent ends its report with a mandatory `## Residual findings`
-block. The orchestrator must open `docs/findings/runs/<plan-slug>.md` after each
-phase for durability — so make that touch a **revision pass**, not a blind append
+block. The orchestrator writes `docs/findings/runs/<plan-slug>.md` directly
+after each phase — that scratch path is exempt from the findings write guard —
+so make that touch a **revision pass**, not a blind append
 (see Step 3): remove entries this phase resolved in-run, dedupe/sharpen existing
-ones, append only the genuinely new, and re-home miscategorized entries. Because
+ones, append only the genuinely new, and re-home miscategorized entries. Do not
+Write a category file or `archive.md` yourself. Because
 curation happens every phase, the run file stays lean in real time rather than
-ballooning until close-out. At close-out you **merge** the run file's open lines
-into `docs/findings/<category>.md`, `linear-resolver` reads those (already-curated)
-category files, and once each remaining finding is filed you **move it to
-`docs/findings/archive.md`** with its issue id and **truncate/delete the run
-file**. A finding that reaches a file is safe; one left only in a subagent's result
-is lost; one left open after it's filed or fixed is noise.
+ballooning until close-out. At close-out, `docs-updater` ledger-apply **merges**
+the run file's open lines into `docs/findings/<category>.md`, `linear-resolver`
+reads those (already-curated) category files, and once each remaining finding is
+filed, ledger-apply **moves it to `docs/findings/archive.md`** with its issue id
+and **deletes the run file** (never truncate it). A finding that reaches a file
+is safe; one left only in a subagent's result is lost; one left open after it's
+filed or fixed is noise.
 </context>
 
 <instructions>
@@ -655,17 +658,17 @@ After the loop completes for the feature (all criteria green through Refactor),
 run close-out steps **in this order** — do not delegate `docs-updater` until
 Steps 4D and 4E have written to the tdd log and the Docs sync packet is assembled:
 
-| #   | Step                                                 | Owner                            | Writes to                                                                            |
-| --- | ---------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | **4D** — Collate review trail                        | Orchestrator                     | `docs/verifier-reports/tdd/<plan-slug>.md`                                           |
-| 2   | **4E** — Traceability final + pattern list           | Orchestrator                     | Same tdd log                                                                         |
-| 3   | **Packet** — Assemble Docs sync packet               | Orchestrator                     | Thread (markdown block)                                                              |
-| 4   | **4** — Docs sync                                    | `docs-updater`                   | `docs/**` + thread report                                                            |
-| 5   | **4C** — Findings merge + register                   | Orchestrator + `linear-resolver` | `docs/findings/**`                                                                   |
-| 6   | **4B** — Linear close-out                            | `linear-resolver`                | Linear (FIX only)                                                                    |
-| 7   | **Format** — Prettier this run's dirty paths         | Orchestrator                     | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`)    |
-| 8   | **4G** — Mandatory advisory local CodeRabbit attempt | Orchestrator                     | Ignored audit receipt under `.cursor/hooks/state/` (never the tdd log)               |
-| 9   | **4F** — Commit / push handoff                       | Orchestrator                     | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
+| #   | Step                                                 | Owner                                           | Writes to                                                                            |
+| --- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1   | **4D** — Collate review trail                        | Orchestrator                                    | `docs/verifier-reports/tdd/<plan-slug>.md`                                           |
+| 2   | **4E** — Traceability final + pattern list           | Orchestrator                                    | Same tdd log                                                                         |
+| 3   | **Packet** — Assemble Docs sync packet               | Orchestrator                                    | Thread (markdown block)                                                              |
+| 4   | **4** — Docs sync                                    | `docs-updater`                                  | `docs/**` + thread report                                                            |
+| 5   | **4C** — Findings merge + register                   | `docs-updater` ledger-apply + `linear-resolver` | `docs/findings/**`                                                                   |
+| 6   | **4B** — Linear close-out                            | `linear-resolver`                               | Linear (FIX only)                                                                    |
+| 7   | **Format** — Prettier this run's dirty paths         | Orchestrator                                    | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`)    |
+| 8   | **4G** — Mandatory advisory local CodeRabbit attempt | Orchestrator                                    | Ignored audit receipt under `.cursor/hooks/state/` (never the tdd log)               |
+| 9   | **4F** — Commit / push handoff                       | Orchestrator                                    | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
 
 Keep `docs-updater` `is_background: true`, but **do not hand off to `/commit`
 (local) or execute `.cursor/commands/commit.md` (managed Cloud) until
@@ -795,10 +798,13 @@ subagent in the background:
 
 ## STEP 4C — MERGE + REGISTER OUT-OF-SCOPE FINDINGS (any mode)
 
-**First, merge the run file into the bus.** If `docs/findings/runs/<plan-slug>.md`
-has open `- [ ]` lines, move each into the matching
-`docs/findings/<category>.md` — reconcile, don't blind-append: dedupe/sharpen
-against any existing open entry there, drop anything a later phase resolved.
+**First, merge the run file into the bus through ledger-apply.** If
+`docs/findings/runs/<plan-slug>.md` has open `- [ ]` lines, delegate one
+`docs-updater` ledger-apply per category file: "Use the docs-updater subagent
+to apply ledger-apply to `docs/findings/<category>.md`: merge these open
+run-file lines — reconcile, don't blind-append: dedupe/sharpen against any
+existing open entry, drop anything a later phase resolved." Do not Write the
+category file yourself.
 **`product-gap` / `spec-gap` entries must include a primary spec path** resolved
 from the `docs/specs/README.md` catalog,
 or folded→`canonical:` (leading `/` = bundle root `docs/`, so
@@ -807,7 +813,7 @@ or folded→`canonical:` (leading `/` = bundle root `docs/`, so
 merge if the spec path is missing.
 After the merge the category files hold this run's still-open findings alongside
 the standing backlog, and are the single set `linear-resolver` reads below. (The
-run file is truncated/deleted after the prune step.)
+run file is deleted after the prune step. Never truncate it.)
 
 If the (now-merged) `docs/findings/*.md` files (or the plan's Out-of-Scope Findings
 table) have open entries, this is a required close-out step — a finding that isn't
@@ -858,15 +864,15 @@ guessing.
   manual triage and leave them dirty for human review.
 - `linear-resolver` only **reads** the active findings files and returns a
   finding→outcome mapping (filed / attached / umbrella / left-on-ledger; it makes
-  no local file writes). After it reports, **you** (the orchestrator) **prune**:
-  move each **filed or attached** entry out of its active
-  `docs/findings/<category>.md` into `docs/findings/archive.md`, appending the
-  outcome (`→ RES-### (filed)` or `→ RES-### (attached)`), then **truncate/delete
-  `docs/findings/runs/<plan-slug>.md`** (its open lines are now on the bus,
-  archived, or intentionally left on the bus below the filing floor). Entries
+  no local file writes). After it reports, delegate **ledger-apply** to prune:
+  "Use the docs-updater subagent to apply ledger-apply to the named category
+  files: archive each filed or attached line into `docs/findings/archive.md`
+  with its outcome (`→ RES-### (filed)` or `→ RES-### (attached)`), then delete
+  `docs/findings/runs/<plan-slug>.md`." Never truncate the run file. Entries
   reported "left on ledger" (below floor or cap overflow) stay in the category
-  file untouched — do not archive them; `/triage` owns their eventual fate
-  (intake, de-duplication, or TTL expiry). Category files must end the run
+  file untouched — do not archive them; `/curate` owns their eventual fate
+  (keep, attach, or TTL expiry). `/triage` still owns intake of lines that
+  clear the filing floor. Category files must end the run
   holding only still-open findings (filed/attached ones removed), and `runs/`
   must not retain
   this plan's scratch — this is what keeps both from growing without bound.
@@ -1201,7 +1207,8 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   Cloud does not auto-confirm net-new finding issues; persist to the ledger and
   STOP), then
   **prune** each registered entry into `docs/findings/archive.md` with its issue
-  id and **truncate/delete the run file**. If Linear is unavailable, the merged
+  id via `docs-updater` ledger-apply and **delete the run file** (never truncate
+  it). If Linear is unavailable, the merged
   category files ARE the fallback backlog.
 - **A skipped test is not progress** (see
   [.cursor/rules/test-execution-integrity.mdc](.cursor/rules/test-execution-integrity.mdc)).
@@ -1439,7 +1446,7 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   the matching `## <category>` section of `docs/findings/runs/<plan-slug>.md`; at
   close-out (Step 4C) that run file is merged into `docs/findings/<category>.md` —
   those files, plus this table, are what `linear-resolver` registers (then pruned
-  to `docs/findings/archive.md` and the run file truncated/deleted).
+  to `docs/findings/archive.md` and the run file deleted, never truncated).
 
 ## Linear Close-out & Findings Registration
 
@@ -1482,9 +1489,10 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   not auto-confirm net-new finding issues);
   `linear-resolver` returns the finding→outcome mapping (filed / attached /
   umbrella / left-on-ledger) and the orchestrator then **prunes only the filed
-  and attached entries** into `docs/findings/archive.md` with their outcome and
-  **truncates/deletes the run file** (below-floor/cap-overflow entries stay in
-  the category file — not archived, not lost, `/triage`'s to burn down). If
+  and attached entries** into `docs/findings/archive.md` with their outcome via
+  `docs-updater` ledger-apply and **deletes the run file** (never truncate it;
+  below-floor/cap-overflow entries stay in
+  the category file — not archived, not lost, `/curate` owns their fate). If
   Linear is unavailable, the merged category files are already the durable
   backlog — leave them for human triage. In FIX mode, fold this into the
   close-out delegation and reference the spun-off issue IDs in the resolution

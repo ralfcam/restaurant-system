@@ -11,6 +11,10 @@
  * linear-resolver never writes local files; feedback-validator is read-only
  * — they must not set the flag (hooks.json matchers are docs-updater only).
  *
+ * `docs/findings/runs/**` is exempt: the `/sdd-to-tdd` orchestrator writes
+ * that scratch file directly. Category files and archive.md stay denied
+ * unless docs-updater is in flight.
+ *
  * Residual: a parent Shell redirect into docs/findings/ still bypasses,
  * same class as other Write-only guards. While a docs-updater Task is in
  * flight, a concurrent parent Write to findings would also pass.

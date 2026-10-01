@@ -1,7 +1,5 @@
 # Product-gaps findings (open)
 
-- [x] Hourly cron may be rejected on Vercel Hobby · `vercel.json` · resolved: PV-15 moved to Supabase Edge Function + `pg_cron`; no Vercel `crons` · spec: docs/specs/post-visit-review-email.md · (found: tdd/res-45_review_email_schema_cron_7f3a91c2/C5/green)
-- [x] Vercel Cron Jobs run on Production only · `vercel.json` / `docs/runbooks/deploy.md` · resolved: schedule is hosted Supabase, not Vercel Cron · spec: docs/specs/post-visit-review-email.md · (found: tdd/res-45_review_email_schema_cron_7f3a91c2/C5/refactor)
 - [ ] Per-table turnover analytics · scheduling FP-5 clears `table_label` on complete · v1 is floor-wide duration only · med · spec: docs/specs/reservation-analytics.md · (seen: /triage 2026-09-15) (found: design/reservation_analytics_spec_71a7eb72/per-table-turnover)
 - [ ] Per-guest reservation frequency / CRM identity · grouping by email · analytics frequency still deferred; email CRM identity is now guest-profiles GP-2 · med · spec: docs/specs/reservation-analytics.md · related RES-78/RES-79/RES-95 · (seen: /triage 2026-09-15) (found: design/reservation_analytics_spec_71a7eb72/per-guest-frequency; reconciled: design/res-104_guest-profiles)
 - [ ] Analytics CSV or email export · not in v1 · low · spec: docs/specs/reservation-analytics.md · (seen: /triage 2026-09-15) (found: design/reservation_analytics_spec_71a7eb72/csv-email-export)

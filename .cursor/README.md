@@ -35,8 +35,9 @@ env tools. Runbook:
 [`docs/runbooks/deploy.md`](../docs/runbooks/deploy.md). Rule:
 [`rules/vercel-project.mdc`](rules/vercel-project.mdc).
 
-**Plan Mode only:** [`/audit`](commands/audit.md) and
-[`/dispatch`](commands/dispatch.md).
+**Plan Mode only:** [`/audit`](commands/audit.md),
+[`/dispatch`](commands/dispatch.md), and
+[`/curate`](commands/curate.md).
 
 **Managed Cloud-capable:** [`/sdd-to-tdd`](commands/sdd-to-tdd.md),
 [`/capture`](commands/capture.md), and
@@ -55,7 +56,7 @@ There is no GitHub QA workflow in this repo. Local gates are
 
 ## Recommended cycle
 
-`docs/findings + Linear Triage` → `/triage` → `Backlog` → `/dispatch` →
+`docs/findings + Linear Triage` → `/triage` → `Backlog` → `/curate` → `/dispatch` →
 `Todo/current cycle` → (`/sdd-to-tdd` → `/commit` → `/push`)×N →
 `/ready-merge-release PR#` → you merge
 
@@ -85,7 +86,8 @@ flowchart TD
   LinearTriage["Linear Triage inbox"] --> Triage["/triage intake"]
   Ledger --> Triage
   Triage --> Backlog["Backlog / no cycle"]
-  Backlog --> Dispatch["/dispatch portfolio + daily wave"]
+  Backlog --> Curate["/curate weekly keep or drop"]
+  Curate --> Dispatch["/dispatch portfolio + daily wave"]
   Dispatch --> Todo["Todo / current cycle"]
   Spec --> Sdd["/sdd-to-tdd FEATURE"]
   Todo --> Sdd2["/sdd-to-tdd RES-###"]
@@ -107,6 +109,7 @@ flowchart TD
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
 | [`/audit`](commands/audit.md)                             | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update                                   | `/triage`                                  |
 | [`/triage`](commands/triage.md)                           | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current                               | `/dispatch`                                |
+| [`/curate`](commands/curate.md)                           | Weekly keep-or-drop for Backlog, Todo, and below-floor ledger lines; link what stays                               | `/dispatch`                                |
 | [`/dispatch`](commands/dispatch.md)                       | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; emit confirmed cards + optional Cloud advice | `/design RES-###` or `/sdd-to-tdd RES-###` |
 | [`/design`](commands/design.md)                           | Greenfield spec — hub walk, grill, one new spec file                                                               | `/sdd-to-tdd @<file>` FEATURE              |
 | [`/sdd-to-tdd`](commands/sdd-to-tdd.md)                   | Plan Mode, START, then Red → Green → Refactor                                                                      | `/commit`                                  |

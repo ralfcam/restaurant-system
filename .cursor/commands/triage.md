@@ -53,9 +53,10 @@ Intake routing is deliberately narrow:
 - A `blocked-by` relation is dependency evidence, not an automatic Urgent
   priority signal.
 
-The canonical filing floor, TTL, label taxonomy, severity/priority language,
+The canonical filing floor, label taxonomy, severity/priority language,
 and milestone/estimate maps live in
-[docs/findings/README.md](docs/findings/README.md). `Blocker` is the ledger
+[docs/findings/README.md](docs/findings/README.md). Ledger TTL and the
+Prunable class are owned by `/curate`. `Blocker` is the ledger
 term; `Urgent` is the corresponding Linear priority.
 
 Linear writes are never performed by this command directly. Approved intake,
@@ -116,7 +117,7 @@ Applies only after STEP 0 classified `agent/runtime` as exactly `managed`.
 2. The final approval boundary for unambiguous, nonterminal intake actions:
    routing an existing Linear Triage item to Backlog/no-cycle (or an explicitly
    Urgent item to Todo/current-cycle), attaching a finding to a named existing
-   issue, applying corresponding ledger prune/TTL outcomes, and re-reading the
+   issue, applying corresponding ledger prune outcomes, and re-reading the
    applied state.
 3. The local turn boundary: execute every authorized execution todo
    sequentially in the same turn.
@@ -232,11 +233,10 @@ Apply these checks in order:
    creating one. Confirm true duplicates for a linked move to **Duplicate**;
    rejected or superseded intake may move to **Canceled** only with a linking
    comment and operator confirmation. Preserve distinct residual scope.
-3. **Apply the filing floor and TTL.** Use `docs/findings/README.md`, including
+3. **Apply the filing floor.** Use `docs/findings/README.md`, including
    the WIP-gated floor when open Urgent+High exceeds the configured threshold.
-   Below-floor first sightings receive `(seen: /triage YYYY-MM-DD)`; a second
-   sighting or a stamp at least 60 days old archives as
-   `wont-file (stale)`.
+   Below-floor lines stay on the ledger. `/curate` owns stamps and TTL.
+   Do not stamp a sighting and do not archive a line for age.
 4. **Classify the route.**
    - A Linear Triage issue whose current priority is explicitly **Urgent**, or
      a ledger finding whose severity is **Blocker**, is fast lane.
@@ -290,7 +290,7 @@ Group proposals as:
 3. Consolidation / terminal cleanup
 4. Linear Triage routing
 5. Findings registration
-6. Ledger TTL actions
+6. Ledger prune (filed or attached only)
 
 For each Linear action show:
 `ISSUE-ID: <current> -> <proposed> — project <V-X.X> — <allocation evidence>`.
@@ -342,14 +342,15 @@ its reason in Applied vs Deferred.
   instead of creating. Any candidate with no verified existing match remains
   deferred because STEP 0B does not authorize net-new issue creation.
 - **Ledger prune (`prune-ledger`).** Using the resolver's returned source
-  path/entry mapping, apply filed, attached, first-sighting, and TTL outcomes
-  to the original source line (bus file or named run file). Move
-  filed/attached bus entries to `docs/findings/archive.md`. Archive and
-  remove processed run-source lines while preserving unrelated run content.
-  Stamp first-sight below-floor lines, and archive second-sight/60-day lines
-  as `wont-file (stale)`. Validate touched run entries and archive outcomes structurally (`## <category>` headings, checkbox lines, outcome tokens).
-  Then run `pnpm exec prettier --check` on the five active/archive ledger
-  bus files only (`docs/findings/runs` is prettierignored); if red,
+  path/entry mapping, delegate one `docs-updater` ledger-apply per touched
+  bus or named run file. Apply filed and attached outcomes to the original
+  source line (bus file or named run file). Move filed/attached bus entries
+  to `docs/findings/archive.md`. Archive and remove processed run-source
+  lines while preserving unrelated run content. Do not stamp sightings and
+  do not archive a line for age; `/curate` owns ledger TTL. Validate touched run entries and archive outcomes structurally (`## <category>` headings,
+  checkbox lines, outcome tokens). The ledger-apply delegation runs
+  `pnpm exec prettier --check` on the five active/archive ledger bus files
+  only (`docs/findings/runs` is prettierignored); if red,
   `pnpm exec prettier --write` those bus paths only and re-check.
 - **Summary (`intake-summary`).** Re-read every changed Linear issue. Report
   applied versus deferred from the returned state. Point to `/dispatch` as
@@ -360,7 +361,8 @@ directly.
 
 Managed Cloud may execute `groom-intake-*` for existing Triage issues and
 attach-only `register-*` batches, then apply `prune-ledger` only for resolver
-outcomes actually returned plus unambiguous TTL stamps/archives. It never
+outcomes actually returned (filed or attached). It never stamps or expires
+ledger lines. It never
 executes a deferred clarification, terminal Duplicate/Canceled transition, or
 new-issue registration without a later explicit operator confirmation.
 
@@ -371,7 +373,7 @@ new-issue registration without a later explicit operator confirmation.
 | `clarify-*`      | `linear-resolver` CLARIFY on one named tracked issue; exact approved bounded comment; comment-only, issue left unscheduled                                                                                                                           |
 | `groom-intake-*` | `linear-resolver` GROOM on named Linear Triage intake: expected source state = live Triage inbox; ordinary → Backlog/no cycle; Urgent → Todo/current cycle; linked Duplicate/Canceled cleanup; stale item is deferred independently                  |
 | `register-*`     | `linear-resolver` REGISTER FINDINGS for approved bus entries plus exact orphaned `docs/findings/runs/*.md` paths and entry identities; reconcile run/bus duplicates once; ordinary → Backlog/no cycle; Blocker fast lane → Urgent Todo/current cycle |
-| `prune-ledger`   | Archive filed/attached or TTL-expired entries, stamp first sightings, then run `pnpm exec prettier --check` on the five active/archive ledger bus files; if red, `pnpm exec prettier --write` those paths only and re-check                          |
+| `prune-ledger`   | `docs-updater` ledger-apply: archive filed/attached entries to the original source line, then run `pnpm exec prettier --check` on the five active/archive ledger bus files; if red, `pnpm exec prettier --write` those paths only and re-check       |
 | `intake-summary` | Re-read applied state and emit the final intake report; no downstream command execution                                                                                                                                                              |
 
 `/triage` never creates execution todos for `/dispatch`, `/sdd-to-tdd`,
@@ -400,7 +402,8 @@ new-issue registration without a later explicit operator confirmation.
 - Do not delete issues. Duplicate/Canceled are linked terminal outcomes.
 - Managed Cloud does not auto-confirm a net-new issue, Duplicate/Canceled
   transition, or clarification. Record it as deferred in the work-order.
-- Do not edit local files except the `prune-ledger` changes named above.
+- Do not edit `docs/findings/` category or archive files yourself.
+  `prune-ledger` delegates those writes to `docs-updater` ledger-apply.
 - Do not invent IDs, priorities, relations, cycles, milestones, or spec paths.
 - Do not start implementation, TDD, git, PR, audit, or dispatch work.
 </constraints>
@@ -452,11 +455,12 @@ portfolio metadata and daily activation deferred to /dispatch`; Blocker
 entries show the verified fast-lane fields. Run/bus duplicates are reconciled
 once.
 
-## Plan — Ledger TTL
+## Plan — Ledger prune
 
-First-sighting stamps and stale archive moves applied to the original source
-line (bus or run file), or `none`. Processed run-source lines are removed
-while preserving unrelated run content.
+Filed and attached archive moves applied to the original source line (bus or
+run file) via `docs-updater` ledger-apply, or `none`. Processed run-source
+lines are removed while preserving unrelated run content. No stamps and no
+age expiry — `/curate` owns ledger TTL.
 
 ## Execution Todos
 

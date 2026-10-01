@@ -179,7 +179,7 @@ including issues that cannot enter the daily queue. Classify it as one of:
 4. **Organizational container** — epic/umbrella/parent with no directly
    executable acceptance criterion. Keep it visible and unscheduled; rank its
    executable children instead.
-5. **Return to `/triage` cleanup** — duplicate/superseded/prunable or malformed
+5. **Return to `/curate` cleanup** — duplicate/superseded/prunable or malformed
    intake needing consolidation, terminal cleanup, or reclassification.
    Dispatch does not perform that cleanup.
 

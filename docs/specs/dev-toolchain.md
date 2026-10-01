@@ -1,7 +1,7 @@
 # Dev toolchain
 
 **Status:** Draft  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-10-01
 
 ## Scope
 
@@ -11,7 +11,8 @@ Project-wide development gates referenced by `/sdd-to-tdd`, `/review`, and
 pnpm override / Cloud Agent install pin and the fail-closed US CodeRabbit
 Cloud helper, mandatory advisory local JSONL attempt (G-CR2), fail-closed US
 latest-head PR gate (G-CR3), TDD delegation-guard liveness (G-TD1), and
-managed-Cloud workflow exceptions for capture (G-CAP1) and triage (G-TRI1).
+managed-Cloud workflow exceptions for capture (G-CAP1) and triage (G-TRI1),
+the findings-ledger writer (G-LED1), and the weekly backlog curator (G-CUR1).
 The interactive design exception is governed by G-DES1.
 
 ## Acceptance criteria
@@ -364,7 +365,7 @@ latest-head` so `on.pull_request.types` includes `edited`.
       `.cursor/plans/<plan-slug>.plan.md` work-order before any Linear or
       ledger mutation. It MAY waive the approval stop only for unambiguous,
       nonterminal intake: existing Triage routing, attach-only registration
-      to named existing issues, mapped ledger prune/TTL, and applied-state
+      to named existing issues, mapped ledger prune, and applied-state
       re-read.
     - It MUST NOT auto-confirm a net-new Linear finding issue, a
       Duplicate/Canceled transition, an unresolved clarification, or an
@@ -418,6 +419,69 @@ latest-head` so `on.pull_request.types` includes `edited`.
       classification (interactive `/design` plus named one-shot members) are
       present. G-DES1 is shipped only after those pins execute.
 
+14. **G-LED1 — One writer for the findings ledger** —
+    `docs-updater` ledger-apply is the only writer of
+    `docs/findings/{security,tech-debt,test-debt,product-gaps,archive}.md`.
+    Ledger-apply accepts append, sharpen, stamp, archive with an outcome
+    token, remove, and delete a run file. The docs-sync workflow does not run
+    in this mode. After the edits it checks `## <category>` structure, then
+    runs `pnpm exec prettier --check` on the touched bus files and, if red,
+    `pnpm exec prettier --write` those paths only and re-checks.
+    - `.cursor/hooks/lib/findings-write-policy.mjs` allows a parent Write under
+      `docs/findings/runs/**`. Category files, `archive.md`, and
+      `.probe-scratch.md` stay denied while the allow flag is off.
+    - `/sdd-to-tdd` STEP 4C merges and prunes through ledger-apply. It deletes
+      the run file and must never truncate it. Lines left on the ledger belong
+      to `/curate`. The orchestrator may still write its own
+      `docs/findings/runs/<plan-slug>.md` scratch file.
+    - `/audit` PART 8 and `/triage` `prune-ledger` delegate category and
+      archive edits to ledger-apply. `/triage` does not stamp or expire lines.
+      `/curate` owns ledger TTL.
+    - Regression guard:
+      `tests/unit/dev-toolchain/ledger-ownership.test.ts` MUST fail unless
+      those writer, `runs/` exemption, delete-not-truncate, and TTL-owner
+      clauses are present. `.cursor/checks/findings-write-policy.test.mjs`
+      MUST allow `docs/findings/runs/**` while the flag is off and MUST keep
+      denying `archive.md` and `.probe-scratch.md`.
+
+15. **G-CUR1 — `/curate` is the weekly keep-or-drop command** —
+    `.cursor/commands/curate.md` is Plan Mode only. Outside Plan Mode it stops
+    before any Linear read, ledger read, write, or delegation. It has no
+    managed-Cloud one-shot. The parent does every read, with no subagent
+    fan-out.
+    - Reads: Grep the ledger before the first `list_issues` / `get_issue`;
+      paginated `list_projects` for RES and canonical version key `V-X.X`;
+      Backlog and Todo including issues with no project or a terminal project;
+      counts for In Progress, In Review, and the Triage inbox; Canceled,
+      Duplicate, and Done issues updated in the last 7 days; `get_issue` with
+      `includeRelations: true` only for candidate issues; one `gh pr list`.
+    - Guards: never write In Progress, In Review, or Done; never cancel an
+      issue with an open PR, in the current cycle, labeled `security`, or
+      High or Urgent; never set project, milestone, priority, estimate, or
+      cycle; never file a ledger line as a new Linear issue. Duplicates use
+      `duplicateOf`. A spec contradiction goes to CLARIFY and is never
+      canceled.
+    - Approved scopes are `curate-terminal`, `curate-structure`,
+      `curate-attach`, `clarify-*`, `curate-ledger`, and `curate-digest`.
+      Linear writes go through `linear-resolver`. Ledger writes go through
+      `docs-updater` ledger-apply, one call per touched file.
+    - Memory lives in Linear and the ledger: a declined duplicate becomes
+      `relatedTo` and is skipped next time; a kept stale issue gets one
+      `kept by /curate` comment; stamps use `(seen: /curate YYYY-MM-DD)`.
+      Stale means the README Prunable class, judged before any other write.
+      Ledger TTL archives a line as `wont-file (stale)` only when its first
+      stamp is 60 or more days old, and exempts `security.md` plus lines held
+      back only by the WIP gate or the per-run cap.
+    - The digest reports Backlog and Todo size and age, 7-day flow, WIP gate
+      status, ledger counts and lines expiring within 7 days, and at most 5
+      operator decisions.
+    - `.cursor/README.md` lists `/curate` in the Plan Mode only paragraph,
+      between `/triage` and `/dispatch` in the recommended cycle.
+    - Regression guard:
+      `tests/unit/dev-toolchain/curate-command.test.ts` MUST fail unless the
+      Plan Mode gate, read bounds, guards, scopes, memory, and digest cap are
+      present.
+
 ## Implementation trace (non-normative)
 
 | Criterion | Shipped in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Tests                                                                                                                                                                                                                                                                                                                                             |
@@ -441,6 +505,8 @@ latest-head` so `on.pull_request.types` includes `edited`.
 | G-CAP1    | `.cursor/commands/capture.md` PHASE 5 execute instruction qualifies the local turn rule and requires same-turn sequential execution after STEP 0B                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts` → "Capture PHASE 5 qualifies the Cloud same-turn execution rule"                                                                                                                                                                                                                          |
 | G-TRI1    | `.cursor/commands/triage.md` STEP 0 exact managed-runtime probe; STEP 0B durable work-order + non-creative authorization boundary; PHASE 4 same-turn execution of authorized todos through `linear-resolver`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | `tests/unit/dev-toolchain/triage-cloud-one-shot.test.ts` → "probes managed runtime and executes only a durable authorized plan"                                                                                                                                                                                                                   |
 | G-DES1    | `.cursor/commands/design.md` STEP 0 exact managed-runtime probe with PowerShell conditional socket fallback + external `curl` and fail-closed non-`managed` denial; STEP 0B interactive-only exception; STEP 4 explicit `Go ahead`; approved work-order before the whitelisted PHASE 5 writes; `.cursor/README.md` `**Managed Cloud-capable:**` paragraph naming the one-shot commands plus interactive `/design`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts` → "bypasses only the mode gate and preserves approval before writes"; "uses PowerShell syntax for the managed runtime probe"; "indexes design under managed Cloud-capable commands"; "denies unsupported runtimes before STEP 0B"; "indexes one-shot commands beside interactive design" |
+| G-LED1    | `.cursor/agents/docs-updater.md` ledger-apply (append, sharpen, stamp, archive, remove, delete a run file; docs-sync does not run); `.cursor/hooks/lib/findings-write-policy.mjs` allows `docs/findings/runs/**`; `/sdd-to-tdd` STEP 4C, `/audit` PART 8, and `/triage` `prune-ledger` delegate category and archive writes; STEP 4C deletes the run file and never truncates it; `/curate` owns ledger TTL                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `tests/unit/dev-toolchain/ledger-ownership.test.ts`; `.cursor/checks/findings-write-policy.test.mjs`                                                                                                                                                                                                                                              |
+| G-CUR1    | `.cursor/commands/curate.md` Plan Mode only weekly keep-or-drop; bounded reads; `duplicateOf`; scopes `curate-terminal`, `curate-structure`, `curate-attach`, `curate-ledger`, `curate-digest`; memory via `relatedTo` and `kept by /curate`; digest cap of 5; `.cursor/README.md` Plan Mode only list and cycle                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `tests/unit/dev-toolchain/curate-command.test.ts`                                                                                                                                                                                                                                                                                                 |
 
 ## References
 

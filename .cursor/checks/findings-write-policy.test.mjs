@@ -7,6 +7,7 @@ import {
   checkFindingsWrite,
   isAllowed,
   isFindingsPath,
+  isRunScratchPath,
   setAllowed,
 } from "../hooks/lib/findings-write-policy.mjs"
 
@@ -94,6 +95,25 @@ test("checkFindingsWrite denies findings paths unless allowed", () => {
   )
   assert.equal(checkFindingsWrite("docs/findings/product-gaps.md", true), null)
   assert.equal(checkFindingsWrite("lib/foo.ts", false), null)
+  assert.equal(
+    checkFindingsWrite("docs/findings/archive.md", false)?.deny,
+    true,
+  )
+  assert.equal(
+    checkFindingsWrite("docs/findings/.probe-scratch.md", false)?.deny,
+    true,
+  )
+})
+
+test("checkFindingsWrite allows docs/findings/runs even when the flag is off", () => {
+  assert.equal(isRunScratchPath("docs/findings/runs/plan.md"), true)
+  assert.equal(isRunScratchPath("docs\\findings\\runs\\plan.md"), true)
+  assert.equal(isRunScratchPath("docs/findings/archive.md"), false)
+  assert.equal(checkFindingsWrite("docs/findings/runs/plan.md", false), null)
+  assert.equal(
+    checkFindingsWrite("docs/findings/runs/nested/plan.md", false),
+    null,
+  )
 })
 
 const FINDINGS_STATE_PRIOR = existsSync(FINDINGS_STATE)
@@ -119,6 +139,19 @@ describe("findings-write spawn-level", { concurrency: 1 }, () => {
   test("BOM Write to docs/findings/product-gaps.md allows when flag is on", async () => {
     setAllowed(true)
     const { code, out } = await runGuard(WRITE_PRODUCT_GAPS)
+    assert.equal(code, 0)
+    assert.deepEqual(JSON.parse(out), {})
+  })
+
+  test("BOM Write to docs/findings/runs allows when flag is off", async () => {
+    setAllowed(false)
+    const payload =
+      "\uFEFF" +
+      JSON.stringify({
+        tool_name: "Write",
+        tool_input: { path: "docs/findings/runs/plan.md" },
+      })
+    const { code, out } = await runGuard(payload)
     assert.equal(code, 0)
     assert.deepEqual(JSON.parse(out), {})
   })

@@ -1,11 +1,18 @@
 # Findings ledger
 
-Open out-of-scope discoveries from `/sdd-to-tdd`, `/capture`, and `/audit`
-PART 8. **Active files hold open items only.** After an item is filed to
-Linear (`RES-###`), move it to [archive.md](./archive.md).
+Open out-of-scope discoveries from `/sdd-to-tdd`, `/capture`, `/design`, and
+`/audit` PART 8. **Active files hold open items only.** After an item is filed
+to Linear (`RES-###`), moved, or expired, archive it in
+[archive.md](./archive.md).
+
+`docs-updater` ledger-apply is the only writer of the category files and
+`archive.md`. The `/sdd-to-tdd` orchestrator may write its own
+`docs/findings/runs/<plan-slug>.md` scratch file.
 
 Workflow ownership:
-`docs/findings + Linear Triage → /triage → Backlog → /dispatch → Todo/current cycle`.
+`docs/findings + Linear Triage` → `/triage` decides what enters Linear →
+`Backlog` → `/curate` decides what stays and how issues link → `/dispatch`
+decides what runs next → `Todo/current cycle`.
 Linear **Triage** is the team's special intake inbox, not a normal workflow
 status.
 
@@ -24,8 +31,8 @@ Entry format (one line per open item):
 
 ## Issue-filing policy (throttle creation, prefer re-use)
 
-Cited by `linear-resolver`, `/sdd-to-tdd` STEP 4C, `/triage`, and `/audit`
-PART 8. Fixed team key: **RES** (issue IDs **`RES-###`**). The live team
+Cited by `linear-resolver`, `/sdd-to-tdd` STEP 4C, `/triage`, `/curate`, and
+`/audit` PART 8. Fixed team key: **RES** (issue IDs **`RES-###`**). The live team
 display name is informational. There is no
 default Linear project: discover nonterminal RES projects with canonical version key `V-X.X` and
 allocate fail-closed per
@@ -52,12 +59,23 @@ allocate fail-closed per
 **Per-run cap.** `/sdd-to-tdd` STEP 4C may create at most **3** net-new
 issues. Overflow stays on the ledger for `/triage`.
 
-**Ledger TTL.** `/triage` stamps below-floor lines `(seen: /triage YYYY-MM-DD)`.
-A second sighting, or a first stamp **>60 days** old → archive as
-`wont-file (stale)`.
+**Ledger TTL.** `/curate` owns keep-or-drop for open lines below the filing
+floor. It stamps an unstamped below-floor line `(seen: /curate YYYY-MM-DD)`.
+A line whose first stamp (`/triage` or `/curate`) is **60 or more days** old
+is archived as `→ wont-file (stale)`. Age is measured from that first stamp.
+Exempt `security.md` lines (report them; do not expire them). Exempt lines
+that meet the filing floor and were held back only by the WIP-gated floor or
+the per-run cap of 3; those wait for `/triage`. `/triage` does not stamp or
+expire ledger lines.
 
-**Prunable class** (batch cancel under one operator confirmation): Backlog +
-Medium-or-lower + no `security` + no update in **45+ days**.
+**Prunable class** (batch cancel under one operator confirmation, owned by
+`/curate`): Backlog + Medium-or-lower + no `security` label + no update in
+**45+ days**. Evaluate staleness before any other write, because a write
+refreshes `updatedAt`.
+
+**Ledger outcome tokens** (appended when a line leaves an active file):
+`→ RES-### (filed)`, `→ RES-### (attached)`, `→ resolved (<evidence>)`,
+`→ duplicate`, `→ wont-file (stale)`.
 
 **Milestone.** `/dispatch` finalizes the milestone for every approved scoped
 Backlog issue during portfolio grooming, whether or not that issue enters the
