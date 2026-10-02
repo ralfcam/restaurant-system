@@ -1294,6 +1294,15 @@ export function FloorPlan({
                 </p>
               )}
 
+              <Button
+                type="button"
+                className="w-full"
+                size="sm"
+                data-testid="walk-in-seat"
+              >
+                {t("staff.floor.seatWalkIn")}
+              </Button>
+
               <div>
                 <p className="mb-2 text-sm font-medium">
                   {t("staff.floor.position")}
@@ -1591,6 +1600,13 @@ export function FloorPlan({
                   {t("staff.floor.noReservation")}
                 </p>
               )}
+              <Button
+                type="button"
+                className="w-full"
+                data-testid="walk-in-seat"
+              >
+                {t("staff.floor.seatWalkIn")}
+              </Button>
               <div className="grid grid-cols-2 gap-2">
                 {STATUS_ORDER.map((status) => (
                   <Button

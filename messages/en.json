@@ -443,6 +443,7 @@
       "reservation": "Reservation",
       "partyAt": "{time} · party of {count}",
       "seatParty": "Seat party",
+      "seatWalkIn": "Seat walk-in",
       "noReservation": "No reservation on this table right now.",
       "position": "Position",
       "lockPosition": "Lock position",

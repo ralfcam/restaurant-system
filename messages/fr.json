@@ -443,6 +443,7 @@
       "reservation": "Réservation",
       "partyAt": "{time} · groupe de {count}",
       "seatParty": "Installer le groupe",
+      "seatWalkIn": "Installer sans réservation",
       "noReservation": "Aucune réservation sur cette table pour le moment.",
       "position": "Emplacement",
       "lockPosition": "Verrouiller la position",
