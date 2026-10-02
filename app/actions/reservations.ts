@@ -258,28 +258,33 @@ export async function seatWalkIn(input: {
   const date = getTodayInRestaurantTZ()
   const time = getNowTimeInRestaurantTZ()
 
-  const { data: table } = await supabase
+  const { data: table, error: tableError } = await supabase
     .from("tables")
     .select("id, label, seats")
     .eq("label", input.table_label)
     .maybeSingle()
+  if (tableError) return { error: "errors.reservation.tablesLoadFailed" }
   if (table && table.seats < input.party_size) {
     return { error: "errors.reservation.tableTooSmall" }
   }
 
-  const { occupancyDurationMinutes, safetyBufferMinutes } =
+  const { occupancyDurationMinutes, safetyBufferMinutes, settingsReadFailed } =
     await loadReservationOccupancyWindow(supabase)
+  if (settingsReadFailed) {
+    return { error: "errors.availability.settingsLoadFailed" }
+  }
   const window = occupyingWindowMinutes(
     time,
     occupancyDurationMinutes,
     safetyBufferMinutes,
   )
   if (window) {
-    const { data: occupying } = await supabase
+    const { data: occupying, error: occupyingError } = await supabase
       .from("reservations")
       .select("status, time, table_label, date")
       .eq("date", date)
       .eq("table_label", input.table_label)
+    if (occupyingError) return { error: "errors.reservation.loadFailed" }
     const rows = Array.isArray(occupying) ? occupying : []
     const conflict = rows.some((row) => {
       if (row.table_label !== input.table_label || row.date !== date)
@@ -306,7 +311,15 @@ export async function seatWalkIn(input: {
     email,
     conf_code: generateConfCode(),
   })
-  if (error) return { error: error.message }
+  if (error) {
+    if (
+      error.message ===
+      "That table is already reserved for an overlapping time."
+    ) {
+      return { error: "errors.reservation.tableOverlap" }
+    }
+    return { error: error.message }
+  }
   if (table?.id) {
     await syncTableGroupStatus(input.table_label, "seated")
   }
