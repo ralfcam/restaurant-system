@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-24
+**Last updated:** 2026-10-01
 
 ## Layout
 
@@ -119,7 +119,8 @@
 - Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
   `guestEmailFromRouteParam`, `buildGuestProfile` summary, RES-PRIV, staff
   gate + ficha Save/PII/history table, PII `ok` / `notFound`, live
-  `email_normalized` read, reservation-row `fichaHref` `Link`)
+  `email_normalized` read, reservation-row `fichaHref` `Link`,
+  `playwright-local-supabase.test.ts` source-scan of Playwright `globalSetup`)
 
 ## Conventions
 

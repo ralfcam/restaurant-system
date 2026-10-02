@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-09-20
+**Last updated:** 2026-10-01
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -156,6 +156,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-68 hide occupied dropdown (`res-68_hide_occupied_dropdown_a7c2e1f4`)                          | 2026-09-23 | `specs/scheduling.md` (FP-5 map; FP-5-DROPDOWN-OCCUPANCY already normative), `architecture/Floor-Plan.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                   |
 | RES-77 full French UI (`res-77_full_french_ui_830c8b81`)                                          | 2026-09-24 | `specs/site-localization.md` (AC-8/AC-9/AC-16/AC-20–AC-26 impl-trace), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/E2E-Playwright-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                    |
 | RES-115 floor drag (`res-115-floor-drag`)                                                         | 2026-09-24 | `specs/scheduling.md` (FP-9 impl-trace; FP-9-FOLLOW/DROP/TOUCH already normative), `architecture/Floor-Plan.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `testing/E2E-Playwright-Guide.md`, `dev-journal.md`                                                                                                                                                                          |
+| RES-120 Playwright local Supabase (`res-120_playwright_local_supabase_41f0`)                      | 2026-10-01 | `specs/guest-profiles.md` (GP-16 impl-trace; GP-16 already normative), `specs/README.md`, `testing/E2E-Playwright-Guide.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                 |
 
 ## Seed path
 

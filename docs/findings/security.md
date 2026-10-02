@@ -1,3 +1,6 @@
 # Security findings (open)
 
 - [ ] Prefix-only work-order path is not normalized · `.cursor/hooks/lib/coderabbit-pr-policy.mjs:95` · `startsWith(".cursor/plans/")` would treat `.cursor/plans/../lib/billing/foo.ts` as process-meta; GitHub paths are usually repo-relative without `..`, but the gate would skip a crafted path · low · (found: tdd/pr118_cr_gcr3_plan_th_a422e8f1/C1/refactor)
+- [ ] `reuseExistingServer` can attach Playwright to a dev server already started against hosted Supabase · `playwright.config.ts:18` · The UI under test can still talk to hosted data after the fixture insert is blocked · low · (found: tdd/res-120_playwright_local_supabase_41f0/GP-16/red)
+- [ ] Guest-profile spec does not call the guard itself · `tests/e2e/admin/guest-profile-overlay.spec.ts:16` and `:56` · A run that bypasses `playwright.config.ts` `globalSetup` can still insert reservations with the service role · low · (found: tdd/res-120_playwright_local_supabase_41f0/GP-16/red)
+- [ ] Playwright starts webServer before globalSetup · `playwright.config.ts:15` · A hosted `.env.local` can still launch `pnpm dev` before `playwright.global-setup.ts` throws; the guest-profile insert still runs only after the hook · low · (found: tdd/res-120_playwright_local_supabase_41f0/GP-16/refactor)
