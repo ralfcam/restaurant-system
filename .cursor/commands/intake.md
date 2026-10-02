@@ -21,7 +21,7 @@ one; multiple or zero means STOP (pin, or there is nothing to intake).
 (`sdd/RES-###`, `staging` promotion). A Cloud Agent opens its own PR from
 the Dashboard base-branch setting. That PR never runs `/push`. This
 command is the inbound catch.
-Run `/intake` before `/push` when a `cursor/` PR is open — `/push` on the local lane advances `origin/staging`, and `/intake`'s descendant check then STOPs that cloud head until it is rebased.
+Skip this command when the PR body has a `## Gate evidence` block whose `Head:` equals `headRefOid`. That conductor PR was already firewalled by `/push`. Any other open `cursor/` PR still runs the ancestry checks below before a local-lane `/push`.
 
 **Ground truth — Linear↔GitHub automation:** see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc)
@@ -87,7 +87,10 @@ thinking: { type: "adaptive", effort: "medium" }
   to do. Never auto-pick a different PR when one was pinned.
 - **No argument:**
   `gh pr list --state open --json number,title,state,isDraft,baseRefName,headRefName,reviewRequests,url`.
-  Keep rows whose `headRefName` starts with `cursor/`.
+  Keep rows whose `headRefName` starts with `cursor/`. Request `body` and
+  `headRefOid` as well. Before counting, drop a PR whose
+  `node .cursor/checks/gate-evidence.mjs head` SHA (body on stdin) equals
+  that PR's `headRefOid`.
   - **Exactly one:** proceed with that PR (re-fetch the full JSON above).
   - **Zero:** STOP ("no open cloud PR"). Also probe origin for
     `cursor/` heads matching the cloud-PR pattern that have **no**
@@ -119,6 +122,14 @@ thinking: { type: "adaptive", effort: "medium" }
   (`sdd/RES-###`, `staging`, or any other non-`cursor/` head).
 - Do **not** treat `author.login` or `author.is_bot` as the gate. The
   operator's account authors both cloud and human PRs.
+
+### 2b. Gate-evidence skip
+
+Run `node .cursor/checks/gate-evidence.mjs head` with the PR body on stdin.
+When it prints a SHA equal to `headRefOid`, skip the rest of this command.
+Report `skipped — gate evidence head matches headRefOid`. Do not fetch,
+retarget, open a worktree, or edit the PR. Exit 1 (no block, or a malformed
+`Head:` line) does not skip.
 
 ### 3. Base firewall (ancestry first — never a naive retarget)
 

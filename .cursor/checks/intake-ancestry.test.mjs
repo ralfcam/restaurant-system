@@ -148,3 +148,20 @@ test("the command file still names all three ancestry commands", () => {
     assert.ok(text.includes(cmd), `${COMMAND_REL} must name \`${cmd}\``)
   }
 })
+
+test("push.md names the same ancestry commands for cursor heads", () => {
+  const text = readFileSync(
+    join(process.cwd(), ".cursor/commands/push.md"),
+    "utf8",
+  )
+  for (const cmd of [
+    "git merge-base --is-ancestor origin/staging",
+    "git rev-list --count origin/staging..origin/main",
+    "git merge-base --is-ancestor origin/main",
+  ]) {
+    assert.ok(text.includes(cmd), `push.md must name \`${cmd}\``)
+  }
+  assert.match(text, /git merge origin\/staging/)
+  assert.match(text, /Never rebase/)
+  assert.match(text, /Never\s+force-push|never force-push/i)
+})

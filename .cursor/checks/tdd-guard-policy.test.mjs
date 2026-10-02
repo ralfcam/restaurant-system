@@ -12,7 +12,11 @@ import {
   detectGhPrMerge,
   detectGitCommit,
   disarm,
+  evaluateGateOpen,
+  evaluateGitCommitPermission,
   getCommitExempt,
+  isDesignSpecLaneSet,
+  isDocsArtifactPath,
   isLoopRan,
   openCommitGate,
   setPhase,
@@ -348,6 +352,69 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
     assert.equal(getCommitExempt(), "gate-remediation")
     openCommitGate("not-a-lane")
     assert.equal(getCommitExempt(), null)
+    openCommitGate("design-spec")
+    assert.equal(getCommitExempt(), "design-spec")
+  })
+
+  test("docs-artifact admits plan files and design-spec is one spec", () => {
+    assert.equal(isDocsArtifactPath(".cursor/plans/example.plan.md"), true)
+    assert.equal(isDocsArtifactPath(".cursor/plans/notes.txt"), false)
+    assert.equal(isDocsArtifactPath("docs/verifier-reports/tdd/x.md"), false)
+    assert.equal(
+      isDesignSpecLaneSet([
+        "docs/specs/new-cloud-lane.md",
+        "docs/findings/product-gaps.md",
+        ".cursor/plans/example.plan.md",
+      ]),
+      true,
+    )
+    assert.equal(
+      isDesignSpecLaneSet(["docs/specs/a.md", "docs/specs/b.md"]),
+      false,
+    )
+    assert.equal(isDesignSpecLaneSet(["docs/specs/README.md"]), false)
+    assert.equal(
+      evaluateGateOpen({
+        exemption: "design-spec",
+        dirtyPaths: ["docs/specs/new-cloud-lane.md"],
+      }).ok,
+      true,
+    )
+    assert.equal(
+      evaluateGitCommitPermission({
+        loopRan: false,
+        exemption: "design-spec",
+        stagedPaths: ["docs/specs/new-cloud-lane.md"],
+        addedPaths: ["docs/specs/new-cloud-lane.md"],
+      }).ok,
+      true,
+    )
+    assert.equal(
+      evaluateGitCommitPermission({
+        loopRan: false,
+        exemption: "design-spec",
+        stagedPaths: ["docs/specs/dev-toolchain.md"],
+        addedPaths: [],
+      }).ok,
+      false,
+    )
+    assert.equal(
+      evaluateGitCommitPermission({
+        loopRan: false,
+        exemption: "design-spec",
+        stagedPaths: ["docs/specs/README.md"],
+        addedPaths: ["docs/specs/README.md"],
+      }).ok,
+      false,
+    )
+    assert.equal(
+      evaluateGitCommitPermission({
+        loopRan: false,
+        exemption: "design-spec",
+        stagedPaths: ["lib/example.ts"],
+      }).ok,
+      false,
+    )
   })
 
   test("git-stage-guard denies a BOM-prefixed git commit when loopRan", async () => {

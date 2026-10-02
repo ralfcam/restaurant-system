@@ -16,8 +16,8 @@ function stripHashAndLineComments(source: string): string {
     .split("\n")
     .map((line) =>
       line
-        .replace(/(^|[^:])\/\/.*$/, "$1")
-        .replace(/(^|[^"'`])#(?!\{).*$/, "$1"),
+        .replace(/(^|[^:])\/\/._$/, "$1")
+        .replace(/(^|[^"'`])#(?!\{)._$/, "$1"),
     )
     .join("\n")
 }
@@ -513,9 +513,9 @@ describe("G-CR3 parsed drafts boolean", () => {
   it("comment-only drafts true does not enable draft review", () => {
     const commentOnlyYaml = [
       "reviews:",
-      "  auto_review:",
-      "    enabled: true",
-      "    # drafts: true",
+      " auto_review:",
+      " enabled: true",
+      " # drafts: true",
       "",
     ].join("\n")
     const liveYaml = readFileSync(
@@ -532,9 +532,9 @@ describe("G-CR3 parsed drafts boolean", () => {
   it("quoted drafts true does not enable draft review", () => {
     const quotedYaml = [
       "reviews:",
-      "  auto_review:",
-      "    enabled: true",
-      '    drafts: "true"',
+      " auto_review:",
+      " enabled: true",
+      ' drafts: "true"',
       "",
     ].join("\n")
     const liveYaml = readFileSync(
@@ -1094,6 +1094,94 @@ describe("G-CR3 US-only allow-list", () => {
       routesMinorTrivialToCapture: true,
       fencesOmitRemoteFields: true,
       fencesUseOpaqueLocalRef: true,
+    })
+  })
+
+  it("paused main gate is not a required promotion check", () => {
+    const spec = readFileSync(
+      path.join(repoRoot, "docs", "specs", "dev-toolchain.md"),
+      "utf8",
+    )
+    const gcr3Start = spec.indexOf("9. **G-CR3")
+    const implStart = spec.indexOf("## Implementation")
+    const gcr3Body = spec.slice(gcr3Start, implStart)
+    const flat = (source: string) => source.replace(/\s+/g, " ")
+
+    const readyMerge = readFileSync(
+      path.join(repoRoot, ".cursor", "commands", "ready-merge-release.md"),
+      "utf8",
+    )
+    const integrationRule = readFileSync(
+      path.join(repoRoot, ".cursor", "rules", "coderabbit-integration.mdc"),
+      "utf8",
+    )
+    const push = readFileSync(
+      path.join(repoRoot, ".cursor", "commands", "push.md"),
+      "utf8",
+    )
+    const linear = readFileSync(
+      path.join(repoRoot, ".cursor", "rules", "linear-automation.mdc"),
+      "utf8",
+    )
+    const runbook = readFileSync(
+      path.join(repoRoot, "docs", "runbooks", "coderabbit.md"),
+      "utf8",
+    )
+    const readyMergeFlat = flat(readyMerge)
+    const pushFlat = flat(push)
+    const runbookFlat = flat(runbook)
+
+    expect({
+      specPausedIfFalse:
+        gcr3Body.includes("if: false") ||
+        gcr3Body.includes("`if` MUST be `false`"),
+      specPauseSentence: gcr3Body.includes(
+        "CodeRabbit US latest-head gate is paused.",
+      ),
+      specReadyMergeMustNotRequireCheck:
+        /\/ready-merge-release[\s\S]{0,240}MUST NOT require the GitHub check[\s\S]{0,180}to exist or be green/.test(
+          gcr3Body,
+        ),
+      specForbidsBaseShaCheckout:
+        /MUST NOT check out[\s\S]{0,80}github\.event\.pull_request\.base\.sha/.test(
+          gcr3Body,
+        ),
+      readyMergeRunsAdapter: readyMerge.includes(
+        "node .cursor/checks/coderabbit-pr-gate.mjs --pr",
+      ),
+      readyMergeOmitsExistAndGreen: !readyMerge.includes(
+        "check to exist and be green",
+      ),
+      readyMergeOmitsRequireTheExact:
+        !readyMergeFlat.includes("require the exact"),
+      integrationOmitsPromotionCheck: !integrationRule.includes(
+        "`staging → main` additionally requires the GitHub check",
+      ),
+      pushNamesCheck: push.includes("CodeRabbit US latest-head gate"),
+      pushOmitsAdditionallyRequires:
+        !push.includes("additionally requires the GitHub check") &&
+        !pushFlat.includes("additionally requires the GitHub check"),
+      linearOmitsIncludingAGreen: !linear.includes("including a green"),
+      runbookOmitsPinnedContext: !runbook.includes(
+        'context = "CodeRabbit US latest-head gate"',
+      ),
+      runbookOmitsAdditionallyRequires: !runbookFlat.includes(
+        "additionally requires the GitHub check",
+      ),
+    }).toEqual({
+      specPausedIfFalse: true,
+      specPauseSentence: true,
+      specReadyMergeMustNotRequireCheck: true,
+      specForbidsBaseShaCheckout: true,
+      readyMergeRunsAdapter: true,
+      readyMergeOmitsExistAndGreen: true,
+      readyMergeOmitsRequireTheExact: true,
+      integrationOmitsPromotionCheck: true,
+      pushNamesCheck: true,
+      pushOmitsAdditionallyRequires: true,
+      linearOmitsIncludingAGreen: true,
+      runbookOmitsPinnedContext: true,
+      runbookOmitsAdditionallyRequires: true,
     })
   })
 })

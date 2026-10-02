@@ -21,6 +21,7 @@ import {
   detectBlanketGitStage,
   detectGhPrMerge,
   detectGitCommit,
+  addedPathsFromGit,
   evaluateGitCommitPermission,
   getCommitExempt,
   isLoopRan,
@@ -84,6 +85,7 @@ function main() {
         loopRan: false,
         exemption: getCommitExempt(),
         stagedPaths: staged,
+        addedPaths: addedPathsFromGit(cwd),
       })
       if (!verdict.ok) {
         writeStdoutJson({

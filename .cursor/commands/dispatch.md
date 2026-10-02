@@ -74,15 +74,34 @@ thinking: { type: "adaptive", effort: "high" }
 
 ## STEP 0 — PLAN MODE GATE
 
-This command starts in **Plan Mode**.
+This command's default is **Plan Mode**.
 
-- If not in Plan Mode, STOP before Linear reads, writes, or delegation and
-  output exactly:
+- If you ARE in Plan Mode: read and emit the portfolio and daily-wave proposal
+  only. No Linear write occurs until the operator approves the exact scopes.
+  Local Plan Mode fills Ready briefs through grilling, one question at a time.
+- If you are NOT in Plan Mode: probe `/v1/meta-data/agent/runtime` before any
+  Linear read or write. Only the trimmed response `managed` enters STEP 0B.
+  A missing socket is retried once. Anything else STOPs with:
   "/dispatch runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
   mode picker) and re-run `/dispatch [scope]`."
-- In Plan Mode, read and emit the portfolio and daily-wave proposal only. No
-  Linear write occurs until the operator approves the exact scopes and
-  execution begins.
+
+## STEP 0B — MANAGED CLOUD ONE-SHOT (narrow exception)
+
+Applies only after STEP 0 classified `agent/runtime` as exactly `managed`.
+
+Write `.cursor/plans/<plan-slug>.plan.md` before any Linear mutation. Then
+execute the reversible scopes in this same turn without an approval stop:
+routing, grooming, daily activation, Ready briefs, attach-only findings,
+clarification comments, and the
+digest. An operator-created automation run counts as a launch from the tracked
+issue for one bounded CLARIFY comment.
+
+Held for you, listed in the digest, and not executed here: Cancel, Duplicate,
+umbrella parents, keep-or-drop, and new issues. Those stay for local Plan Mode
+`/triage`, `/curate`, or `/dispatch`.
+
+Do not auto-confirm a net-new Linear issue. Brief at most 3 new issues per
+run and re-check existing briefs. Keep one open clarification per issue.
 
 Read
 [.cursor/rules/staging-accumulator.mdc](.cursor/rules/staging-accumulator.mdc)
@@ -320,41 +339,77 @@ After plan approval and after leaving Plan Mode:
      Failed, partial, stale, mismatched, organizational, or unverified items are
      listed under **Excluded after apply**. Never infer success from the
      resolver report.
-8. Derive optional Cloud recommendations only from this confirmed card set,
-   then stop. The command never invokes `/design`, `/sdd-to-tdd`,
-   `tdd-red`, `tdd-green`, `tdd-refactor`, `/commit`, `/push`, or `/intake`.
+8. Maintain the Cloud lane, post the digest, then stop. The command never
+   invokes `/design`, `/sdd-to-tdd`, `tdd-red`, `tdd-green`, `tdd-refactor`,
+   `/commit`, `/push`, or `/intake`.
 
-### Cloud parallelization recommendations
+### Cloud lane: Ready briefs
 
-Recommendations are advisory evidence, never permission to launch anything.
-For each confirmed card:
+Every issue is cloud-runnable. There is no priority, estimate, `security`, or
+P0-surface gate. `/dispatch` writes the `## Ready brief` and re-checks it
+through `linear-resolver` READY. It does not add, remove, or clear labels.
+The conductor reads Todo, the brief, and GitHub at pick time.
 
-- Recommend **Cloud-parallel candidate** only when final priority is Medium or
-  Low; estimate is S/M when present; no `security` label; the surface is not
-  in the closed P0 list below; the acceptance criterion already exists;
-  unit tests can decide it; and its verified write-set is disjoint from every
-  other simultaneously recommended card.
-- Recommend **sequential/local-first** for Urgent/High, security, a P0 surface,
-  non-unit-decidable work, overlap, missing acceptance criteria, or an
-  unverifiable write-set. High-risk work remains valid daily-queue work.
-- Missing estimate is reported as `cannot verify size` and may remain a
-  recommendation only when every other signal is verified.
+A complete brief has the route, either the spec with its criteria (`/sdd-to-tdd`)
+or all five design answers (`/design`: purpose and users, MVP, domain placement,
+constraints, out of scope), and verification. Check it with
+`node .cursor/checks/ready-brief.mjs -`, passing the description on stdin.
+Never write the description to a file in the repo.
 
-Closed P0 surfaces: payment capture/refund/payout/credit/stored-method charge;
-offer or modification accept/decline; authentication/session/token issuance;
-authorization/RLS/cron authorization/permission helpers; reservation/job/order
-status transitions; and irreversible/destructive data operations.
+Example code brief:
 
-Write-set computation starts from issue-declared paths/globs/patterns, expands
-declared globs, greps lexical/fixture patterns, and uses
-`codegraph_explore` for named TS/TSX symbols including callers and blast
-radius. A truncated or unverifiable graph is not Cloud-recommended.
+```text
+## Ready brief
+Route: /sdd-to-tdd
+Queue: 2 (dispatch 2026-10-05)
+Spec: docs/specs/dev-toolchain.md: G-PUB1
+Decisions:
+- where to land: staging (description)
+Allowed edits: .cursor/commands/commit.md
+Verification: pnpm test:unit tests/unit/dev-toolchain/push-gate-evidence.test.ts
+Out of scope: billing
+```
+
+Example design brief:
+
+```text
+## Ready brief
+Route: /design
+Queue: 3 (dispatch 2026-10-05)
+Design answers:
+- purpose and users: operators
+- MVP: one spec
+- domain placement: docs/specs
+- constraints: no live users
+- out of scope: billing
+Decisions:
+* open question: none (description)
+Allowed edits: docs/specs
+Verification: pnpm test:unit tests/unit/dev-toolchain/design-cloud-dialogue.test.ts
+Out of scope: implementation
+```
+
+Brief at most 3 new issues per run and re-check existing briefs. Keep one open
+clarification per issue. Local Plan Mode fills briefs through grilling, one
+question at a time. When a design issue's spec merges, brief any issue it
+unblocks. If no implementation issue exists, the digest proposes one for
+approval. Held for you: Cancel, Duplicate, umbrella parents, keep-or-drop, and
+new issues.
 
 The command must not assign or delegate an issue to the Cursor integration,
 write a spawn-triggering integration mention, create a worktree, create a
-branch, or invoke an agent. The operator alone decides whether to launch a
-recommendation. Any returning `cursor/<slug>-<4 hex>` PR goes through
+branch, or invoke an agent. Conductor PRs are exempt from `/intake` when gate
+evidence matches. Any other returning `cursor/<slug>-<4 hex>` PR goes through
 `/intake` and targets `staging`.
+
+**Digest** (one project status update per day, run key
+`Dispatch run key: dispatch:<YYYY-MM-DD>:project=<UUID>`): sections are
+shipped, in flight, queue, needs your decision (at most 5), ledger, and
+report-only items. Health is `offTrack` when a stop needing you is older than
+24 hours; `atRisk` when no Todo issue meets the queue rule, or a clarification
+has gone unanswered for more than 24 hours; `onTrack` otherwise. A stale claim
+is reported in the digest; the conductor handles it. Curate's held decisions
+feed this digest.
 </instructions>
 
 <constraints>
@@ -372,8 +427,9 @@ recommendation. Any returning `cursor/<slug>-<4 hex>` PR goes through
   unlisted issue may be mutated or emitted.
 - Never emit a card before a post-apply re-read confirms Todo/current-cycle
   state and the executable route.
-- Cloud recommendation is never activation eligibility, launch authorization,
-  assignment, delegation, branch/worktree creation, or agent spawn.
+- A complete brief on a Todo issue is eligibility evidence. It is not launch
+  authorization, assignment, delegation, branch/worktree creation, or agent
+  spawn. Automations you created are the launch authority.
 - Never guess an ambiguous project, milestone, priority, dependency, spec, or
   write-set.
 - Never write In Progress, In Review, or Done.
@@ -448,17 +504,13 @@ Per confirmed issue:
 
 (or `none`)
 
-## Cloud Parallelization Recommendations (Optional)
+## Cloud lane
 
-Per confirmed card:
-
-- **[RES-###]** — Cloud-parallel candidate | sequential/local-first
-- Evidence: priority · estimate · security/P0 · criterion · test layer ·
-  disjoint write-set
-
-State explicitly: advisory only; no assignment, delegation, integration
-mention, worktree/branch creation, or spawn occurred. Returning
-`cursor/<slug>-<4 hex>` PRs go through `/intake` and target `staging`.
+- Briefs written or re-checked: <RES-###> complete | incomplete
+- Eligible now: <RES-###> | none
+- In flight: PR #<n> (<RES-###>) | claimed <RES-###> | none
+- Digest: `Dispatch run key:` · health `onTrack` | `atRisk` | `offTrack`
+- Needs your decision (at most 5): Cancel | Duplicate | umbrella | keep-or-drop | new issue | none
 
 ## Dropped / Deferred
 

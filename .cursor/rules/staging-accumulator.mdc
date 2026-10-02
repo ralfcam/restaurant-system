@@ -78,18 +78,18 @@ Daily activation is a separate approval:
 fast-lane intake. It does not change dispatch's 5–10 total-active calculation
 or make blocked work ready. Priority remains a ranking signal.
 
-## Cloud recommendations (dashboard, never dispatch execution)
+## Cloud lane
 
-After post-apply confirmation, `/dispatch` may show optional Cloud
-parallelization recommendations. Priority, security/P0 surface,
-unit-decidability, acceptance-criterion coverage, and verified disjoint
-write-sets are recommendation evidence only; they never control daily
-activation. High-risk work may enter the queue and is marked
-sequential/local-first.
+Automations you created are the launch authority. A complete brief on a Todo
+issue is eligibility evidence, not permission to spawn a run outside `/conduct`.
+Conductor PRs (`cursor/<slug>-<4 hex>` heads whose `## Gate evidence` `Head:`
+equals `headRefOid`) are exempt from `/intake`; `push.md` is their firewall.
+Other returning Cloud PRs still pass through `/intake` before `/push` and
+target `staging`.
 
-The command never assigns/delegates an issue to the Cursor integration, writes
-a spawn-triggering integration mention, creates a branch/worktree, or invokes
-an agent. The operator decides whether to launch a recommendation. Cloud
-Agents open their own `cursor/<slug>-<4 hex>` PRs; Dashboard → Cloud Agents →
-Base Branch stays `staging`. Every returning Cloud PR passes through
-`/intake` before `/push`.
+No command, including `/conduct`, assigns or delegates an issue to the Cursor
+integration or writes a spawn-triggering integration mention (`@Cursor`). No
+command other than `/conduct` creates a branch or worktree or invokes an
+agent. `/conduct` may create its `cursor/morning-` and `cursor/res-` branches
+and may run `/sdd-to-tdd` and `/design`. Dashboard → Cloud Agents → Base
+Branch stays `staging`.

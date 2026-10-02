@@ -336,11 +336,7 @@ latest-head preflight it then runs `gh pr ready`. If post-ready
 `gh pr ready`, it runs `gh pr ready --undo` then STOP. If Step 3
 performed no mutation (already-ready), HEAD drift MUST STOP with no
 `--undo`. It re-checks the unchanged ready HEAD and required checks, and
-returns `APPROVED FOR OPERATOR MERGE`; the operator still merges. `staging → main` additionally requires the GitHub check
-`CodeRabbit US latest-head gate`. The workflow re-runs on PR sync, `pull_request` `edited` (title/body or
-base retarget), review submit/dismiss, and review comments, and executes the
-checker from the base
-branch SHA rather than PR-controlled code. The adapter exhausts paginated
+returns `APPROVED FOR OPERATOR MERGE`; the operator still merges. The GitHub Actions job `CodeRabbit US latest-head gate` is paused (`if: false`) and does not review; that check is not required. The adapter exhausts paginated
 reviews, comments, checks, review threads, and commit statuses
 (`GET /commits/{sha}/status` via `ghJsonPages` field `statuses`), then re-GETs the PR and fails
 closed with `head_changed` if `head.sha` moved. If SHA matches but `head.ref`,
@@ -353,8 +349,8 @@ including `main → staging`, fails `wrong_base_head`. Parsed
 `.coderabbit.yaml` `reviews.auto_review.drafts`
 must be boolean `true`; a comment-only `# drafts: true` does not enable draft
 review. GitHub Actions does not accept
-`pull_request_review_thread` (webhook-only); after resolving threads with no
-other event, re-run that check. Never `@coderabbitai approve`, `resolve`, or
+`pull_request_review_thread` (webhook-only). The paused job does not review.
+Never `@coderabbitai approve`, `resolve`, or
 `ignore pre-merge checks`.
 
 ## Canary and GitHub ruleset
@@ -373,9 +369,9 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
 3. After the workflow exists on `main`, create an active **`main`** ruleset:
    PR required; one approval; stale approvals dismissed; latest push
    approval required; conversations resolved; required `CodeRabbit`
-   context pinned to US App ID `347564`; required check
-   `CodeRabbit US latest-head gate` (GitHub Actions app `15368`); no
-   App/admin bypass. Keep direct `staging` pushes intact. Do not require
+   context pinned to US App ID `347564`. The Actions job
+   `CodeRabbit US latest-head gate` is paused (`if: false`) and that check
+   is not required; no App/admin bypass. Keep direct `staging` pushes intact. Do not require
    the intentionally passing **Review rate limited** check.
 
    ```powershell
@@ -409,7 +405,6 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
            do_not_enforce_on_create = $false
            required_status_checks = @(
              @{ context = "CodeRabbit"; integration_id = 347564 }
-             @{ context = "CodeRabbit US latest-head gate"; integration_id = 15368 }
            )
          }
        }
@@ -421,11 +416,14 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
 
 4. Promote only accurate pre-merge checks from `warning` to `error`, then
    use that config change as the protected second promotion canary. The
-   custom gate must be pending before review, fail-close `wrong_bot` on
-   non-US CodeRabbit-shaped identity, fail stale HEAD or unresolved US
-   threads (except `.cursor/plans/` work-orders or outdated leftovers), and pass only on clean US approval of current HEAD. Prove
-   `/ready-merge-release` withholds its operator-merge verdict until the
-   post-ready check is green. Prove rate-limit enforcement with fixtures,
+   read-only adapter review remains: it fail-closes `wrong_bot` on non-US
+   CodeRabbit-shaped identity, fails stale HEAD or unresolved US threads
+   (except `.cursor/plans/` work-orders or outdated leftovers), and passes
+   only on clean US approval of current HEAD. The Actions job
+   `CodeRabbit US latest-head gate` is paused (`if: false`) and is not a
+   required check. `/ready-merge-release` returns
+   `APPROVED FOR OPERATOR MERGE` from that adapter review. The paused job
+   stays outside that verdict. Prove rate-limit enforcement with fixtures,
    not by exhausting quota.
 5. Before the Advanced trial expires, select Team and repeat the
    plan/seat/feature-access smoke checks.

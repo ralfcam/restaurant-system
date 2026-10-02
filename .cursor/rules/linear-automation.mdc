@@ -162,10 +162,13 @@ until the operator merges.
 **No execution-status writes.** Agents never call `save_issue` to set
 **In Progress**, **In Review**, or **Done** — in START, CLOSE-OUT, REGISTER
 FINDINGS, GROOM, or CLARIFY. There is no START carve-out and no PR-open "backup" write:
-the draft/open PR event is the In Progress writer.
+the draft/open PR event is the In Progress writer. The Cloud lane reads
+statuses and never writes them. Todo is the queue, and the conductor PR's
+automations supply In Progress and In Review.
 
 **START is comment-only.** `linear-resolver` START — delegated as the first
-`/sdd-to-tdd` _execution_ action after plan approval — posts a single bounded
+`/sdd-to-tdd` _execution_ action after plan approval, and by `/design` STEP 0C
+after that work-order exists — posts a single bounded
 `Work started:` summary comment (Problem/Approach/Out-of-scope findings;
 bounded to `START_SUMMARY_MAX_CHARS` — the plan file itself is never posted to
 Linear, in any form). It never calls `save_issue` (not for state, not for
@@ -187,7 +190,7 @@ MCP failure is visibility-only — the TDD loop continues. Plan Mode production
 does not write Linear.
 
 **CLARIFY is comment-only.** `/triage`, `/dispatch`, `/design`,
-`/sdd-to-tdd`, and `/capture` may delegate one exact operator-approved
+`/sdd-to-tdd`, `/capture`, and `/conduct` may delegate one exact operator-approved
 `Clarification required` comment for a tracked blocker. Only
 `linear-resolver` writes it, using `list_comments` + `save_comment`; no issue
 field, workflow state, assignee, delegate, project, milestone, cycle, or scope
@@ -196,7 +199,7 @@ changes. Stable keys are
 is skipped, materially changed evidence updates by comment ID, and a different
 rule/criterion gets a new key. Local Plan Mode requires exact-comment
 approval; a managed Cloud task launched from the tracked issue preauthorizes
-that bounded visibility comment only. The existing Linear-to-Slack relay
+that bounded visibility comment only. An operator-created automation run counts as a launch from the tracked issue. The existing Linear-to-Slack relay
 reposts it; the harness never calls Slack.
 
 **CLOSE-OUT never writes workflow state.** `linear-resolver` CLOSE-OUT posts
@@ -227,7 +230,8 @@ write, and never something delegated to `linear-resolver` as a workaround.
 START is not a fallback for a missed PR-open In Progress.
 
 **GROOM mode** is narrowly shared by `/triage` and `/dispatch`, and by one
-bounded `/curate` batch, not a general exception:
+bounded `/curate` batch, not a general exception. A managed STEP 0B
+work-order may hand a batch for the reversible grooming scopes only:
 
 - `/triage`: named live-Triage intake only. Ordinary accepted work moves to
   Backlog with no cycle. An explicitly Urgent issue or ledger Blocker may move
@@ -269,17 +273,24 @@ them. Dispatch's metadata-only portfolio batch and selected-only daily
 activation are separate approvals. Update that file, not this one, if the
 filing policy or property conventions change.
 
-## Audit project health
+## Audit project health and the dispatch digest
 
-After `/audit` finishes synthesis and the findings-ledger handoff,
-`linear-resolver` PROJECT-UPDATE may publish one bounded project status
-update. It uses only `get_status_updates` plus `save_status_update` and
-upserts by the complete `Audit run key:` marker
+After `/audit` finishes synthesis and the findings-ledger handoff, or after
+`/dispatch` finishes its daily digest, `linear-resolver` PROJECT-UPDATE may
+publish one bounded project status update. It uses only `get_status_updates`
+plus `save_status_update` and upserts by the complete `Audit run key:` marker
 `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`
 within the already-resolved target project. The deterministic health mapping is
 `onTrack` for clean/spec-conformant, `atRisk` for gaps/High findings, and
 `offTrack` for a Blocker or NON-CONFORMANT verdict. Project health is not an
 issue workflow state and Linear remains outside the audit acceptance bar.
+A dispatch digest upserts by `Dispatch run key: dispatch:<YYYY-MM-DD>:project=<UUID>`
+once per day. Its body has the sections shipped, in flight, queue, needs your
+decision, ledger, and report-only.
+
+**READY is brief-only.** `/dispatch` may delegate `linear-resolver` READY to
+replace or append the `## Ready brief` section. That mode never touches
+labels or state.
 
 The parent audit command cannot bypass the writer: `save_status_update` is
 guarded alongside `save_issue` and `save_comment`. Status-update bodies are
@@ -314,9 +325,9 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
    `Fixes RES-###[, RES-###, ...]` line is present on **that** PR (not
    just buried in staging commits).
 2. Run `/ready-merge-release <PR#>` and require
-   `APPROVED FOR OPERATOR MERGE`, including a green
-   `CodeRabbit US latest-head gate`.
-3. Confirm the command reports all other required checks green.
+   `APPROVED FOR OPERATOR MERGE`. The check
+   `CodeRabbit US latest-head gate` is paused and not required.
+3. Confirm the command reports required checks green.
 4. Merge the promotion PR in the GitHub UI.
 5. Verify the linked issue(s) that were only on direct `staging` commits move
    to **Done** in Linear (~1 minute); if not, check the closing link on the

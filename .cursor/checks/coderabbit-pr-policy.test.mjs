@@ -49,6 +49,94 @@ test("clean snapshot pins US app id and check name", () => {
   assert.equal(result.checkName, US_LATEST_HEAD_CHECK_NAME)
 })
 
+test("loop routing is severity-only and reports the round cap", () => {
+  assert.equal(
+    classifyFindingRouting({ severity: "critical" }, { loop: true }).command,
+    "/sdd-to-tdd",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "major" }, { loop: true }).command,
+    "/capture",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "minor" }, { loop: true }).command,
+    "/capture",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "trivial" }, { loop: true }).command,
+    "/capture",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "nope" }, { loop: true }).command,
+    "/sdd-to-tdd",
+  )
+  assert.equal(
+    classifyFindingRouting(
+      { severity: "major", fileName: "lib/example.ts" },
+      { loop: true, inScopePaths: ["lib/example.ts"] },
+    ).command,
+    "/capture",
+  )
+  const looped = evaluateReadyPr(
+    {
+      headSha: "a".repeat(40),
+      isDraft: false,
+      reviews: [
+        {
+          user: { login: "coderabbitai[bot]" },
+          commit_id: "b".repeat(40),
+          state: "COMMENTED",
+        },
+      ],
+    },
+    { loop: true },
+  )
+  assert.equal(looped.roundsUsed, 1)
+  assert.equal(looped.roundCap, 3)
+  const plain = evaluateReadyPr(load("remote-clean.json"))
+  assert.equal(plain.roundsUsed, undefined)
+})
+
+function unresolvedLoopSnapshot(severity) {
+  return {
+    headSha: "a".repeat(40),
+    isDraft: false,
+    reviews: [
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: "a".repeat(40),
+        state: "COMMENTED",
+      },
+    ],
+    threads: [
+      {
+        isResolved: false,
+        path: "lib/example.ts",
+        comments: [
+          {
+            databaseId: 1,
+            user: { login: "coderabbitai[bot]" },
+            path: "lib/example.ts",
+            body: `| _${severity}_ | **Example**\n<!-- cr-comment:v1:${severity} -->\n`,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+test("loop mode routes an unresolved Major thread to /capture and Critical to /sdd-to-tdd", () => {
+  const major = evaluateReadyPr(unresolvedLoopSnapshot("Major"), {
+    loop: true,
+  })
+  assert.equal(major.ok, false)
+  assert.equal(major.findings[0].command, "/capture")
+  const critical = evaluateReadyPr(unresolvedLoopSnapshot("Critical"), {
+    loop: true,
+  })
+  assert.equal(critical.findings[0].command, "/sdd-to-tdd")
+})
+
 test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
   assert.equal(
     classifyFindingRouting(
@@ -94,15 +182,18 @@ test("main-gate workflow is read-only, staging→main, and named US latest-head"
     pullRequestTypes.includes("edited"),
     "on.pull_request.types includes edited",
   )
-  assert.match(
+  assert.match(yml, /if:\s*false/)
+  assert.doesNotMatch(
     yml,
-    /github\.event\.pull_request\.base\.ref == 'main' && github\.event\.pull_request\.head\.ref == 'staging'/,
+    /if:.*github\.event\.pull_request\.head\.ref == 'staging'/,
   )
   assert.match(yml, /contents: read/)
   assert.match(yml, /pull-requests: read/)
   assert.doesNotMatch(yml, /contents:\s*write/)
   assert.doesNotMatch(yml, /pull-requests:\s*write/)
-  assert.match(yml, /coderabbit-pr-gate\.mjs --promotion-only/)
+  assert.match(yml, /CodeRabbit US latest-head gate is paused\./)
+  assert.doesNotMatch(yml, /coderabbit-pr-gate\.mjs/)
+  assert.doesNotMatch(yml, /github\.event\.pull_request\.base\.sha/)
   assert.doesNotMatch(yml, /--use-credits/)
   assert.doesNotMatch(yml, /gh pr merge/)
 })

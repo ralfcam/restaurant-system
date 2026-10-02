@@ -298,7 +298,7 @@ export const DISPATCH_PORTFOLIO_NEEDLES = {
     "more than 10 already active means zero promotion",
     "No non-wave ID may receive a state or cycle",
     "union of the pre-existing Todo/current-cycle set",
-    "Recommendations are advisory evidence, never permission to launch anything.",
+    "Cloud lane: Ready briefs",
     "The command must not assign or delegate an issue to the Cursor integration",
     "`cursor/<slug>-<4 hex>` PR goes through",
   ],
@@ -321,8 +321,9 @@ export const DISPATCH_PORTFOLIO_NEEDLES = {
     "Backlog scope",
     "Preferred minimum is 5 total active and hard maximum is 10",
     "`activate-daily-wave` is the only dispatch scope",
-    "Cloud recommendations",
-    "recommendation evidence only",
+    "Automations you created are the launch authority",
+    "eligibility evidence",
+    "exempt from `/intake`",
   ],
   "docs/findings/README.md": [
     "`groom-portfolio` batch",
@@ -345,7 +346,7 @@ export const DISPATCH_PORTFOLIO_NEEDLES = {
   ".cursor/README.md": [
     "metadata-plans the full scoped Backlog",
     "5–10 total-active",
-    "optional Cloud advice",
+    "Ready briefs",
   ],
 }
 
@@ -436,6 +437,27 @@ export const CURATE_NEEDLES = [
   "(seen: /curate YYYY-MM-DD)",
   "ledger-apply",
   "gh pr list",
+  "## STEP 0B — MANAGED CLOUD ONE-SHOT",
+  "Held for you",
+]
+
+export const CONDUCT_NEEDLES = [
+  "managed Cloud only",
+  "`morning`",
+  "`next`",
+  "Work started:",
+  "Never ask the operator a question",
+  "gh pr merge",
+  "roundCap: 3",
+  "On Mondays",
+]
+
+export const DESIGN_BRIEF_NEEDLES = [
+  "## STEP 0C — BRIEFED DESIGN ONE-SHOT",
+  "complete design brief",
+  "the brief is the approval",
+  "spec-PR merge replaces",
+  "conductor, not `/design`, runs commit and push",
 ]
 
 export const TRIAGE_LEDGER_FORBIDDEN = ["second sighting"]
@@ -476,6 +498,7 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "A missing receipt is non-blocking",
     "--exempt docs-artifact",
     "--exempt gate-remediation",
+    "--exempt design-spec",
   ],
   ".cursor/commands/push.md": [
     "/ready-merge-release",
@@ -533,17 +556,18 @@ export const CODERABBIT_YAML_FORBIDDEN = ["auto_approve", "drafts: false"]
 export const CODERABBIT_WORKFLOW_NEEDLES = [
   "name: CodeRabbit US latest-head gate",
   "converted_to_draft",
-  "github.event.pull_request.base.sha",
   "contents: read",
   "pull-requests: read",
-  "coderabbit-pr-gate.mjs --promotion-only",
   "pull_request_review_comment:",
+  "CodeRabbit US latest-head gate is paused.",
 ]
 
 export const CODERABBIT_WORKFLOW_FORBIDDEN = [
   "contents: write",
   "pull-requests: write",
   "pull_request_review_thread:",
+  "coderabbit-pr-gate.mjs",
+  "github.event.pull_request.base.sha",
 ]
 
 export const CODERABBIT_SHADOW_COMMANDS = [
@@ -1115,7 +1139,7 @@ function checkPmWorkflowContracts() {
     "preferred minimum total active = **5**",
     "hard maximum total active = **10**",
     "Backlog → Todo",
-    "Cloud parallelization recommendations",
+    "Cloud lane: Ready briefs",
     "post-apply re-read",
     "linear-resolver",
   ])
@@ -1156,6 +1180,11 @@ function checkPmWorkflowContracts() {
     fail("pm-workflow", message)
   }
 
+  const conductRel = ".cursor/commands/conduct.md"
+  requireAll(conductRel, read(conductRel), CONDUCT_NEEDLES)
+  const designRel = ".cursor/commands/design.md"
+  requireAll(designRel, read(designRel), DESIGN_BRIEF_NEEDLES)
+
   const resolverRel = ".cursor/agents/linear-resolver.md"
   const resolver = read(resolverRel)
   requireAll(resolverRel, resolver, [
@@ -1165,6 +1194,7 @@ function checkPmWorkflowContracts() {
     "save_status_update",
     "may call only",
     "Audit run key:",
+    "Dispatch run key:",
   ])
 
   const writePolicyRel = ".cursor/hooks/lib/linear-write-policy.mjs"
@@ -1224,7 +1254,7 @@ function checkClarificationLoop() {
   const resolverRel = ".cursor/agents/linear-resolver.md"
   const resolver = read(resolverRel)
   requireAll("clarify", resolverRel, resolver, [
-    "Six duties: CLARIFY comment",
+    "Seven duties: CLARIFY comment",
     "## Workflow — CLARIFY",
     "may call only `list_comments` and",
     "`save_comment`",
@@ -1260,6 +1290,18 @@ function checkClarificationLoop() {
     "Slack visibility triggers only",
     "never trigger In Review/Done",
   ])
+
+  const automationLaunch =
+    "operator-created automation run counts as a launch from the tracked issue"
+  for (const rel of [
+    ".cursor/agents/linear-resolver.md",
+    ".cursor/commands/triage.md",
+    ".cursor/commands/capture.md",
+    ".cursor/commands/sdd-to-tdd.md",
+    ".cursor/rules/linear-automation.mdc",
+  ]) {
+    requireAll("clarify", rel, read(rel), [automationLaunch])
+  }
 }
 
 function checkResIdentity() {

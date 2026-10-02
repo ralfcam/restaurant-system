@@ -12,8 +12,9 @@ Communication style: direct, concise, precise.
 </persona>
 
 <context>
-**Invocation:** `/ready-merge-release <PR-number|PR-URL>` — the PR argument is
-required. Never auto-discover a PR for this mutating command.
+**Invocation:** `/ready-merge-release <PR-number|PR-URL> [--loop]` — the PR
+argument is required. Never auto-discover a PR for this mutating command.
+`/conduct` passes `--loop`. Without it, default routing below is unchanged.
 
 CodeRabbit reviews drafts because [`.coderabbit.yaml`](.coderabbit.yaml)
 sets `reviews.auto_review.drafts: true`. The release flow is:
@@ -21,9 +22,10 @@ sets `reviews.auto_review.drafts: true`. The release flow is:
 `draft reviewed by CodeRabbit → /ready-merge-release PR# → gh pr ready → final
 latest-head/check re-read → operator merge`.
 
-Feature PRs target `staging`. Promotions are exactly `staging → main` and also
-require the GitHub check `CodeRabbit US latest-head gate` from
-[`.github/workflows/coderabbit-main-gate.yml`](.github/workflows/coderabbit-main-gate.yml).
+Feature PRs target `staging`. Promotions are exactly `staging → main`. The
+GitHub Actions job `CodeRabbit US latest-head gate` in
+[`.github/workflows/coderabbit-main-gate.yml`](.github/workflows/coderabbit-main-gate.yml)
+is paused and that check is not required.
 
 The read-only adapter is
 [`.cursor/checks/coderabbit-pr-gate.mjs`](.cursor/checks/coderabbit-pr-gate.mjs).
@@ -72,7 +74,7 @@ finding to invent for `/capture` or `/sdd-to-tdd`.
 Run the adapter this turn:
 
 ```powershell
-node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> --allow-draft
+node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> --allow-draft [--loop]
 ```
 
 The adapter may use `GITHUB_TOKEN`/`GH_TOKEN` or the authenticated `gh` token.
@@ -98,6 +100,15 @@ finding ID and emit a paste-ready argv fence plus an inert report for each:
 Mixed severities emit both routes. Stop without readying the PR. `/capture` and
 `/sdd-to-tdd` own their writes and approvals; do not invoke Linear or edit
 `docs/findings` here.
+
+### Loop routing (`--loop`)
+
+Pass `--loop` only from `/conduct`. The adapter then routes by severity only:
+Critical and unknown to `/sdd-to-tdd`; Major, Minor, and Trivial to
+`/capture`. Output includes `roundsUsed` and `roundCap: 3`. Default routing
+above is unchanged when the flag is absent. An outdated thread
+(`isOutdated === true`) stays exempt. An unresolved thread on any other path
+still blocks readying. Do not ready while those threads are open.
 
 If the adapter reports pending/stale review, changes requested without a
 parseable finding, wrong bot, rate limit, billing, explicit override,
@@ -125,13 +136,13 @@ no mutation (already-ready), HEAD drift MUST STOP with no `--undo`.
 Run the adapter again without draft allowance:
 
 ```powershell
-node .cursor/checks/coderabbit-pr-gate.mjs --pr <n>
+node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop]
 ```
 
 Then inspect `statusCheckRollup`/`gh pr checks <n>`. Poll at a bounded interval
 for at most 10 minutes after `gh pr ready`; pending is not pass. Fail on any
-required failing/cancelled/pending check. For `staging → main`, require the
-exact `CodeRabbit US latest-head gate` check to exist and be green.
+required failing/cancelled/pending check. For `staging → main`, the Actions
+job `CodeRabbit US latest-head gate` is paused and that check is not required.
 
 ### 5. Return the operator verdict
 
@@ -181,8 +192,9 @@ Exactly these sections:
    `<local-ref>`; inert severity, ID, path, title, and capture provenance;
    `none` when clean.
 4. **Readiness** — `gh pr ready <n>` executed | already ready | not executed.
-5. **Required checks** — green | pending | failing; include
-   `CodeRabbit US latest-head gate` for `staging → main`.
+5. **Required checks** — green | pending | failing. The Actions job
+   `CodeRabbit US latest-head gate` is paused and is not required for
+   `staging → main`.
 6. **Verdict** — `APPROVED FOR OPERATOR MERGE` | `STOP: <reason>`.
 7. **Operator next** — merge in GitHub | run the routed command | wait/retry |
    repair setup/conflict.

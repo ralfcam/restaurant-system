@@ -19,8 +19,8 @@ canonical version key `V-X.X`; there is no hardcoded Linear project default.
 Shared discovery and fail-closed project classification:
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
 
-Invocation: `/curate` with no scope. This command is **Plan Mode only**. It
-has no managed-Cloud one-shot and no scope arguments.
+Invocation: `/curate` with no scope. This command defaults to **Plan Mode
+only**. Managed Cloud may run the STEP 0B one-shot. It has no scope arguments.
 
 Filing floor, Prunable class, ledger TTL, and outcome tokens live in
 [docs/findings/README.md](docs/findings/README.md). You own keep-or-drop for
@@ -44,14 +44,28 @@ thinking: { type: "adaptive", effort: "high" }
 
 ## STEP 0 — PLAN MODE GATE
 
-This command is **Plan Mode only**.
+This command's default is **Plan Mode only**.
 
-- If you are not in Plan Mode, STOP before any Linear read, ledger read,
-  write, or delegation and output exactly:
+- If you ARE in Plan Mode: read and emit the proposal only. No Linear or
+  ledger write occurs until the operator approves the execution todos.
+- If you are NOT in Plan Mode: probe `/v1/meta-data/agent/runtime`. A missing
+  socket is retried once. Only the
+  trimmed response `managed` enters STEP 0B. Otherwise STOP before any Linear read, ledger read, write, or delegation and output exactly:
   "/curate runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
   mode picker) and re-run `/curate`."
-- In Plan Mode, read and emit the proposal only. No Linear or ledger write
-  occurs until the operator approves the execution todos.
+
+## STEP 0B — MANAGED CLOUD ONE-SHOT
+
+Applies only when the runtime probe returned exactly `managed`. Write the
+work-order to `.cursor/plans/<plan-slug>.plan.md`, then execute
+`curate-structure` (non-umbrella), `curate-attach`, `clarify-*`, and
+`curate-ledger` in this same turn without an approval stop. An
+operator-created automation run may post one bounded CLARIFY.
+
+Held for you, and not executed here: `curate-terminal`, umbrella parents, and
+keep-or-drop. List those held items so the dispatch digest can include them.
+Do not run `/commit` or `/push`. `/conduct morning` commits ledger edits on
+Mondays after this one-shot returns.
 
 ## PHASE 1 — Read (parent only; no subagent fan-out)
 

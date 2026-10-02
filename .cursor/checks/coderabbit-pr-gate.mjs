@@ -43,9 +43,12 @@ function assertBranchShape(snapshot, promotionOnly) {
   }
 }
 
-function emitReadyVerdict(snapshot, { allowDraft, promotionOnly }) {
+function emitReadyVerdict(
+  snapshot,
+  { allowDraft, promotionOnly, loop = false },
+) {
   assertBranchShape(snapshot, promotionOnly)
-  const result = evaluateReadyPr(snapshot, { allowDraft })
+  const result = evaluateReadyPr(snapshot, { allowDraft, loop })
   if (!result.ok) fail(result.reason, result)
   console.log(JSON.stringify({ ok: true, ...result }, null, 2))
 }
@@ -288,6 +291,7 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
 async function main() {
   const snapshotPath = argValue("--snapshot")
   const allowDraft = process.argv.includes("--allow-draft")
+  const loop = process.argv.includes("--loop")
   const promotionOnly =
     process.argv.includes("--promotion-only") ||
     process.env.CODERABBIT_PR_PROMOTION_ONLY === "1"
@@ -296,6 +300,7 @@ async function main() {
     emitReadyVerdict(JSON.parse(readFileSync(snapshotPath, "utf8")), {
       allowDraft,
       promotionOnly,
+      loop,
     })
     return
   }
@@ -314,6 +319,7 @@ async function main() {
   emitReadyVerdict(await fetchSnapshot({ owner, repo, number, token }), {
     allowDraft,
     promotionOnly,
+    loop,
   })
 }
 

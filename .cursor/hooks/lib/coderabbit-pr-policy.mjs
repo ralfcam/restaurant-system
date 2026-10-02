@@ -176,7 +176,43 @@ export function codeRabbitFindingId(comment, thread = {}) {
   return providerId ? `github:${providerId}` : "unidentified"
 }
 
-export function classifyFindingRouting(finding, { inScopePaths = [] } = {}) {
+export const LOOP_ROUND_CAP = 3
+
+export function countCodeRabbitReviewedHeads(snapshot) {
+  const heads = new Set()
+  for (const review of snapshot?.reviews || []) {
+    if (!isUsBotLogin(reviewAuthorLogin(review))) continue
+    const sha = reviewCommitId(review)
+    if (sha) heads.add(sha)
+  }
+  return heads.size
+}
+
+function loopRouting(finding) {
+  const severity = String(
+    finding?.severity || parseCodeRabbitSeverity(finding?.body) || "",
+  ).toLowerCase()
+  const levels = {
+    critical: "blocker",
+    major: "high",
+    minor: "medium",
+    trivial: "low",
+  }
+  const known = CODERABBIT_PR_SEVERITIES.includes(severity)
+  const fix = severity === "critical" || !known
+  return {
+    severity: known ? severity : "unknown",
+    level: levels[severity] || "blocker",
+    route: fix ? "sdd-to-tdd" : "capture",
+    command: fix ? "/sdd-to-tdd" : "/capture",
+  }
+}
+
+export function classifyFindingRouting(
+  finding,
+  { inScopePaths = [], loop = false } = {},
+) {
+  if (loop) return loopRouting(finding)
   const file = String(finding.fileName || finding.file || "")
   if (finding.inScope === true) {
     return { route: "sdd-to-tdd", command: "/sdd-to-tdd" }
@@ -209,7 +245,10 @@ export function classifyFindingRouting(finding, { inScopePaths = [] } = {}) {
   }
 }
 
-export function collectActiveCodeRabbitFindings(snapshot) {
+export function collectActiveCodeRabbitFindings(
+  snapshot,
+  { loop = false } = {},
+) {
   const findings = new Map()
   for (const thread of snapshot?.threads || snapshot?.reviewThreads || []) {
     if (thread?.isResolved === true || !threadHasCodeRabbit(thread)) continue
@@ -222,7 +261,7 @@ export function collectActiveCodeRabbitFindings(snapshot) {
       const severity = parseCodeRabbitSeverity(body)
       const id = codeRabbitFindingId(comment, thread)
       if (!severity && id === "unidentified") continue
-      const routing = classifyFindingRouting({ severity, body })
+      const routing = classifyFindingRouting({ severity, body }, { loop })
       findings.set(id, {
         id,
         path: comment?.path || thread?.path || "",
@@ -249,7 +288,19 @@ export function isAllowedReadyPrShape(base, head) {
   )
 }
 
-export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
+function withLoopMeta(result, snapshot, loop) {
+  if (!loop) return result
+  return {
+    ...result,
+    roundsUsed: countCodeRabbitReviewedHeads(snapshot),
+    roundCap: LOOP_ROUND_CAP,
+  }
+}
+
+function evaluateReadyPrCore(
+  snapshot,
+  { allowDraft = false, loop = false } = {},
+) {
   if (!snapshot || typeof snapshot !== "object") {
     return { ok: false, reason: "malformed_snapshot" }
   }
@@ -337,7 +388,7 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
       ok: false,
       reason: "unresolved_threads",
       unresolvedThreadCount: unresolved.length,
-      findings: collectActiveCodeRabbitFindings(snapshot),
+      findings: collectActiveCodeRabbitFindings(snapshot, { loop }),
     }
   }
 
@@ -388,6 +439,14 @@ export function evaluateReadyPr(snapshot, { allowDraft = false } = {}) {
     checkName: US_LATEST_HEAD_CHECK_NAME,
     statusContext: REQUIRED_US_STATUS_CONTEXT,
   }
+}
+
+export function evaluateReadyPr(snapshot, options = {}) {
+  return withLoopMeta(
+    evaluateReadyPrCore(snapshot, options),
+    snapshot,
+    options.loop === true,
+  )
 }
 
 function RATE_NAME(text) {

@@ -27,8 +27,9 @@ describe("curate weekly keep-or-drop", () => {
 
     expect(step0).toContain("/curate runs in Plan Mode only.")
     expect(step0).toContain("before any Linear read, ledger read")
-    expect(curate).not.toContain("## STEP 0B")
-    expect(curate).toContain("no managed-Cloud one-shot")
+    expect(curate).toContain("## STEP 0B — MANAGED CLOUD ONE-SHOT")
+    expect(curate).toContain("Held for you")
+    expect(curate).not.toContain("no managed-Cloud one-shot")
     expect(curate).toContain("no subagent fan-out")
 
     expect(reads).toContain("list_projects")
@@ -77,7 +78,11 @@ describe("curate weekly keep-or-drop", () => {
     const planOnly = commandReadme
       .split("\n\n")
       .find((paragraph) => paragraph.startsWith("**Plan Mode only:**"))
-    expect(planOnly).toContain("[`/curate`](commands/curate.md)")
+    expect(planOnly).not.toContain("[`/curate`]")
+    const managed = commandReadme
+      .split("\n\n")
+      .find((paragraph) => paragraph.startsWith("**Managed Cloud-capable:**"))
+    expect(managed).toContain("[`/curate`](commands/curate.md)")
     expect(commandReadme).toContain(
       "`/triage` → `Backlog` → `/curate` → `/dispatch`",
     )
