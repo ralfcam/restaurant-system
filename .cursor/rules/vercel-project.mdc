@@ -41,7 +41,7 @@ than inventing another id.
   `next-js-restaurant-system-mvp.vercel.app` as this app’s host.
 - Do not `npx vercel --prod` or MCP `deploy_to_vercel` to set env — that
   uploads a new tree and bypasses the git link.
-- Do not point production at local Docker keys (`127.0.0.1:54321`). Hosted
+- Do not point production at local Docker keys (`127.0.0.1:45321`). Hosted
   backend is Supabase `tilcqrudqxznnpepxjqq`.
 - Do not print `SUPABASE_SERVICE_ROLE_KEY` in chat or commits. `.vercel/` stays
   gitignored.
