@@ -17,11 +17,15 @@ import {
   DISPATCH_PORTFOLIO_NEEDLES,
   DISPATCH_REGRESSION_PATTERNS,
   GROOM_ARTIFACT_NEEDLES,
+  CURATE_NEEDLES,
   GROOM_STALE_NEEDLES,
+  TRIAGE_LEDGER_FORBIDDEN,
   RUN_FILE_LIFECYCLE_NEEDLES,
   detectActiveRoutingTextViolations,
   detectAuditScopeKeyViolations,
   detectClarifyOnlyCaptureViolations,
+  detectCurateViolations,
+  detectTriageLedgerViolations,
   detectClarifyStateWordingViolations,
   detectDesignWriteWhitelistViolations,
   detectDispatchPortfolioViolations,
@@ -345,7 +349,7 @@ test("audit and resolver pin idempotent project-health visibility", () => {
     join(ROOT, ".cursor", "agents", "linear-resolver.md"),
     "utf8",
   )
-  assert.ok(resolver.includes("`/triage` or `/dispatch`"))
+  assert.ok(resolver.includes("`/triage`, `/dispatch`, or `/curate`"))
   assert.ok(resolver.includes("## Workflow — PROJECT-UPDATE"))
   assert.ok(resolver.includes("may call only `get_status_updates` and"))
   assert.ok(resolver.includes("Audit run key: <same key>"))
@@ -629,6 +633,27 @@ test("GROOM stale-guard contracts pass live files and fail each missing clause",
       detectGroomStaleGuardViolations,
     )
   }
+})
+
+test("curate contract passes the live command and fails each missing clause", () => {
+  const rel = ".cursor/commands/curate.md"
+  const text = readFileSync(join(ROOT, rel), "utf8")
+  assertMissingClauseNegatives(rel, text, CURATE_NEEDLES, (_rel, body) =>
+    detectCurateViolations(body),
+  )
+})
+
+test("triage must not revive second-sighting ledger expiry", () => {
+  const text = readFileSync(
+    join(ROOT, ".cursor", "commands", "triage.md"),
+    "utf8",
+  )
+  assertForbiddenClauseNegatives(
+    ".cursor/commands/triage.md",
+    text,
+    TRIAGE_LEDGER_FORBIDDEN,
+    (_rel, body) => detectTriageLedgerViolations(body),
+  )
 })
 
 test("GROOM artifact contracts pass live files and fail without relation or comment verification", () => {

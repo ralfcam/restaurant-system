@@ -15,7 +15,7 @@
  *   gates            commit.md names lint, typecheck, test:unit, gate open, harness-lint
  *   capture          capture.md pins Validation Summary row count = PHASE 5 slug
  *                    count and the managed Cloud one-shot contract
- *   ledger           linear-resolver + triage Grep ledger before MCP
+ *   ledger           linear-resolver + triage + curate Grep ledger before MCP
  *   findings-format  prettier --check on the five docs/findings/*.md bus files
  *                    via Corepack-independent local prettier (Linux Cloud Agents
  *                    and Windows; PATH Corepack shims are not portable)
@@ -190,6 +190,12 @@ export const GROOM_STALE_NEEDLES = {
     "`groom-portfolio`",
     "`activate-daily-wave`",
     "stale item is deferred",
+  ],
+  ".cursor/commands/curate.md": [
+    "expected source state",
+    "stale item is deferred independently",
+    "`curate-terminal`",
+    "`curate-structure`",
   ],
 }
 
@@ -412,6 +418,38 @@ export function detectDesignWriteWhitelistViolations(text) {
 export function detectRunFileLifecycleViolations(rel, text) {
   const needles = RUN_FILE_LIFECYCLE_NEEDLES[rel]
   return needles ? missingNeedles(rel, text, needles) : []
+}
+
+export const CURATE_NEEDLES = [
+  "Plan Mode only",
+  "no subagent fan-out",
+  "includeRelations: true",
+  "duplicateOf",
+  "`curate-terminal`",
+  "`curate-structure`",
+  "`curate-attach`",
+  "`curate-ledger`",
+  "`curate-digest`",
+  "kept by /curate",
+  "at most 5",
+  "wont-file (stale)",
+  "(seen: /curate YYYY-MM-DD)",
+  "ledger-apply",
+  "gh pr list",
+]
+
+export const TRIAGE_LEDGER_FORBIDDEN = ["second sighting"]
+
+export function detectCurateViolations(text) {
+  return missingNeedles(".cursor/commands/curate.md", text, CURATE_NEEDLES)
+}
+
+export function detectTriageLedgerViolations(text) {
+  return forbiddenNeedles(
+    ".cursor/commands/triage.md",
+    text,
+    TRIAGE_LEDGER_FORBIDDEN,
+  )
 }
 
 export const CODERABBIT_REQUIRED_FILES = [
@@ -686,6 +724,7 @@ function checkRoutingContracts() {
   for (const rel of [
     ".cursor/commands/triage.md",
     ".cursor/commands/dispatch.md",
+    ".cursor/commands/curate.md",
     ".cursor/commands/audit.md",
     ".cursor/commands/tldr.md",
     ".cursor/commands/sdd-to-tdd.md",
@@ -942,6 +981,7 @@ function checkLedgerFirst() {
   for (const rel of [
     ".cursor/agents/linear-resolver.md",
     ".cursor/commands/triage.md",
+    ".cursor/commands/curate.md",
   ]) {
     const text = readFileSync(join(ROOT, rel), "utf8")
     if (!text.includes(needle))
@@ -1048,6 +1088,9 @@ function checkPmWorkflowContracts() {
     "`blocked-by` relation is dependency evidence",
     "leaves portfolio metadata and daily-wave activation for `/dispatch`",
   ])
+  for (const message of detectTriageLedgerViolations(triage)) {
+    fail("pm-workflow", message)
+  }
   for (const stale of [
     'There is **no "Triage" state',
     "Inspect all open issues in parallel",
@@ -1107,10 +1150,16 @@ function checkPmWorkflowContracts() {
     fail("pm-workflow", `${auditRel} project update must follow PART 8`)
   }
 
+  for (const message of detectCurateViolations(
+    read(".cursor/commands/curate.md"),
+  )) {
+    fail("pm-workflow", message)
+  }
+
   const resolverRel = ".cursor/agents/linear-resolver.md"
   const resolver = read(resolverRel)
   requireAll(resolverRel, resolver, [
-    "`/triage` or `/dispatch`",
+    "`/triage`, `/dispatch`, or `/curate`",
     "PROJECT-UPDATE",
     "get_status_updates",
     "save_status_update",
@@ -1192,6 +1241,7 @@ function checkClarificationLoop() {
   for (const rel of [
     ".cursor/commands/triage.md",
     ".cursor/commands/dispatch.md",
+    ".cursor/commands/curate.md",
     ".cursor/commands/design.md",
     ".cursor/commands/sdd-to-tdd.md",
     ".cursor/commands/capture.md",

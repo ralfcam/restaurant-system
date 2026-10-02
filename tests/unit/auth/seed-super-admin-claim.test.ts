@@ -8,7 +8,7 @@ const SUPER_ADMIN_USER_ID = "22222222-2222-2222-2222-222222222222"
 const SUPER_ADMIN_EMAIL = "superadmin@test.local"
 
 const HOST_OR_ENV_VALUE =
-  /localhost|127\.0\.0\.1|54321|tilcqrudqxznnpepxjqq|supabase\.co|https?:\/\//i
+  /localhost|127\.0\.0\.1|54321|45321|tilcqrudqxznnpepxjqq|supabase\.co|https?:\/\//i
 
 function authUsersInsertForId(sql: string, userId: string): string {
   const matches = sql.matchAll(
@@ -175,5 +175,12 @@ describe("seed super-admin claim", () => {
     const staffEmail = unquoteSqlString(staffValues[staffEmailIdx])
     expect(staffEmail).not.toBe("")
     expect(staffEmail).not.toBe(superEmail)
+  })
+
+  it("seed denylist rejects committed local API port 45321 and still rejects 54321", () => {
+    expect("45321").toMatch(HOST_OR_ENV_VALUE)
+    expect("54321").toMatch(HOST_OR_ENV_VALUE)
+    expect("localhost").toMatch(HOST_OR_ENV_VALUE)
+    expect("127.0.0.1").toMatch(HOST_OR_ENV_VALUE)
   })
 })

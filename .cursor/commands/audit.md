@@ -424,12 +424,15 @@ Each agent writes docs/verifier-reports/<basename>.md with:
 
 PART 8 — FINDINGS LEDGER HANDOFF (last audit part; never Linear)
 
-After PARTS 1–7, write Blocker/High findings (and Medium for
-`docs/findings/security.md`) into the matching ledger file under
-`docs/findings/` using the entry format in `docs/findings/README.md`.
-Cite that README for the filing floor, attach-over-create ladder, TTL,
-and estimate crosswalk. Do **not** create Linear issues in this command —
-`/triage` is the filing owner. Do **not** score Linear as a spec bar.
+After PARTS 1–7, delegate each category file that receives new lines:
+"Use the docs-updater subagent to apply ledger-apply to
+`docs/findings/<category>.md`: append these Blocker/High lines (Medium only
+for `docs/findings/security.md`)." Use the entry format in
+`docs/findings/README.md`. Do not Write a category file or `archive.md`
+yourself. Cite that README for the filing floor, attach-over-create ladder,
+TTL (`/curate` owns it), and estimate crosswalk. Do **not** create Linear
+issues in this command — `/triage` is the filing owner. Do **not** score
+Linear as a spec bar.
 
 Skip PART 8 when the operator says `ledger=off`. There is no PART 9
 (runtime probes) in this repo — `/audit` analysis stays repo-only. The final

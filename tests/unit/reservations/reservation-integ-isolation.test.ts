@@ -118,7 +118,7 @@ describe("reservation integ isolation pin (RES-ISO)", () => {
 
     const explicitUrlSource = ts.createSourceFile(
       "synthetic-explicit-url.integ.test.ts",
-      'beforeAll(() => { assertIsolatedHoursMutationTarget("http://127.0.0.1:54321") })',
+      'beforeAll(() => { assertIsolatedHoursMutationTarget("http://127.0.0.1:45321") })',
       ts.ScriptTarget.Latest,
       true,
       ts.ScriptKind.TS,

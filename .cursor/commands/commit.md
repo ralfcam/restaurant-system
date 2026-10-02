@@ -415,7 +415,7 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
 - **PASS, on a feature branch (per Step 5a):** `/push` opens (or updates) the
   feature PR against `staging`. That PR carries the trailer and closes the
   issue on merge — no promotion-PR fallback line.
-- After a burndown batch (post-merge), recommend `/triage` to re-groom the
+- After a burndown batch (post-merge), recommend `/curate` to re-groom the
   backlog and `/audit` to re-verify — `/audit`'s NEW | KNOWN | RESOLVED | REGRESSION
   diffing is what confirms the closed issues are genuinely RESOLVED and catches any
   REGRESSION the burndown introduced.

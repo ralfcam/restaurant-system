@@ -6,7 +6,7 @@ import {
 
 const SHARED_HOURS_PROJECT = "https://tilcqrudqxznnpepxjqq.supabase.co"
 const OTHER_REMOTE = "https://other-project.supabase.co"
-const LOCAL_SUPABASE = "http://127.0.0.1:54321"
+const LOCAL_SUPABASE = "http://127.0.0.1:45321"
 
 describe("hours mutation target isolation", () => {
   it("omitted url follows env; explicit url wins even when env is local", () => {
@@ -16,8 +16,9 @@ describe("hours mutation target isolation", () => {
       expect(isIsolatedHoursMutationTarget(OTHER_REMOTE)).toBe(false)
 
       expect(isIsolatedHoursMutationTarget(LOCAL_SUPABASE)).toBe(true)
-      expect(isIsolatedHoursMutationTarget("http://localhost:54321")).toBe(true)
-      expect(isIsolatedHoursMutationTarget("http://[::1]:54321")).toBe(true)
+      expect(isIsolatedHoursMutationTarget("http://localhost:45321")).toBe(true)
+      expect(isIsolatedHoursMutationTarget("http://[::1]:45321")).toBe(true)
+      expect(isIsolatedHoursMutationTarget("http://127.0.0.1:1")).toBe(true)
 
       process.env.NEXT_PUBLIC_SUPABASE_URL = LOCAL_SUPABASE
       expect(() => assertIsolatedHoursMutationTarget(undefined)).not.toThrow()
@@ -39,10 +40,10 @@ describe("hours mutation target isolation", () => {
         assertIsolatedHoursMutationTarget(LOCAL_SUPABASE),
       ).not.toThrow()
       expect(() =>
-        assertIsolatedHoursMutationTarget("http://localhost:54321"),
+        assertIsolatedHoursMutationTarget("http://localhost:45321"),
       ).not.toThrow()
       expect(() =>
-        assertIsolatedHoursMutationTarget("http://[::1]:54321"),
+        assertIsolatedHoursMutationTarget("http://[::1]:45321"),
       ).not.toThrow()
     } finally {
       if (previous === undefined) {

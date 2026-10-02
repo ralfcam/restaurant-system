@@ -1,9 +1,11 @@
 "use server"
 
 import { createClient as createAnonClient } from "@/lib/supabase/client-server"
+import { createClient } from "@/lib/supabase/server"
 import { createServiceClient } from "@/lib/supabase/service"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { revalidatePath } from "next/cache"
+import { redirect } from "next/navigation"
 import {
   getOperatingWindowForDate,
   isDateBlocked,
@@ -13,6 +15,8 @@ import {
   getNowTimeInRestaurantTZ,
 } from "@/lib/timezone"
 import {
+  EMAIL_RE,
+  PHONE_RE,
   validateReservationPayload,
   type ReservationPayload,
 } from "@/lib/reservations/validation"
@@ -212,6 +216,114 @@ export async function createReservation(
     confCode: "",
     error: SAVE_FAILED,
   }
+}
+
+export async function seatWalkIn(input: {
+  table_label: string
+  party_size: number
+  guest_name?: string
+  phone?: string
+  email?: string | null
+}): Promise<{ error?: string }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) redirect("/auth/login")
+    return { error: "errors.reservation.unauthorized" }
+  }
+
+  // Integer >= 1 only. validateReservationPayload also caps party size at 8.
+  if (
+    typeof input.party_size !== "number" ||
+    !Number.isInteger(input.party_size) ||
+    input.party_size < 1
+  ) {
+    return { error: "errors.reservation.partySizeInvalid" }
+  }
+
+  const guestName = (input.guest_name ?? "").trim()
+  const phone = (input.phone ?? "").trim()
+  const email = input.email == null ? null : input.email.trim()
+  if (phone && !PHONE_RE.test(phone)) {
+    return { error: "errors.reservation.phoneInvalid" }
+  }
+  if (email && !EMAIL_RE.test(email)) {
+    return { error: "errors.reservation.emailInvalid" }
+  }
+
+  const supabase = createServiceClient()
+  const date = getTodayInRestaurantTZ()
+  const time = getNowTimeInRestaurantTZ()
+
+  const { data: table, error: tableError } = await supabase
+    .from("tables")
+    .select("id, label, seats")
+    .eq("label", input.table_label)
+    .maybeSingle()
+  if (tableError) return { error: "errors.reservation.tablesLoadFailed" }
+  if (table && table.seats < input.party_size) {
+    return { error: "errors.reservation.tableTooSmall" }
+  }
+
+  const { occupancyDurationMinutes, safetyBufferMinutes, settingsReadFailed } =
+    await loadReservationOccupancyWindow(supabase)
+  if (settingsReadFailed) {
+    return { error: "errors.availability.settingsLoadFailed" }
+  }
+  const window = occupyingWindowMinutes(
+    time,
+    occupancyDurationMinutes,
+    safetyBufferMinutes,
+  )
+  if (window) {
+    const { data: occupying, error: occupyingError } = await supabase
+      .from("reservations")
+      .select("status, time, table_label, date")
+      .eq("date", date)
+      .eq("table_label", input.table_label)
+    if (occupyingError) return { error: "errors.reservation.loadFailed" }
+    const rows = Array.isArray(occupying) ? occupying : []
+    const conflict = rows.some((row) => {
+      if (row.table_label !== input.table_label || row.date !== date)
+        return false
+      if (!ACTIVE_RESERVATION_STATUSES.includes(row.status)) return false
+      const other = occupyingWindowMinutes(
+        row.time,
+        occupancyDurationMinutes,
+        safetyBufferMinutes,
+      )
+      return other !== null && occupyingWindowsOverlap(window, other)
+    })
+    if (conflict) return { error: "errors.reservation.tableOverlap" }
+  }
+
+  const { error } = await supabase.from("reservations").insert({
+    status: "seated",
+    table_label: input.table_label,
+    date,
+    time,
+    party_size: input.party_size,
+    guest_name: guestName,
+    phone,
+    email,
+    conf_code: generateConfCode(),
+  })
+  if (error) {
+    if (
+      error.message ===
+      "That table is already reserved for an overlapping time."
+    ) {
+      return { error: "errors.reservation.tableOverlap" }
+    }
+    return { error: error.message }
+  }
+  if (table?.id) {
+    await syncTableGroupStatus(input.table_label, "seated")
+  }
+  return {}
 }
 
 /**

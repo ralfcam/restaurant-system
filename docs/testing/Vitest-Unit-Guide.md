@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-09-24
+**Last updated:** 2026-10-02
 
 ## Layout
 
@@ -79,6 +79,9 @@
   `tests/unit/reservations/reservation-integ-isolation.test.ts` (AST
   glob-scan of `tests/integration/reservations/*.integ.test.ts`; zero-arg
   call; rejects an explicit-URL helper argument)
+- Walk-in seating (WI-1–WI-8): `tests/unit/reservations/walk-in.test.ts`
+  (`seatWalkIn` staff gate, seated insert, trigger message, fit/overlap,
+  party size above 8, contact format, table-group seat, seated completion)
 - Staff list guest email (STAFF-GUEST-EMAIL / STAFF-GUEST-EMAIL-ABSENT):
   `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
   visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit
@@ -119,7 +122,8 @@
 - Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
   `guestEmailFromRouteParam`, `buildGuestProfile` summary, RES-PRIV, staff
   gate + ficha Save/PII/history table, PII `ok` / `notFound`, live
-  `email_normalized` read, reservation-row `fichaHref` `Link`)
+  `email_normalized` read, reservation-row `fichaHref` `Link`,
+  `playwright-local-supabase.test.ts` source-scan of Playwright `globalSetup`)
 
 ## Conventions
 

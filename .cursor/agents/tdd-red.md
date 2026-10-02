@@ -42,7 +42,7 @@ STOP and send it back to the orchestrator to update the spec first.
 Integration suites (`tests/integration/**/*.integ.test.ts`) are wrapped in
 `describe.skipIf(!authEnvReady)`, where `authEnvReady` requires
 `NEXT_PUBLIC_SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY`, and the harness's
-`beforeAll` only _warns_ (doesn't fail) when Postgres at `127.0.0.1:54322` is
+`beforeAll` only _warns_ (doesn't fail) when Postgres at `127.0.0.1:45322` is
 unreachable. So when local Supabase isn't running, the whole suite **skips and
 reports green** — there is no failing test, and the TDD loop becomes vacuous.
 
