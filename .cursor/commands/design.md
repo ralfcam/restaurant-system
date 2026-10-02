@@ -235,9 +235,10 @@ Propose:
 Output the plan (format below) and stop. The spec write happens only in
 PHASE 5, and only after the operator gives explicit `Go ahead` on the exact
 spec content shown — not a vague "looks good" on an earlier partial draft.
-In managed Cloud, except STEP 0C, also stop and wait for the explicit `Go ahead`; STEP 0B
-waives no dialogue or approval boundary. Only that later approval turn writes
-the managed-Cloud work-order and enters PHASE 5.
+STEP 0C writes the work-order and posts START without `Go ahead`.
+In managed Cloud, STEP 0B must stop and wait for the explicit `Go ahead`;
+STEP 0B waives no dialogue or approval boundary. After that approval, write
+the managed-Cloud work-order and enter PHASE 5.
 
 ## Execution Protocol (PHASE 5 — after plan approval)
 
@@ -286,9 +287,10 @@ docs/findings/README.md entry format."` Each line stamped
 - Outside Plan Mode, DO NOT read the repo or run the workflow unless STEP 0's
   metadata probe returns exactly `managed`; every other result stops with the
   Plan Mode instruction.
-- Managed Cloud, except STEP 0C, does not waive any dialogue or approval step. DO NOT write a
-  work-order or enter PHASE 5 until the operator approves the exact complete
-  STEP 4 spec with `Go ahead`.
+- STEP 0C writes the work-order and posts START without `Go ahead`. Managed
+  Cloud, except STEP 0C, does not waive any dialogue or approval step, and
+  that path writes a work-order or enters PHASE 5 only after the operator
+  approves the exact complete STEP 4 spec with `Go ahead`.
 - DO NOT draft a new spec file when STEP 1's hub walk finds an existing
   owner (even folded) — route to `/sdd-to-tdd @<canonical-file>` FEATURE
   instead.
@@ -321,8 +323,9 @@ open with the Execution Protocol block above **verbatim**.
 
 - Plan Mode: YES (proceeding) | CLOUD-MANAGED (interactive) | NO (stopped) | CLOUD-MANAGED (briefed one-shot)
 - Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | cannot verify
-- Work-order: `.cursor/plans/<plan-slug>.plan.md` after explicit approval |
-  n/a until approval / in Plan Mode
+- Work-order: STEP 0C writes the work-order and posts START without `Go ahead`.
+  Otherwise `.cursor/plans/<plan-slug>.plan.md` after explicit approval |
+  n/a until approval / in Plan Mode.
 
 ## Hub Walk (STEP 1)
 

@@ -122,10 +122,12 @@ READY are narrow standalone duties and are never combined with another mode.
   daily activation IDs from Backlog → Todo/current-cycle. Act only on the
   batch; cancellation still requires its applicable confirmation. Freshly
   re-read before any write; a stale item is deferred independently.
-- **Project update:** after `/audit` completes PART 8 (or explicitly skips it).
-  Handoff: an already-resolved exact project, stable
+- **Project update:** after `/audit` completes PART 8 (or explicitly skips it),
+  or after `/dispatch` finishes its daily digest. Handoff: an already-resolved
+  exact project, stable
   `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`
-  run key, `onTrack`/`atRisk`/`offTrack` health, and the bounded digest. No
+  run key or `Dispatch run key: dispatch:<YYYY-MM-DD>:project=<UUID>`,
+  `onTrack`/`atRisk`/`offTrack` health, and the bounded digest. No
   issue ID or issue mutation is valid in this mode.
 - **Clarify:** when the orchestrator hands you one exact `RES-###`, source
   command, stable key, and operator-approved bounded comment. A local Plan
@@ -720,6 +722,7 @@ State: unchanged
 ## Project update   (omit this block unless PROJECT-UPDATE)
 Project: <exact project, never /projects/all>
 Audit run key: audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>
+Dispatch run key: dispatch:<YYYY-MM-DD>:project=<UUID> | none
 Health: onTrack | atRisk | offTrack
 Status update: created | updated | blocked
 Update: <ID/URL> | none

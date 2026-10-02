@@ -20,7 +20,7 @@ function field(section, label) {
 
 function briefSection(markdown) {
   const text = String(markdown || "").replace(/^\uFEFF/, "")
-  const start = text.indexOf(BRIEF_HEADING)
+  const start = text.search(new RegExp(`^${BRIEF_HEADING}$`, "m"))
   if (start === -1) return ""
   const rest = text.slice(start + BRIEF_HEADING.length)
   const next = rest.search(/\n## [^#]/)

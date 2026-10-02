@@ -87,6 +87,9 @@ equals `headRefOid`) are exempt from `/intake`; `push.md` is their firewall.
 Other returning Cloud PRs still pass through `/intake` before `/push` and
 target `staging`.
 
-No command assigns or delegates an issue to the Cursor integration,
-writes a spawn-triggering integration mention, creates a branch or worktree,
-or invokes an agent. Dashboard → Cloud Agents → Base Branch stays `staging`.
+No command, including `/conduct`, assigns or delegates an issue to the Cursor
+integration or writes a spawn-triggering integration mention (`@Cursor`). No
+command other than `/conduct` creates a branch or worktree or invokes an
+agent. `/conduct` may create its `cursor/morning-` and `cursor/res-` branches
+and may run `/sdd-to-tdd` and `/design`. Dashboard → Cloud Agents → Base
+Branch stays `staging`.

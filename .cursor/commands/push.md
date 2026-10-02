@@ -180,7 +180,9 @@ When the current branch matches
 - **Argument given:** `gh pr view <PR-URL|number> --json number,title,body,state,isDraft,baseRefName,headRefName,mergeable,mergeStateStatus,reviewRequests`.
   Require **state == OPEN** — if merged/closed, STOP and report; nothing to do.
   Never auto-create when a PR was pinned by argument. Then apply the
-  feature-PR-on-default STOP above.
+  feature-PR-on-default STOP above. When the head is `cursor/`, run
+  `gh pr edit <n> --body-file` after every push to replace the gate-evidence
+  body, using the body the gate-evidence CLI printed.
 - **No argument:** `gh pr list --head <current-branch> --json number,title,state,isDraft,baseRefName,reviewRequests,url`.
   - **Found:** apply the feature-PR-on-default STOP above; otherwise proceed.
     When the head matches the cursor-head pattern, run

@@ -839,9 +839,9 @@ necessarily filed as a new Linear issue (see the **Issue-filing policy** in
 `docs/findings/README.md` — filing is throttled by design). After docs sync
 (Step 4), delegate **`linear-resolver`** to register the findings: "Use the
 linear-resolver subagent to register the open out-of-scope findings from
-`docs/findings/` (security, tech-debt, test-debt, product-gaps), applying the
-Issue-filing policy (floor, attach-over-create ladder, per-run cap of 3 net-new
-issues) from `docs/findings/README.md`", pointing it at those files (each entry:
+`docs/findings/` (security, tech-debt, test-debt, product-gaps). Managed Cloud
+close-out is attach-only: leave new-issue findings on the ledger and
+continue.", pointing it at those files (each entry:
 category, title, file:line/area, why it matters, severity hint) plus the source
 issue ID/URL (if any) to link back to. Expect most entries to come back
 **"left on ledger"** rather than filed — that is the intended outcome, not a
@@ -851,17 +851,14 @@ shortfall.
 owns findings + Linear Triage intake, de-duplication, and terminal cleanup;
 `/dispatch` owns full scoped Backlog metadata finalization and the separate
 selected daily activation wave. This loop owns neither. Both registration
-routes use
-`linear-resolver`, which applies the filing floor, attach-over-create ladder,
-per-run cap, and de-duplication. Preserve source severity/effort and the shared
-label taxonomy from `docs/findings/README.md` so dispatch can schedule without
-guessing.
+routes use `linear-resolver` for de-duplication. Managed Cloud close-out is
+attach-only and keeps new-issue findings on the ledger. Local Plan Mode
+confirmation before net-new issues may still apply the filing floor,
+attach-over-create ladder, and per-run cap of 3. Preserve source
+severity/effort and the shared label taxonomy from `docs/findings/README.md`
+so dispatch can schedule without guessing.
 
-- It **proposes the new issues for your confirmation** before creating them
-  (creating issues adds tracked work), applies the filing floor and
-  attach-over-create ladder first (most findings are expected to end up
-  "left on ledger" or attached to an existing issue, not as a new issue), and
-  enforces the **per-run cap of 3 net-new issues** — cap overflow also stays on
+- **Managed Cloud** close-out is attach-only and keeps new-issue findings on
   the ledger. **Managed Cloud one-shot does not auto-confirm** new Linear
   finding issues: persist them on the durable ledger and continue. Do not stop
   the loop for that confirmation. Local Plan Mode still stops for operator

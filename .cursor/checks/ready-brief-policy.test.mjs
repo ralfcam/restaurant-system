@@ -99,6 +99,31 @@ Verification: pnpm test:unit
   assert.match(parsed.decisions[0], /where to land:/)
 })
 
+test("a prose mention of ## Ready brief is not the section", () => {
+  const prose = `Notes
+The writeup mentions ## Ready brief before any heading.
+Route: /sdd-to-tdd
+Spec: docs/specs/dev-toolchain.md: G-PUB1
+Verification: pnpm test:unit tests/unit/dev-toolchain/push-gate-evidence.test.ts
+`
+  const parsed = parseReadyBrief(prose)
+  assert.equal(parsed.present, false)
+  assert.equal(parsed.route, "")
+  assert.equal(isCompleteBrief(prose), false)
+})
+
+test("## Ready briefs is not the section", () => {
+  const plural = `## Ready briefs
+Route: /sdd-to-tdd
+Spec: docs/specs/dev-toolchain.md: G-PUB1
+Verification: pnpm test:unit tests/unit/dev-toolchain/push-gate-evidence.test.ts
+`
+  const parsed = parseReadyBrief(plural)
+  assert.equal(parsed.present, false)
+  assert.equal(parsed.route, "")
+  assert.equal(isCompleteBrief(plural), false)
+})
+
 test("stdin CLI reads a complete brief", () => {
   const result = spawnSync(
     process.execPath,

@@ -18,6 +18,37 @@ function cli(args: string[], input: string) {
   )
 }
 
+/**
+ * The pinned-PR bullet only. Stop before `**No argument:**` so a
+ * `gh pr edit --body-file` on the discovery path cannot satisfy this pin.
+ */
+function argumentGivenBranch(markdown: string): string {
+  const marker = "**Argument given:**"
+  const start = markdown.indexOf(marker)
+  if (start === -1) return ""
+  const rest = markdown.slice(start)
+  const next = rest.indexOf("**No argument:**")
+  return next === -1 ? "" : rest.slice(0, next)
+}
+
+function plain(text: string): string {
+  return text.replace(/`/g, "").replace(/\s+/g, " ").trim()
+}
+
+function sentencesOf(block: string): string[] {
+  return plain(block)
+    .split(/(?<=\.)\s+/)
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 0)
+}
+
+function sentenceReplacesCursorGateEvidence(sentence: string): boolean {
+  const namesCursorHead =
+    /\bcursor\//.test(sentence) || /\bcursor-head\b/.test(sentence)
+  const replacesBody = /gh pr edit\s+<n>\s+--body-file/.test(sentence)
+  return namesCursorHead && replacesBody
+}
+
 describe("push gate evidence", () => {
   it("names ancestry commands, merge-on-drift, and the intake skip", () => {
     const push = readFileSync(
@@ -74,5 +105,25 @@ describe("push gate evidence", () => {
     const read = cli(["head"], replaced.stdout)
     expect(read.status).toBe(0)
     expect(read.stdout.trim()).toBe(head)
+  })
+
+  it("replaces gate evidence for a cursor/ head on the argument-given path", () => {
+    const push = readFileSync(
+      path.join(repoRoot, ".cursor", "commands", "push.md"),
+      "utf8",
+    )
+    const branch = argumentGivenBranch(push)
+
+    expect({
+      isolatedArgumentGiven: branch.includes("**Argument given:**"),
+      excludesNoArgumentPath: !branch.includes("**No argument:**"),
+      replacesCursorHeadBody: sentencesOf(branch).some(
+        sentenceReplacesCursorGateEvidence,
+      ),
+    }).toEqual({
+      isolatedArgumentGiven: true,
+      excludesNoArgumentPath: true,
+      replacesCursorHeadBody: true,
+    })
   })
 })
