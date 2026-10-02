@@ -309,6 +309,7 @@ export function ReservationWidget({
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
+  const [allergens, setAllergens] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [fullyBookedError, setFullyBookedError] = useState<string | null>(null)
   const [confCode, setConfCode] = useState("")
@@ -464,6 +465,7 @@ export function ReservationWidget({
       time: slot!,
       phone,
       email,
+      allergens,
     })
     setSubmitting(false)
     if (error) {
@@ -474,8 +476,8 @@ export function ReservationWidget({
         return
       }
       // Blocked / closed / outside-hours rejections bounce to step 1 with a
-      // dedicated toast. Form inputs (name, phone, email) are intentionally
-      // NOT reset so the guest can pick a new slot without re-typing.
+      // dedicated toast. Form inputs (name, phone, email, allergens) stay
+      // filled so the guest can pick a new slot without re-typing.
       const isSlotError =
         error === "errors.reservation.bookingDateBlocked" ||
         error === "errors.reservation.bookingClosed" ||
@@ -513,6 +515,7 @@ export function ReservationWidget({
     setName("")
     setEmail("")
     setPhone("")
+    setAllergens("")
     setConfCode("")
   }
 
@@ -1038,6 +1041,21 @@ export function ReservationWidget({
                   className={inp}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={tAll("reservationWidget.emailPlaceholder")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label
+                  htmlFor="res-allergens"
+                  className={cn("text-xs", dark ? "text-white/70" : "")}
+                >
+                  {tAll("reservationWidget.allergens")}
+                </Label>
+                <Input
+                  id="res-allergens"
+                  data-testid="reservation-allergens-input"
+                  value={allergens}
+                  className={inp}
+                  onChange={(e) => setAllergens(e.target.value)}
                 />
               </div>
 

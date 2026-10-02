@@ -32,6 +32,7 @@ export type ReservationPayload = {
   phone: string
   email: string
   notes?: string
+  allergens?: string
 }
 
 /**

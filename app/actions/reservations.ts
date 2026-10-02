@@ -72,6 +72,7 @@ export type ReservationRow = {
   table_label: string | null
   conf_code: string
   created_at: string
+  allergens: string | null
 }
 
 function generateConfCode(): string {
@@ -80,6 +81,7 @@ function generateConfCode(): string {
 }
 
 const SAVE_FAILED = "errors.reservation.saveFailed"
+const MAX_ALLERGEN_LENGTH = 500
 
 /** P0001 trigger texts from validate_reservation_availability. */
 const P0001_BOOKING_KEYS: Record<string, string> = {
@@ -149,6 +151,16 @@ export async function createReservation(
   const email = (payload.email ?? "").trim()
   const phone = payload.phone.trim()
   const notes = payload.notes?.trim() || null
+  // Trimmed text is written after insert, blank as null, and only that column.
+  // Over the cap returns before insert. The column stays off the guest INSERT.
+  const trimmedAllergens =
+    typeof payload.allergens === "string" ? payload.allergens.trim() : undefined
+  if (
+    trimmedAllergens !== undefined &&
+    trimmedAllergens.length > MAX_ALLERGEN_LENGTH
+  ) {
+    return { confCode: "", error: SAVE_FAILED }
+  }
 
   // conf_code is a random 4-digit suffix guarded by a DB unique constraint —
   // collisions are rare but possible, so retry with a fresh code on a
@@ -177,6 +189,25 @@ export async function createReservation(
     })
 
     if (!error) {
+      if (trimmedAllergens !== undefined) {
+        const service = createServiceClient()
+        const { error: allergenError } = await service
+          .from("reservations")
+          .update({
+            allergens: trimmedAllergens === "" ? null : trimmedAllergens,
+          })
+          .eq("conf_code", confCode)
+        if (allergenError) {
+          console.error(
+            "[reservations] createReservation allergens error:",
+            allergenError.message,
+            allergenError.code,
+            allergenError.details,
+          )
+          await service.from("reservations").delete().eq("conf_code", confCode)
+          return { confCode: "", error: SAVE_FAILED }
+        }
+      }
       revalidatePath("/admin/reservations")
       revalidatePath("/admin")
       try {

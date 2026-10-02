@@ -82,6 +82,10 @@
 - Walk-in seating (WI-1–WI-8): `tests/unit/reservations/walk-in.test.ts`
   (`seatWalkIn` staff gate, seated insert, trigger message, fit/overlap,
   party size above 8, contact format, table-group seat, seated completion)
+- Allergen capture (AL-1–AL-6): `tests/unit/reservations/allergen-capture.test.ts`
+  (blank guest field stores null; trimmed service-role write and rollback;
+  staff row shows non-null text; per-reservation isolation; completed
+  transition leaves `allergens`; name, email, party cap, and confirmation stay)
 - Staff list guest email (STAFF-GUEST-EMAIL / STAFF-GUEST-EMAIL-ABSENT):
   `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
   visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit

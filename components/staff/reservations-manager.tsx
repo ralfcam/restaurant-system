@@ -52,6 +52,7 @@ type Reservation = {
   email: string | null
   notes?: string
   confCode: string
+  allergens?: string | null
 }
 
 function rowToReservation(r: ReservationRow): Reservation {
@@ -67,6 +68,7 @@ function rowToReservation(r: ReservationRow): Reservation {
     email: r.email ?? null,
     notes: r.notes ?? undefined,
     confCode: r.conf_code,
+    allergens: r.allergens,
   }
 }
 
@@ -397,6 +399,14 @@ export function ReservationsManager({
                     {r.notes ? (
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {r.notes}
+                      </p>
+                    ) : null}
+                    {r.allergens != null ? (
+                      <p
+                        className="mt-0.5 text-xs text-muted-foreground"
+                        data-testid="reservation-allergens"
+                      >
+                        {r.allergens}
                       </p>
                     ) : null}
                   </div>
