@@ -81,3 +81,5 @@ how `supabase start` becomes bindable.
 | LSP-3     | `docs/testing/Vitest-Integration-Guide.md`, `docs/testing/Design-And-Patterns.md`, `docs/runbooks/deploy.md`, `.cursor/agents/tdd-red.md`                                                                           | `current local-stack instructions use the committed API and DB ports`                      |
 | LSP-4     | `tests/unit/auth/staff-proxy.test.ts`, `tests/unit/scheduling/hours-mutation-target.test.ts`, `tests/unit/reservations/reservation-integ-isolation.test.ts`, `tests/unit/inquiries/inquiry-integ-isolation.test.ts` | `local URL fixtures cite API port 45321 and hours isolation accepts another loopback port` |
 | LSP-5     | `tests/unit/auth/seed-super-admin-claim.test.ts` (`HOST_OR_ENV_VALUE`)                                                                                                                                              | `seed denylist rejects committed local API port 45321 and still rejects 54321`             |
+
+The five listen ports shipped in `9556798`. RES-97 is that change. `.cursor/rules/vercel-project.mdc` cites the committed API port `45321` in the production warning.
