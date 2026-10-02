@@ -69,7 +69,6 @@ post-ready `headRefOid` differs from `preReadyHead` AND this invocation executed
 `gh pr ready`, it runs `gh pr ready --undo` then STOP. If Step 3 performed no
 mutation (already-ready), HEAD drift MUST STOP with no `--undo`. It re-verifies
 the ready PR and returns the operator-merge verdict; it never merges.
-`staging → main` additionally requires the GitHub check
-`CodeRabbit US latest-head gate`. CodeRabbit Plan is advisory research only.
+The Actions job `CodeRabbit US latest-head gate` is paused and the check is not required. CodeRabbit Plan is advisory research only.
 CodeRabbit Triage is a PR queue, not Linear issue triage. Neither may schedule,
 replace `docs/specs/**`, or change Linear workflow state.

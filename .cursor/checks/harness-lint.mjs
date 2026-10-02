@@ -556,17 +556,18 @@ export const CODERABBIT_YAML_FORBIDDEN = ["auto_approve", "drafts: false"]
 export const CODERABBIT_WORKFLOW_NEEDLES = [
   "name: CodeRabbit US latest-head gate",
   "converted_to_draft",
-  "github.event.pull_request.base.sha",
   "contents: read",
   "pull-requests: read",
-  "coderabbit-pr-gate.mjs --promotion-only",
   "pull_request_review_comment:",
+  "CodeRabbit US latest-head gate is paused.",
 ]
 
 export const CODERABBIT_WORKFLOW_FORBIDDEN = [
   "contents: write",
   "pull-requests: write",
   "pull_request_review_thread:",
+  "coderabbit-pr-gate.mjs",
+  "github.event.pull_request.base.sha",
 ]
 
 export const CODERABBIT_SHADOW_COMMANDS = [

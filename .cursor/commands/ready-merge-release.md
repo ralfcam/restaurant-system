@@ -22,9 +22,10 @@ sets `reviews.auto_review.drafts: true`. The release flow is:
 `draft reviewed by CodeRabbit → /ready-merge-release PR# → gh pr ready → final
 latest-head/check re-read → operator merge`.
 
-Feature PRs target `staging`. Promotions are exactly `staging → main` and also
-require the GitHub check `CodeRabbit US latest-head gate` from
-[`.github/workflows/coderabbit-main-gate.yml`](.github/workflows/coderabbit-main-gate.yml).
+Feature PRs target `staging`. Promotions are exactly `staging → main`. The
+GitHub Actions job `CodeRabbit US latest-head gate` in
+[`.github/workflows/coderabbit-main-gate.yml`](.github/workflows/coderabbit-main-gate.yml)
+is paused and that check is not required.
 
 The read-only adapter is
 [`.cursor/checks/coderabbit-pr-gate.mjs`](.cursor/checks/coderabbit-pr-gate.mjs).
@@ -140,8 +141,8 @@ node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop]
 
 Then inspect `statusCheckRollup`/`gh pr checks <n>`. Poll at a bounded interval
 for at most 10 minutes after `gh pr ready`; pending is not pass. Fail on any
-required failing/cancelled/pending check. For `staging → main`, require the
-exact `CodeRabbit US latest-head gate` check to exist and be green.
+required failing/cancelled/pending check. For `staging → main`, the Actions
+job `CodeRabbit US latest-head gate` is paused and that check is not required.
 
 ### 5. Return the operator verdict
 
@@ -191,8 +192,9 @@ Exactly these sections:
    `<local-ref>`; inert severity, ID, path, title, and capture provenance;
    `none` when clean.
 4. **Readiness** — `gh pr ready <n>` executed | already ready | not executed.
-5. **Required checks** — green | pending | failing; include
-   `CodeRabbit US latest-head gate` for `staging → main`.
+5. **Required checks** — green | pending | failing. The Actions job
+   `CodeRabbit US latest-head gate` is paused and is not required for
+   `staging → main`.
 6. **Verdict** — `APPROVED FOR OPERATOR MERGE` | `STOP: <reason>`.
 7. **Operator next** — merge in GitHub | run the routed command | wait/retry |
    repair setup/conflict.

@@ -325,9 +325,9 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
    `Fixes RES-###[, RES-###, ...]` line is present on **that** PR (not
    just buried in staging commits).
 2. Run `/ready-merge-release <PR#>` and require
-   `APPROVED FOR OPERATOR MERGE`, including a green
-   `CodeRabbit US latest-head gate`.
-3. Confirm the command reports all other required checks green.
+   `APPROVED FOR OPERATOR MERGE`. The check
+   `CodeRabbit US latest-head gate` is paused and not required.
+3. Confirm the command reports required checks green.
 4. Merge the promotion PR in the GitHub UI.
 5. Verify the linked issue(s) that were only on direct `staging` commits move
    to **Done** in Linear (~1 minute); if not, check the closing link on the

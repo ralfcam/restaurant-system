@@ -291,8 +291,8 @@ When the current branch matches
   returning the operator-merge verdict.
 - When the PR is already ready, instruct the operator to run
   **`/ready-merge-release <n>`** and merge in the GitHub UI only on
-  `APPROVED FOR OPERATOR MERGE`. `staging → main` additionally requires the
-  GitHub check `CodeRabbit US latest-head gate`. Remote review never
+  `APPROVED FOR OPERATOR MERGE`. The GitHub check
+  `CodeRabbit US latest-head gate` is paused and not required. Remote review never
   substitutes for the mandatory advisory local JSONL attempt.
 
 ### Reasoning protocol

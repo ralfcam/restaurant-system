@@ -182,15 +182,18 @@ test("main-gate workflow is read-only, staging→main, and named US latest-head"
     pullRequestTypes.includes("edited"),
     "on.pull_request.types includes edited",
   )
-  assert.match(
+  assert.match(yml, /if:\s*false/)
+  assert.doesNotMatch(
     yml,
-    /github\.event\.pull_request\.base\.ref == 'main' && github\.event\.pull_request\.head\.ref == 'staging'/,
+    /if:.*github\.event\.pull_request\.head\.ref == 'staging'/,
   )
   assert.match(yml, /contents: read/)
   assert.match(yml, /pull-requests: read/)
   assert.doesNotMatch(yml, /contents:\s*write/)
   assert.doesNotMatch(yml, /pull-requests:\s*write/)
-  assert.match(yml, /coderabbit-pr-gate\.mjs --promotion-only/)
+  assert.match(yml, /CodeRabbit US latest-head gate is paused\./)
+  assert.doesNotMatch(yml, /coderabbit-pr-gate\.mjs/)
+  assert.doesNotMatch(yml, /github\.event\.pull_request\.base\.sha/)
   assert.doesNotMatch(yml, /--use-credits/)
   assert.doesNotMatch(yml, /gh pr merge/)
 })
