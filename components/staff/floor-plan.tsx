@@ -1,6 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react"
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type PointerEvent,
+} from "react"
 import {
   Plus,
   Trash2,
@@ -42,6 +50,7 @@ import {
   updateTableState,
 } from "@/app/actions/operations"
 import {
+  seatWalkIn,
   transitionReservationStatus,
   type FloorSnapshot,
   type ReservationRow,
@@ -81,6 +90,8 @@ import {
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Sheet,
   SheetContent,
@@ -1294,6 +1305,12 @@ export function FloorPlan({
                 </p>
               )}
 
+              <WalkInSeat
+                key={selected.id}
+                tableLabel={selected.label}
+                onSeated={() => mutate()}
+              />
+
               <div>
                 <p className="mb-2 text-sm font-medium">
                   {t("staff.floor.position")}
@@ -1591,6 +1608,11 @@ export function FloorPlan({
                   {t("staff.floor.noReservation")}
                 </p>
               )}
+              <WalkInSeat
+                key={selected.id}
+                tableLabel={selected.label}
+                onSeated={() => mutate()}
+              />
               <div className="grid grid-cols-2 gap-2">
                 {STATUS_ORDER.map((status) => (
                   <Button
@@ -1629,5 +1651,109 @@ export function FloorPlan({
         </SheetContent>
       </Sheet>
     </>
+  )
+}
+
+function WalkInSeat({
+  tableLabel,
+  onSeated,
+}: {
+  tableLabel: string
+  onSeated: () => Promise<unknown>
+}) {
+  const t = useTranslations()
+  const id = useId()
+  const [partySize, setPartySize] = useState("2")
+  const [guestName, setGuestName] = useState("")
+  const [phone, setPhone] = useState("")
+  const [email, setEmail] = useState("")
+  const [pending, setPending] = useState(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setPending(true)
+    try {
+      const { error } = await seatWalkIn({
+        table_label: tableLabel,
+        party_size: Number(partySize),
+        guest_name: guestName,
+        phone,
+        email: email.trim() === "" ? null : email,
+      })
+      if (error) {
+        const catalogKey = /^[A-Za-z_][\w]*(\.[A-Za-z_][\w]*)+$/.test(error)
+        toast.error(t("staff.floor.seatWalkInFailed"), {
+          description: catalogKey ? t(error) : error,
+        })
+        return
+      }
+      toast.success(t("staff.floor.walkInSeated"))
+      setGuestName("")
+      setPhone("")
+      setEmail("")
+      await onSeated()
+    } finally {
+      setPending(false)
+    }
+  }
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(event) => void submit(event)}
+    >
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-party`}>
+          {t("staff.floor.walkInPartySize")}
+        </Label>
+        <Input
+          id={`${id}-party`}
+          type="number"
+          min={1}
+          step={1}
+          required
+          value={partySize}
+          data-testid="walk-in-party-size"
+          onChange={(event) => setPartySize(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-name`}>{t("staff.floor.walkInName")}</Label>
+        <Input
+          id={`${id}-name`}
+          value={guestName}
+          data-testid="walk-in-name"
+          onChange={(event) => setGuestName(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-phone`}>{t("staff.floor.walkInPhone")}</Label>
+        <Input
+          id={`${id}-phone`}
+          value={phone}
+          data-testid="walk-in-phone"
+          onChange={(event) => setPhone(event.target.value)}
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={`${id}-email`}>{t("staff.floor.walkInEmail")}</Label>
+        <Input
+          id={`${id}-email`}
+          type="email"
+          value={email}
+          data-testid="walk-in-email"
+          onChange={(event) => setEmail(event.target.value)}
+        />
+      </div>
+      <Button
+        type="submit"
+        className="w-full"
+        size="sm"
+        disabled={pending}
+        data-testid="walk-in-seat"
+      >
+        {t("staff.floor.seatWalkIn")}
+      </Button>
+    </form>
   )
 }
