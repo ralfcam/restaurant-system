@@ -158,6 +158,8 @@ Applies only after STEP 0 classified `agent/runtime` as exactly `managed`.
 3. A second human "yes" for the exact spec create/edit and existing-test
    edits enumerated in this run's `## Permissions Requested` — the initiating
    Cloud task is that authorization.
+4. Newly discovered Linear finding-issue creation: persist to the ledger and
+   continue; do not auto-confirm.
 
 **Cloud one-shot does not waive** (non-overridable; same methodology as local):
 missing or empty input; unresolved clarification, spec conflict, or vague
@@ -167,10 +169,9 @@ whose exit condition is unmet; any `BLOCKED` / `BLOCKED (infra)`; skipped
 tests, `0 tests collected`, or infra that cannot be brought up; write-scope
 violations (orchestrator touching `tests/**` / source; Red touching source;
 Green/Refactor touching tests); failed verification (no fresh command
-evidence; skipped suite treated as green); newly discovered Linear
-finding-issue creation (persist to the ledger; stop for operator confirmation —
-do not auto-confirm); a `/commit` CHANGES-REQUESTED, FAIL, or permission/
-verification stop; a `/push` BLOCKED, whole-suite-gate, or safety stop.
+evidence; skipped suite treated as green); a `/commit` CHANGES-REQUESTED,
+FAIL, or permission/verification stop; a `/push` BLOCKED, whole-suite-gate,
+or safety stop.
 
 **Durable work-order (required before any spec/test/source mutation):**
 Render the complete plan in the output format below to
@@ -187,6 +188,21 @@ work-order text. A spec or existing-test path **not** listed in
 `## Permissions Requested` still STOPS. Do not continue past a BLOCKED,
 CHANGES-REQUESTED, FAIL, permission, verification, or `/push` safety stop.
 Never `gh pr ready`. Never `gh pr merge`.
+
+**Ready brief.** When the invoked issue description has a complete
+`## Ready brief` (`node .cursor/checks/ready-brief.mjs`): `Decisions:` resolve
+STEP 1A clarifications, `Allowed edits:` pre-grant `## Permissions Requested`,
+and `Verification:` sets the phase commands.
+
+**In-loop fix.** An invocation
+`bug: CodeRabbit finding <local-ref> on PR #<n>` from `/conduct` stays on the
+PR branch and skips START and CLOSE-OUT.
+
+**Cloud test stack (Linux Cloud VM only).** Before a fail-closed integration
+or e2e phase, run `sh .cursor/cloud-supabase-up.sh`. Write every integration
+or e2e phase command in the work-order as
+`set -a; . supabase/.temp/cloud-test.env; set +a; <command>`, so each phase
+subagent's own shell loads the env. A non-zero exit is `BLOCKED (infra)`.
 
 ## STEP 1 — CLASSIFY INPUT, THEN RESOLVE THE SPEC (source of truth)
 
@@ -228,8 +244,9 @@ allocation tie, read `list_comments`. Resume only after an unambiguous human
 answer. Otherwise render a stable `Clarification required` comment keyed
 `clarify:<RES-id>:<spec-basename>:<rule-or-ac>` and stop. Local Plan Mode
 requires approval before delegating `linear-resolver` CLARIFY; a managed Cloud
-task launched from that issue preauthorizes only this bounded comment. It never
-authorizes a spec, scope, state, or assignment change.
+task launched from that issue preauthorizes only this bounded comment. An
+operator-created automation run counts as a launch from the tracked issue. It
+never authorizes a spec, scope, state, or assignment change.
 
 The comment uses the resolver's fixed schema: source command, exact spec
 evidence, one conflict/missing fact, one decision question, bounded options,
@@ -846,7 +863,8 @@ guessing.
   "left on ledger" or attached to an existing issue, not as a new issue), and
   enforces the **per-run cap of 3 net-new issues** — cap overflow also stays on
   the ledger. **Managed Cloud one-shot does not auto-confirm** new Linear
-  finding issues: persist them on the durable ledger and STOP for operator
+  finding issues: persist them on the durable ledger and continue. Do not stop
+  the loop for that confirmation. Local Plan Mode still stops for operator
   confirmation before creating net-new work. Attach-over-create and
   left-on-ledger outcomes do not need a new-issue yes.
 - New ordinary issues are filed in **Backlog without a cycle**, linked to the
@@ -1205,7 +1223,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `docs/findings/*.md` (plus the plan's Out-of-Scope Findings table), file the
   findings as linked Linear issues (your confirmation gates creation — managed
   Cloud does not auto-confirm net-new finding issues; persist to the ledger and
-  STOP), then
+  continue), then
   **prune** each registered entry into `docs/findings/archive.md` with its issue
   id via `docs-updater` ledger-apply and **delete the run file** (never truncate
   it). If Linear is unavailable, the merged
@@ -1485,7 +1503,7 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   (with source severity/effort preserved for later portfolio grooming),
   attaching to existing issues where the ladder matches, and leaving the rest
   on the ledger, after your confirmation
-  (managed Cloud: persist to the ledger and STOP for that confirmation — do
+  (managed Cloud: persist to the ledger and continue — do
   not auto-confirm net-new finding issues);
   `linear-resolver` returns the finding→outcome mapping (filed / attached /
   umbrella / left-on-ledger) and the orchestrator then **prunes only the filed

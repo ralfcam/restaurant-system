@@ -67,16 +67,27 @@ for docs-artifact, persist the reports/ledger). Be a skeptical reviewer, not
 a rubber stamp. Operate **verdict-first**: you do not edit shipped source to
 make the verdict pass — see the route-back rule below.
 
-### 0. Classify invocation (post-TDD | gate-remediation | docs-artifact)
+### 0. Classify invocation (post-TDD | gate-remediation | docs-artifact | design-spec)
 
-Classify first. Precedence: explicit `docs` argument > gate-remediation
-signal > docs auto-detect > post-TDD default. A mixed dirty set never
-produces a mixed commit — fall through (or STOP) instead.
+Classify first. Precedence: explicit `design-spec` argument > explicit `docs`
+argument > gate-remediation signal > design-spec auto-detect > docs
+auto-detect > post-TDD default. A mixed dirty set never produces a mixed
+commit — fall through (or STOP) instead.
+
+**Design-spec** (`/commit design-spec`) applies when the dirty tree is exactly
+one new `docs/specs/*.md`, plus optional `docs/findings/product-gaps.md` and
+`.cursor/plans/*.plan.md`. The operator argument pins the lane; auto-detect
+uses the same path set when no code, test, or other spec is dirty. The one
+spec must be new, and it must not be `docs/specs/README.md`. On PASS:
+stage those paths only; `gate open --exempt design-spec`; then commit
+`docs(spec): <slug>` with `Fixes RES-###`. Run the dirty-set Prettier
+check on this lane too. Never push; next is `/push`. Anything else
+in the dirty set is not this lane.
 
 **Docs-artifact** (the `/audit` + `/triage` artifact lane) applies when the
 dirty tree is confined to the **artifact allowlist** —
-`docs/verifier-reports/**` (excluding `tdd/**`) and `docs/findings/**` — AND
-any one of:
+`docs/verifier-reports/**` (excluding `tdd/**`), `docs/findings/**`, and
+`.cursor/plans/*.plan.md` — AND any one of:
 
 - the operator passed `docs` (`/commit docs`) — the argument pins the lane;
 - this thread just completed an `/audit` and/or `/triage` run (its report /
@@ -100,8 +111,8 @@ staging safety stops (§5).
 **Artifact-shape review** (docs-artifact's only content gate):
 
 - every changed path is an `/audit` report (`docs/verifier-reports/**`,
-  including `README.md` / `CONSOLIDATION.md`) or a ledger file
-  (`docs/findings/**`);
+  including `README.md` / `CONSOLIDATION.md`), a ledger file
+  (`docs/findings/**`), or a work-order `.cursor/plans/*.plan.md`;
 - ledger additions match the entry format + `(found: …)` provenance in
   [docs/findings/README.md](docs/findings/README.md), and every removed open
   `- [ ]` line reappears in `docs/findings/archive.md` (the archive-prune
@@ -187,7 +198,7 @@ enforce.
   → `CHANGES-REQUESTED (infra)`.
 - **Deployed criteria (`layer: deployed`):** require an executed
   `pnpm deployed` / `pnpm deployed:mutating` run for the pack (not Vitest-only).
-- **Dirty-set Prettier (post-TDD and docs-artifact; skip for gate-remediation):**
+- **Dirty-set Prettier (post-TDD, docs-artifact, and design-spec; skip for gate-remediation):**
   list dirty tracked + untracked paths (`git status --porcelain`; ignored files
   are already excluded). Run `pnpm exec prettier --check` on that set — never
   `prettier --check .` here (whole-tree `format:check` is `/push`'s lint + typecheck + test:unit).
@@ -308,7 +319,8 @@ writes Git history, and it happens **only on PASS** (never on CHANGES-REQUESTED
   `git commit` until this command clears it after this command's PASS.
   CodeRabbit receipts are audit-only and are not read by `gate open` or
   `git commit`. Docs-artifact: `gate open --exempt docs-artifact`.
-  Gate-remediation: `gate open --exempt gate-remediation`. Only this command may
+  Gate-remediation: `gate open --exempt gate-remediation`.
+  Design-spec: `gate open --exempt design-spec`. Only this command may
   open the TDD gate. The exemption lanes remain path-bounded at commit time.
 - **Stage precisely — never blanket-add.** Run `git status` + `git diff` first, then stage
   ONLY the run's files (the diff surface from step 1: the spec edit, the tests, the source,
@@ -445,7 +457,9 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
    `style:`/`chore:` and hand off to `/push`. Docs-artifact: skip §1,
    §2 named-layer, §2.5, §3, §3.5 as PASS blockers; run the artifact-shape
    review + dirty-set Prettier; on PASS commit `docs(<scope>):` (no closing
-   magic word), skip §5a, hand off to `/push`. Post-TDD: continue below.
+   magic word), skip §5a, hand off to `/push`. Design-spec: on PASS commit
+   `docs(spec): <slug>` with `Fixes RES-###` and hand off to `/push`.
+   Post-TDD: continue below.
 2. Establish scope (diff + criteria + issue).
 3. Verify gates ran green (skipped = non-PASS). Post-TDD and
    docs-artifact: also `pnpm exec prettier --check` the dirty
@@ -461,7 +475,8 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
 8. On PASS, stage the run's files precisely and commit (post-TDD: closing
    magic word; gate-remediation: `style:`/`chore:`, no `Fixes` unless a
    tracked issue already owns it; docs-artifact: `docs(<scope>):`, no
-   closing magic word, allowlisted paths only) — PASS authorizes it; only a
+   closing magic word, allowlisted paths only; design-spec: `docs(spec): <slug>`
+   with `Fixes RES-###`) — PASS authorizes it; only a
    safety stop (secret/unscopable change, a non-mechanical diff in the
    gate-remediation lane, or a path outside the artifact allowlist in the
    docs-artifact lane) blocks it. Record the SHA in the report; no Linear
@@ -499,7 +514,10 @@ thinking: { type: "adaptive", effort: "high" }
   instead of committing. Never amend, force-push, skip hooks (`--no-verify`), or update
   git config.
 - **Docs-artifact: never stage a path outside the artifact allowlist**
-  (`docs/verifier-reports/**` excluding `tdd/**`, plus `docs/findings/**`).
+  (`docs/verifier-reports/**` excluding `tdd/**`, `docs/findings/**`, and
+  `.cursor/plans/*.plan.md`).
+- **Design-spec: never stage a path outside** exactly one `docs/specs/*.md`
+  plus optional `docs/findings/product-gaps.md` and `.cursor/plans/*.plan.md`.
   A mixed dirty set is not a docs-artifact commit — route to post-TDD (or
   gate-remediation) instead of mixing.
 - **Docs-artifact: never put a closing magic word** (`Fixes` / `Closes` /

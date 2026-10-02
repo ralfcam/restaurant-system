@@ -25,7 +25,7 @@ deliberate: CodeRabbit reviews the draft HEAD, while `qa.yml` and
 [.cursor/rules/staging-accumulator.mdc](.cursor/rules/staging-accumulator.mdc).
 Typically invoked right after a `/commit` PASS, and again later to prep a
 promotion PR once a batch is ready.
-Run `/intake` before `/push` when a `cursor/` PR is open — `/push` on the local lane advances `origin/staging`, and `/intake`'s descendant check then STOPs that cloud head until it is rebased.
+Conductor `cursor/` PRs skip `/intake` when their `## Gate evidence` head equals `headRefOid`. On those heads `/push` runs intake's two ancestry checks and, on drift, merges `origin/staging` (never rebase, never force-push), then replaces the gate-evidence block. A non-conductor open `cursor/` PR still goes through `/intake` before a local-lane `/push`.
 
 **Why there's no separate "promotion" invocation:** on this repo's `staging`
 accumulator flow, the periodic promotion PR's head **is** `staging` — the same
@@ -65,6 +65,14 @@ thinking: { type: "adaptive", effort: "medium" }
 <instructions>
 
 ## One unified flow
+
+### 0. Managed branch stop
+
+Probe `/v1/meta-data/agent/runtime` the same way `/conduct` does, retrying
+once if the socket is missing. When the trimmed body is exactly `managed` and
+the current branch is `staging` or the default branch, **STOP**. Do not
+commit, push, or open a PR from either branch in a managed VM. Any other
+runtime continues with the steps below.
 
 ### 1. Whole-suite gate (`pnpm lint; pnpm typecheck; pnpm test:unit`, AC-1312-1 / AC-1312-2)
 
@@ -131,6 +139,30 @@ do not invent a classifier agent.
   current one, also skip the push here (note why) — you push only the current
   branch; the pinned PR's own commits are already on its head.
 
+### 2b. Cursor-head firewall
+
+When the current branch matches
+`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`:
+
+1. `git fetch origin staging` and `git fetch origin main`.
+2. Descendant check: `git merge-base --is-ancestor origin/staging HEAD`.
+   - Exit 0: continue.
+   - Exit 1: drift. `git merge origin/staging`. Never rebase. Never
+     force-push. If the merge fails, STOP.
+   - Exit 128 / missing refs: STOP — `cannot verify` ancestry.
+3. Drag-in check: if
+   `git rev-list --count origin/staging..origin/main` is greater than 0 and
+   `git merge-base --is-ancestor origin/main HEAD` exits 0, STOP. Merging
+   `origin/staging` cannot drop those commits, and rebase is forbidden.
+4. After the checks (and any merge), build the `## Gate evidence` block with
+   the CLI. Pass the current PR body on stdin, or an empty stdin when
+   creating. `Head:` is the full `HEAD` SHA. `Result:` is `pass` or
+   `merged origin/staging`.
+
+   ```powershell
+   node .cursor/checks/gate-evidence.mjs replace --head <sha> --result <pass|merged origin/staging>
+   ```
+
 ### 3. Resolve the PR
 
 - Resolve the repo's default branch:
@@ -151,6 +183,9 @@ do not invent a classifier agent.
   feature-PR-on-default STOP above.
 - **No argument:** `gh pr list --head <current-branch> --json number,title,state,isDraft,baseRefName,reviewRequests,url`.
   - **Found:** apply the feature-PR-on-default STOP above; otherwise proceed.
+    When the head matches the cursor-head pattern, run
+    `gh pr edit <n> --body-file` after every push, using the body the
+    gate-evidence CLI printed.
   - **None found — auto-create a draft PR:**
     1. Step 2 must already have published the remote head (branch exists on
        origin). If the branch was never pushed, push first, then continue.
@@ -175,7 +210,12 @@ do not invent a classifier agent.
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
          Include the same Linear URL, owning spec/criteria, executed-test
          evidence, and optional audit-only 4G attempt metadata.
+       - **Duplicate issue PR.** When `<current-branch>` matches
+         `cursor/res-<n>-<4 hex>`, list open PRs and **STOP** if another
+         open PR's `headRefName` starts with `cursor/res-<n>-`. Do not open
+         a second PR for the same issue.
        - `gh pr create --draft --base <that-base> --head <current-branch> --title "..." --body "..."`
+         The body includes the block the gate-evidence CLI printed.
        - Do **not** pre-inject `## Linear close-out` or any `Fixes RES-###`
          line — Step 4 owns trailer aggregation/injection when base is the
          default branch.

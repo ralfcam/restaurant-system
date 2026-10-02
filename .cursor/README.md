@@ -35,17 +35,19 @@ env tools. Runbook:
 [`docs/runbooks/deploy.md`](../docs/runbooks/deploy.md). Rule:
 [`rules/vercel-project.mdc`](rules/vercel-project.mdc).
 
-**Plan Mode only:** [`/audit`](commands/audit.md),
-[`/dispatch`](commands/dispatch.md), and
-[`/curate`](commands/curate.md).
+**Plan Mode only:** [`/audit`](commands/audit.md).
 
 **Managed Cloud-capable:** [`/sdd-to-tdd`](commands/sdd-to-tdd.md),
-[`/capture`](commands/capture.md), and
-[`/triage`](commands/triage.md) are the one-shot commands and default to
+[`/capture`](commands/capture.md), [`/triage`](commands/triage.md),
+[`/dispatch`](commands/dispatch.md), and
+[`/curate`](commands/curate.md) are the one-shot commands and default to
 Plan Mode; managed Cloud
 (`agent/runtime` = `managed`) may one-shot past that gate.
+[`/conduct`](commands/conduct.md) is managed Cloud only (`morning` and `next`).
 [`/design`](commands/design.md) also defaults to Plan Mode; managed Cloud may
-bypass that gate but retains its interactive dialogue and approval stops.
+bypass that gate but retains its interactive dialogue and approval stops,
+except a complete design brief with no open clarification, which is the
+briefed STEP 0C one-shot.
 
 [`/intake`](commands/intake.md) has no Plan Mode gate.
 
@@ -105,21 +107,22 @@ flowchart TD
 
 ## Command map
 
-| Command                                                   | Job                                                                                                                | Typical next                               |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`/audit`](commands/audit.md)                             | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update                                   | `/triage`                                  |
-| [`/triage`](commands/triage.md)                           | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current                               | `/dispatch`                                |
-| [`/curate`](commands/curate.md)                           | Weekly keep-or-drop for Backlog, Todo, and below-floor ledger lines; link what stays                               | `/dispatch`                                |
-| [`/dispatch`](commands/dispatch.md)                       | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; emit confirmed cards + optional Cloud advice | `/design RES-###` or `/sdd-to-tdd RES-###` |
-| [`/design`](commands/design.md)                           | Greenfield spec — hub walk, grill, one new spec file                                                               | `/sdd-to-tdd @<file>` FEATURE              |
-| [`/sdd-to-tdd`](commands/sdd-to-tdd.md)                   | Plan Mode, START, then Red → Green → Refactor                                                                      | `/commit`                                  |
-| [`/commit`](commands/commit.md)                           | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes                                           | `/push`                                    |
-| [`/push`](commands/push.md)                               | Human heads (`sdd/RES-###` or `staging` promotion). Never merges                                                   | `/ready-merge-release PR#` then you merge  |
-| [`/intake`](commands/intake.md)                           | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                                                    | `/ready-merge-release PR#` then you merge  |
-| [`/ready-merge-release`](commands/ready-merge-release.md) | Severity-routes CodeRabbit findings; readies and re-verifies only a clean PR. Never merges                         | You merge                                  |
-| [`/capture`](commands/capture.md)                         | Observation → ledger (Plan Mode default; managed Cloud one-shot)                                                   | `/triage`                                  |
-| [`/tldr`](commands/tldr.md)                               | Recap a plan, chat, or `RES-###` (Ask Mode)                                                                        | —                                          |
-| [`/reflect`](commands/reflect.md)                         | Re-check a thread’s claims against the tree                                                                        | —                                          |
+| Command                                                   | Job                                                                                        | Typical next                               |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| [`/audit`](commands/audit.md)                             | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update           | `/triage`                                  |
+| [`/triage`](commands/triage.md)                           | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current       | `/dispatch`                                |
+| [`/curate`](commands/curate.md)                           | Weekly keep-or-drop for Backlog, Todo, and below-floor ledger lines; link what stays       | `/dispatch`                                |
+| [`/dispatch`](commands/dispatch.md)                       | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; Ready briefs         | `/design RES-###` or `/sdd-to-tdd RES-###` |
+| [`/conduct`](commands/conduct.md)                         | Managed Cloud morning groom and next-issue conductor                                       | operator merge                             |
+| [`/design`](commands/design.md)                           | Greenfield spec — hub walk, grill, one new spec file                                       | `/sdd-to-tdd @<file>` FEATURE              |
+| [`/sdd-to-tdd`](commands/sdd-to-tdd.md)                   | Plan Mode, START, then Red → Green → Refactor                                              | `/commit`                                  |
+| [`/commit`](commands/commit.md)                           | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes                   | `/push`                                    |
+| [`/push`](commands/push.md)                               | Human heads (`sdd/RES-###` or `staging` promotion). Never merges                           | `/ready-merge-release PR#` then you merge  |
+| [`/intake`](commands/intake.md)                           | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                            | `/ready-merge-release PR#` then you merge  |
+| [`/ready-merge-release`](commands/ready-merge-release.md) | Severity-routes CodeRabbit findings; readies and re-verifies only a clean PR. Never merges | You merge                                  |
+| [`/capture`](commands/capture.md)                         | Observation → ledger (Plan Mode default; managed Cloud one-shot)                           | `/triage`                                  |
+| [`/tldr`](commands/tldr.md)                               | Recap a plan, chat, or `RES-###` (Ask Mode)                                                | —                                          |
+| [`/reflect`](commands/reflect.md)                         | Re-check a thread’s claims against the tree                                                | —                                          |
 
 Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 
@@ -127,17 +130,19 @@ Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 
 ## Do not put on the loop
 
-| Skip                                                                             | Why                                         |
-| -------------------------------------------------------------------------------- | ------------------------------------------- |
-| `/audit` after every ticket                                                      | TDD + `/commit` already prove the criterion |
-| `/dispatch` promoting a groomed issue outside the approved `activate-daily-wave` | Portfolio metadata is not activation        |
-| `/dispatch` emitting a card before Todo/current-cycle post-apply confirmation    | Failed/partial promotions are excluded      |
-| `/audit` filing issues or using Linear as an acceptance bar                      | Project update is visibility only           |
-| Treating a Cloud recommendation as launch authorization                          | Advice never assigns, delegates, or spawns  |
-| `/intake` on a non-`cursor/` head                                                | Use `/push`                                 |
-| `/push` while an OPEN `cursor/` PR exists                                        | Intake first                                |
-| Agent `gh pr merge` or Linear In Progress / In Review / Done                     | You merge; automations own those states     |
-| `/review` as a Linear Done gate                                                  | Mode 1 file/plan revise only                |
+| Skip                                                                             | Why                                                                                                        |
+| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `/audit` after every ticket                                                      | TDD + `/commit` already prove the criterion                                                                |
+| `/dispatch` promoting a groomed issue outside the approved `activate-daily-wave` | Portfolio metadata is not activation                                                                       |
+| `/dispatch` emitting a card before Todo/current-cycle post-apply confirmation    | Failed/partial promotions are excluded                                                                     |
+| `/audit` filing issues or using Linear as an acceptance bar                      | Project update is visibility only                                                                          |
+| Treating a Ready brief as launch authorization                                   | Automations you created are the launch authority; a complete brief on a Todo issue is eligibility evidence |
+| `/intake` on a non-`cursor/` head                                                | Use `/push`                                                                                                |
+| `/intake` on a conductor PR whose gate-evidence head matches                     | `push.md` already firewalled it                                                                            |
+| `/push` while an OPEN `cursor/` PR exists without matching gate evidence         | Intake first                                                                                               |
+| Asking the operator a question from `/conduct`                                   | A missing fact is one Clarification required comment, then stop                                            |
+| Agent `gh pr merge` or Linear In Progress / In Review / Done                     | You merge; automations own those states                                                                    |
+| `/review` as a Linear Done gate                                                  | Mode 1 file/plan revise only                                                                               |
 
 ---
 

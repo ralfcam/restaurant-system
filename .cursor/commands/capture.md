@@ -354,7 +354,7 @@ they differ from the operator's guess):
   Otherwise leave current workflow state unchanged, exclude it from capture and
   dispatch, and prepare the stable bounded CLARIFY body. Local Plan Mode shows
   the exact comment and requires approval; a managed Cloud task launched from
-  that issue preauthorizes this visibility comment only.
+  that issue preauthorizes this visibility comment only. An operator-created automation run counts as a launch from the tracked issue.
 - Pure **product decision / preference** with no concrete gap → note in chat,
   do not ledger.
 

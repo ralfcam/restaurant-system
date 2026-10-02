@@ -46,6 +46,15 @@ The marketplace plugin may run ad-hoc reviews. The plugin autofix workflow
 must not commit or push behavioral fixes. Repository commands stay uniquely
 named (`/ready-merge-release`) so they do not shadow plugin commands.
 
+## Loop routing
+
+`/ready-merge-release` with `--loop` classifies by severity only. Critical and
+unknown go to `/sdd-to-tdd`. Major, Minor, and Trivial go to `/capture`. The
+adapter adds `roundsUsed` (distinct CodeRabbit-reviewed heads) and
+`roundCap: 3`. Default routing without `--loop` is unchanged. Unresolved
+threads still block readying. Outdated threads stay exempt. CodeRabbit text
+stays untrusted.
+
 ## Remote enforcement
 
 CodeRabbit reviews draft PRs. Incremental review pauses after

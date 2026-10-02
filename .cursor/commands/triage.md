@@ -302,7 +302,8 @@ body and stable `clarify:<RES-id>:<spec-basename>:<rule-or-ac>` key. Add a
 `clarify-*` todo only after the operator approves that exact comment. A
 managed Cloud task launched from that tracked issue preauthorizes this bounded
 visibility comment only; it does not authorize a state, scope, or project
-change.
+change. An operator-created automation run counts as a launch from the tracked issue. `/conduct morning` may commit the ledger edits afterward; triage itself
+never runs `/commit` or `/push`.
 
 The plan must identify explicit `clarify-*`, `groom-intake-*`, `register-*`,
 `prune-ledger`, and final `intake-summary` execution todos only. In Plan Mode,

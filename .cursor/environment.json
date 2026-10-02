@@ -1,4 +1,8 @@
 {
   "name": "restaurant-system",
-  "install": "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh"
+  "build": {
+    "dockerfile": "cloud.Dockerfile"
+  },
+  "install": "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh",
+  "start": "sudo service docker start"
 }

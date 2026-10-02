@@ -313,7 +313,7 @@ test("PM harness assigns intake to triage and split portfolio/daily scopes to di
     "preferred minimum total active = **5**",
     "hard maximum total active = **10**",
     "Backlog → Todo",
-    "Cloud parallelization recommendations",
+    "Cloud lane: Ready briefs",
     "post-apply re-read",
   ]) {
     assert.ok(dispatch.includes(needle), `dispatch must contain ${needle}`)
@@ -375,7 +375,11 @@ test("doctrine mirrors the intake and scheduling flow", () => {
   assert.ok(staging.includes("full approved"))
   assert.ok(staging.includes("Backlog scope"))
   assert.ok(staging.includes("hard maximum is 10"))
-  assert.ok(staging.includes("recommendation evidence only"))
+  assert.ok(
+    staging.includes("Automations you created are the launch authority"),
+  )
+  assert.ok(staging.includes("eligibility evidence"))
+  assert.ok(staging.includes("exempt from `/intake`"))
   assert.ok(automation.includes("narrowly shared by `/triage` and `/dispatch`"))
   assert.ok(automation.includes("promotes a non-wave issue"))
   assert.match(automation, /Project health is not an\s+issue workflow state/)

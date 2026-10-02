@@ -47,6 +47,7 @@ export const TESTS_PREFIX = "tests/"
 export const DOCS_ARTIFACT_PREFIXES = [
   "docs/findings/",
   "docs/verifier-reports/",
+  ".cursor/plans/",
 ]
 export const TDD_VERIFIER_PREFIX = "docs/verifier-reports/tdd/"
 
@@ -69,7 +70,7 @@ export function writeStdoutJson(obj) {
 
 const VALID_PHASES = ["red", "green", "refactor"]
 
-const VALID_EXEMPTIONS = ["docs-artifact", "gate-remediation"]
+const VALID_EXEMPTIONS = ["docs-artifact", "gate-remediation", "design-spec"]
 
 function defaultState() {
   return {
@@ -189,7 +190,30 @@ export function isLoopRan() {
 export function isDocsArtifactPath(relPath) {
   const path = normalize(relPath)
   if (path.startsWith(TDD_VERIFIER_PREFIX)) return false
+  if (path.startsWith(".cursor/plans/")) return path.endsWith(".plan.md")
   return DOCS_ARTIFACT_PREFIXES.some((prefix) => path.startsWith(prefix))
+}
+
+/** design-spec lane: exactly one docs/specs markdown file, plus optional gaps and plans. */
+export function isDesignSpecLanePath(relPath) {
+  const path = normalize(relPath)
+  if (path === "docs/specs/README.md") return null
+  if (path.startsWith("docs/specs/") && path.endsWith(".md")) return "spec"
+  if (path === "docs/findings/product-gaps.md") return "gaps"
+  if (path.startsWith(".cursor/plans/") && path.endsWith(".plan.md"))
+    return "plan"
+  return null
+}
+
+export function isDesignSpecLaneSet(paths) {
+  if (!paths?.length) return false
+  let specs = 0
+  for (const relPath of paths) {
+    const kind = isDesignSpecLanePath(relPath)
+    if (!kind) return false
+    if (kind === "spec") specs += 1
+  }
+  return specs === 1
 }
 
 export function stagedPathsFromGit(cwd = process.cwd()) {
@@ -198,6 +222,20 @@ export function stagedPathsFromGit(cwd = process.cwd()) {
     encoding: "utf8",
     shell: process.platform === "win32",
   })
+  if (result.status !== 0 || !result.stdout) return []
+  return result.stdout.split("\0").map(normalize).filter(Boolean)
+}
+
+export function addedPathsFromGit(cwd = process.cwd()) {
+  const result = spawnSync(
+    "git",
+    ["diff", "--cached", "--name-only", "--diff-filter=A", "-z"],
+    {
+      cwd,
+      encoding: "utf8",
+      shell: process.platform === "win32",
+    },
+  )
   if (result.status !== 0 || !result.stdout) return []
   return result.stdout.split("\0").map(normalize).filter(Boolean)
 }
@@ -212,13 +250,28 @@ export function evaluateGateOpen({ exemption, dirtyPaths }) {
   if (exemption === "gate-remediation") {
     return { ok: true, exempt: "gate-remediation" }
   }
+  if (exemption === "design-spec") {
+    if (isDesignSpecLaneSet(dirtyPaths)) {
+      return { ok: true, exempt: "design-spec" }
+    }
+    return { ok: false, reason: "exempt_path_mismatch" }
+  }
   return { ok: true, exempt: null, receiptIndependent: true }
+}
+
+function designSpecCommitOk(stagedPaths, addedPaths) {
+  if (!isDesignSpecLaneSet(stagedPaths)) return false
+  const spec = stagedPaths.find(
+    (relPath) => isDesignSpecLanePath(relPath) === "spec",
+  )
+  return Boolean(spec) && (addedPaths || []).includes(spec)
 }
 
 export function evaluateGitCommitPermission({
   loopRan,
   exemption,
   stagedPaths,
+  addedPaths,
 }) {
   if (loopRan) return { ok: false, reason: "loopRan", deny: "tdd" }
   if (exemption === "docs-artifact") {
@@ -229,6 +282,12 @@ export function evaluateGitCommitPermission({
   }
   if (exemption === "gate-remediation") {
     return { ok: true, exempt: "gate-remediation" }
+  }
+  if (exemption === "design-spec") {
+    if (!designSpecCommitOk(stagedPaths, addedPaths)) {
+      return { ok: false, reason: "exempt_path_mismatch", deny: "tdd" }
+    }
+    return { ok: true, exempt: "design-spec" }
   }
   return { ok: true, exempt: null }
 }

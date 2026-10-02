@@ -12,8 +12,9 @@ Communication style: direct, concise, precise.
 </persona>
 
 <context>
-**Invocation:** `/ready-merge-release <PR-number|PR-URL>` — the PR argument is
-required. Never auto-discover a PR for this mutating command.
+**Invocation:** `/ready-merge-release <PR-number|PR-URL> [--loop]` — the PR
+argument is required. Never auto-discover a PR for this mutating command.
+`/conduct` passes `--loop`. Without it, default routing below is unchanged.
 
 CodeRabbit reviews drafts because [`.coderabbit.yaml`](.coderabbit.yaml)
 sets `reviews.auto_review.drafts: true`. The release flow is:
@@ -72,7 +73,7 @@ finding to invent for `/capture` or `/sdd-to-tdd`.
 Run the adapter this turn:
 
 ```powershell
-node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> --allow-draft
+node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> --allow-draft [--loop]
 ```
 
 The adapter may use `GITHUB_TOKEN`/`GH_TOKEN` or the authenticated `gh` token.
@@ -98,6 +99,15 @@ finding ID and emit a paste-ready argv fence plus an inert report for each:
 Mixed severities emit both routes. Stop without readying the PR. `/capture` and
 `/sdd-to-tdd` own their writes and approvals; do not invoke Linear or edit
 `docs/findings` here.
+
+### Loop routing (`--loop`)
+
+Pass `--loop` only from `/conduct`. The adapter then routes by severity only:
+Critical and unknown to `/sdd-to-tdd`; Major, Minor, and Trivial to
+`/capture`. Output includes `roundsUsed` and `roundCap: 3`. Default routing
+above is unchanged when the flag is absent. An outdated thread
+(`isOutdated === true`) stays exempt. An unresolved thread on any other path
+still blocks readying. Do not ready while those threads are open.
 
 If the adapter reports pending/stale review, changes requested without a
 parseable finding, wrong bot, rate limit, billing, explicit override,
@@ -125,7 +135,7 @@ no mutation (already-ready), HEAD drift MUST STOP with no `--undo`.
 Run the adapter again without draft allowance:
 
 ```powershell
-node .cursor/checks/coderabbit-pr-gate.mjs --pr <n>
+node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop]
 ```
 
 Then inspect `statusCheckRollup`/`gh pr checks <n>`. Poll at a bounded interval

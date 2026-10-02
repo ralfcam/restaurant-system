@@ -49,6 +49,94 @@ test("clean snapshot pins US app id and check name", () => {
   assert.equal(result.checkName, US_LATEST_HEAD_CHECK_NAME)
 })
 
+test("loop routing is severity-only and reports the round cap", () => {
+  assert.equal(
+    classifyFindingRouting({ severity: "critical" }, { loop: true }).command,
+    "/sdd-to-tdd",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "major" }, { loop: true }).command,
+    "/capture",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "minor" }, { loop: true }).command,
+    "/capture",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "trivial" }, { loop: true }).command,
+    "/capture",
+  )
+  assert.equal(
+    classifyFindingRouting({ severity: "nope" }, { loop: true }).command,
+    "/sdd-to-tdd",
+  )
+  assert.equal(
+    classifyFindingRouting(
+      { severity: "major", fileName: "lib/example.ts" },
+      { loop: true, inScopePaths: ["lib/example.ts"] },
+    ).command,
+    "/capture",
+  )
+  const looped = evaluateReadyPr(
+    {
+      headSha: "a".repeat(40),
+      isDraft: false,
+      reviews: [
+        {
+          user: { login: "coderabbitai[bot]" },
+          commit_id: "b".repeat(40),
+          state: "COMMENTED",
+        },
+      ],
+    },
+    { loop: true },
+  )
+  assert.equal(looped.roundsUsed, 1)
+  assert.equal(looped.roundCap, 3)
+  const plain = evaluateReadyPr(load("remote-clean.json"))
+  assert.equal(plain.roundsUsed, undefined)
+})
+
+function unresolvedLoopSnapshot(severity) {
+  return {
+    headSha: "a".repeat(40),
+    isDraft: false,
+    reviews: [
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: "a".repeat(40),
+        state: "COMMENTED",
+      },
+    ],
+    threads: [
+      {
+        isResolved: false,
+        path: "lib/example.ts",
+        comments: [
+          {
+            databaseId: 1,
+            user: { login: "coderabbitai[bot]" },
+            path: "lib/example.ts",
+            body: `| _${severity}_ | **Example**\n<!-- cr-comment:v1:${severity} -->\n`,
+          },
+        ],
+      },
+    ],
+  }
+}
+
+test("loop mode routes an unresolved Major thread to /capture and Critical to /sdd-to-tdd", () => {
+  const major = evaluateReadyPr(unresolvedLoopSnapshot("Major"), {
+    loop: true,
+  })
+  assert.equal(major.ok, false)
+  assert.equal(major.findings[0].command, "/capture")
+  const critical = evaluateReadyPr(unresolvedLoopSnapshot("Critical"), {
+    loop: true,
+  })
+  assert.equal(critical.findings[0].command, "/sdd-to-tdd")
+})
+
 test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
   assert.equal(
     classifyFindingRouting(

@@ -85,10 +85,14 @@ First, determine whether you are in Plan Mode.
   ```
 
   Classify from the response body, trimmed:
-  - Exactly `managed` (Cursor-managed Cloud Agent VM) → enter
+  - Exactly `managed` (Cursor-managed Cloud Agent VM), a complete `/design`
+    brief (`node .cursor/checks/ready-brief.mjs -`, description on stdin),
+    and no open clarification → enter **STEP 0C — BRIEFED DESIGN ONE-SHOT**.
+    Otherwise, when the runtime is exactly `managed`, enter
     **STEP 0B — MANAGED CLOUD INTERACTIVE**. Do not emit the Plan Mode stop.
   - Socket missing, HTTP error, empty body, self-hosted, `unknown`, or any
-    value other than exactly `managed` → fail closed. MUST NOT enter STEP 0B.
+    value other than exactly `managed` → fail closed. MUST NOT enter STEP 0B
+    or STEP 0C.
     Output exactly:
     "/design runs in Plan Mode only. Switch to Plan Mode (Shift+Tab, or the
     mode picker) and re-run `/design [idea]`." Then end the turn.
@@ -126,6 +130,22 @@ native plan acceptance.
 After the work-order exists, execute only its listed PHASE 5 todos in that same
 approval turn. Stop on any unresolved decision, changed content, unavailable
 delegation, scope violation, or failed write; never broaden the approved plan.
+
+## STEP 0C — BRIEFED DESIGN ONE-SHOT
+
+Entry is managed Cloud, a complete design brief, and no open clarification.
+Write `.cursor/plans/<plan-slug>.plan.md` first; the brief is the approval.
+Then delegate `linear-resolver` START in the background and do not wait:
+
+`Use the linear-resolver subagent to start work on <RES-###> (plan: <plan-slug>)`
+
+That `Work started:` comment is the conductor's claim. The brief supplies the
+STEP 2 answers (purpose and users, MVP, domain placement, constraints, out of
+scope). Keep the hub walk and the hub-owner stop, the milestone route, and
+contradiction handling (CLARIFY, then stop).
+
+Write only the one new spec and any product-gaps deferrals. Do not ask
+questions. The operator's spec-PR merge replaces `Go ahead`. The conductor, not `/design`, runs commit and push. STEP 0B (interactive) is unchanged.
 
 ## STEP 1 — HUB WALK (does this already have an owner?)
 
@@ -215,7 +235,7 @@ Propose:
 Output the plan (format below) and stop. The spec write happens only in
 PHASE 5, and only after the operator gives explicit `Go ahead` on the exact
 spec content shown — not a vague "looks good" on an earlier partial draft.
-In managed Cloud, also stop and wait for the explicit `Go ahead`; STEP 0B
+In managed Cloud, except STEP 0C, also stop and wait for the explicit `Go ahead`; STEP 0B
 waives no dialogue or approval boundary. Only that later approval turn writes
 the managed-Cloud work-order and enters PHASE 5.
 
@@ -224,8 +244,9 @@ the managed-Cloud work-order and enters PHASE 5.
 You are a **design orchestrator**, not `/sdd-to-tdd`. When this plan is
 executed:
 
-- In managed Cloud, the approved managed-Cloud work-order MUST exist before
-  the first write or delegation. Execute only the exact todos it lists.
+- In managed Cloud, except STEP 0C, the approved managed-Cloud work-order MUST exist before
+  the first write or delegation. Execute only the exact todos it lists. STEP 0C
+  writes that work-order first, then delegates START.
 - Your **only** writes are: (1) the approved spec write — the **one** new spec
   file under `docs/specs/**` (design owns spec authorship for this
   genuinely-new case directly — no `tdd-*` subagent, no TDD loop; that begins
@@ -240,9 +261,9 @@ executed:
   do so. `/design` produces a spec, nothing else.
 - You MUST NOT edit an **existing** spec file — STEP 1's hub walk already
   routed that case to `/sdd-to-tdd @<canonical-file>` before execution began.
-- You MUST NOT call Linear MCP directly. Except for the bounded approved
-  CLARIFY delegation above, do not delegate `linear-resolver` or mutate an
-  issue.
+- You MUST NOT call Linear MCP directly. Except for STEP 0C's START
+  delegation and the bounded approved CLARIFY delegation above, do not
+  delegate `linear-resolver` or mutate an issue.
 - You MUST NOT auto-run `/sdd-to-tdd` — surface it as the Next step, a
   separate operator-initiated turn.
 - If out-of-scope deferrals exist, delegate **one** `docs-updater` Task (same
@@ -265,7 +286,7 @@ docs/findings/README.md entry format."` Each line stamped
 - Outside Plan Mode, DO NOT read the repo or run the workflow unless STEP 0's
   metadata probe returns exactly `managed`; every other result stops with the
   Plan Mode instruction.
-- Managed Cloud does not waive any dialogue or approval step. DO NOT write a
+- Managed Cloud, except STEP 0C, does not waive any dialogue or approval step. DO NOT write a
   work-order or enter PHASE 5 until the operator approves the exact complete
   STEP 4 spec with `Go ahead`.
 - DO NOT draft a new spec file when STEP 1's hub walk finds an existing
@@ -298,7 +319,7 @@ open with the Execution Protocol block above **verbatim**.
 
 ## Mode Check
 
-- Plan Mode: YES (proceeding) | CLOUD-MANAGED (interactive) | NO (stopped)
+- Plan Mode: YES (proceeding) | CLOUD-MANAGED (interactive) | NO (stopped) | CLOUD-MANAGED (briefed one-shot)
 - Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | cannot verify
 - Work-order: `.cursor/plans/<plan-slug>.plan.md` after explicit approval |
   n/a until approval / in Plan Mode
