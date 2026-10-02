@@ -65,7 +65,7 @@ const walkIn = { table_label: "4", party_size: 2 }
 const walkInToday = "2026-10-02"
 const walkInNow = "12:21"
 
-function thenable<T>(value: T) {
+function thenable<T>(value: T, insertValue?: T) {
   const builder: Record<string, unknown> = {}
   const self = new Proxy(builder, {
     get(_target, prop) {
@@ -78,7 +78,7 @@ function thenable<T>(value: T) {
       if (prop === "insert") {
         return (...args: unknown[]) => {
           mocks.insert(...args)
-          return self
+          return thenable(insertValue ?? value)
         }
       }
       if (prop === "single" || prop === "maybeSingle") {
@@ -192,6 +192,11 @@ describe("walk-in seating", () => {
     )
     const selectedPanel = floor.slice(floor.indexOf("{selected ?"))
     expect(selectedPanel).toContain('data-testid="walk-in-seat"')
+    expect(selectedPanel).toContain("seatWalkIn(")
+    expect(selectedPanel).toContain('data-testid="walk-in-party-size"')
+    expect(selectedPanel).toContain('data-testid="walk-in-name"')
+    expect(selectedPanel).toContain('data-testid="walk-in-phone"')
+    expect(selectedPanel).toContain('data-testid="walk-in-email"')
   })
 
   it("successful walk-in inserts one seated reservation for today and now and sends no confirmation email", async () => {
@@ -283,16 +288,30 @@ describe("walk-in seating", () => {
     mocks.requireStaffUser.mockResolvedValue(superAdmin)
     mocks.getUser.mockResolvedValue({ data: { user: superAdmin } })
     mocks.insert.mockClear()
-    mocks.from.mockImplementation(() =>
-      thenable({
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "reservations") {
+        return thenable(
+          { data: [], error: null },
+          {
+            data: null,
+            error: { message: triggerMessage, code: "P0001" },
+          },
+        )
+      }
+      if (table === "tables") {
+        return thenable({
+          data: { label: "4", seats: 4 },
+          error: null,
+        })
+      }
+      return thenable({
         data: {
-          id: "walk-in-row",
-          status: "seated",
-          conf_code: "TVL-1111",
+          occupancy_duration_minutes: 90,
+          safety_buffer_minutes: 15,
         },
-        error: { message: triggerMessage, code: "P0001" },
-      }),
-    )
+        error: null,
+      })
+    })
 
     const refused = await seatWalkIn(walkIn)
     expect(mocks.insert).toHaveBeenCalledTimes(1)
@@ -442,6 +461,122 @@ describe("walk-in seating", () => {
       date: walkInToday,
       time: walkInNow,
     })
+  })
+
+  it("walk-in fit checks refuse when the table, settings, or occupancy read errors", async () => {
+    const actions = (await import("@/app/actions/reservations")) as {
+      seatWalkIn?: (input: {
+        table_label: string
+        party_size: number
+      }) => Promise<{ error?: string }>
+    }
+    const seatWalkIn = actions.seatWalkIn as NonNullable<
+      typeof actions.seatWalkIn
+    >
+    const superAdmin = {
+      id: "super-admin-1",
+      app_metadata: { role: "super_admin" },
+    }
+    mocks.requireStaffUser.mockResolvedValue(superAdmin)
+    mocks.getUser.mockResolvedValue({ data: { user: superAdmin } })
+
+    const settingsRow = {
+      data: {
+        occupancy_duration_minutes: 90,
+        safety_buffer_minutes: 15,
+      },
+      error: null,
+    }
+    const tableRow = { data: { label: "4", seats: 4 }, error: null }
+
+    mocks.insert.mockClear()
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "tables") {
+        return thenable({ data: null, error: { message: "tables down" } })
+      }
+      return thenable({ data: [], error: null })
+    })
+    const tableFailed = await seatWalkIn({ table_label: "4", party_size: 2 })
+    expect(mocks.insert).not.toHaveBeenCalled()
+    expect(tableFailed).toEqual({
+      error: "errors.reservation.tablesLoadFailed",
+    })
+
+    mocks.insert.mockClear()
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "tables") return thenable(tableRow)
+      if (table === "restaurant_settings") {
+        return thenable({ data: null, error: { message: "settings down" } })
+      }
+      return thenable({ data: [], error: null })
+    })
+    const settingsFailed = await seatWalkIn({
+      table_label: "4",
+      party_size: 2,
+    })
+    expect(mocks.insert).not.toHaveBeenCalled()
+    expect(settingsFailed).toEqual({
+      error: "errors.availability.settingsLoadFailed",
+    })
+
+    mocks.insert.mockClear()
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "tables") return thenable(tableRow)
+      if (table === "restaurant_settings") return thenable(settingsRow)
+      return thenable({ data: null, error: { message: "reservations down" } })
+    })
+    const occupancyFailed = await seatWalkIn({
+      table_label: "4",
+      party_size: 2,
+    })
+    expect(mocks.insert).not.toHaveBeenCalled()
+    expect(occupancyFailed).toEqual({ error: "errors.reservation.loadFailed" })
+  })
+
+  it("walk-in insert maps a serialized table overlap refusal to the catalog key", async () => {
+    const actions = (await import("@/app/actions/reservations")) as {
+      seatWalkIn?: (input: {
+        table_label: string
+        party_size: number
+      }) => Promise<{ error?: string }>
+    }
+    const seatWalkIn = actions.seatWalkIn as NonNullable<
+      typeof actions.seatWalkIn
+    >
+    const superAdmin = {
+      id: "super-admin-1",
+      app_metadata: { role: "super_admin" },
+    }
+    mocks.requireStaffUser.mockResolvedValue(superAdmin)
+    mocks.getUser.mockResolvedValue({ data: { user: superAdmin } })
+    mocks.insert.mockClear()
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "tables") {
+        return thenable({ data: { label: "4", seats: 4 }, error: null })
+      }
+      if (table === "restaurant_settings") {
+        return thenable({
+          data: {
+            occupancy_duration_minutes: 90,
+            safety_buffer_minutes: 15,
+          },
+          error: null,
+        })
+      }
+      return thenable(
+        { data: [], error: null },
+        {
+          data: null,
+          error: {
+            message: "That table is already reserved for an overlapping time.",
+            code: "P0001",
+          },
+        },
+      )
+    })
+    const raced = await seatWalkIn({ table_label: "4", party_size: 2 })
+    expect(mocks.insert).toHaveBeenCalledTimes(1)
+    expect(raced).toEqual({ error: "errors.reservation.tableOverlap" })
   })
 
   it("seated walk-in completion persists completed, stamps completed_at, clears the label, and frees the table", async () => {
