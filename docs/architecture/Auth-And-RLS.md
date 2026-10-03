@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-10-03
 
 ## Auth flow
 
@@ -159,14 +159,16 @@ guest INSERT is not table-wide. Identity is still unique:
 `CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`
 immediately after the `reservations` table create, even though guests can set
 `conf_code`. Server-owned `id`, `status`, `table_label`,
-`created_at`, and `completed_at` have no guest INSERT privilege.
+`created_at`, `completed_at`, and `allergens` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
 There is no authenticated `FOR ALL` (or other write) policy on those catalog
 tables.
-Nullable `reservations.email` and `reservations.completed_at` are in baseline
+Nullable `reservations.email`, `reservations.completed_at`, and
+`reservations.allergens` are in baseline
 (CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
-is unchanged. `review_email_sends` is service-role-only (`ENABLE RLS`,
+is unchanged. `allergens` is a service-role update after the guest insert
+(RES-75 / AL-2). `review_email_sends` is service-role-only (`ENABLE RLS`,
 `service_role` `FOR ALL`, `GRANT ALL`, `REVOKE ALL` from `anon`/`authenticated`).
 Spec: [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
 PV-9, PV-12, PV-13.

@@ -107,7 +107,9 @@ CREATE TABLE IF NOT EXISTS reservations (
   -- RES-104 / GP-2: stored trim+lower membership key (not inserted; generated).
   email_normalized TEXT GENERATED ALWAYS AS (lower(btrim(email))) STORED,
   -- RES-45 / PV-13: completion clock for post-visit review delay (not updated_at).
-  completed_at TIMESTAMPTZ
+  completed_at TIMESTAMPTZ,
+  -- RES-75 / AL-2: nullable allergen text. Service-role write only; not guest-inserted.
+  allergens TEXT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code);
@@ -132,6 +134,9 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email_normalized TEXT
 -- RES-104 / GP-2: btree on the generated membership key for getGuestProfile .eq.
 CREATE INDEX IF NOT EXISTS reservations_email_normalized_idx
   ON public.reservations (email_normalized);
+-- RES-75 / AL-2: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without allergens; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS allergens TEXT;
 
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 
@@ -143,8 +148,8 @@ CREATE POLICY "Allow public insert reservations"
 
 -- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
 -- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
--- id, status, table_label, created_at, completed_at, email_normalized have no
--- guest INSERT privilege.
+-- id, status, table_label, created_at, completed_at, email_normalized, and
+-- allergens (RES-75) have no guest INSERT privilege.
 -- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 

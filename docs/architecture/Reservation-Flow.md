@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-09-25
+**Last updated:** 2026-10-03
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-22 for the segmented homepage widget, occupancy window,
@@ -38,7 +38,7 @@ to guest details only after a slot is selected (no `createReservation` on pick).
 Step 2 requires guest name and a valid email; phone is optional (BW-7 / BW-13).
 When `createReservation` returns `Booking denied: This time is fully booked.`,
 step 2 stays visible and renders that string in-widget (`role="alert"`); this
-path does not toast or change step, and does not clear guest name / email / phone
+path does not toast or change step, and does not clear guest name / email / phone / allergens
 (BW-16). Step-2 Back calls `setFullyBookedError(null)` with `setStep(1)` /
 `setSlot(null)` so the denial is attempt-scoped. Other confirm errors keep their
 existing toasts.
@@ -50,6 +50,17 @@ manual-UAT. `conf_code` uniqueness is database-enforced:
 immediately after the `reservations` table create in
 `supabase/migrations/00000000000000_baseline.sql`. Guest INSERT still includes
 `conf_code`; `createReservation` 23505 retry is unchanged.
+
+**Allergen capture.** Step 2 includes an optional allergens field
+(`data-testid="reservation-allergens-input"`). Blank or omitted input is
+stored as null. A non-blank value is trimmed, at most 500 characters, and
+written by the service role onto nullable `reservations.allergens` after
+insert; the guest INSERT allowlist does not include the column. A longer
+value creates no row. If that write fails, the new reservation is removed.
+Staff `/admin/reservations` shows a non-null value on that row
+(`data-testid="reservation-allergens"`). `transitionReservationStatus` to
+`completed` does not change the column. Spec:
+[../specs/allergen-capture.md](../specs/allergen-capture.md) AL-1–AL-6.
 
 **Occupancy window.** `confirmed` and `seated` occupy covers on
 `[start, nextBookableTime(start))` (occupancy + staff-manageable buffer,
