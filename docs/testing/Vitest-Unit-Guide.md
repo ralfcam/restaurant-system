@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-03
 
 ## Layout
 
@@ -86,6 +86,12 @@
   (blank guest field stores null; trimmed service-role write and rollback;
   staff row shows non-null text; per-reservation isolation; completed
   transition leaves `allergens`; name, email, party cap, and confirmation stay)
+- External booking import (EI-1–EI-8): `tests/unit/reservations/external-booking-import.test.ts`
+  (staff gate and `reservation-import`; hidden `external_booking_id` omitted
+  from guest INSERT; confirmed insert, existing-id skip, and in-file duplicate;
+  all-or-nothing on a bad row or trigger refusal; no import exception on
+  `validate_reservation_availability`; file shape via exported `DATE_RE` /
+  `TIME_RE`; result counts and the date list)
 - Staff list guest email (STAFF-GUEST-EMAIL / STAFF-GUEST-EMAIL-ABSENT):
   `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
   visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit

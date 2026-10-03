@@ -109,7 +109,9 @@ CREATE TABLE IF NOT EXISTS reservations (
   -- RES-45 / PV-13: completion clock for post-visit review delay (not updated_at).
   completed_at TIMESTAMPTZ,
   -- RES-75 / AL-2: nullable allergen text. Service-role write only; not guest-inserted.
-  allergens TEXT
+  allergens TEXT,
+  -- RES-80 / EI-8: nullable external booking id. Service-role write only; not guest-inserted.
+  external_booking_id TEXT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code);
@@ -137,6 +139,13 @@ CREATE INDEX IF NOT EXISTS reservations_email_normalized_idx
 -- RES-75 / AL-2: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
 -- without allergens; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS allergens TEXT;
+-- RES-80 / EI-8: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without external_booking_id; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS external_booking_id TEXT;
+-- RES-80 / EI-8: partial unique index; nulls stay out, each non-null id appears once.
+CREATE UNIQUE INDEX IF NOT EXISTS reservations_external_booking_id_uidx
+  ON public.reservations (external_booking_id)
+  WHERE external_booking_id IS NOT NULL;
 
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 
@@ -148,8 +157,8 @@ CREATE POLICY "Allow public insert reservations"
 
 -- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
 -- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
--- id, status, table_label, created_at, completed_at, email_normalized, and
--- allergens (RES-75) have no guest INSERT privilege.
+-- id, status, table_label, created_at, completed_at, email_normalized,
+-- allergens (RES-75), and external_booking_id (RES-80 / EI-8) have no guest INSERT privilege.
 -- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 
@@ -570,6 +579,67 @@ $$;
 
 REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated;
+
+-- RES-80 / EI-6: service-role import. An availability failure aborts the call.
+CREATE OR REPLACE FUNCTION import_external_reservations(rows jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = ''
+AS $import_ext$
+DECLARE
+  item jsonb;
+  inserted_count integer := 0;
+  skipped_count integer := 0;
+BEGIN
+  FOR item IN
+    SELECT jsonb_array_elements(rows)
+  LOOP
+    IF EXISTS (
+      SELECT 1
+      FROM public.reservations
+      WHERE external_booking_id = (item->>'external_booking_id')
+    ) THEN
+      skipped_count := skipped_count + 1;
+    ELSE
+      INSERT INTO public.reservations (
+        guest_name,
+        party_size,
+        date,
+        time,
+        phone,
+        email,
+        notes,
+        status,
+        table_label,
+        conf_code,
+        external_booking_id
+      ) VALUES (
+        COALESCE(item->>'guest_name', ''),
+        (item->>'party_size')::integer,
+        (item->>'date')::date,
+        item->>'time',
+        COALESCE(item->>'phone', ''),
+        item->>'email',
+        item->>'notes',
+        'confirmed',
+        NULL,
+        item->>'conf_code',
+        item->>'external_booking_id'
+      );
+      inserted_count := inserted_count + 1;
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'inserted', inserted_count,
+    'skipped', skipped_count
+  );
+END;
+$import_ext$;
+
+REVOKE ALL ON FUNCTION import_external_reservations(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION import_external_reservations(jsonb) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION import_external_reservations(jsonb) TO service_role;
 
 -- Atomic replace of the full weekly opening-hour schedule (staff / service role).
 -- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
