@@ -198,6 +198,8 @@
       "nextDay": "Jour suivant",
       "today": "Aujourd'hui",
       "refresh": "Actualiser",
+      "importCsv": "Importer un CSV",
+      "importResult": "{inserted} ajoutées, {skipped} ignorées",
       "searchPlaceholder": "Rechercher un nom ou un téléphone",
       "columnTime": "Heure",
       "columnGuest": "Convive",
@@ -593,7 +595,9 @@
       "tableOverlap": "Cette table est déjà réservée sur un créneau qui se chevauche.",
       "tablesLoadFailed": "Impossible de charger les tables.",
       "listFilterEmpty": "Aucune réservation ne correspond à vos filtres.",
-      "listDateEmpty": "Aucune réservation pour cette date."
+      "listDateEmpty": "Aucune réservation pour cette date.",
+      "importDuplicateId": "Ce fichier répète le même identifiant de réservation externe.",
+      "importInvalidFile": "Ce fichier ne correspond pas au format d'import des réservations externes."
     },
     "operations": {
       "unauthorized": "Non autorisé.",

@@ -159,16 +159,20 @@ guest INSERT is not table-wide. Identity is still unique:
 `CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`
 immediately after the `reservations` table create, even though guests can set
 `conf_code`. Server-owned `id`, `status`, `table_label`,
-`created_at`, `completed_at`, and `allergens` have no guest INSERT privilege.
+`created_at`, `completed_at`, `allergens`, and `external_booking_id` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
 There is no authenticated `FOR ALL` (or other write) policy on those catalog
 tables.
-Nullable `reservations.email`, `reservations.completed_at`, and
-`reservations.allergens` are in baseline
+Nullable `reservations.email`, `reservations.completed_at`,
+`reservations.allergens`, and `reservations.external_booking_id` are in baseline
 (CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
 is unchanged. `allergens` is a service-role update after the guest insert
-(RES-75 / AL-2). `review_email_sends` is service-role-only (`ENABLE RLS`,
+(RES-75 / AL-2). `external_booking_id` is written only by service-role
+`import_external_reservations` (`SET search_path = ''`; `REVOKE ALL` from
+`PUBLIC`, `anon`, and `authenticated`; `GRANT EXECUTE` to `service_role`) and
+is unique when non-null (`reservations_external_booking_id_uidx`
+`WHERE external_booking_id IS NOT NULL`; RES-80 / EI-8). `review_email_sends` is service-role-only (`ENABLE RLS`,
 `service_role` `FOR ALL`, `GRANT ALL`, `REVOKE ALL` from `anon`/`authenticated`).
 Spec: [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
 PV-9, PV-12, PV-13.

@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-03
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -176,6 +176,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | FEATURE walk-in seating (`res-83_walk_in_seating_41f0`)                                           | 2026-10-02 | `specs/walk-in-seating.md` (WI-1–WI-8 impl-trace), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                           |
 | G-CR3 pause main gate (`gcr3_pause_main_gate_7f3a1c90`)                                           | 2026-10-02 | `specs/dev-toolchain.md` (G-CR3 C1–C2 pause trace), `testing/Design-And-Patterns.md`, `specs/README.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                       |
 | FEATURE allergen capture (`res-75_allergen_capture_b4e8c1a7`)                                     | 2026-10-02 | `specs/allergen-capture.md` (AL-1–AL-6, already the contract), `architecture/Reservation-Flow.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                             |
+| FEATURE external booking import (`res-80_external_booking_import_c4e1`)                           | 2026-10-03 | `specs/external-booking-import.md` (EI-1–EI-8 impl-trace), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                   |
 
 ## Seed path
 

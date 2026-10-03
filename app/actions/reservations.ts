@@ -15,8 +15,10 @@ import {
   getNowTimeInRestaurantTZ,
 } from "@/lib/timezone"
 import {
+  DATE_RE,
   EMAIL_RE,
   PHONE_RE,
+  TIME_RE,
   validateReservationPayload,
   type ReservationPayload,
 } from "@/lib/reservations/validation"
@@ -353,6 +355,98 @@ export async function seatWalkIn(input: {
   }
   if (table?.id) {
     await syncTableGroupStatus(input.table_label, "seated")
+  }
+  return {}
+}
+
+export async function importExternalReservations(
+  csvText: string,
+): Promise<{ error?: string; inserted?: number; skipped?: number }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) redirect("/auth/login")
+    return { error: "errors.reservation.unauthorized" }
+  }
+
+  const supabase = createServiceClient()
+  const lines = csvText.split(/\r?\n/)
+  if (
+    lines[0] !==
+    "external_booking_id,guest_name,party_size,date,time,phone,email,notes"
+  ) {
+    return { error: "errors.reservation.importInvalidFile" }
+  }
+  const dataLines = lines.filter((line) => line.trim() !== "").slice(1)
+  const rows = dataLines.map((line) => {
+    const [
+      externalBookingId = "",
+      guestName = "",
+      partySize = "",
+      date = "",
+      time = "",
+      phone = "",
+      email = "",
+      notes = "",
+    ] = line.split(",")
+    return {
+      external_booking_id: externalBookingId.trim(),
+      guest_name: guestName.trim(),
+      party_size: Number(partySize),
+      date: date.trim(),
+      time: time.trim(),
+      phone: phone.trim(),
+      email: email.trim() || null,
+      notes: notes.trim() || null,
+      status: "confirmed" as const,
+      table_label: null,
+      conf_code: generateConfCode(),
+    }
+  })
+
+  for (const row of rows) {
+    if (
+      row.external_booking_id === "" ||
+      !DATE_RE.test(row.date) ||
+      !TIME_RE.test(row.time)
+    ) {
+      return { error: "errors.reservation.importInvalidFile" }
+    }
+    if (row.phone && !PHONE_RE.test(row.phone)) {
+      return { error: "errors.reservation.phoneInvalid" }
+    }
+    if (row.email && !EMAIL_RE.test(row.email)) {
+      return { error: "errors.reservation.emailInvalid" }
+    }
+    if (!Number.isInteger(row.party_size) || row.party_size < 1) {
+      return { error: "errors.reservation.partySizeInvalid" }
+    }
+  }
+
+  const seenIds = new Set<string>()
+  for (const row of rows) {
+    if (seenIds.has(row.external_booking_id)) {
+      return { error: "errors.reservation.importDuplicateId" }
+    }
+    seenIds.add(row.external_booking_id)
+  }
+
+  const { data, error } = await supabase.rpc("import_external_reservations", {
+    rows,
+  })
+  if (error) return { error: error.message }
+  if (
+    data !== null &&
+    typeof data === "object" &&
+    "inserted" in data &&
+    "skipped" in data &&
+    typeof data.inserted === "number" &&
+    typeof data.skipped === "number"
+  ) {
+    return { inserted: data.inserted, skipped: data.skipped }
   }
   return {}
 }

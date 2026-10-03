@@ -198,6 +198,8 @@
       "nextDay": "Next day",
       "today": "Today",
       "refresh": "Refresh",
+      "importCsv": "Import CSV",
+      "importResult": "{inserted} inserted, {skipped} skipped",
       "searchPlaceholder": "Search name or phone",
       "columnTime": "Time",
       "columnGuest": "Guest",
@@ -593,7 +595,9 @@
       "tableOverlap": "That table is already reserved for an overlapping time.",
       "tablesLoadFailed": "Could not load tables.",
       "listFilterEmpty": "No reservations match your filters.",
-      "listDateEmpty": "No reservations for this date."
+      "listDateEmpty": "No reservations for this date.",
+      "importDuplicateId": "This file lists the same external booking id more than once.",
+      "importInvalidFile": "This file does not match the external booking import format."
     },
     "operations": {
       "unauthorized": "Unauthorized.",

@@ -28,6 +28,7 @@ import {
   transitionReservationStatus,
   undoReservationStatus,
   getReservationsByDate,
+  importExternalReservations,
 } from "@/app/actions/reservations"
 import {
   RESERVATION_STATUS_META,
@@ -118,12 +119,33 @@ export function ReservationsManager({
   const [tables, setTables] = useState<ReservationTableOption[]>([])
   const [assigningId, setAssigningId] = useState<string | null>(null)
   const [listError, setListError] = useState<string | undefined>()
+  const [importCounts, setImportCounts] = useState<{
+    inserted: number
+    skipped: number
+  } | null>(null)
+  const [listEpoch, setListEpoch] = useState(0)
+
+  async function importCsv(file: File) {
+    const result = await importExternalReservations(await file.text())
+    if (
+      result.error ||
+      typeof result.inserted !== "number" ||
+      typeof result.skipped !== "number"
+    ) {
+      setImportCounts(null)
+      if (result.error) toast.error(t(result.error))
+      return
+    }
+    setImportCounts({ inserted: result.inserted, skipped: result.skipped })
+    setListEpoch((epoch) => epoch + 1)
+    startTransition(() => router.refresh())
+  }
 
   useEffect(() => {
     getReservationTables().then(setTables)
   }, [])
 
-  // Refetch whenever the admin navigates to a new date. The server action uses
+  // Refetch when the date changes or an import finishes. The server action uses
   // the service-role client so RLS never filters out rows on the admin side.
   useEffect(() => {
     let cancelled = false
@@ -141,7 +163,7 @@ export function ReservationsManager({
     return () => {
       cancelled = true
     }
-  }, [currentDate, t])
+  }, [currentDate, listEpoch, t])
 
   function navigateToDate(date: string) {
     startTransition(() => {
@@ -300,10 +322,29 @@ export function ReservationsManager({
             {t("staff.reservations.today")}
           </Button>
         )}
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          data-testid="reservation-import"
+          aria-label={t("staff.reservations.importCsv")}
+          className="ml-auto max-w-[14rem] text-sm"
+          onChange={(event) => {
+            const file = event.currentTarget.files?.[0]
+            event.currentTarget.value = ""
+            if (file) void importCsv(file)
+          }}
+        />
+        {importCounts ? (
+          <p data-testid="reservation-import-result" className="text-sm">
+            {t("staff.reservations.importResult", {
+              inserted: importCounts.inserted,
+              skipped: importCounts.skipped,
+            })}
+          </p>
+        ) : null}
         <Button
           variant="ghost"
           size="icon"
-          className="ml-auto"
           onClick={() => startTransition(() => router.refresh())}
           disabled={isPending}
           title={t("staff.reservations.refresh")}
