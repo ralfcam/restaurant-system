@@ -510,7 +510,14 @@
       "chooseHeroImage": "Choisir une image",
       "chooseDifferentHero": "Choisir une autre image",
       "removeHero": "Retirer l'image d'en-tête",
-      "saveHero": "Enregistrer l'image d'en-tête"
+      "saveHero": "Enregistrer l'image d'en-tête",
+      "restaurantDisplayName": "Nom affiché du restaurant",
+      "widgetTagline": "Accroche",
+      "welcomeTitle": "Titre d'accueil",
+      "welcomeMessage": "Message d'accueil",
+      "closingMessage": "Message de clôture",
+      "showReservationPhone": "Afficher le téléphone de réservation",
+      "saveWidgetCopy": "Enregistrer"
     },
     "marketing": {
       "title": "Communication",

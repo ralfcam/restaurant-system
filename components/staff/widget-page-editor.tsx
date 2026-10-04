@@ -1,6 +1,7 @@
 "use client"
 
 import type { FormEvent } from "react"
+import { useTranslations } from "next-intl"
 import { updateStandaloneWidgetCopy } from "@/app/actions/widget-page"
 
 const TEXT_FIELDS = [
@@ -11,7 +12,17 @@ const TEXT_FIELDS = [
   "closing_message",
 ] as const
 
+const FIELD_LABEL_KEYS = {
+  restaurant_display_name: "staff.branding.restaurantDisplayName",
+  tagline: "staff.branding.widgetTagline",
+  welcome_title: "staff.branding.welcomeTitle",
+  welcome_message: "staff.branding.welcomeMessage",
+  closing_message: "staff.branding.closingMessage",
+} as const
+
 export function WidgetPageEditor() {
+  const t = useTranslations()
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const data = new FormData(event.currentTarget)
@@ -32,15 +43,15 @@ export function WidgetPageEditor() {
     <form data-testid="widget-page-editor" onSubmit={onSubmit}>
       {TEXT_FIELDS.map((name) => (
         <label key={name}>
-          {name}
+          {t(FIELD_LABEL_KEYS[name])}
           <input name={name} />
         </label>
       ))}
       <label>
-        show_reservation_phone
+        {t("staff.branding.showReservationPhone")}
         <input type="checkbox" name="show_reservation_phone" />
       </label>
-      <button type="submit">Save</button>
+      <button type="submit">{t("staff.branding.saveWidgetCopy")}</button>
     </form>
   )
 }
