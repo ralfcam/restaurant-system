@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server"
 import { StaffShell } from "@/components/staff/staff-shell"
 import { RestaurantLogoEditor } from "@/components/staff/restaurant-logo-editor"
 import { RestaurantHeroImageEditor } from "@/components/staff/restaurant-hero-image-editor"
+import { WidgetPageEditor } from "@/components/staff/widget-page-editor"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
 import { RESTAURANT } from "@/lib/data"
@@ -52,6 +53,8 @@ export default async function AdminSettingsPage() {
             />
           </CardContent>
         </Card>
+
+        <WidgetPageEditor />
       </div>
     </StaffShell>
   )

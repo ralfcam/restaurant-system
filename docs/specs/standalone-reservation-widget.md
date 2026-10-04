@@ -1,7 +1,7 @@
 # Standalone reservation widget
 
 **Status:** Draft
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-04
 
 ## Scope
 
@@ -26,3 +26,7 @@ Out of this spec: a change to BW-6 or BW-7, a change to availability, capacity, 
 5. **SW-5 — Hero, hours, and address.** The page shows `hero_image_url` when it is set and shows no broken image when it is null. Opening hours listed on the page match `operating_windows`. A non-blank address is shown. A null address omits the address line.
 
 6. **SW-6 — Phone visibility.** `show_reservation_phone` defaults to false. When it is false, or when `phone` is null or blank, the page renders no phone number, label, icon, or empty placeholder. When it is true and `phone` is non-blank, that phone is shown. Turning it off leaves the hours and address in place.
+
+## Implementation trace (non-normative)
+
+FEATURE `res-118_standalone_widget_2491` (RES-118, 2026-10-04). SW-1–SW-6 shipped. `app/[locale]/reserve/page.tsx` is unauthenticated: `setRequestLocale`, then `createServiceClient` loads `restaurant_settings` id `1` and `operating_windows` (`opens_at`, `closes_at`). The page is `<main className="mx-auto max-w-xl md:max-w-2xl" data-testid="standalone-reserve">` with `StandaloneReservePage` and `<ReservationWidget phone={widgetPhone} />`. `widgetPhone` is the trimmed phone only when `show_reservation_phone === true` and that trim is non-empty; otherwise `""`, because `ReservationWidget`'s `phone` defaults to `RESTAURANT.phone` only when the prop is omitted. No second slot generator; guests, date, then time accordions and `slot-card` / `slot-group` stay in `components/site/reservation-widget.tsx`. `updateStandaloneWidgetCopy` in `app/actions/widget-page.ts` calls `requireSuperAdminUser` before `createServiceClient`. A null user returns `{ error: "unauthorized" }` and does not upsert. `storedText` trims and stores a blank string as null. The upsert is `restaurant_settings` with `id: 1`, `updated_at`, and `show_reservation_phone: Boolean(input.show_reservation_phone)`. `components/staff/widget-page-editor.tsx` is a client form with `data-testid="widget-page-editor"`. It submits `restaurant_display_name`, `tagline`, `welcome_title`, `welcome_message`, `closing_message`, and `show_reservation_phone` through `updateStandaloneWidgetCopy`. `app/admin/settings/page.tsx` renders `<WidgetPageEditor />`. Baseline `ADD COLUMN IF NOT EXISTS` adds nullable text `restaurant_display_name`, `tagline`, `welcome_title`, `welcome_message`, and `closing_message`, and `show_reservation_phone BOOLEAN NOT NULL DEFAULT false`. `StandaloneReservePage` omits a copy block when `visibleCopy` is null (null or whitespace). The display name is that trimmed value in `data-testid="widget-restaurant-display-name"`, or no node and no "Restaurant Link". The hero is a plain `<img src={heroSrc} alt="" data-testid="widget-hero">` when `hero_image_url` trims to a non-empty string, and no image when it does not. Hours render as `data-testid="widget-hours"` from the passed windows. A non-null `address` renders `data-testid="widget-address"`; null omits it. `data-testid="widget-phone"` renders only when the flag is true and the trimmed phone is non-empty; the flag defaults to false. Hours and address stay when the phone is hidden.
