@@ -23,11 +23,12 @@
   in `components/site/home-page-client.tsx`); homepage HP-1/HP-3
   `tests/unit/site/homepage-layout.test.ts`; HP-2
   `tests/unit/site/home-page-chefs-picks-ssr.test.ts`
-- Standalone reservation page (SW-1–SW-6):
+- Standalone reservation page (SW-1–SW-7):
   `tests/unit/site/standalone-reservation-widget.test.ts` (editorial
   upsert including `show_reservation_phone`, settings editor submit,
-  phone visibility, display name, centered `/[locale]/reserve`,
-  hero/hours/address, existing widget accordions)
+  editor hydrate from `restaurant_settings` id `1`, phone visibility,
+  display name, centered `/[locale]/reserve`, hero/hours/address,
+  existing widget accordions)
 - Guest and staff i18n: `tests/unit/i18n/` (header locale nav, catalog chrome,
   `isActiveNavPath`, `resolveDocumentLang`, `DocumentLangSync` layout mount,
   sheet switcher, middleware-scope cookie-option merge and segment-bounded

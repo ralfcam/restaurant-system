@@ -20,7 +20,16 @@ const FIELD_LABEL_KEYS = {
   closing_message: "staff.branding.closingMessage",
 } as const
 
-export function WidgetPageEditor() {
+type WidgetCopy = {
+  [Field in (typeof TEXT_FIELDS)[number]]: string | null
+} & {
+  show_reservation_phone: boolean
+}
+
+export function WidgetPageEditor({
+  show_reservation_phone,
+  ...copy
+}: WidgetCopy) {
   const t = useTranslations()
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
@@ -44,12 +53,16 @@ export function WidgetPageEditor() {
       {TEXT_FIELDS.map((name) => (
         <label key={name}>
           {t(FIELD_LABEL_KEYS[name])}
-          <input name={name} />
+          <input name={name} defaultValue={copy[name] ?? ""} />
         </label>
       ))}
       <label>
         {t("staff.branding.showReservationPhone")}
-        <input type="checkbox" name="show_reservation_phone" />
+        <input
+          type="checkbox"
+          name="show_reservation_phone"
+          defaultChecked={show_reservation_phone}
+        />
       </label>
       <button type="submit">{t("staff.branding.saveWidgetCopy")}</button>
     </form>

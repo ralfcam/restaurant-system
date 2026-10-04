@@ -5,6 +5,7 @@ import { RestaurantHeroImageEditor } from "@/components/staff/restaurant-hero-im
 import { WidgetPageEditor } from "@/components/staff/widget-page-editor"
 import { getAuthUser } from "@/app/actions/auth"
 import { isSuperAdminUser } from "@/lib/supabase/is-staff-user"
+import { createServiceClient } from "@/lib/supabase/service"
 import { RESTAURANT } from "@/lib/data"
 import {
   Card,
@@ -19,6 +20,13 @@ export const dynamic = "force-dynamic"
 export default async function AdminSettingsPage() {
   const t = await getTranslations()
   const authUser = await getAuthUser()
+  const { data: widgetCopy } = await createServiceClient()
+    .from("restaurant_settings")
+    .select(
+      "restaurant_display_name, tagline, welcome_title, welcome_message, closing_message, show_reservation_phone",
+    )
+    .eq("id", 1)
+    .maybeSingle()
 
   return (
     <StaffShell
@@ -54,7 +62,14 @@ export default async function AdminSettingsPage() {
           </CardContent>
         </Card>
 
-        <WidgetPageEditor />
+        <WidgetPageEditor
+          restaurant_display_name={widgetCopy?.restaurant_display_name ?? null}
+          tagline={widgetCopy?.tagline ?? null}
+          welcome_title={widgetCopy?.welcome_title ?? null}
+          welcome_message={widgetCopy?.welcome_message ?? null}
+          closing_message={widgetCopy?.closing_message ?? null}
+          show_reservation_phone={widgetCopy?.show_reservation_phone ?? false}
+        />
       </div>
     </StaffShell>
   )

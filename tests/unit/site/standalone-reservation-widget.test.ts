@@ -25,6 +25,10 @@ vi.mock("next/cache", () => ({
   revalidatePath: mocks.revalidatePath,
 }))
 
+vi.mock("next-intl", () => ({
+  useTranslations: () => (key: string) => key,
+}))
+
 const root = process.cwd()
 
 const TEXT_COLUMNS = [
@@ -206,6 +210,30 @@ function definesSlotGenerator(source: string) {
   return /function\s+\w*(?:[Ss]lot|[Bb]ookable)\w*\s*\(|(?:const|let)\s+\w*(?:[Ss]lot|[Bb]ookable)\w*\s*=\s*(?:async\s*)?(?:function\b|\([^)]*\)\s*=>|\()/.test(
     source,
   )
+}
+
+function widgetEditorTag(source: string) {
+  return source.match(/<WidgetPageEditor\b[\s\S]*?\/>/)?.[0] ?? ""
+}
+
+function namedInput(markup: string, name: string) {
+  return (
+    markup
+      .match(/<input\b[^>]*>/g)
+      ?.find((tag) => tag.includes(`name="${name}"`)) ?? ""
+  )
+}
+
+function namedInputValue(markup: string, name: string) {
+  const tag = namedInput(markup, name)
+  expect(tag).not.toBe("")
+  return tag.match(/\bvalue="([^"]*)"/)?.[1] ?? ""
+}
+
+function phoneFlagChecked(markup: string) {
+  const tag = namedInput(markup, "show_reservation_phone")
+  expect(tag).not.toBe("")
+  return /\schecked(?:=|\s|\/|>)/.test(tag)
 }
 
 function hasMdCenteredColumn(source: string) {
@@ -563,5 +591,49 @@ describe("standalone reservation widget", () => {
         show_reservation_phone: true,
       }),
     )
+  })
+
+  it("SW-7 settings editor shows saved copy and the phone flag", async () => {
+    const settings = read("app/admin/settings/page.tsx")
+    expect(settings).toMatch(/\.from\(\s*["']restaurant_settings["']\s*\)/)
+    expect(settings).toMatch(/\.eq\(\s*["']id["']\s*,\s*1\s*\)/)
+
+    const editorTag = widgetEditorTag(settings)
+    for (const field of [...TEXT_COLUMNS, "show_reservation_phone"] as const) {
+      expect(editorTag).toMatch(new RegExp(`\\b${field}\\s*=`))
+    }
+
+    const editorModule =
+      (await import("@/components/staff/widget-page-editor")) as {
+        WidgetPageEditor?: (
+          props: SavedEditorial & { show_reservation_phone: boolean },
+        ) => ReactElement
+      }
+    expect(typeof editorModule.WidgetPageEditor).toBe("function")
+
+    function renderEditor(show_reservation_phone: boolean) {
+      return renderToStaticMarkup(
+        jsx(editorModule.WidgetPageEditor!, {
+          restaurant_display_name: "Chez Camille",
+          tagline: "Seasonal table",
+          welcome_title: null,
+          welcome_message: "",
+          closing_message: "See you",
+          show_reservation_phone,
+        }),
+      )
+    }
+
+    const shown = renderEditor(true)
+    expect(namedInputValue(shown, "restaurant_display_name")).toBe(
+      "Chez Camille",
+    )
+    expect(namedInputValue(shown, "tagline")).toBe("Seasonal table")
+    expect(namedInputValue(shown, "welcome_title")).toBe("")
+    expect(namedInputValue(shown, "welcome_message")).toBe("")
+    expect(namedInputValue(shown, "closing_message")).toBe("See you")
+    expect(phoneFlagChecked(shown)).toBe(true)
+
+    expect(phoneFlagChecked(renderEditor(false))).toBe(false)
   })
 })
