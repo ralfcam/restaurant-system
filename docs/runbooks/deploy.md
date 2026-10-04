@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-10-04
 
 ## Vercel
 
@@ -121,6 +121,7 @@ SA-6.
 | Forward: slot/service cover limits     | `supabase/migrations/20260918140655_slot_service_cover_limits.sql`     | Yes on local reset; apply when table-fit is already recorded        |
 | Forward: restaurant_settings privilege | `supabase/migrations/20260902214500_restaurant_settings_privilege.sql` | Yes on local reset; apply when `20260825140000` is already recorded |
 | Forward: menus bootstrap               | `supabase/migrations/20260915180000_menus_bootstrap.sql`               | Yes on local reset; apply when `20260827160000` is already recorded |
+| Forward: max cover capacity            | `supabase/migrations/20261004161500_max_cover_capacity.sql`            | Yes on local reset; apply on already-baselined remotes              |
 | Reference data                         | `supabase/seed.sql`                                                    | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 RES-45 review-email objects (`restaurant_settings.review_email_*`,
@@ -150,8 +151,9 @@ instead of adding dated migration files. Policy detail:
 `20260827180000_occupancy_duration_buffer.sql`,
 `20260828121224_table_fit_availability.sql`,
 `20260918140655_slot_service_cover_limits.sql`,
-`20260902214500_restaurant_settings_privilege.sql`, and
-`20260915180000_menus_bootstrap.sql` are the forward-only exceptions
+`20260902214500_restaurant_settings_privilege.sql`,
+`20260915180000_menus_bootstrap.sql`, and
+`20261004161500_max_cover_capacity.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL

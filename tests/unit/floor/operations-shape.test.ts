@@ -20,6 +20,18 @@ vi.mock("next/cache", () => ({
 vi.mock("@/lib/supabase/service", () => ({
   createServiceClient: () => ({
     from: (name: string) => {
+      if (name === "restaurant_settings") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { max_cover_capacity: 500 },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
       if (name !== "tables") {
         return {
           select: () => ({

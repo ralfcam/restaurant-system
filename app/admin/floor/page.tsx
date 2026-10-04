@@ -9,6 +9,7 @@ import {
   getSlotIntervalMinutes,
 } from "@/app/actions/branding"
 import { getFloorSnapshot } from "@/app/actions/reservations"
+import { getMaxCoverCapacity } from "@/app/actions/operations"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 
 export const dynamic = "force-dynamic"
@@ -16,14 +17,21 @@ export const dynamic = "force-dynamic"
 export default async function FloorPage() {
   const t = await getTranslations()
   const today = getTodayInRestaurantTZ()
-  const [authUser, snapshot, slotInterval, occupancyDuration, safetyBuffer] =
-    await Promise.all([
-      getAuthUser(),
-      getFloorSnapshot(today),
-      getSlotIntervalMinutes(),
-      getOccupancyDurationMinutes(),
-      getSafetyBufferMinutes(),
-    ])
+  const [
+    authUser,
+    snapshot,
+    slotInterval,
+    occupancyDuration,
+    safetyBuffer,
+    maxCoverCapacity,
+  ] = await Promise.all([
+    getAuthUser(),
+    getFloorSnapshot(today),
+    getSlotIntervalMinutes(),
+    getOccupancyDurationMinutes(),
+    getSafetyBufferMinutes(),
+    getMaxCoverCapacity(),
+  ])
 
   return (
     <StaffShell
@@ -38,6 +46,7 @@ export default async function FloorPage() {
         initialSlotInterval={slotInterval}
         initialOccupancyDuration={occupancyDuration}
         initialSafetyBuffer={safetyBuffer}
+        initialMaxCoverCapacity={maxCoverCapacity}
         isSuperAdmin={isSuperAdminUser(authUser)}
       />
     </StaffShell>
