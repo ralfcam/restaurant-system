@@ -408,6 +408,8 @@
       "reservationsUpdate": " · les réservations se mettent à jour automatiquement",
       "slotInterval": "Intervalle de créneau",
       "occupancyDuration": "Durée d'occupation",
+      "maxCoverCapacity": "Couverts maximum",
+      "maxCoverPrompt": "Définissez le maximum de couverts du restaurant avant d'ajouter des places.",
       "decreaseOccupancy": "Diminuer la durée d'occupation",
       "increaseOccupancy": "Augmenter la durée d'occupation",
       "safetyBuffer": "Marge de sécurité",
@@ -624,7 +626,9 @@
       "mergeFailed": "Impossible de fusionner les tables.",
       "splitFailed": "Impossible de séparer les tables.",
       "addTableFailed": "Impossible d'ajouter la table.",
-      "removeTableFailed": "Impossible de retirer la table."
+      "removeTableFailed": "Impossible de retirer la table.",
+      "maxCoverCapacitySaveFailed": "Impossible d'enregistrer le maximum de couverts",
+      "maxCoverCapacityReached": "La capacité maximale de couverts du restaurant est atteinte."
     },
     "pos": {
       "orderNeedsItems": "La commande doit contenir des articles.",

@@ -46,6 +46,7 @@ import {
   createTable,
   deleteTable,
   mergeTables,
+  setMaxCoverCapacity,
   splitMerge,
   updateTableState,
 } from "@/app/actions/operations"
@@ -237,6 +238,7 @@ export function FloorPlan({
   initialSlotInterval = DEFAULT_SLOT_INTERVAL_MINUTES,
   initialOccupancyDuration = DEFAULT_EXPECTED_MINUTES,
   initialSafetyBuffer = DEFAULT_SAFETY_BUFFER_MINUTES,
+  initialMaxCoverCapacity = null,
   isSuperAdmin,
 }: {
   date: string
@@ -244,6 +246,7 @@ export function FloorPlan({
   initialSlotInterval?: SlotIntervalMinutes
   initialOccupancyDuration?: number
   initialSafetyBuffer?: number
+  initialMaxCoverCapacity?: number | null
   isSuperAdmin: boolean
 }) {
   const t = useTranslations()
@@ -854,6 +857,39 @@ export function FloorPlan({
                     disabled={!isSuperAdmin}
                   />
                 </div>
+                <div className="flex items-center gap-1.5">
+                  <label
+                    htmlFor="floor-max-cover-capacity"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    {t("staff.floor.maxCoverCapacity")}
+                  </label>
+                  <Input
+                    id="floor-max-cover-capacity"
+                    data-testid="floor-max-cover-capacity"
+                    type="number"
+                    className="w-20"
+                    onBlur={(event) => {
+                      const raw = event.currentTarget.value.trim()
+                      if (raw === "") return
+                      const value = Number(raw)
+                      if (!Number.isFinite(value)) return
+                      void setMaxCoverCapacity(value).catch(() => {
+                        toast.error(
+                          t("errors.floor.maxCoverCapacitySaveFailed"),
+                        )
+                      })
+                    }}
+                  />
+                </div>
+                {initialMaxCoverCapacity == null ? (
+                  <p
+                    data-testid="floor-max-cover-prompt"
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t("staff.floor.maxCoverPrompt")}
+                  </p>
+                ) : null}
                 <div
                   data-testid="safety-buffer-control"
                   role="group"

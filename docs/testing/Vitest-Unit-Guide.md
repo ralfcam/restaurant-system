@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-04
 
 ## Layout
 
@@ -62,6 +62,10 @@
 - Weekly service overview (WA-1–WA-7):
   `tests/unit/floor/weekly-service-overview.test.ts`,
   `tests/unit/floor/dashboard-weekly-overview.test.ts`
+- Restaurant cover capacity (CC-1–CC-9):
+  `tests/unit/floor/cover-capacity.test.ts`.
+  `tests/unit/floor/operations-shape.test.ts` and
+  `tests/unit/floor/message-keys.test.ts` script the settings read.
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
 - Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,

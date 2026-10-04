@@ -307,7 +307,7 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
       KEYS.unauthorized,
     )
 
-    script(fail("missing"))
+    script(ok({ max_cover_capacity: 100 }), fail("missing"))
     expectMessageKey(
       await messageFrom(() => updateTableState({ id: "t1", seats: 4 })),
       KEYS.tableNotFound,
@@ -325,7 +325,11 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
   it("updateTableState write failures are errors.* catalog keys", async () => {
     const { updateTableState } = await import("@/app/actions/operations")
 
-    script(ok(current), fail("could not write seats"))
+    script(
+      ok({ max_cover_capacity: 100 }),
+      ok(current),
+      fail("could not write seats"),
+    )
     expectMessageKey(
       await messageFrom(() => updateTableState({ id: "t1", seats: 4 })),
       KEYS.updateTableFailed,
@@ -597,7 +601,7 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
     mocks.requireStaffUser.mockResolvedValue(null)
     expectMessageKey(await messageFrom(() => createTable()), KEYS.unauthorized)
 
-    script(ok([]), fail("duplicate key"))
+    script(ok({ max_cover_capacity: 100 }), ok([]), fail("duplicate key"))
     expectMessageKey(
       await messageFrom(() => createTable()),
       KEYS.addTableFailed,

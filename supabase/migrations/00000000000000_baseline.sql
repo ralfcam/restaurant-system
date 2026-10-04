@@ -1018,6 +1018,8 @@ ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_enabled BO
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_copy TEXT;
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_maps_url TEXT;
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_delay_hours INT NOT NULL DEFAULT 24;
+-- RES-69: nullable restaurant-wide max cover capacity (null = unset).
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS max_cover_capacity INT;
 
 DO $$
 BEGIN
@@ -1048,6 +1050,16 @@ BEGIN
       safety_buffer_minutes BETWEEN 0 AND 60
       AND safety_buffer_minutes % 5 = 0
     );
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+-- RES-69: ceiling is unset or an integer of at least 1.
+DO $$
+BEGIN
+  ALTER TABLE restaurant_settings
+    ADD CONSTRAINT restaurant_settings_max_cover_capacity_check
+    CHECK (max_cover_capacity IS NULL OR max_cover_capacity >= 1);
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;

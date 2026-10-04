@@ -1,0 +1,847 @@
+import { readFileSync } from "node:fs"
+import path from "node:path"
+import { describe, expect, it, vi } from "vitest"
+
+const mocks = vi.hoisted(() => ({
+  requireStaffUser: vi.fn(),
+  createServiceClient: vi.fn(),
+  upsert: vi.fn(),
+  revalidatePath: vi.fn(),
+  insert: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+}))
+
+vi.mock("@/lib/supabase/require-staff", () => ({
+  requireStaffUser: mocks.requireStaffUser,
+}))
+
+vi.mock("@/lib/supabase/service", () => ({
+  createServiceClient: (...args: unknown[]) =>
+    mocks.createServiceClient(...args),
+}))
+
+vi.mock("next/cache", () => ({
+  revalidatePath: mocks.revalidatePath,
+}))
+
+const root = process.cwd()
+
+function read(rel: string) {
+  return readFileSync(path.join(root, rel), "utf8")
+}
+
+const emptyRow = { data: null, error: null as null }
+
+function queryChain(
+  result: { data: unknown; error: null } = emptyRow,
+  methods: Record<string, (...args: unknown[]) => unknown> = {},
+) {
+  const promise = Promise.resolve(result)
+  return new Proxy(promise, {
+    get(target, prop, receiver) {
+      if (typeof prop === "string" && Object.hasOwn(methods, prop)) {
+        return methods[prop]
+      }
+      if (prop === "then" || prop === "catch" || prop === "finally") {
+        const value = Reflect.get(target, prop, receiver)
+        return typeof value === "function" ? value.bind(target) : value
+      }
+      if (typeof prop !== "string") return Reflect.get(target, prop, receiver)
+      return () => queryChain()
+    },
+  })
+}
+
+function checkAllowsNullOrAtLeastOne(sql: string) {
+  const checks = sql.match(/CHECK\s*\((?:[^()]|\([^()]*\))*\)/gi) ?? []
+  return checks.some((clause) => {
+    if (!/\bmax_cover_capacity\b/i.test(clause)) return false
+    return (
+      /max_cover_capacity\s+IS\s+NULL/i.test(clause) &&
+      /\bOR\b/i.test(clause) &&
+      /max_cover_capacity\s*>=\s*1\b/.test(clause)
+    )
+  })
+}
+
+describe("restaurant cover capacity", () => {
+  it("CC-2 nullable ceiling and guest cannot write it", () => {
+    const baseline = read("supabase/migrations/00000000000000_baseline.sql")
+
+    const alterDecl =
+      baseline.match(
+        /ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS max_cover_capacity\s+INT(?:EGER)?\b[^;]*/i,
+      )?.[0] ?? null
+    const createBody =
+      baseline.match(
+        /CREATE TABLE IF NOT EXISTS restaurant_settings\s*\(([\s\S]*?)\)\s*;/i,
+      )?.[1] ?? ""
+    const createDecl =
+      createBody.match(/\bmax_cover_capacity\s+INT(?:EGER)?\b[^,\n]*/i)?.[0] ??
+      null
+
+    expect(alterDecl ?? createDecl ?? "").toMatch(
+      /max_cover_capacity\s+INT(?:EGER)?\b/i,
+    )
+    for (const decl of [alterDecl, createDecl]) {
+      if (!decl) continue
+      expect(decl).not.toMatch(/\bNOT\s+NULL\b/i)
+    }
+
+    expect(checkAllowsNullOrAtLeastOne(baseline)).toBe(true)
+
+    expect(baseline).toContain(
+      "REVOKE INSERT, UPDATE, DELETE ON TABLE restaurant_settings FROM anon, authenticated",
+    )
+
+    const guestWriteGrants = [
+      ...baseline.matchAll(
+        /GRANT\s+([^;]*?)\s+ON\s+(?:TABLE\s+)?restaurant_settings\s+TO\s+([^;]+);/gi,
+      ),
+    ].filter(([, privileges, roles]) => {
+      if (!/\b(?:anon|authenticated)\b/i.test(roles)) return false
+      return (
+        /\b(?:INSERT|UPDATE|DELETE|ALL)\b/i.test(privileges) ||
+        /\bmax_cover_capacity\b/i.test(privileges)
+      )
+    })
+    expect(guestWriteGrants.map(([statement]) => statement)).toEqual([])
+  })
+
+  it("CC-1 staff gate and floor control", async () => {
+    const proxy = read("lib/supabase/proxy.ts")
+    expect(proxy).toContain('["/admin", "/pos", "/kds"]')
+    expect(proxy).toContain('url.pathname = user ? "/" : "/auth/login"')
+
+    const floor = read("components/staff/floor-plan.tsx")
+    const inspectorStart = floor.indexOf("{selected ?")
+    const chrome = floor.slice(0, inspectorStart)
+    const inspector = floor.slice(inspectorStart)
+    expect(chrome).toContain('data-testid="floor-max-cover-capacity"')
+    expect(inspector).not.toContain('data-testid="floor-max-cover-capacity"')
+
+    const actions = (await import("@/app/actions/operations")) as {
+      setMaxCoverCapacity?: (value: number | null) => Promise<unknown>
+    }
+    expect(typeof actions.setMaxCoverCapacity).toBe("function")
+    const setMaxCoverCapacity = actions.setMaxCoverCapacity!
+
+    const operations = read("app/actions/operations.ts")
+    const marker = "function setMaxCoverCapacity"
+    const start = operations.indexOf(marker)
+    const body =
+      start < 0
+        ? ""
+        : operations.slice(
+            start,
+            operations.indexOf("\nexport ", start + marker.length) === -1
+              ? operations.length
+              : operations.indexOf("\nexport ", start + marker.length),
+          )
+    const staffAt = body.indexOf("requireStaffUser")
+    const serviceAt = body.indexOf("createServiceClient")
+    expect(staffAt).toBeGreaterThanOrEqual(0)
+    expect(serviceAt).toBeGreaterThan(staffAt)
+
+    mocks.upsert.mockResolvedValue({ error: null })
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => ({
+        select: (columns: string) =>
+          table === "tables" && columns === "seats"
+            ? Promise.resolve({ data: [{ seats: 2 }], error: null })
+            : Promise.resolve({ data: null, error: null }),
+        upsert: (row: unknown) => mocks.upsert(table, row),
+      }),
+    }))
+
+    mocks.requireStaffUser.mockResolvedValue(null)
+    mocks.upsert.mockClear()
+    await expect(setMaxCoverCapacity(40)).rejects.toThrow(
+      "errors.operations.unauthorized",
+    )
+    expect(mocks.upsert).not.toHaveBeenCalled()
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.requireStaffUser.mockClear()
+    mocks.createServiceClient.mockClear()
+    mocks.upsert.mockClear()
+    await setMaxCoverCapacity(40)
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      "restaurant_settings",
+      expect.objectContaining({ id: 1 }),
+    )
+    expect(mocks.requireStaffUser.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.createServiceClient.mock.invocationCallOrder[0]!,
+    )
+
+    mocks.requireStaffUser.mockResolvedValue({
+      id: "super-1",
+      app_metadata: { role: "super_admin" },
+    })
+    mocks.upsert.mockClear()
+    await setMaxCoverCapacity(null)
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      "restaurant_settings",
+      expect.objectContaining({ id: 1 }),
+    )
+  })
+
+  it("CC-4 refuses 0, negative, fraction, and non-number", async () => {
+    const actions = (await import("@/app/actions/operations")) as {
+      setMaxCoverCapacity?: (value: number | null) => Promise<unknown>
+    }
+    const setMaxCoverCapacity = actions.setMaxCoverCapacity!
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.upsert.mockResolvedValue({ error: null })
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => ({
+        upsert: (row: unknown) => mocks.upsert(table, row),
+      }),
+    }))
+
+    const invalidValues: Array<number | string> = [0, -1, 1.5, "4"]
+    for (const value of invalidValues) {
+      mocks.upsert.mockClear()
+      await expect(setMaxCoverCapacity(value as number)).rejects.toThrow(
+        "errors.floor.maxCoverCapacityInvalid",
+      )
+      expect(mocks.upsert).not.toHaveBeenCalled()
+    }
+  })
+
+  it("CC-5 refuses a maximum below the seat sum", async () => {
+    const actions = (await import("@/app/actions/operations")) as {
+      setMaxCoverCapacity?: (value: number | null) => Promise<unknown>
+    }
+    const setMaxCoverCapacity = actions.setMaxCoverCapacity!
+
+    const tableUpdate = vi.fn(() => Promise.resolve({ error: null }))
+    const tableDelete = vi.fn(() => Promise.resolve({ error: null }))
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.upsert.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "tables") {
+          return {
+            select: (columns: string) =>
+              columns === "seats"
+                ? Promise.resolve({
+                    data: [{ seats: 4 }, { seats: 6 }],
+                    error: null,
+                  })
+                : Promise.resolve({ data: null, error: null }),
+            update: tableUpdate,
+            delete: tableDelete,
+          }
+        }
+        if (table === "restaurant_settings") {
+          return {
+            upsert: (row: unknown) => {
+              mocks.upsert("restaurant_settings", row)
+              return Promise.resolve({ error: null })
+            },
+          }
+        }
+        return {}
+      },
+    }))
+
+    tableUpdate.mockClear()
+    tableDelete.mockClear()
+    await expect(setMaxCoverCapacity(9)).rejects.toThrow(
+      "errors.floor.maxCoverCapacityBelowSum",
+    )
+    expect(mocks.upsert).not.toHaveBeenCalled()
+    expect(tableUpdate).not.toHaveBeenCalled()
+    expect(tableDelete).not.toHaveBeenCalled()
+
+    mocks.upsert.mockClear()
+    await setMaxCoverCapacity(10)
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      "restaurant_settings",
+      expect.objectContaining({ id: 1, max_cover_capacity: 10 }),
+    )
+  })
+
+  it("CC-3 unset maximum blocks create and seat increase", async () => {
+    const empty = { data: null, error: null as null }
+    const tables = [{ label: "1", x: 0, y: 0, seats: 4 }]
+    const current = { status: "available", x: 0, y: 0, seats: 4 }
+    const inserted = {
+      id: "t-new",
+      label: "2",
+      seats: 2,
+      status: "available",
+      x: 1,
+      y: 1,
+      shape: "square",
+      expected_minutes: 90,
+    }
+
+    function chain(
+      result: { data: unknown; error: null } = empty,
+      methods: Record<string, (...args: unknown[]) => unknown> = {},
+    ) {
+      const promise = Promise.resolve(result)
+      return new Proxy(promise, {
+        get(target, prop, receiver) {
+          if (typeof prop === "string" && Object.hasOwn(methods, prop)) {
+            return methods[prop]
+          }
+          if (prop === "then" || prop === "catch" || prop === "finally") {
+            const value = Reflect.get(target, prop, receiver)
+            return typeof value === "function" ? value.bind(target) : value
+          }
+          if (typeof prop !== "string")
+            return Reflect.get(target, prop, receiver)
+          return () => chain()
+        },
+      })
+    }
+
+    function loose() {
+      const promise = Promise.resolve(empty)
+      const proxy: unknown = new Proxy(() => proxy, {
+        apply: () => proxy,
+        get(_target, prop) {
+          if (prop === "then") return promise.then.bind(promise)
+          if (prop === "catch") return promise.catch.bind(promise)
+          if (prop === "finally") return promise.finally.bind(promise)
+          if (
+            prop === "toJSON" ||
+            prop === "toString" ||
+            prop === "valueOf" ||
+            typeof prop !== "string"
+          ) {
+            return undefined
+          }
+          return proxy
+        },
+      })
+      return proxy
+    }
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.insert.mockClear()
+    mocks.update.mockClear()
+    mocks.delete.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            select: () =>
+              chain(empty, {
+                eq: () =>
+                  chain(empty, {
+                    maybeSingle: () =>
+                      chain({
+                        data: { max_cover_capacity: null },
+                        error: null,
+                      }),
+                  }),
+              }),
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: () =>
+              chain(empty, {
+                order: () => chain({ data: tables, error: null }),
+                eq: () =>
+                  chain(empty, {
+                    single: () => chain({ data: current, error: null }),
+                  }),
+              }),
+            insert: (row: unknown) => {
+              mocks.insert(row)
+              return {
+                select: () => ({
+                  single: async () => ({ data: inserted, error: null }),
+                }),
+              }
+            },
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: null }
+              },
+            }),
+            delete: () => ({
+              eq: async () => {
+                mocks.delete()
+                return { error: null }
+              },
+            }),
+          }
+        }
+        if (table === "table_merge_members") {
+          return {
+            select: () =>
+              chain(empty, {
+                eq: () =>
+                  chain(empty, {
+                    maybeSingle: () => chain(empty),
+                  }),
+              }),
+          }
+        }
+        return loose()
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      createTable: () => Promise<unknown>
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+      deleteTable: (id: string) => Promise<unknown>
+    }
+
+    await expect(actions.createTable()).rejects.toThrow(
+      "errors.floor.maxCoverCapacityUnset",
+    )
+    expect(mocks.insert).not.toHaveBeenCalled()
+
+    mocks.update.mockClear()
+    await expect(
+      actions.updateTableState({ id: "t1", seats: 6 }),
+    ).rejects.toThrow("errors.floor.maxCoverCapacityUnset")
+    expect(mocks.update).not.toHaveBeenCalled()
+
+    mocks.update.mockClear()
+    await actions.updateTableState({ id: "t1", seats: 2 })
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ seats: 2 }),
+    )
+
+    mocks.delete.mockClear()
+    await actions.deleteTable("t1")
+    expect(mocks.delete).toHaveBeenCalled()
+
+    const floor = read("components/staff/floor-plan.tsx")
+    const markerAt = floor.indexOf("{selected ?")
+    expect(floor.slice(0, markerAt)).toContain(
+      'data-testid="floor-max-cover-prompt"',
+    )
+  })
+
+  it("CC-6 refuses a sum above the maximum", async () => {
+    const empty = { data: null, error: null as null }
+    const current = { status: "available", x: 0, y: 0, seats: 4 }
+    let orderedTables: Array<{
+      id: string
+      label: string
+      x: number
+      y: number
+      seats: number
+    }> = [
+      { id: "t1", label: "1", x: 0, y: 0, seats: 4 },
+      { id: "t2", label: "2", x: 1, y: 0, seats: 4 },
+    ]
+    const inserted = {
+      id: "t-new",
+      label: "3",
+      seats: 2,
+      status: "available",
+      x: 2,
+      y: 0,
+      shape: "square",
+      expected_minutes: 90,
+    }
+
+    function chain(
+      result: { data: unknown; error: null } = empty,
+      methods: Record<string, (...args: unknown[]) => unknown> = {},
+    ) {
+      const promise = Promise.resolve(result)
+      return new Proxy(promise, {
+        get(target, prop, receiver) {
+          if (typeof prop === "string" && Object.hasOwn(methods, prop)) {
+            return methods[prop]
+          }
+          if (prop === "then" || prop === "catch" || prop === "finally") {
+            const value = Reflect.get(target, prop, receiver)
+            return typeof value === "function" ? value.bind(target) : value
+          }
+          if (typeof prop !== "string")
+            return Reflect.get(target, prop, receiver)
+          return () => chain()
+        },
+      })
+    }
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.insert.mockClear()
+    mocks.update.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            select: () =>
+              chain(empty, {
+                eq: () =>
+                  chain(empty, {
+                    maybeSingle: () =>
+                      chain({
+                        data: { max_cover_capacity: 10 },
+                        error: null,
+                      }),
+                  }),
+              }),
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: () =>
+              chain(empty, {
+                order: () => chain({ data: orderedTables, error: null }),
+                eq: () =>
+                  chain(empty, {
+                    single: () => chain({ data: current, error: null }),
+                  }),
+              }),
+            insert: (row: unknown) => {
+              mocks.insert(row)
+              return {
+                select: () => ({
+                  single: async () => ({ data: inserted, error: null }),
+                }),
+              }
+            },
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: null }
+              },
+            }),
+          }
+        }
+        return {
+          select: () => chain(),
+        }
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      createTable: () => Promise<unknown>
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+    }
+
+    await actions.createTable()
+    expect(mocks.insert).toHaveBeenCalled()
+
+    orderedTables = [
+      { id: "t1", label: "1", x: 0, y: 0, seats: 6 },
+      { id: "t2", label: "2", x: 1, y: 0, seats: 4 },
+    ]
+    mocks.insert.mockClear()
+    await expect(actions.createTable()).rejects.toThrow(
+      "errors.floor.maxCoverCapacityReached",
+    )
+    expect(mocks.insert).not.toHaveBeenCalled()
+
+    orderedTables = [
+      { id: "t1", label: "1", x: 0, y: 0, seats: 4 },
+      { id: "t2", label: "2", x: 1, y: 0, seats: 4 },
+    ]
+    mocks.update.mockClear()
+    await expect(
+      actions.updateTableState({ id: "t1", seats: 8 }),
+    ).rejects.toThrow("errors.floor.maxCoverCapacityReached")
+    expect(mocks.update).not.toHaveBeenCalled()
+
+    mocks.update.mockClear()
+    await actions.updateTableState({ id: "t1", seats: 6 })
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ seats: 6 }),
+    )
+
+    const messages = JSON.parse(read("messages/en.json")) as {
+      errors: { floor: { maxCoverCapacityReached?: string } }
+    }
+    expect(messages.errors.floor.maxCoverCapacityReached).toBe(
+      "The restaurant's maximum cover capacity has been reached.",
+    )
+  })
+
+  it("CC-8 clear returns to the unset block", async () => {
+    const current = { status: "available", x: 0, y: 0, seats: 4 }
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.upsert.mockReset()
+    mocks.upsert.mockResolvedValue({ error: null })
+    mocks.insert.mockClear()
+    mocks.update.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            upsert: (row: unknown) => mocks.upsert(table, row),
+            select: () =>
+              queryChain(emptyRow, {
+                eq: () =>
+                  queryChain(emptyRow, {
+                    maybeSingle: () =>
+                      queryChain({
+                        data: { max_cover_capacity: null },
+                        error: null,
+                      }),
+                  }),
+              }),
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: () =>
+              queryChain(emptyRow, {
+                eq: () =>
+                  queryChain(emptyRow, {
+                    single: () => queryChain({ data: current, error: null }),
+                  }),
+              }),
+            insert: (row: unknown) => {
+              mocks.insert(row)
+              return {
+                select: () => ({
+                  single: async () => ({ data: null, error: null }),
+                }),
+              }
+            },
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: null }
+              },
+            }),
+          }
+        }
+        return {
+          select: () => queryChain(),
+        }
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      setMaxCoverCapacity?: (value: number | null) => Promise<unknown>
+      createTable: () => Promise<unknown>
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+    }
+    const setMaxCoverCapacity = actions.setMaxCoverCapacity!
+
+    await expect(setMaxCoverCapacity(null)).resolves.toBeUndefined()
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      "restaurant_settings",
+      expect.objectContaining({ id: 1, max_cover_capacity: null }),
+    )
+
+    mocks.insert.mockClear()
+    await expect(actions.createTable()).rejects.toThrow(
+      "errors.floor.maxCoverCapacityUnset",
+    )
+    expect(mocks.insert).not.toHaveBeenCalled()
+
+    mocks.update.mockClear()
+    await expect(
+      actions.updateTableState({ id: "t1", seats: 6 }),
+    ).rejects.toThrow("errors.floor.maxCoverCapacityUnset")
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
+
+  it("CC-7 lowering seats and delete reduce the sum", async () => {
+    const current = { status: "available", x: 0, y: 0, seats: 4 }
+    const orderedTables = [
+      { id: "t1", label: "1", x: 0, y: 0, seats: 4 },
+      { id: "t2", label: "2", x: 1, y: 0, seats: 6 },
+    ]
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.update.mockClear()
+    mocks.delete.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            select: () =>
+              queryChain(emptyRow, {
+                eq: () =>
+                  queryChain(emptyRow, {
+                    maybeSingle: () =>
+                      queryChain({
+                        data: { max_cover_capacity: 10 },
+                        error: null,
+                      }),
+                  }),
+              }),
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: () =>
+              queryChain(emptyRow, {
+                order: () => queryChain({ data: orderedTables, error: null }),
+                eq: () =>
+                  queryChain(emptyRow, {
+                    single: () => queryChain({ data: current, error: null }),
+                  }),
+              }),
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: null }
+              },
+            }),
+            delete: () => ({
+              eq: async () => {
+                mocks.delete()
+                return { error: null }
+              },
+            }),
+          }
+        }
+        if (table === "table_merge_members") {
+          return {
+            select: () =>
+              queryChain(emptyRow, {
+                eq: () =>
+                  queryChain(emptyRow, {
+                    maybeSingle: () => queryChain({ data: null, error: null }),
+                  }),
+              }),
+          }
+        }
+        return {
+          select: () => queryChain(),
+        }
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+      deleteTable: (id: string) => Promise<unknown>
+    }
+
+    const initialSum = orderedTables.reduce(
+      (total, row) => total + row.seats,
+      0,
+    )
+    await expect(
+      actions.updateTableState({ id: "t1", seats: 2 }),
+    ).resolves.toBeUndefined()
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ seats: 2 }),
+    )
+
+    const patch = mocks.update.mock.calls[0]?.[0] as { seats: number }
+    const previousSeats = orderedTables.find((row) => row.id === "t1")!.seats
+    const removedByDrop = previousSeats - patch.seats
+    const sumAfterDrop = initialSum - removedByDrop
+    expect(sumAfterDrop).toBe(10 - 2)
+    expect(sumAfterDrop).toBe(8)
+
+    const projected = orderedTables.map((row) =>
+      row.id === "t1" ? { ...row, seats: patch.seats } : row,
+    )
+    await expect(actions.deleteTable("t1")).resolves.toBeUndefined()
+    expect(mocks.delete).toHaveBeenCalled()
+
+    const deletedSeats = projected.find((row) => row.id === "t1")!.seats
+    const sumAfterDelete = sumAfterDrop - deletedSeats
+    expect(sumAfterDelete).toBe(8 - 2)
+    expect(sumAfterDelete).toBe(6)
+  })
+
+  it("CC-9 seat clamp and neighbor rules stay", async () => {
+    const current = { status: "available", x: 0, y: 0, seats: 4 }
+    const orderedTables = [{ id: "t1", label: "1", x: 0, y: 0, seats: 4 }]
+    const settingsSelects: string[] = []
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.update.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            select: (columns: string) => {
+              settingsSelects.push(columns)
+              return queryChain(emptyRow, {
+                eq: () =>
+                  queryChain(emptyRow, {
+                    maybeSingle: () =>
+                      queryChain({
+                        data: { max_cover_capacity: 100 },
+                        error: null,
+                      }),
+                  }),
+              })
+            },
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: () =>
+              queryChain(emptyRow, {
+                order: () => queryChain({ data: orderedTables, error: null }),
+                eq: () =>
+                  queryChain(emptyRow, {
+                    single: () => queryChain({ data: current, error: null }),
+                  }),
+              }),
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: null }
+              },
+            }),
+          }
+        }
+        return {
+          select: () => queryChain(),
+        }
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+    }
+
+    await expect(
+      actions.updateTableState({ id: "t1", seats: 13 }),
+    ).resolves.toBeUndefined()
+    expect(mocks.update).toHaveBeenCalledWith(
+      expect.objectContaining({ seats: 12 }),
+    )
+    expect(settingsSelects).toContain("max_cover_capacity")
+
+    const slotLimits = read(
+      "supabase/migrations/20260918140655_slot_service_cover_limits.sql",
+    )
+    const marker =
+      "CREATE OR REPLACE FUNCTION validate_reservation_availability()"
+    const start = slotLimits.indexOf(marker)
+    expect(start).toBeGreaterThanOrEqual(0)
+    const availability = slotLimits.slice(start)
+    expect(availability).toContain("BW-9")
+    expect(availability).toMatch(
+      /SELECT COALESCE\(SUM\(seats\), 0\) INTO v_capacity FROM tables;/,
+    )
+    expect(availability).not.toContain("max_cover_capacity")
+    expect(slotLimits).toMatch(/\bmax_covers\b/)
+    expect(slotLimits).not.toMatch(/\bmax_cover_capacity\b/)
+  })
+})

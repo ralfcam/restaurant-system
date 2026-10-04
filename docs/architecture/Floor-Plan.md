@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-24
+**Last updated:** 2026-10-04
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -81,3 +81,20 @@ placeholder (`No tables available` / `No servers available`). Occupancy-duration
 and safety-buffer chrome on `/admin/floor` take an `isSuperAdmin` prop (SA-10);
 slot-interval stays ungated in chrome. Operating hours: `operating_windows` in
 `supabase/migrations/00000000000000_baseline.sql`.
+
+Restaurant-wide maximum cover capacity is nullable
+`restaurant_settings.max_cover_capacity INT` with
+`CHECK (max_cover_capacity IS NULL OR max_cover_capacity >= 1)` in that same
+baseline. Guest `INSERT`/`UPDATE`/`DELETE` on `restaurant_settings` stays
+revoked (`REVOKE … FROM anon, authenticated`). `setMaxCoverCapacity` in
+`app/actions/operations.ts` uses `requireStaffUser` then `createServiceClient`.
+Null clears the column. A non-null value must be an integer `>= 1`. A number
+below `sum(tables.seats)` is refused. The upsert writes `id` 1,
+`max_cover_capacity`, and `updated_at`. `createTable` and a seat increase in
+`updateTableState` write nothing while the column is null, and write nothing
+when the resulting sum would exceed a set maximum. Lowering seats and
+`deleteTable` stay allowed. Seats stay clamped to 1–12. Floor chrome has
+`data-testid="floor-max-cover-capacity"` and, when the maximum is unset,
+`data-testid="floor-max-cover-prompt"`. `/admin/floor` loads
+`getMaxCoverCapacity`. Spec:
+[../specs/cover-capacity.md](../specs/cover-capacity.md) (CC-1–CC-9).
