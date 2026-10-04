@@ -92,9 +92,18 @@ Null clears the column. A non-null value must be an integer `>= 1`. A number
 below `sum(tables.seats)` is refused. The upsert writes `id` 1,
 `max_cover_capacity`, and `updated_at`. `createTable` and a seat increase in
 `updateTableState` write nothing while the column is null, and write nothing
-when the resulting sum would exceed a set maximum. Lowering seats and
-`deleteTable` stay allowed. Seats stay clamped to 1–12. Floor chrome has
+when the resulting sum would exceed a set maximum. A failed read of table
+seats also writes nothing: `createTable` throws `errors.floor.addTableFailed`
+and `updateTableState` throws `errors.floor.updateTableFailed`. Lowering seats
+and `deleteTable` stay allowed. `public.enforce_cover_capacity()` takes
+`pg_advisory_xact_lock(69, 1)` before the seat sum, on `BEFORE INSERT OR UPDATE
+OF seats` on `tables` and `BEFORE INSERT OR UPDATE OF max_cover_capacity` on
+`restaurant_settings`. That function and both triggers are in the baseline and
+in `supabase/migrations/20261004161500_max_cover_capacity.sql`. The dated file
+also adds nullable `max_cover_capacity INT` and
+`CHECK (max_cover_capacity IS NULL OR max_cover_capacity >= 1)` for remotes
+that already applied the baseline. Seats stay clamped to 1–12. Floor chrome has
 `data-testid="floor-max-cover-capacity"` and, when the maximum is unset,
 `data-testid="floor-max-cover-prompt"`. `/admin/floor` loads
 `getMaxCoverCapacity`. Spec:
-[../specs/cover-capacity.md](../specs/cover-capacity.md) (CC-1–CC-9).
+[../specs/cover-capacity.md](../specs/cover-capacity.md) (CC-1–CC-11).

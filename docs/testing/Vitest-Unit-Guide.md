@@ -62,7 +62,7 @@
 - Weekly service overview (WA-1–WA-7):
   `tests/unit/floor/weekly-service-overview.test.ts`,
   `tests/unit/floor/dashboard-weekly-overview.test.ts`
-- Restaurant cover capacity (CC-1–CC-9):
+- Restaurant cover capacity (CC-1–CC-11):
   `tests/unit/floor/cover-capacity.test.ts`.
   `tests/unit/floor/operations-shape.test.ts` and
   `tests/unit/floor/message-keys.test.ts` script the settings read.

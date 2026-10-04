@@ -31,6 +31,31 @@ function read(rel: string) {
   return readFileSync(path.join(root, rel), "utf8")
 }
 
+function readOptional(rel: string) {
+  try {
+    return read(rel)
+  } catch (error) {
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      "code" in error &&
+      (error as { code?: string }).code === "ENOENT"
+    ) {
+      return ""
+    }
+    throw error
+  }
+}
+
+function revokesCoverCapacityExecute(sql: string, role: string) {
+  return [...sql.matchAll(/REVOKE\b[^;]*;/gi)].some((match) => {
+    const statement = match[0]
+    if (!/enforce_cover_capacity/i.test(statement)) return false
+    if (!/\b(?:EXECUTE|ALL)\b/i.test(statement)) return false
+    return new RegExp(`\\b${role}\\b`, "i").test(statement)
+  })
+}
+
 const emptyRow = { data: null, error: null as null }
 
 function queryChain(
@@ -843,5 +868,151 @@ describe("restaurant cover capacity", () => {
     expect(availability).not.toContain("max_cover_capacity")
     expect(slotLimits).toMatch(/\bmax_covers\b/)
     expect(slotLimits).not.toMatch(/\bmax_cover_capacity\b/)
+  })
+
+  it("CC-11 failed seat read writes nothing and the lock is shared", async () => {
+    const seatsUnavailable = {
+      data: null,
+      error: { message: "seats unavailable" },
+    } as unknown as { data: unknown; error: null }
+    const current = { status: "available", x: 0, y: 0, seats: 4 }
+    const inserted = {
+      id: "t-new",
+      label: "1",
+      seats: 2,
+      status: "available",
+      x: 0,
+      y: 0,
+      shape: "square",
+      expected_minutes: 90,
+    }
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.insert.mockClear()
+    mocks.update.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            select: () =>
+              queryChain(emptyRow, {
+                eq: () =>
+                  queryChain(emptyRow, {
+                    maybeSingle: () =>
+                      queryChain({
+                        data: { max_cover_capacity: 40 },
+                        error: null,
+                      }),
+                  }),
+              }),
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: (columns: string) => {
+              if (columns === "status, x, y, seats") {
+                return queryChain(emptyRow, {
+                  eq: () =>
+                    queryChain(emptyRow, {
+                      single: () => queryChain({ data: current, error: null }),
+                    }),
+                })
+              }
+              return queryChain(emptyRow, {
+                order: () => queryChain(seatsUnavailable),
+              })
+            },
+            insert: (row: unknown) => {
+              mocks.insert(row)
+              return {
+                select: () => ({
+                  single: async () => ({ data: inserted, error: null }),
+                }),
+              }
+            },
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: null }
+              },
+            }),
+          }
+        }
+        return {
+          select: () => queryChain(),
+        }
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      createTable: () => Promise<unknown>
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+    }
+
+    let createError: unknown
+    try {
+      await actions.createTable()
+    } catch (error) {
+      createError = error
+    }
+    expect(mocks.insert).not.toHaveBeenCalled()
+    expect((createError as Error | undefined)?.message).toBe(
+      "errors.floor.addTableFailed",
+    )
+
+    mocks.update.mockClear()
+    let updateError: unknown
+    try {
+      await actions.updateTableState({ id: "t1", seats: 6 })
+    } catch (error) {
+      updateError = error
+    }
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect((updateError as Error | undefined)?.message).toBe(
+      "errors.floor.updateTableFailed",
+    )
+
+    const migrations = [
+      "supabase/migrations/00000000000000_baseline.sql",
+      "supabase/migrations/20261004161500_max_cover_capacity.sql",
+    ]
+    for (const rel of migrations) {
+      const sql = readOptional(rel)
+      expect(sql).toContain("pg_advisory_xact_lock(69, 1)")
+      expect(sql).toContain("FUNCTION public.enforce_cover_capacity")
+      expect(sql).toMatch(
+        /CREATE TRIGGER\b[\s\S]*?\bBEFORE INSERT OR UPDATE OF seats\s+ON\s+(?:public\.)?tables\b[\s\S]*?\bEXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:public\.)?enforce_cover_capacity\s*\(/i,
+      )
+      expect(sql).toMatch(
+        /CREATE TRIGGER\b[\s\S]*?\bBEFORE INSERT OR UPDATE OF max_cover_capacity\s+ON\s+(?:public\.)?restaurant_settings\b[\s\S]*?\bEXECUTE\s+(?:FUNCTION|PROCEDURE)\s+(?:public\.)?enforce_cover_capacity\s*\(/i,
+      )
+      expect(revokesCoverCapacityExecute(sql, "PUBLIC")).toBe(true)
+      expect(revokesCoverCapacityExecute(sql, "anon")).toBe(true)
+      expect(revokesCoverCapacityExecute(sql, "authenticated")).toBe(true)
+    }
+  })
+
+  it("CC-10 forward migration adds the nullable ceiling", () => {
+    function expectNullableIntegerCeiling(sql: string) {
+      const decl =
+        sql.match(
+          /ADD COLUMN IF NOT EXISTS max_cover_capacity\s+INT(?:EGER)?\b[^;]*/i,
+        )?.[0] ?? ""
+      expect(decl).toMatch(
+        /ADD COLUMN IF NOT EXISTS max_cover_capacity\s+INT(?:EGER)?\b/i,
+      )
+      expect(decl).not.toMatch(/\bNOT\s+NULL\b/i)
+      expect(checkAllowsNullOrAtLeastOne(sql)).toBe(true)
+    }
+
+    expectNullableIntegerCeiling(
+      readOptional("supabase/migrations/20261004161500_max_cover_capacity.sql"),
+    )
+    expectNullableIntegerCeiling(
+      read("supabase/migrations/00000000000000_baseline.sql"),
+    )
   })
 })

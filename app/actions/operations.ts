@@ -454,10 +454,11 @@ export async function updateTableState(input: {
       if (ceiling === null) {
         throw new Error("errors.floor.maxCoverCapacityUnset")
       }
-      const { data: seatRows } = await db
+      const { data: seatRows, error: seatReadError } = await db
         .from("tables")
         .select("seats")
         .order("label")
+      if (seatReadError) throw new Error("errors.floor.updateTableFailed")
       const seatSum = sumTableSeats(seatRows)
       if (seatSum - currentSeats + seats > ceiling) {
         throw new Error("errors.floor.maxCoverCapacityReached")
@@ -962,10 +963,11 @@ export async function createTable() {
   if (ceiling === null) {
     throw new Error("errors.floor.maxCoverCapacityUnset")
   }
-  const { data: existing } = await db
+  const { data: existing, error: existingError } = await db
     .from("tables")
     .select("label, x, y, seats")
     .order("label")
+  if (existingError) throw new Error("errors.floor.addTableFailed")
   const seatSum = sumTableSeats(existing)
   if (seatSum + 2 > ceiling) {
     throw new Error("errors.floor.maxCoverCapacityReached")

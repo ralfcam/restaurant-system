@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-04
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -178,6 +178,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | FEATURE allergen capture (`res-75_allergen_capture_b4e8c1a7`)                                     | 2026-10-02 | `specs/allergen-capture.md` (AL-1–AL-6, already the contract), `architecture/Reservation-Flow.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                             |
 | FEATURE external booking import (`res-80_external_booking_import_c4e1`)                           | 2026-10-03 | `specs/external-booking-import.md` (EI-1–EI-8 impl-trace), `architecture/Auth-And-RLS.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                   |
 | FEATURE restaurant cover capacity (`res-69_cover_capacity_b7d4`)                                  | 2026-10-04 | `specs/cover-capacity.md` (CC-1–CC-9, already the contract), `architecture/Floor-Plan.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                     |
+| PR #158 cover capacity findings (`pr158_cover_capacity_findings_b7d4`)                            | 2026-10-04 | `specs/cover-capacity.md` (CC-10/CC-11, already the contract), `architecture/Floor-Plan.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                           |
 
 ## Seed path
 
