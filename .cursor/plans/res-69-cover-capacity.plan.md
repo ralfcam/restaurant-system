@@ -109,12 +109,12 @@ Out of this spec: a change to the booking-occupancy formula, a change to slot or
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| Booking-occupancy formula change | BW-9 stays `sum(tables.seats)` | low |
-| Slot or service cover-limit change | CL-2 and CL-3 stay as they are | low |
-| Auto-remove seats to fit a lower maximum | a save below the current sum is refused | low |
-| Guest-facing cover control | v1 is staff-only on `/admin/floor` | low |
+| Item                                     | Why deferred                            | Severity |
+| ---------------------------------------- | --------------------------------------- | -------- |
+| Booking-occupancy formula change         | BW-9 stays `sum(tables.seats)`          | low      |
+| Slot or service cover-limit change       | CL-2 and CL-3 stay as they are          | low      |
+| Auto-remove seats to fit a lower maximum | a save below the current sum is refused | low      |
+| Guest-facing cover control               | v1 is staff-only on `/admin/floor`      | low      |
 
 ## Clarifications Needed
 
@@ -122,9 +122,9 @@ none
 
 ## PHASE 5 Execution Todos
 
-| Todo id               | Delegation                                                                                          |
-| --------------------- | --------------------------------------------------------------------------------------------------- |
-| `write-spec`          | Write the approved spec to `docs/specs/cover-capacity.md` directly                                  |
+| Todo id               | Delegation                                                                                         |
+| --------------------- | -------------------------------------------------------------------------------------------------- |
+| `write-spec`          | Write the approved spec to `docs/specs/cover-capacity.md` directly                                 |
 | `product-gaps-phase5` | Invoke the `docs-updater` subagent to append the four deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle

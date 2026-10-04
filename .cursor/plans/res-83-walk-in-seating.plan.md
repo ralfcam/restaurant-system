@@ -109,15 +109,15 @@ Out of this spec: a separate visit table, a guest-created walk-in, a future date
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| Separate visit table | v1 reuses a reservation row | low |
-| Guest-created walk-in | v1 is staff-only on `/admin/floor` | low |
-| Future date or chosen time | v1 is today at the current restaurant-local time | low |
-| Unassigned walk-in | v1 requires a selected table | low |
-| Guest-widget validation change | name, email, and the party cap of 8 stay | low |
-| Availability-trigger exception | walk-ins pass the current trigger | low |
-| Walk-in confirmation email | online booking still sends it; a walk-in does not | low |
+| Item                           | Why deferred                                      | Severity |
+| ------------------------------ | ------------------------------------------------- | -------- |
+| Separate visit table           | v1 reuses a reservation row                       | low      |
+| Guest-created walk-in          | v1 is staff-only on `/admin/floor`                | low      |
+| Future date or chosen time     | v1 is today at the current restaurant-local time  | low      |
+| Unassigned walk-in             | v1 requires a selected table                      | low      |
+| Guest-widget validation change | name, email, and the party cap of 8 stay          | low      |
+| Availability-trigger exception | walk-ins pass the current trigger                 | low      |
+| Walk-in confirmation email     | online booking still sends it; a walk-in does not | low      |
 
 ## Clarifications Needed
 
@@ -125,10 +125,10 @@ none
 
 ## PHASE 5 Execution Todos
 
-| Todo id               | Delegation                                                                                                |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `write-spec`          | Write the approved spec to `docs/specs/walk-in-seating.md` directly                                       |
-| `product-gaps-phase5` | Invoke the `docs-updater` subagent to append the seven deferrals to `docs/findings/product-gaps.md`       |
+| Todo id               | Delegation                                                                                          |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `write-spec`          | Write the approved spec to `docs/specs/walk-in-seating.md` directly                                 |
+| `product-gaps-phase5` | Invoke the `docs-updater` subagent to append the seven deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle
 
