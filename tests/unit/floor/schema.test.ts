@@ -129,6 +129,31 @@ describe("floor tables schema and live surfaces", () => {
     expect(layout.shouldOpenMobileInspector(1023)).toBe(true)
   })
 
+  it("mobile Sheet inspector exposes the same permitted table management actions as the side inspector", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+    const sheetOpen = floor.indexOf("<Sheet open={mobileInspectorOpen}")
+    expect(sheetOpen).toBeGreaterThan(-1)
+    const sheetClose = floor.indexOf("</Sheet>", sheetOpen)
+    expect(sheetClose).toBeGreaterThan(sheetOpen)
+    const sheet = floor.slice(sheetOpen, sheetClose + "</Sheet>".length)
+
+    expect(sheet.startsWith("<Sheet open={mobileInspectorOpen}")).toBe(true)
+    expect(sheet).toMatch(
+      /<Sheet\s+open=\{mobileInspectorOpen\}[^>]*onOpenChange=\{setMobileInspectorOpen\}/,
+    )
+    expect(sheet).not.toMatch(/setSelectedId\(\s*null\s*\)/)
+    expect(sheet).toMatch(
+      /<SheetTitle>[\s\S]*?t\(\s*["']staff\.floor\.tableHeading["'][\s\S]*?selected[\s\S]*?\.label[\s\S]*?<\/SheetTitle>/,
+    )
+
+    expect(sheet).toMatch(/\badjustSeats\b/)
+    expect(sheet).toMatch(/\badjustExpected\b/)
+    expect(sheet).toMatch(/\bcombineSelected\b/)
+    expect(sheet).toMatch(/\bremoveTable\b/)
+    expect(sheet).toMatch(/\btoggleUnlock\b/)
+    expect(sheet).toMatch(/\bsetStatus\b/)
+  })
+
   it("floor snapshot and live hook carry table bill totals on the 5s refresh", () => {
     const actions = read("app/actions/reservations.ts")
     const snapshotStart = actions.indexOf(
