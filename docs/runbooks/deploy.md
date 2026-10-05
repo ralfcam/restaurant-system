@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 
 ## Vercel
 
@@ -95,6 +95,24 @@ Vault (`project_url` = `https://tilcqrudqxznnpepxjqq.supabase.co`, `cron_secret`
 
 **Linked project:** `supabase-green-tree` (ref `tilcqrudqxznnpepxjqq`). Verify with
 `npx supabase projects list` (exactly one `LINKED` marker).
+
+### Staging migrations (CI)
+
+Push to `staging` runs `.github/workflows/staging-migrations.yml`. Job `apply`
+(`github.event_name == 'push' && github.ref == 'refs/heads/staging'`) runs
+`npx supabase db push` with `continue-on-error: false`. A pull request into
+`staging` that touches `supabase/migrations/**` runs job `validate-migrations`:
+every file under `supabase/migrations` must be a non-empty `*.sql`, and the
+step prints `merge will apply these migrations to staging`. That check does
+not run `db push`. A pull request that does not touch those paths does not
+run the check. Push to `main` does not apply migrations; production stays an
+operator step.
+
+GitHub Actions secrets on the apply step: `SUPABASE_ACCESS_TOKEN` and
+`SUPABASE_DB_PASSWORD`. The workflow does not pass `--project-ref` or run
+`supabase link`. `db push` still needs a linked staging project (the operator
+may need to set a project ref or link). Spec: G-MIG1–G-MIG5 in
+[../specs/dev-toolchain.md](../specs/dev-toolchain.md).
 
 ### Hosted Auth signup (SA-6)
 
