@@ -103,6 +103,15 @@ function isProcessMetaThread(thread) {
   return isWorkOrderPlanThread(thread) || thread?.isOutdated === true
 }
 
+function resolvedProductThreads(threads) {
+  return threads.filter(
+    (thread) =>
+      thread?.isResolved === true &&
+      threadHasCodeRabbit(thread) &&
+      !isProcessMetaThread(thread),
+  )
+}
+
 function isCompletedSuccess(state) {
   return String(state || "").toLowerCase() === "success"
 }
@@ -419,6 +428,23 @@ function evaluateReadyPrCore(
   }
   const latest = ranked[ranked.length - 1]
   if (reviewState(latest) !== "APPROVED") {
+    // G-CR4: ledgered capture threads are resolved before this re-run.
+    if (
+      loop &&
+      reviewState(latest) === "CHANGES_REQUESTED" &&
+      resolvedProductThreads(threads).length > 0
+    ) {
+      return {
+        ok: true,
+        reason: "captured_threads_resolved",
+        headSha,
+        commitId: reviewCommitId(latest),
+        isDraft,
+        usAppId: US_APP_ID,
+        checkName: US_LATEST_HEAD_CHECK_NAME,
+        statusContext: REQUIRED_US_STATUS_CONTEXT,
+      }
+    }
     return {
       ok: false,
       reason:
