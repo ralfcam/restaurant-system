@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -181,6 +181,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | PR #158 cover capacity findings (`pr158_cover_capacity_findings_b7d4`)                            | 2026-10-04 | `specs/cover-capacity.md` (CC-10/CC-11, already the contract), `architecture/Floor-Plan.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                           |
 | FEATURE standalone reservation page (`res-118_standalone_widget_2491`)                            | 2026-10-04 | `specs/standalone-reservation-widget.md` (SW-1–SW-6 impl-trace), `architecture/Platform-Overview.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                        |
 | FIX widget editor hydrate (`res-118_widget_editor_hydrate_k4p1`)                                  | 2026-10-04 | `specs/standalone-reservation-widget.md` (SW-7 impl-trace; SW-7 already normative), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
+| RES-128 non-staff login sign-out (`res-128_nonstaff_signout_6938`)                                | 2026-10-05 | `specs/staff-authorization.md` (SA-3 impl-trace; SA-3 already normative), `architecture/Auth-And-RLS.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                      |
 
 ## Seed path
 

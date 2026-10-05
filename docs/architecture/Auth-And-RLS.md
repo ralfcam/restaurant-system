@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-05
 
 ## Auth flow
 
@@ -27,8 +27,9 @@ either staff claim; `requireSuperAdminUser` returns the user only for
 super-admin (staff-only sessions get `null`). Both gates read
 `app_metadata.role` only. Privileged mutations use one of those two guards;
 booking-config **reads** stay on `requireStaffUser`. `/auth/login` is sign-in
-only (no `signUp`); after `signInWithPassword` it calls `isStaffUser(data.user)`
-before `window.location.href = "/admin"`.
+only (no `signUp`); after `signInWithPassword` it calls `isStaffUser(data.user)`.
+A non-staff user awaits `supabase.auth.signOut()` on that same client before
+the handler returns. A staff session continues with `window.location.href = "/admin"`.
 
 Seed identities in `supabase/seed.sql` (every `db reset`, `--local` and
 `--linked` non-prod): `admin@test.local` (`11111111-1111-1111-1111-111111111111`,

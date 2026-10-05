@@ -45,6 +45,7 @@ export default function LoginPage() {
     }
     if (!isStaffUser(data.user)) {
       setErrorMsg(unauthorized)
+      await supabase.auth.signOut()
       return
     }
     // Full page navigation so the middleware session cookie is read correctly.
