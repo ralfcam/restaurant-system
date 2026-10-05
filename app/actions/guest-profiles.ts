@@ -1,12 +1,19 @@
 "use server"
 
-import { buildGuestProfile, normalizeGuestEmail } from "@/lib/guest-profiles"
+import {
+  buildGuestProfile,
+  deriveGuestIncidents,
+  normalizeGuestEmail,
+} from "@/lib/guest-profiles"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { createServiceClient } from "@/lib/supabase/service"
 
-export async function getGuestProfile(
-  email: string,
-): Promise<{ error?: string } & Partial<ReturnType<typeof buildGuestProfile>>> {
+export async function getGuestProfile(email: string): Promise<
+  {
+    error?: string
+    incidents?: ReturnType<typeof deriveGuestIncidents>
+  } & Partial<ReturnType<typeof buildGuestProfile>>
+> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
 
@@ -20,7 +27,27 @@ export async function getGuestProfile(
     return { error: "errors.guestProfiles.unmapped" }
   }
 
-  return buildGuestProfile(email, data ?? [])
+  const rows = data ?? []
+  return {
+    ...buildGuestProfile(email, rows),
+    incidents: deriveGuestIncidents(
+      rows.map(
+        (row: {
+          status?: string | null
+          date?: string | null
+          time?: string | null
+          cancelled_at?: string | null
+          seated_at?: string | null
+        }) => ({
+          status: row.status ?? "",
+          date: row.date ?? "",
+          time: row.time ?? "",
+          cancelled_at: row.cancelled_at ?? null,
+          seated_at: row.seated_at ?? null,
+        }),
+      ),
+    ),
+  }
 }
 
 export async function updateGuestProfilePii(input: {

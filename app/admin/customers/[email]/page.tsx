@@ -39,6 +39,7 @@ export default async function AdminGuestProfilePage({
             notes: profile.notes,
             summary: profile.summary,
             history: profile.history,
+            incidents: profile.incidents,
           }}
         />
       </div>

@@ -108,6 +108,10 @@ CREATE TABLE IF NOT EXISTS reservations (
   email_normalized TEXT GENERATED ALWAYS AS (lower(btrim(email))) STORED,
   -- RES-45 / PV-13: completion clock for post-visit review delay (not updated_at).
   completed_at TIMESTAMPTZ,
+  -- RES-107: cancellation clock for late_cancel (not guest-inserted).
+  cancelled_at TIMESTAMPTZ,
+  -- RES-107: seat clock for delay (not guest-inserted).
+  seated_at TIMESTAMPTZ,
   -- RES-75 / AL-2: nullable allergen text. Service-role write only; not guest-inserted.
   allergens TEXT,
   -- RES-80 / EI-8: nullable external booking id. Service-role write only; not guest-inserted.
@@ -122,6 +126,12 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
 -- RES-45 / PV-13: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
 -- without completed_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- RES-107: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without cancelled_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+-- RES-107: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without seated_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS seated_at TIMESTAMPTZ;
 -- RES-67 / RES-STATUS-FORWARD: remotes already recorded baseline; same
 -- DROP/ADD last-writer as 20260920183000 so a fresh reset converges.
 ALTER TABLE reservations
@@ -157,7 +167,7 @@ CREATE POLICY "Allow public insert reservations"
 
 -- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
 -- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
--- id, status, table_label, created_at, completed_at, email_normalized,
+-- id, status, table_label, created_at, completed_at, cancelled_at, seated_at, email_normalized,
 -- allergens (RES-75), and external_booking_id (RES-80 / EI-8) have no guest INSERT privilege.
 -- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
