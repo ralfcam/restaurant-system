@@ -8,6 +8,7 @@ import {
   useState,
   type FormEvent,
   type PointerEvent,
+  type ReactNode,
 } from "react"
 import {
   Plus,
@@ -229,6 +230,137 @@ function MinutesStepperButtons({
         <Plus className="size-4" />
       </Button>
     </>
+  )
+}
+
+type InspectorCapacityTable = {
+  id: string
+  seats: number
+  expectedMinutes: number
+  merge: {
+    seats: number
+    memberLabels: readonly string[]
+    expectedMinutes: number
+  } | null
+}
+
+// minimality: seat/expected markup is shared; desktop hints stay a slot so the lg inspector is not restyled.
+function InspectorCapacityControls({
+  table,
+  memberTables,
+  onAdjustSeats,
+  onAdjustExpected,
+  expectedHint = null,
+}: {
+  table: InspectorCapacityTable
+  memberTables: ReadonlyArray<{ label: string; seats: number }>
+  onAdjustSeats: (id: string, delta: number) => void
+  onAdjustExpected: (id: string, delta: number) => void
+  expectedHint?: ReactNode
+}) {
+  const t = useTranslations()
+  return (
+    <>
+      <div>
+        <p className="mb-2 text-sm font-medium">
+          {t("staff.floor.seatCapacity")}
+        </p>
+        {table.merge ? (
+          <p className="font-heading text-2xl font-semibold tabular-nums">
+            {table.merge.seats}
+            <span className="ml-2 text-sm font-normal text-muted-foreground">
+              {table.merge.memberLabels
+                .map((label) => {
+                  const member = memberTables.find((row) => row.label === label)
+                  return `${label} (${member?.seats ?? "?"})`
+                })
+                .join(" + ")}
+            </span>
+          </p>
+        ) : (
+          <div className="flex items-center gap-3">
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => onAdjustSeats(table.id, -1)}
+            >
+              <Minus className="size-4" />
+            </Button>
+            <span className="min-w-10 text-center font-heading text-2xl font-semibold tabular-nums">
+              {table.seats}
+            </span>
+            <Button
+              size="icon"
+              variant="outline"
+              onClick={() => onAdjustSeats(table.id, 1)}
+            >
+              <Plus className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+      <div>
+        <p className="mb-2 text-sm font-medium">
+          {t("staff.floor.expectedTime")}
+        </p>
+        <div className="flex items-center gap-3">
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => onAdjustExpected(table.id, -EXPECTED_MINUTES_STEP)}
+          >
+            <Minus className="size-4" />
+          </Button>
+          <span className="min-w-16 text-center font-heading text-2xl font-semibold tabular-nums">
+            {table.merge?.expectedMinutes ?? table.expectedMinutes}
+            <span className="ml-1 text-sm font-normal text-muted-foreground">
+              {t("staff.floor.minuteUnit")}
+            </span>
+          </span>
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => onAdjustExpected(table.id, EXPECTED_MINUTES_STEP)}
+          >
+            <Plus className="size-4" />
+          </Button>
+        </div>
+        {expectedHint}
+      </div>
+    </>
+  )
+}
+
+function MergePartnerChips({
+  partners,
+  pickedIds,
+  onToggle,
+}: {
+  partners: ReadonlyArray<{ id: string; label: string; seats: number }>
+  pickedIds: readonly string[]
+  onToggle: (id: string) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {partners.map((table) => {
+        const picked = pickedIds.includes(table.id)
+        return (
+          <button
+            key={table.id}
+            type="button"
+            onClick={() => onToggle(table.id)}
+            className={cn(
+              "rounded-md border px-2 py-1 text-sm font-medium transition-colors",
+              picked
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-background text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {table.label} · {table.seats}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -1403,94 +1535,32 @@ export function FloorPlan({
                 ) : null}
               </div>
 
-              <div>
-                <p className="mb-2 text-sm font-medium">
-                  {t("staff.floor.seatCapacity")}
-                </p>
-                {selected.merge ? (
-                  <p className="font-heading text-2xl font-semibold tabular-nums">
-                    {selected.merge.seats}
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      {selected.merge.memberLabels
-                        .map((label) => {
-                          const member = tables.find(
-                            (row) => row.label === label,
-                          )
-                          return `${label} (${member?.seats ?? "?"})`
-                        })
-                        .join(" + ")}
-                    </span>
-                  </p>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => adjustSeats(selected.id, -1)}
-                    >
-                      <Minus className="size-4" />
-                    </Button>
-                    <span className="min-w-10 text-center font-heading text-2xl font-semibold tabular-nums">
-                      {selected.seats}
-                    </span>
-                    <Button
-                      size="icon"
-                      variant="outline"
-                      onClick={() => adjustSeats(selected.id, 1)}
-                    >
-                      <Plus className="size-4" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <p className="mb-2 text-sm font-medium">
-                  {t("staff.floor.expectedTime")}
-                </p>
-                <div className="flex items-center gap-3">
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() =>
-                      adjustExpected(selected.id, -EXPECTED_MINUTES_STEP)
-                    }
-                  >
-                    <Minus className="size-4" />
-                  </Button>
-                  <span className="min-w-16 text-center font-heading text-2xl font-semibold tabular-nums">
-                    {selected.merge?.expectedMinutes ??
-                      selected.expectedMinutes}
-                    <span className="ml-1 text-sm font-normal text-muted-foreground">
-                      {t("staff.floor.minuteUnit")}
-                    </span>
-                  </span>
-                  <Button
-                    size="icon"
-                    variant="outline"
-                    onClick={() =>
-                      adjustExpected(selected.id, EXPECTED_MINUTES_STEP)
-                    }
-                  >
-                    <Plus className="size-4" />
-                  </Button>
-                </div>
-                {selected.merge ? (
-                  <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
-                    <Clock className="size-3" />
-                    {t("staff.floor.leftOnArrangement", {
-                      duration: formatDurationMinutes(
-                        remainingMinutes(selected.merge.expiresAt, new Date()),
-                        durationUnits,
-                      ),
-                    })}
-                  </p>
-                ) : (
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {t("staff.floor.expectedTurnHint")}
-                  </p>
-                )}
-              </div>
+              <InspectorCapacityControls
+                table={selected}
+                memberTables={tables}
+                onAdjustSeats={adjustSeats}
+                onAdjustExpected={adjustExpected}
+                expectedHint={
+                  selected.merge ? (
+                    <p className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock className="size-3" />
+                      {t("staff.floor.leftOnArrangement", {
+                        duration: formatDurationMinutes(
+                          remainingMinutes(
+                            selected.merge.expiresAt,
+                            new Date(),
+                          ),
+                          durationUnits,
+                        ),
+                      })}
+                    </p>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      {t("staff.floor.expectedTurnHint")}
+                    </p>
+                  )
+                }
+              />
 
               <div>
                 <p className="mb-2 text-sm font-medium">
@@ -1530,26 +1600,11 @@ export function FloorPlan({
                         {t("staff.floor.noMergePartners")}
                       </p>
                     ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {mergePartners.map((table) => {
-                          const picked = mergePick.includes(table.id)
-                          return (
-                            <button
-                              key={table.id}
-                              type="button"
-                              onClick={() => toggleMergePick(table.id)}
-                              className={cn(
-                                "rounded-md border px-2 py-1 text-sm font-medium transition-colors",
-                                picked
-                                  ? "border-primary bg-primary text-primary-foreground"
-                                  : "border-border bg-background text-muted-foreground hover:text-foreground",
-                              )}
-                            >
-                              {table.label} · {table.seats}
-                            </button>
-                          )
-                        })}
-                      </div>
+                      <MergePartnerChips
+                        partners={mergePartners}
+                        pickedIds={mergePick}
+                        onToggle={toggleMergePick}
+                      />
                     )}
                     <Button
                       className="w-full"
@@ -1663,12 +1718,53 @@ export function FloorPlan({
                   </Button>
                 ))}
               </div>
-              {selected.merge ? (
-                <Button variant="outline" onClick={() => void splitSelected()}>
-                  <Unlink data-icon="inline-start" />{" "}
-                  {t("staff.floor.splitTables")}
-                </Button>
-              ) : null}
+              <InspectorCapacityControls
+                table={selected}
+                memberTables={tables}
+                onAdjustSeats={adjustSeats}
+                onAdjustExpected={adjustExpected}
+              />
+              <div>
+                <p className="mb-2 text-sm font-medium">
+                  {t("staff.floor.mergeTables")}
+                </p>
+                {selected.merge ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => void splitSelected()}
+                  >
+                    <Unlink data-icon="inline-start" />{" "}
+                    {t("staff.floor.splitTables")}
+                  </Button>
+                ) : selectedMergeable ? (
+                  <div className="space-y-2">
+                    {mergePartners.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">
+                        {t("staff.floor.noMergePartners")}
+                      </p>
+                    ) : (
+                      <MergePartnerChips
+                        partners={mergePartners}
+                        pickedIds={mergePick}
+                        onToggle={toggleMergePick}
+                      />
+                    )}
+                    <Button
+                      className="w-full"
+                      variant="outline"
+                      disabled={mergePick.length === 0 || merging}
+                      onClick={() => void combineSelected()}
+                    >
+                      <Combine data-icon="inline-start" />{" "}
+                      {t("staff.floor.mergeTables")}
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    {t("staff.floor.onlyAvailableMerge")}
+                  </p>
+                )}
+              </div>
               <Button
                 variant="outline"
                 onClick={() => toggleUnlock(selected.id)}
@@ -1681,6 +1777,14 @@ export function FloorPlan({
                 {selectedUnlocked
                   ? t("staff.floor.lockPosition")
                   : t("staff.floor.unlockToMove")}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full text-destructive hover:text-destructive"
+                onClick={() => removeTable(selected.id)}
+              >
+                <Trash2 data-icon="inline-start" />{" "}
+                {t("staff.floor.removeTable")}
               </Button>
             </div>
           ) : null}
