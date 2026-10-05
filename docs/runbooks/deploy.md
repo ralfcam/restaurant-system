@@ -100,7 +100,7 @@ Vault (`project_url` = `https://tilcqrudqxznnpepxjqq.supabase.co`, `cron_secret`
 
 Push to `staging` runs `.github/workflows/staging-migrations.yml`. Job `apply`
 (`github.event_name == 'push' && github.ref == 'refs/heads/staging'`) runs
-`npx supabase db push` with `continue-on-error: false`. A pull request into
+`npx supabase db push --project-ref tilcqrudqxznnpepxjqq` with `continue-on-error: false`. A pull request into
 `staging` that touches `supabase/migrations/**` runs job `validate-migrations`:
 every file under `supabase/migrations` must be a non-empty `*.sql`, and the
 step prints `merge will apply these migrations to staging`. That check does
@@ -109,9 +109,8 @@ run the check. Push to `main` does not apply migrations; production stays an
 operator step.
 
 GitHub Actions secrets on the apply step: `SUPABASE_ACCESS_TOKEN` and
-`SUPABASE_DB_PASSWORD`. The workflow does not pass `--project-ref` or run
-`supabase link`. `db push` still needs a linked staging project (the operator
-may need to set a project ref or link). Spec: G-MIG1–G-MIG5 in
+`SUPABASE_DB_PASSWORD`. The apply command passes
+`--project-ref tilcqrudqxznnpepxjqq`. Spec: G-MIG1–G-MIG5 in
 [../specs/dev-toolchain.md](../specs/dev-toolchain.md).
 
 ### Hosted Auth signup (SA-6)

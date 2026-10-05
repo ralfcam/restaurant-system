@@ -22,7 +22,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-        run: npx supabase db push
+        run: npx supabase db push --project-ref tilcqrudqxznnpepxjqq
 
   validate-migrations:
     if: github.event_name == 'pull_request'
