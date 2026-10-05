@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -53,7 +53,11 @@ chips omit the bill.
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
 `hooks/use-floor-plan.ts`. From `lg` (1024px) up, table selection updates the
 side inspector (`lg:block`); the mobile bottom Sheet MUST NOT be open on
-desktop selection (FP-12). Inventory is persisted in Postgres (`tables`), not
+desktop selection (FP-12). Below `lg`, the open Sheet names the selected
+table and calls the same handlers as that side inspector: `setStatus`,
+`adjustSeats`, `adjustExpected`, `combineSelected`, `splitSelected`,
+`toggleUnlock`, and `removeTable`. Closing the Sheet does not clear the
+canvas selection. Inventory is persisted in Postgres (`tables`), not
 mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
 live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
