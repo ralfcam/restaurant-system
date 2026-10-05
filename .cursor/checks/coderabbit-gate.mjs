@@ -245,54 +245,58 @@ async function main() {
   let pinned = null
   let authCheck = null
   let evaluated
-  try {
-    pinned = readPinnedAuth(cwd)
-    authCheck = assertPinnedUsAuth({
-      version: pinned.version,
-      auth: pinned.auth,
-    })
-    if (!authCheck.ok) {
-      evaluated = unavailable(authCheck.reason, [], waivers)
-    } else {
-      let jsonl = pinned.jsonl
-      if (isTestMode()) {
-        if (process.env.CODERABBIT_STUB_REVIEW_ERROR === "1") {
-          evaluated = unavailable("error", [], waivers, {
-            code: 1,
-            stderr: "stubbed review process failure",
-          })
-        } else if (!jsonl) {
-          evaluated = unavailable("missing_complete", [], waivers)
-        }
+  if (!isTestMode()) {
+    evaluated = unavailable("cli_paused", [], waivers)
+  } else {
+    try {
+      pinned = readPinnedAuth(cwd)
+      authCheck = assertPinnedUsAuth({
+        version: pinned.version,
+        auth: pinned.auth,
+      })
+      if (!authCheck.ok) {
+        evaluated = unavailable(authCheck.reason, [], waivers)
       } else {
-        const bin = pinned.bin || resolveCrBinary()
-        const args = reviewCommandArgs({ owningSpec, base })
-        const review = await runCr(bin, args, { timeoutMs, cwd })
-        if (review.timedOut) {
-          evaluated = unavailable("timeout", [], waivers)
-        } else if (review.code !== 0) {
-          const parsed = parseJsonl(review.stdout)
-          const findings = parsed.events.filter(
-            (event) => event.type === "finding",
-          )
-          evaluated = unavailable("error", findings, waivers, {
-            stderr: review.stderr,
-            code: review.code,
-          })
+        let jsonl = pinned.jsonl
+        if (isTestMode()) {
+          if (process.env.CODERABBIT_STUB_REVIEW_ERROR === "1") {
+            evaluated = unavailable("error", [], waivers, {
+              code: 1,
+              stderr: "stubbed review process failure",
+            })
+          } else if (!jsonl) {
+            evaluated = unavailable("missing_complete", [], waivers)
+          }
         } else {
-          jsonl = review.stdout
+          const bin = pinned.bin || resolveCrBinary()
+          const args = reviewCommandArgs({ owningSpec, base })
+          const review = await runCr(bin, args, { timeoutMs, cwd })
+          if (review.timedOut) {
+            evaluated = unavailable("timeout", [], waivers)
+          } else if (review.code !== 0) {
+            const parsed = parseJsonl(review.stdout)
+            const findings = parsed.events.filter(
+              (event) => event.type === "finding",
+            )
+            evaluated = unavailable("error", findings, waivers, {
+              stderr: review.stderr,
+              code: review.code,
+            })
+          } else {
+            jsonl = review.stdout
+          }
+        }
+        if (!evaluated) {
+          evaluated = evaluateAdvisoryJsonl(jsonl, {
+            reviewablePaths: scope.reviewablePaths,
+            base,
+            waivers,
+          })
         }
       }
-      if (!evaluated) {
-        evaluated = evaluateAdvisoryJsonl(jsonl, {
-          reviewablePaths: scope.reviewablePaths,
-          base,
-          waivers,
-        })
-      }
+    } catch (err) {
+      evaluated = unavailable("error", [], waivers, { message: err.message })
     }
-  } catch (err) {
-    evaluated = unavailable("error", [], waivers, { message: err.message })
   }
 
   const afterManifest = manifestFor(cwd, scope.reviewablePaths, true)

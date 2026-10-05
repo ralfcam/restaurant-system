@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest"
 
 const repoRoot = process.cwd()
 const CLOUD_INSTALL =
-  "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh"
+  "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile"
 
 describe("cloud test stack", () => {
   it("keeps the install string and adds Docker start plus the supabase helper", () => {

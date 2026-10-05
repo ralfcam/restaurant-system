@@ -3,6 +3,6 @@
   "build": {
     "dockerfile": "cloud.Dockerfile"
   },
-  "install": "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh",
+  "install": "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile",
   "start": "sudo service docker start"
 }

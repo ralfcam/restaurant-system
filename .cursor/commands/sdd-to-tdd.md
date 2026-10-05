@@ -954,6 +954,8 @@ scoped JSONL review:
    `node .cursor/checks/coderabbit-gate.mjs --owning-spec <spec> --work-order <work-order.json>`
    with additional instructions
    [`.cursor/rules/coderabbit-integration.mdc`](.cursor/rules/coderabbit-integration.mdc).
+   Outside test mode the gate records `unavailable` / `cli_paused` and does
+   not spawn the CLI. GitHub review stays required.
 3. Always record the result (`clean`, `findings`, or `unavailable`) and
    continue to STEP 4F. Findings at every severity, authentication/setup
    failure, rate limit, billing, timeout, skipped review, malformed/partial

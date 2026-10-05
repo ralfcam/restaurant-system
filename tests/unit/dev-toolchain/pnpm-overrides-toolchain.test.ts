@@ -47,7 +47,7 @@ describe("pnpm override home", () => {
     ) as { install?: string }
     expect(environment.install).toContain("corepack prepare --activate")
     expect(environment.install).toContain("pnpm install --frozen-lockfile")
-    expect(environment.install).toContain(
+    expect(environment.install).not.toContain(
       "sh .cursor/cloud-install-coderabbit.sh",
     )
     expect(environment.install).not.toMatch(/--no-frozen-lockfile/)

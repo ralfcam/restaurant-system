@@ -14,6 +14,11 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 
 ## Local final-surface attempt
 
+The CLI spawn is paused. Outside `CODERABBIT_GATE_TEST=1`,
+`coderabbit-gate.mjs` records `unavailable` / `cli_paused` after the
+work-order preflight and does not run `coderabbit` or `cr`. GitHub review
+stays fail-closed. The `0.7.6` pin remains in the unused helper for resume.
+
 After `/sdd-to-tdd` close-out (4D/4E, docs sync, findings, Linear close-out,
 format) and **before** `/commit` handoff, run
 `node .cursor/checks/coderabbit-gate.mjs` against the work-order dirty tree.

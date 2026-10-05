@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest"
 const repoRoot = process.cwd()
 
 const CLOUD_INSTALL =
-  "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh"
+  "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile"
 
 function readInstallScript() {
   return readFileSync(
@@ -15,11 +15,14 @@ function readInstallScript() {
 }
 
 describe("Cloud CodeRabbit US pin", () => {
-  it("environment.json install is the fail-closed Cloud helper command", () => {
+  it("environment.json install does not invoke the paused CLI helper", () => {
     const environment = JSON.parse(
       readFileSync(path.join(repoRoot, ".cursor", "environment.json"), "utf8"),
     ) as { install?: string }
     expect(environment.install).toBe(CLOUD_INSTALL)
+    expect(environment.install).not.toContain(
+      "sh .cursor/cloud-install-coderabbit.sh",
+    )
   })
 
   it("pins CLI 0.7.6, reinstalls on mismatch, and fails closed for US auth", () => {
@@ -45,5 +48,19 @@ describe("Cloud CodeRabbit US pin", () => {
     expect(script).toMatch(/"authenticated":\[\[:space:\]\]\*true/)
     expect(script).toMatch(/"region":\[\[:space:\]\]\*"us"/)
     expect(script).not.toMatch(/--region eu/)
+  })
+
+  it("records cli_paused before readPinnedAuth outside test mode", () => {
+    const gate = readFileSync(
+      path.join(repoRoot, ".cursor", "checks", "coderabbit-gate.mjs"),
+      "utf8",
+    )
+    const pause = gate.indexOf('unavailable("cli_paused"')
+    const authCall = gate.indexOf("pinned = readPinnedAuth")
+    expect(pause).toBeGreaterThan(-1)
+    expect(authCall).toBeGreaterThan(pause)
+    expect(gate.slice(Math.max(0, pause - 120), pause)).toMatch(
+      /!isTestMode\(\)/,
+    )
   })
 })

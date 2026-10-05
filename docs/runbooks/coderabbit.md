@@ -3,14 +3,15 @@
 **Status:** Draft  
 **Last updated:** 2026-10-05
 
-This repository uses **one** CodeRabbit installation: **US Team**. Local
-CLI review and Cloud Agent reviews must authenticate against
-[app.coderabbit.ai](https://app.coderabbit.ai) with `"region":"us"`. Pull
-request reviews come from **`coderabbitai`** (App ID `347564`). CLI pin is
-`0.7.6`.
+This repository uses **one** CodeRabbit installation: **US Team**. The CLI
+spawn and the Cloud `install` helper are paused. Pull request reviews still
+come from **`coderabbitai`** (App ID `347564`) and stay required. CLI pin
+`0.7.6` remains in the unused helper. When the CLI runs again, it must
+authenticate against [app.coderabbit.ai](https://app.coderabbit.ai) with
+`"region":"us"`.
 
-Repository YAML: [`.coderabbit.yaml`](../../.coderabbit.yaml). Cloud CLI
-install: [`.cursor/environment.json`](../../.cursor/environment.json) plus
+Repository YAML: [`.coderabbit.yaml`](../../.coderabbit.yaml). Cloud install
+is [`.cursor/environment.json`](../../.cursor/environment.json) without
 [`.cursor/cloud-install-coderabbit.sh`](../../.cursor/cloud-install-coderabbit.sh).
 Do not commit API keys or `.env*` files.
 
@@ -90,6 +91,10 @@ Exit `0` is schema-valid. Exit `1` is missing, unreadable, or invalid YAML.
 
 ## Agentic API key (Cloud / headless)
 
+The CLI is paused. Cloud `install` does not run the helper, and the local
+gate records `cli_paused` without spawning `coderabbit`. The notes below
+are the resume path.
+
 Browser OAuth does not persist into Cursor Cloud. Provision an **Agentic**
 API key (not a user API key) from the **US** account:
 
@@ -100,10 +105,10 @@ on the [Cloud Agents dashboard](https://cursor.com/dashboard/cloud-agents)
 (Secrets tab). Never put it in `.cursor/environment.json`,
 `.coderabbit.yaml`, git, or chat.
 
-Cloud `install` is exactly:
+Cloud `install` is exactly the paused command (the helper is not invoked):
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
 ```
 
 The helper sets `CI=1` so the installer skips the interactive login prompt,
@@ -184,7 +189,7 @@ Missing `CODERABBIT_API_KEY`, failed login, or non-US status:
 2. Store it as the Cursor Cloud secret named **`CODERABBIT_API_KEY`** at
    [https://cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents)
    (Secrets tab).
-3. Re-run:
+3. Resume the paused helper by making `install` this command:
 
 ```
 corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
@@ -258,8 +263,9 @@ CODERABBIT_VERSION=0.7.6 curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 
 ### Cloud Build has CLI but reviews fail with 401
 
-The secret was missing at install time, or the key is not a US Agentic
-key. Set `CODERABBIT_API_KEY` and re-run:
+The CLI install is paused, so this does not apply to the current snapshot.
+On resume, the secret was missing at install time, or the key is not a US
+Agentic key. Set `CODERABBIT_API_KEY` and re-run:
 
 ```
 corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
