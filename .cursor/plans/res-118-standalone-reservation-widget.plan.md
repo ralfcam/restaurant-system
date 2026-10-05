@@ -71,11 +71,11 @@ Path: `docs/specs/standalone-reservation-widget.md`
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| Homepage hero copy replacement | HP-1 stays; this page is `/[locale]/reserve` | low |
-| Second hero-image upload | branding-cms already stores `hero_image_url` | low |
-| Booking-flow rewrite | BW-6 and BW-7 stay | low |
+| Item                           | Why deferred                                 | Severity |
+| ------------------------------ | -------------------------------------------- | -------- |
+| Homepage hero copy replacement | HP-1 stays; this page is `/[locale]/reserve` | low      |
+| Second hero-image upload       | branding-cms already stores `hero_image_url` | low      |
+| Booking-flow rewrite           | BW-6 and BW-7 stay                           | low      |
 
 ## Clarifications Needed
 
@@ -83,9 +83,9 @@ none
 
 ## PHASE 5 Execution Todos
 
-| Todo id | Delegation |
-| --- | --- |
-| `write-spec` | Write `docs/specs/standalone-reservation-widget.md` |
+| Todo id               | Delegation                                                    |
+| --------------------- | ------------------------------------------------------------- |
+| `write-spec`          | Write `docs/specs/standalone-reservation-widget.md`           |
 | `product-gaps-phase5` | Append the three deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle

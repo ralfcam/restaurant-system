@@ -1020,6 +1020,13 @@ ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_maps_url T
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_delay_hours INT NOT NULL DEFAULT 24;
 -- RES-69: nullable restaurant-wide max cover capacity (null = unset).
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS max_cover_capacity INT;
+-- RES-118: standalone reservation page editorial copy and phone visibility.
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS restaurant_display_name TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS tagline TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS welcome_title TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS welcome_message TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS closing_message TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS show_reservation_phone BOOLEAN NOT NULL DEFAULT false;
 
 DO $$
 BEGIN

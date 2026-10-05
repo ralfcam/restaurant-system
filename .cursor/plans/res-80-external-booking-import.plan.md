@@ -72,14 +72,14 @@ Path: `docs/specs/external-booking-import.md`
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| API or webhook ingest | v1 is a staff CSV upload | low |
-| Channel column | display stays on RES-105 | low |
-| Google Reserve | stays on RES-81 | low |
-| Partial commit of a mixed file | one bad row writes nothing | low |
-| Import confirmation email | a direct booking still sends it | low |
-| Online party cap on import | the cap of 8 stays on the guest widget | low |
+| Item                           | Why deferred                           | Severity |
+| ------------------------------ | -------------------------------------- | -------- |
+| API or webhook ingest          | v1 is a staff CSV upload               | low      |
+| Channel column                 | display stays on RES-105               | low      |
+| Google Reserve                 | stays on RES-81                        | low      |
+| Partial commit of a mixed file | one bad row writes nothing             | low      |
+| Import confirmation email      | a direct booking still sends it        | low      |
+| Online party cap on import     | the cap of 8 stays on the guest widget | low      |
 
 ## Clarifications Needed
 
@@ -87,9 +87,9 @@ none
 
 ## PHASE 5 Execution Todos
 
-| Todo id | Delegation |
-| --- | --- |
-| `write-spec` | Write `docs/specs/external-booking-import.md` |
+| Todo id               | Delegation                                                  |
+| --------------------- | ----------------------------------------------------------- |
+| `write-spec`          | Write `docs/specs/external-booking-import.md`               |
 | `product-gaps-phase5` | Append the six deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle

@@ -69,12 +69,12 @@ Path: `docs/specs/guest-profile-merge.md`
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| Automatic merge | staff must confirm | low |
-| Guests table | identity stays the normalized email | low |
-| Name-only match | v1 matches a normalized phone | low |
-| Blank-email merge | a blank email has no ficha | low |
+| Item              | Why deferred                        | Severity |
+| ----------------- | ----------------------------------- | -------- |
+| Automatic merge   | staff must confirm                  | low      |
+| Guests table      | identity stays the normalized email | low      |
+| Name-only match   | v1 matches a normalized phone       | low      |
+| Blank-email merge | a blank email has no ficha          | low      |
 
 ## Clarifications Needed
 
@@ -82,9 +82,9 @@ none. The TBA merge rule is settled by the assumption above.
 
 ## PHASE 5 Execution Todos
 
-| Todo id | Delegation |
-| --- | --- |
-| `write-spec` | Write `docs/specs/guest-profile-merge.md` |
+| Todo id               | Delegation                                                   |
+| --------------------- | ------------------------------------------------------------ |
+| `write-spec`          | Write `docs/specs/guest-profile-merge.md`                    |
 | `product-gaps-phase5` | Append the four deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle

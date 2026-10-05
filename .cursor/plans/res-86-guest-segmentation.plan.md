@@ -69,11 +69,11 @@ Path: `docs/specs/guest-segmentation.md`
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| Saved segments | v1 filters are ephemeral | low |
-| Marketing campaign or VIP rule | the issue excludes fixed marketing rules | low |
-| Guests with no email | a blank email has no ficha | low |
+| Item                           | Why deferred                             | Severity |
+| ------------------------------ | ---------------------------------------- | -------- |
+| Saved segments                 | v1 filters are ephemeral                 | low      |
+| Marketing campaign or VIP rule | the issue excludes fixed marketing rules | low      |
+| Guests with no email           | a blank email has no ficha               | low      |
 
 ## Clarifications Needed
 
@@ -81,9 +81,9 @@ none
 
 ## PHASE 5 Execution Todos
 
-| Todo id | Delegation |
-| --- | --- |
-| `write-spec` | Write `docs/specs/guest-segmentation.md` |
+| Todo id               | Delegation                                                    |
+| --------------------- | ------------------------------------------------------------- |
+| `write-spec`          | Write `docs/specs/guest-segmentation.md`                      |
 | `product-gaps-phase5` | Append the three deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle

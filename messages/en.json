@@ -510,7 +510,14 @@
       "chooseHeroImage": "Choose an image",
       "chooseDifferentHero": "Choose a different image",
       "removeHero": "Remove hero image",
-      "saveHero": "Save hero image"
+      "saveHero": "Save hero image",
+      "restaurantDisplayName": "Restaurant display name",
+      "widgetTagline": "Tagline",
+      "welcomeTitle": "Welcome title",
+      "welcomeMessage": "Welcome message",
+      "closingMessage": "Closing message",
+      "showReservationPhone": "Show reservation phone",
+      "saveWidgetCopy": "Save"
     },
     "marketing": {
       "title": "Marketing",

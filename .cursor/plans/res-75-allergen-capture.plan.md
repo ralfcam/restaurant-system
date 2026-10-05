@@ -71,11 +71,11 @@ Path: `docs/specs/allergen-capture.md`
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| Allergen code list | v1 is free text up to 500 characters | low |
-| Allergen rollup on the guest ficha | v1 shows the value on its reservation | low |
-| Guest INSERT allowlist change | booking-rules AC-5 stays; the service role writes the column | low |
+| Item                               | Why deferred                                                 | Severity |
+| ---------------------------------- | ------------------------------------------------------------ | -------- |
+| Allergen code list                 | v1 is free text up to 500 characters                         | low      |
+| Allergen rollup on the guest ficha | v1 shows the value on its reservation                        | low      |
+| Guest INSERT allowlist change      | booking-rules AC-5 stays; the service role writes the column | low      |
 
 ## Clarifications Needed
 
@@ -83,9 +83,9 @@ none
 
 ## PHASE 5 Execution Todos
 
-| Todo id | Delegation |
-| --- | --- |
-| `write-spec` | Write `docs/specs/allergen-capture.md` |
+| Todo id               | Delegation                                                    |
+| --------------------- | ------------------------------------------------------------- |
+| `write-spec`          | Write `docs/specs/allergen-capture.md`                        |
 | `product-gaps-phase5` | Append the three deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle
