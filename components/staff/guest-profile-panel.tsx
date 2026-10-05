@@ -41,6 +41,7 @@ export function GuestProfilePanel({
       notes?: string | null
       isVisit: boolean
     }>
+    incidents?: { type: string; date: string }[]
   }
 }) {
   const router = useRouter()
@@ -154,6 +155,13 @@ export function GuestProfilePanel({
           </tbody>
         </table>
       )}
+      <ul data-testid="guest-incidents">
+        {profile.incidents?.map((incident, index) => (
+          <li key={`${index}-${incident.type}-${incident.date}`}>
+            {incident.type} {incident.date}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

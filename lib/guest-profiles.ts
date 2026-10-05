@@ -1,3 +1,46 @@
+import { dateTimeToUTC } from "@/lib/timezone"
+
+const LATE_CANCEL_MS = 24 * 60 * 60 * 1000
+const DELAY_MS = 15 * 60 * 1000
+
+export function deriveGuestIncidents(
+  rows: {
+    status: string
+    date: string
+    time: string
+    cancelled_at: string | null
+    seated_at?: string | null
+  }[],
+): { type: string; date: string }[] {
+  const incidents: { type: string; date: string }[] = []
+  for (const row of rows) {
+    if (row.status === "no_show" && row.date) {
+      incidents.push({ type: "no_show", date: row.date })
+    }
+    if (
+      row.status === "cancelled" &&
+      row.cancelled_at != null &&
+      row.date &&
+      row.time &&
+      Date.parse(row.cancelled_at) >=
+        dateTimeToUTC(row.date, row.time).getTime() - LATE_CANCEL_MS
+    ) {
+      incidents.push({ type: "late_cancel", date: row.date })
+    }
+    if (
+      (row.status === "seated" || row.status === "completed") &&
+      row.seated_at &&
+      row.date &&
+      row.time &&
+      Date.parse(row.seated_at) >
+        dateTimeToUTC(row.date, row.time).getTime() + DELAY_MS
+    ) {
+      incidents.push({ type: "delay", date: row.date })
+    }
+  }
+  return incidents
+}
+
 export function normalizeGuestEmail(email: string | null): string | null {
   return email?.trim().toLowerCase() || null
 }

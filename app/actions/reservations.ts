@@ -343,6 +343,7 @@ export async function seatWalkIn(input: {
     phone,
     email,
     conf_code: generateConfCode(),
+    seated_at: new Date().toISOString(),
   })
   if (error) {
     if (
@@ -554,6 +555,8 @@ export async function transitionReservationStatus(
   )
     patch.table_label = null
   if (nextStatus === "completed") patch.completed_at = new Date().toISOString()
+  if (nextStatus === "cancelled") patch.cancelled_at = new Date().toISOString()
+  if (nextStatus === "seated") patch.seated_at = new Date().toISOString()
   const { error } = await db
     .from("reservations")
     .update(patch)

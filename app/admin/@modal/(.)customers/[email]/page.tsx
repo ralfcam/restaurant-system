@@ -22,6 +22,7 @@ export default async function GuestProfileModalPage({
         notes: loaded.notes,
         summary: loaded.summary,
         history: loaded.history,
+        incidents: loaded.incidents,
       }}
     />
   )
