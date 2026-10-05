@@ -60,7 +60,9 @@
   interactive `/design`) in
   `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`; G-MIG1–G-MIG5
   workflow contract in
-  `tests/unit/dev-toolchain/staging-migrations-ci.test.ts`)
+  `tests/unit/dev-toolchain/staging-migrations-ci.test.ts`; G-MIG6
+  path-list pin in
+  `tests/unit/dev-toolchain/baseline-forward-migration.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
@@ -71,8 +73,8 @@
 - Weekly service overview (WA-1–WA-7):
   `tests/unit/floor/weekly-service-overview.test.ts`,
   `tests/unit/floor/dashboard-weekly-overview.test.ts`
-- Restaurant cover capacity (CC-1–CC-12):
-  `tests/unit/floor/cover-capacity.test.ts` (CC-1–CC-11).
+- Restaurant cover capacity (CC-1–CC-13):
+  `tests/unit/floor/cover-capacity.test.ts` (CC-1–CC-11, CC-13).
   `tests/unit/floor/schema.test.ts` (CC-12 seed ceiling).
   `tests/unit/floor/operations-shape.test.ts` and
   `tests/unit/floor/message-keys.test.ts` script the settings read.

@@ -392,18 +392,25 @@ function sumTableSeats(
   }, 0)
 }
 
-async function readMaxCoverCapacity(db: ServiceDb): Promise<number | null> {
-  const { data } = await db
+async function readMaxCoverCapacity(
+  db: ServiceDb,
+  readFailed: string,
+): Promise<number | null> {
+  const { data, error } = await db
     .from("restaurant_settings")
     .select("max_cover_capacity")
     .eq("id", 1)
     .maybeSingle()
+  if (error) throw new Error(readFailed)
   const capacity = data?.max_cover_capacity
   return typeof capacity === "number" ? capacity : null
 }
 
 export async function getMaxCoverCapacity(): Promise<number | null> {
-  return readMaxCoverCapacity(createServiceClient())
+  return readMaxCoverCapacity(
+    createServiceClient(),
+    "errors.floor.addTableFailed",
+  )
 }
 
 export async function updateTableState(input: {
@@ -419,7 +426,9 @@ export async function updateTableState(input: {
 
   const db = createServiceClient()
   const changingSeats = input.seats !== undefined
-  const ceiling = changingSeats ? await readMaxCoverCapacity(db) : null
+  const ceiling = changingSeats
+    ? await readMaxCoverCapacity(db, "errors.floor.updateTableFailed")
+    : null
   const { data: current, error: currentError } = changingSeats
     ? await db
         .from("tables")
@@ -959,7 +968,7 @@ export async function createTable() {
   if (!staffUser) throw new Error("errors.operations.unauthorized")
 
   const db = createServiceClient()
-  const ceiling = await readMaxCoverCapacity(db)
+  const ceiling = await readMaxCoverCapacity(db, "errors.floor.addTableFailed")
   if (ceiling === null) {
     throw new Error("errors.floor.maxCoverCapacityUnset")
   }

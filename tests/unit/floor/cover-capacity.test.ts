@@ -1015,4 +1015,75 @@ describe("restaurant cover capacity", () => {
       read("supabase/migrations/00000000000000_baseline.sql"),
     )
   })
+
+  it("CC-13 surfaces a failed capacity read instead of an unset ceiling", async () => {
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.insert.mockClear()
+    mocks.update.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: null,
+                  error: {
+                    message:
+                      "column restaurant_settings.max_cover_capacity does not exist",
+                  },
+                }),
+              }),
+            }),
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: () => ({
+              order: async () => ({ data: [], error: null }),
+              eq: () => ({
+                single: async () => ({
+                  data: { status: "available", x: 0, y: 0, seats: 4 },
+                  error: null,
+                }),
+              }),
+            }),
+            insert: (row: unknown) => {
+              mocks.insert(row)
+              return {
+                select: () => ({
+                  single: async () => ({ data: null, error: null }),
+                }),
+              }
+            },
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: null }
+              },
+            }),
+          }
+        }
+        return {}
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      createTable: () => Promise<unknown>
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+    }
+
+    await expect(actions.createTable()).rejects.toThrow(
+      "errors.floor.addTableFailed",
+    )
+    expect(mocks.insert).not.toHaveBeenCalled()
+
+    await expect(
+      actions.updateTableState({ id: "t1", seats: 6 }),
+    ).rejects.toThrow("errors.floor.updateTableFailed")
+    expect(mocks.update).not.toHaveBeenCalled()
+  })
 })
