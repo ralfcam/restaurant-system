@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-10-05
 
 ## Current state
 
@@ -67,7 +67,7 @@
 - **Seed:** `supabase/seed.sql` — reference data loaded after migrations when
   `[db.seed] enabled = true` in `supabase/config.toml`:
   - `auth.users` + `auth.identities` — 2 test accounts (see Personas below)
-  - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo)
+  - `restaurant_settings` — 1 singleton row (`id = 1`, no custom logo, `hero_image_url` null). `max_cover_capacity` is `38` (dining-room seat sum) in the `INSERT` that runs before `INSERT INTO tables`; `ON CONFLICT (id) DO UPDATE` sets that column only when it is null
   - `operating_windows` — 7 rows (Mon–Sat 09:00–22:00, Sunday closed)
   - `menus` — 5 rows (`midi`, `soir`, `boissons`, `blanc`, `rouge`); hosted apply
     does not re-run this file — those ids also `INSERT … ON CONFLICT (id) DO NOTHING`
@@ -80,7 +80,8 @@
   via the service role and retries — see BC-9 in
   [../specs/branding-cms.md](../specs/branding-cms.md).
 - **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
-  retry), MIME alias validation, and a `next.config.mjs` `bodySizeLimit` schema guard.
+  retry), MIME alias validation, a `next.config.mjs` `bodySizeLimit` schema guard, and
+  `schema.test.ts` pinning seed `logo_url` and `hero_image_url` null by column index (BC-10).
   `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
   cron job auth, cron mailer factory, Supabase hourly Edge Function pin, marketing page.
   `tests/unit/auth/` — staff and super-admin claim gates

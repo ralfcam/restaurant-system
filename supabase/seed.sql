@@ -140,17 +140,23 @@ ON CONFLICT (provider_id, provider) DO NOTHING;
 
 -- CMS singleton: default (no custom logo, no custom hero photo) so guest
 -- chrome falls back to SITE_LOGO and the homepage hero renders a blank
--- background.
+-- background. max_cover_capacity is the seat sum of the tables insert
+-- below. Re-run safe: write it only when the stored ceiling is null, so a
+-- later run does not lower or replace a non-null ceiling. Logo, hero,
+-- address, phone, and chefs picks stay as stored.
 INSERT INTO restaurant_settings (
   id,
   logo_url,
   hero_image_url,
   address,
   phone,
-  chefs_picks_enabled
+  chefs_picks_enabled,
+  max_cover_capacity
 )
-VALUES (1, NULL, NULL, NULL, NULL, true)
-ON CONFLICT (id) DO NOTHING;
+VALUES (1, NULL, NULL, NULL, NULL, true, 38)
+ON CONFLICT (id) DO UPDATE
+SET max_cover_capacity = EXCLUDED.max_cover_capacity
+WHERE restaurant_settings.max_cover_capacity IS NULL;
 
 -- Default operating hours: Mon-Sat 09:00-22:00 (one segment), Sunday closed.
 -- Re-run safe: skip when any schedule already exists (no unique day_of_week).

@@ -146,7 +146,7 @@ RES-45 review-email objects (`restaurant_settings.review_email_*`,
 baseline only. Local `db reset` applies them. This ship has no dated forward
 for already-baselined remotes.
 
-`seed.sql` holds `restaurant_settings` (singleton, no custom logo),
+`seed.sql` holds `restaurant_settings` (singleton `id = 1`, no custom logo; `max_cover_capacity` `38` before the dining-room tables insert, and `ON CONFLICT` sets that column only when it is null),
 `operating_windows` (7 rows), `menus` (5 tab ids: `midi`, `soir`, `boissons`,
 `blanc`, `rouge`), `menu_items` (120 rows from the sample
 `lib/menu-catalog.json` catalog), and `servers` (Maya, Jon, Priya, Dev). Kitchen

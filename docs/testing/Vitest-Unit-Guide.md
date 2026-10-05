@@ -9,7 +9,8 @@
 - Setup: `tests/unit/setup.ts`
 - Tests: `tests/unit/**/*.test.ts`
 - Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`
-  bodySizeLimit schema guard)
+  bodySizeLimit schema guard). BC-10 seed pin: `tests/unit/branding/schema.test.ts`
+  (null `logo_url` and `hero_image_url` by column index)
 - Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
   queue-on-complete, cron job auth, cron mailer factory, Supabase hourly
   Edge Function pin, marketing page, PV-ISO schema isolation scan)
@@ -70,8 +71,9 @@
 - Weekly service overview (WA-1–WA-7):
   `tests/unit/floor/weekly-service-overview.test.ts`,
   `tests/unit/floor/dashboard-weekly-overview.test.ts`
-- Restaurant cover capacity (CC-1–CC-11):
-  `tests/unit/floor/cover-capacity.test.ts`.
+- Restaurant cover capacity (CC-1–CC-12):
+  `tests/unit/floor/cover-capacity.test.ts` (CC-1–CC-11).
+  `tests/unit/floor/schema.test.ts` (CC-12 seed ceiling).
   `tests/unit/floor/operations-shape.test.ts` and
   `tests/unit/floor/message-keys.test.ts` script the settings read.
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
