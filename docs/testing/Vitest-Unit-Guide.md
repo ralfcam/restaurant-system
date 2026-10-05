@@ -63,7 +63,8 @@
   `tests/unit/dev-toolchain/staging-migrations-ci.test.ts`; G-MIG6
   path-list pin in
   `tests/unit/dev-toolchain/baseline-forward-migration.test.ts`; G-AUD1
-  Next pin in `tests/unit/dev-toolchain/next-advisory.test.ts`)
+  Next pin in `tests/unit/dev-toolchain/next-advisory.test.ts`; G-AUD2
+  brace-expansion pins in `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
