@@ -1,0 +1,49 @@
+name: Apply staging migrations
+
+on:
+  push:
+    branches: [staging]
+  pull_request:
+    branches: [staging]
+    paths:
+      - "supabase/migrations/**"
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/staging'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply pending migrations
+        continue-on-error: false
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx supabase db push --project-ref tilcqrudqxznnpepxjqq
+
+  validate-migrations:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate migration files
+        run: |
+          shopt -s globstar nullglob dotglob
+          test -d supabase/migrations
+          for file in supabase/migrations/**; do
+            if [ -d "$file" ]; then
+              continue
+            fi
+            case "$file" in
+              *.sql) ;;
+              *) echo "expected sql: $file" >&2; exit 1 ;;
+            esac
+            if ! test -s "$file"; then
+              echo "empty sql: $file" >&2
+              exit 1
+            fi
+          done
+          echo "merge will apply these migrations to staging"

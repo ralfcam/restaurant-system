@@ -57,7 +57,9 @@
   runtime-probe, isolated STEP 0 fail-closed denial (`MUST NOT enter STEP
 0B`), and labeled command-index paragraph isolation (one-shot trio plus
   interactive `/design`) in
-  `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`)
+  `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`; G-MIG1–G-MIG5
+  workflow contract in
+  `tests/unit/dev-toolchain/staging-migrations-ci.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
