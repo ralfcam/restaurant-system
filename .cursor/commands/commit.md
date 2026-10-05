@@ -200,14 +200,14 @@ enforce.
   `pnpm deployed` / `pnpm deployed:mutating` run for the pack (not Vitest-only).
 - **Dirty-set Prettier (post-TDD, docs-artifact, and design-spec; skip for gate-remediation):**
   list dirty tracked + untracked paths (`git status --porcelain`; ignored files
-  are already excluded). Run `pnpm exec prettier --check` on that set — never
+  are already excluded). Run `pnpm exec prettier --check --ignore-unknown` on that set — never
   `prettier --check .` here (whole-tree `format:check` is `/push`'s lint + typecheck + test:unit).
-  Docs-artifact: `.prettierignore` excludes `docs/verifier-reports` and
+  `--ignore-unknown` skips extensions Prettier cannot parse (including `*.sql`) when a dirty path is named explicitly. Docs-artifact: `.prettierignore` excludes `docs/verifier-reports` and
   `docs/findings/runs`, so this check effectively governs the
   `docs/findings/*.md` ledger files — still a hard gate, because `/push`'s
   whole-tree `format:check` fails on them otherwise. If red: run
-  `pnpm exec prettier --write` on those listed dirty paths only (never `.`),
-  then re-run `pnpm exec prettier --check` on the same set in this same
+  `pnpm exec prettier --write --ignore-unknown` on those listed dirty paths only (never `.`),
+  then re-run `pnpm exec prettier --check --ignore-unknown` on the same set in this same
   `/commit` turn and continue the gate. Do not PASS on the first red check;
   do not hand the write to the operator; do not `/sdd-to-tdd`. If the
   re-check is still red, **FAIL (format)** (prettier did not converge).
@@ -462,8 +462,8 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
    Post-TDD: continue below.
 2. Establish scope (diff + criteria + issue).
 3. Verify gates ran green (skipped = non-PASS). Post-TDD and
-   docs-artifact: also `pnpm exec prettier --check` the dirty
-   tracked+untracked set; red → same-turn `pnpm exec prettier --write` on
+   docs-artifact: also `pnpm exec prettier --check --ignore-unknown` the dirty
+   tracked+untracked set; red → same-turn `pnpm exec prettier --write --ignore-unknown` on
    those paths then re-`--check` (not CHANGES-REQUESTED, not `/sdd-to-tdd`,
    not an operator hand-off). Re-check still red → **FAIL (format)**.
 4. Verify docs close-out artifacts (§2.5).
@@ -500,7 +500,7 @@ thinking: { type: "adaptive", effort: "high" }
   non-mechanical diff. Docs-artifact skips named-layer / docs-close-out /
   contract-review by design; it still MUST NOT PASS a path outside the
   artifact allowlist or a failed artifact-shape review. Post-TDD and
-  docs-artifact: also DO NOT PASS while `prettier --check` on the dirty set
+  docs-artifact: also DO NOT PASS while `prettier --check --ignore-unknown` on the dirty set
   is red — write those paths in this turn, re-`--check`, and only then
   **FAIL (format)** if still red; do not route to `/sdd-to-tdd`.
 - **`/commit` performs no Linear write.** Done is driven entirely by Linear's `On PR

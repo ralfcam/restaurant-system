@@ -1,7 +1,7 @@
 # Restaurant cover capacity
 
 **Status:** Draft
-**Last updated:** 2026-10-04
+**Last updated:** 2026-10-05
 
 ## Scope
 
@@ -36,3 +36,13 @@ Out of this spec: a change to the booking-occupancy formula, a change to slot or
 10. **CC-10 — Forward column.** `supabase/migrations/20261004161500_max_cover_capacity.sql` adds `restaurant_settings.max_cover_capacity` as a nullable integer and the same check (`max_cover_capacity IS NULL OR max_cover_capacity >= 1`). The column add is `ADD COLUMN IF NOT EXISTS`. The check is added only when that constraint is missing. The baseline keeps the same nullable column and check.
 
 11. **CC-11 — One locked capacity write.** A failed read of table seats writes nothing. `createTable` throws `errors.floor.addTableFailed` and does not insert. A seat increase through `updateTableState` throws `errors.floor.updateTableFailed` and does not update. `public.enforce_cover_capacity()` calls `pg_advisory_xact_lock(69, 1)` before it reads the seat total. A `BEFORE INSERT OR UPDATE OF seats` trigger on `tables` and a `BEFORE INSERT OR UPDATE OF max_cover_capacity` trigger on `restaurant_settings` both execute that function. A seat decrease and `DELETE` do not raise from it. The same function, both triggers, and `REVOKE` of `EXECUTE` from `PUBLIC`, `anon`, and `authenticated` are in the baseline and in `supabase/migrations/20261004161500_max_cover_capacity.sql`.
+
+12. **CC-12 — Seed ceiling before dining-room tables.** `supabase/seed.sql` sets `restaurant_settings.max_cover_capacity` for `id = 1` to an integer equal to the sum of `seats` in that file's dining-room `INSERT INTO tables` values, and that statement runs before the table insert. When the row already exists with a null ceiling, the seed still writes the ceiling. A later seed run does not change a ceiling that is already non-null.
+
+13. **CC-13 — A failed capacity read is not an unset ceiling.** When the `restaurant_settings.max_cover_capacity` read returns a PostgREST error, `createTable` throws `errors.floor.addTableFailed` and does not insert. A seat change through `updateTableState` throws `errors.floor.updateTableFailed` and does not update. The read does not return null for that error.
+
+## Implementation trace (non-normative)
+
+FIX `seed_cover_ceiling_c4e8` (RES-138, 2026-10-05). CC-12 shipped. `supabase/seed.sql` sets `restaurant_settings.max_cover_capacity` for `id = 1` to `38` (the dining-room `INSERT INTO tables` seat sum) before that insert. `ON CONFLICT (id) DO UPDATE` sets `max_cover_capacity` only `WHERE restaurant_settings.max_cover_capacity IS NULL`.
+
+FIX `res138_cc13_baseline_e7c2` (RES-138, 2026-10-05). CC-13 shipped. `readMaxCoverCapacity` throws the caller's floor failure key when PostgREST returns an error. `createTable` and `getMaxCoverCapacity` pass `errors.floor.addTableFailed`. A seat change through `updateTableState` passes `errors.floor.updateTableFailed`. The read does not return null for that error.

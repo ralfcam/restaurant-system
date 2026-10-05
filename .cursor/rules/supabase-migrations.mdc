@@ -71,4 +71,4 @@ npx supabase db lint --local --fail-on error
 
 `db reset` must succeed in a single pass and re-running it on the same
 database must remain a no-op. `db lint` should report zero errors before the
-change is merged.
+change is merged. A PR that changes `supabase/migrations/00000000000000_baseline.sql` must also add a new dated file under `supabase/migrations/`.
