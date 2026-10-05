@@ -1,7 +1,7 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-09-16
+**Last updated:** 2026-10-05
 
 This repository uses **one** CodeRabbit installation: **US Team**. Local
 CLI review and Cloud Agent reviews must authenticate against
@@ -319,7 +319,7 @@ before unresolved-thread routing. Unresolved US threads whose path is
 under `.cursor/plans/` or whose `isOutdated` is boolean `true` are
 process-meta; they do not fail as
 `unresolved_threads` and do not appear in routed findings. An unresolved
-non-outdated US thread on any other path still fails closed. `eu_bot_activity` is retired. Pin
+non-outdated US thread on any other path still fails closed. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. `/conduct` posts one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and runs `/ready-merge-release <PR> --loop` again. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
 `/ready-merge-release PR#`. Adapter `incremental_paused` leftovers (any
 severity) go to `/capture` and Step 2 is clean. Otherwise Critical/Major

@@ -19,6 +19,11 @@ describe("conduct command", () => {
     expect(text).toContain("Never ask the operator a question")
     expect(text).toContain("gh pr merge")
     expect(text).toContain("roundCap: 3")
+    expect(text).toContain("resolveReviewThread")
+    expect(text).toContain("captured_threads_resolved")
+    expect(text).toContain(
+      "Already recorded on the open findings ledger. Resolving this thread so the draft can be readied.",
+    )
     expect(text).toContain("APPROVED FOR OPERATOR MERGE")
     expect(text).toContain("In Progress")
     expect(text).toContain("@Cursor")

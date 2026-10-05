@@ -1,7 +1,7 @@
 # Staff authorization
 
 **Status:** Draft
-**Last updated:** 2026-09-16
+**Last updated:** 2026-10-05
 
 ## Scope
 
@@ -29,7 +29,10 @@ implies staff.
 
 3. **SA-3 — Login does not grant staff chrome to non-staff** — `/auth/login`
    is sign-in only (no `signUp`). After a successful password sign-in, a
-   non-staff session MUST NOT be sent to `/admin`.
+   non-staff session MUST NOT be sent to `/admin`. When that sign-in returns
+   a user who is not staff (SA-1), the handler MUST call `signOut` on that
+   same auth client before it returns. A staff session continues to `/admin`
+   and MUST NOT be signed out by this branch.
 
 4. **SA-4 — Local public signup is off** — `supabase/config.toml` has
    `[auth] enable_signup = false` and `[auth.email] enable_signup = false`.
@@ -116,9 +119,11 @@ implies staff.
 FIX `seed_users_email_f5f7f0e6.plan.md` (REAZED-326, 2026-09-02). C1–C2 shipped.
 FIX `ux_staffchrome_pos_batch_9c4a1b` (REAZED-332, 2026-09-02). SA-10 shipped.
 FIX `res-37_service_boundary_ffc7ec3c` (RES-37, 2026-09-10). SA-11 shipped.
+FIX `res-128_nonstaff_signout_6938` (RES-128, 2026-10-05). SA-3 shipped.
 
 | Criterion | Shipped in                                                                                                                                                                                                                                                | Tests                                                                                                                                                                                                  |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SA-3      | `app/auth/login/page.tsx` non-staff branch awaits `supabase.auth.signOut()` on the same `createClient()` before `return`; staff sets `window.location.href = "/admin"`                                                                                    | `tests/unit/auth/login-staff-gate.test.ts` → "non-staff password sign-in signs out before the handler returns"                                                                                         |
 | SA-5      | `supabase/seed.sql` staff `auth.users.email` `'admin@test.local'`                                                                                                                                                                                         | `tests/unit/auth/seed-staff-claim.test.ts` → "seed staff auth.users.email is admin@test.local"                                                                                                         |
 | SA-9      | `supabase/seed.sql` super-admin `auth.users.email` `'superadmin@test.local'` (pairwise distinct from staff)                                                                                                                                               | `tests/unit/auth/seed-super-admin-claim.test.ts` → "seed super-admin auth.users.email is superadmin@test.local and differs from staff"                                                                 |
 | SA-10     | Page RSCs pass `isSuperAdmin={isSuperAdminUser(authUser)}`; branding editors, `SchedulingManager` contact fields, `FloorPlan` occupancy/safety (not slot-interval), `ReviewEmailSettingsForm`; `StaffShell` threads the flag; `/pos`/`/kds` `getAuthUser` | `tests/unit/branding/super-admin-chrome.test.ts`; `tests/unit/scheduling/super-admin-chrome.test.ts`; `tests/unit/floor/super-admin-chrome.test.ts`; `tests/unit/marketing/super-admin-chrome.test.ts` |

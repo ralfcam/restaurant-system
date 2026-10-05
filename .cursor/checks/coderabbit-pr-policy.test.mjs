@@ -125,6 +125,32 @@ function unresolvedLoopSnapshot(severity) {
   }
 }
 
+test("loop mode treats a changes-requested head with resolved product threads as clean", () => {
+  const resolved = unresolvedLoopSnapshot("Major")
+  resolved.reviews[0].state = "CHANGES_REQUESTED"
+  resolved.threads[0].isResolved = true
+  const looped = evaluateReadyPr(resolved, { loop: true })
+  assert.equal(looped.ok, true)
+  assert.equal(looped.reason, "captured_threads_resolved")
+
+  const stillOpen = unresolvedLoopSnapshot("Major")
+  stillOpen.reviews[0].state = "CHANGES_REQUESTED"
+  const open = evaluateReadyPr(stillOpen, { loop: true })
+  assert.equal(open.ok, false)
+  assert.equal(open.reason, "unresolved_threads")
+
+  const noThread = unresolvedLoopSnapshot("Major")
+  noThread.reviews[0].state = "CHANGES_REQUESTED"
+  noThread.threads = []
+  const bare = evaluateReadyPr(noThread, { loop: true })
+  assert.equal(bare.ok, false)
+  assert.equal(bare.reason, "changes_requested")
+
+  const withoutLoop = evaluateReadyPr(resolved)
+  assert.equal(withoutLoop.ok, false)
+  assert.equal(withoutLoop.reason, "changes_requested")
+})
+
 test("loop mode routes an unresolved Major thread to /capture and Critical to /sdd-to-tdd", () => {
   const major = evaluateReadyPr(unresolvedLoopSnapshot("Major"), {
     loop: true,
