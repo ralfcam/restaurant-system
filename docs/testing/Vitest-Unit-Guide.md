@@ -53,7 +53,8 @@
   `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks, with CodeRabbit label
   `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
   spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
-  G-CAP1 PHASE 5 heading-range chrome-scan in
+  G-CAP1 PHASE 5 heading-range chrome-scan and Execution Protocol
+  list-item chrome-scan in
   `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`; G-DES1 PowerShell
   runtime-probe, isolated STEP 0 fail-closed denial (`MUST NOT enter STEP
 0B`), and labeled command-index paragraph isolation (one-shot trio plus
