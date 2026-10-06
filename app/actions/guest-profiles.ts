@@ -3,6 +3,7 @@
 import {
   buildGuestProfile,
   deriveGuestIncidents,
+  mergeCandidateEmails,
   normalizeGuestEmail,
 } from "@/lib/guest-profiles"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
@@ -69,5 +70,82 @@ export async function updateGuestProfilePii(input: {
     return { error: "errors.guestProfiles.unmapped" }
   }
   if (!data?.length) return { error: "errors.guestProfiles.notFound" }
+  return { ok: true }
+}
+
+const POSTGREST_MAX_ROWS = 1000
+
+type GuestMergeReservationRow = {
+  id: string
+  email: string | null
+  phone: string | null
+}
+
+async function readAllGuestMergeRows(
+  db: ReturnType<typeof createServiceClient>,
+): Promise<{
+  data: GuestMergeReservationRow[] | null
+  error: { message: string } | null
+}> {
+  const rows: GuestMergeReservationRow[] = []
+  for (let start = 0; ; start += POSTGREST_MAX_ROWS) {
+    const page = await db
+      .from("reservations")
+      .select("id, email, phone")
+      .order("id", { ascending: true })
+      .range(start, start + POSTGREST_MAX_ROWS - 1)
+    if (page.error) return page
+    const pageRows = (page.data ?? []) as GuestMergeReservationRow[]
+    rows.push(...pageRows)
+    if (pageRows.length < POSTGREST_MAX_ROWS) {
+      return { data: rows, error: null }
+    }
+  }
+}
+
+export async function listGuestMergeCandidates(
+  email: string,
+): Promise<{ error?: string; candidates?: string[] }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
+
+  const { data } = await readAllGuestMergeRows(createServiceClient())
+  return { candidates: mergeCandidateEmails(data ?? [], email) }
+}
+
+function confirmMergeUnmapped(message: string): { error: string } {
+  console.error("[guest-profiles] confirmGuestMerge:", message)
+  return { error: "errors.guestProfiles.unmapped" }
+}
+
+export async function confirmGuestMerge({
+  survivingEmail,
+  otherEmail,
+}: {
+  survivingEmail: string
+  otherEmail: string
+}): Promise<{ error?: string; ok?: true }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
+
+  const surviving = normalizeGuestEmail(survivingEmail)
+  const other = normalizeGuestEmail(otherEmail)
+  if (surviving == null || other == null || surviving === other) {
+    return { ok: true }
+  }
+
+  const service = createServiceClient()
+  const { data, error } = await readAllGuestMergeRows(service)
+  if (error) return confirmMergeUnmapped(error.message)
+  if (!mergeCandidateEmails(data ?? [], surviving).includes(other)) {
+    return { ok: true }
+  }
+
+  const { error: updateError } = await service
+    .from("reservations")
+    .update({ email: surviving })
+    .eq("email_normalized", other)
+    .select("id")
+  if (updateError) return confirmMergeUnmapped(updateError.message)
   return { ok: true }
 }

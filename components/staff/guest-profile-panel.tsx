@@ -3,7 +3,10 @@
 import { useRouter } from "next/navigation"
 import { useTranslations } from "next-intl"
 import { toast } from "sonner"
-import { updateGuestProfilePii } from "@/app/actions/guest-profiles"
+import {
+  confirmGuestMerge,
+  updateGuestProfilePii,
+} from "@/app/actions/guest-profiles"
 import { ReservationStatusBadge } from "@/components/staff/reservation-status"
 import type { ReservationStatus } from "@/lib/data"
 
@@ -20,8 +23,10 @@ type FichaHistoryRow = {
 export function GuestProfilePanel({
   profile,
   showEmail = true,
+  mergeCandidates = [],
 }: {
   showEmail?: boolean
+  mergeCandidates?: string[]
   profile: {
     email: string
     guest_name?: string | null
@@ -155,6 +160,38 @@ export function GuestProfilePanel({
           </tbody>
         </table>
       )}
+      <div data-testid="guest-merge">
+        {mergeCandidates.map((other) => (
+          <div key={other}>
+            <form
+              action={async () => {
+                await confirmGuestMerge({
+                  survivingEmail: profile.email,
+                  otherEmail: other,
+                })
+                router.refresh()
+              }}
+            >
+              <button type="submit" value={profile.email}>
+                {profile.email}
+              </button>
+            </form>
+            <form
+              action={async () => {
+                await confirmGuestMerge({
+                  survivingEmail: other,
+                  otherEmail: profile.email,
+                })
+                router.refresh()
+              }}
+            >
+              <button type="submit" value={other}>
+                {other}
+              </button>
+            </form>
+          </div>
+        ))}
+      </div>
       <ul data-testid="guest-incidents">
         {profile.incidents?.map((incident, index) => (
           <li key={`${index}-${incident.type}-${incident.date}`}>
