@@ -21,6 +21,9 @@ type MergeWrite = {
   select: string | null
 }
 
+/** PostgREST `max_rows` in `supabase/config.toml`. */
+const POSTGREST_MAX_ROWS = 1000
+
 const mocks = vi.hoisted(() => ({
   requireStaffUser: vi.fn(),
   createServiceClient: vi.fn(),
@@ -59,12 +62,14 @@ function thenable<T>(value: T) {
     eq: Array<[string, unknown]>
     selected: string | null
     recorded: boolean
+    range: { start: number; end: number } | null
   } = {
     op: null,
     payload: null,
     eq: [],
     selected: null,
     recorded: false,
+    range: null,
   }
   const builder: Record<string, unknown> = {}
   const self = new Proxy(builder, {
@@ -115,10 +120,16 @@ function thenable<T>(value: T) {
               }
             }
           }
+          const window =
+            state.range == null
+              ? mocks.rows.slice(0, POSTGREST_MAX_ROWS)
+              : mocks.rows
+                  .slice(state.range.start, state.range.end + 1)
+                  .slice(0, POSTGREST_MAX_ROWS)
           const resolvedValue = failThis
             ? { data: null, error: { message: "db down" } }
             : state.op === "select" || state.selected != null
-              ? { data: mocks.rows, error: null }
+              ? { data: window, error: null }
               : value
           return Promise.resolve(resolvedValue as T).then(resolve, reject)
         }
@@ -156,6 +167,12 @@ function thenable<T>(value: T) {
       if (prop === "eq") {
         return (col: unknown, val: unknown) => {
           state.eq.push([String(col), val])
+          return self
+        }
+      }
+      if (prop === "range") {
+        return (start: unknown, end: unknown) => {
+          state.range = { start: Number(start), end: Number(end) }
           return self
         }
       }
@@ -746,6 +763,57 @@ describe("guest profile merge", () => {
     expect(submitSurvivesAs(region, other)).toBe(true)
     expect(callsConfirmGuestMerge(region, "profile.email", other)).toBe(true)
     expect(callsConfirmGuestMerge(region, other, "profile.email")).toBe(true)
+  })
+
+  it("a reservation past the first 1000 rows still counts as a merge candidate", async () => {
+    const fillerPhone = "+41 22 000 00 00"
+    const fillers: StoredMergeRow[] = Array.from(
+      { length: POSTGREST_MAX_ROWS },
+      (_, index) => ({
+        id: `filler-${index}`,
+        email: `filler-${index}@ex.com`,
+        phone: fillerPhone,
+        date: "2026-02-01",
+        time: "12:00",
+      }),
+    )
+    const rows: StoredMergeRow[] = [
+      {
+        id: "ada-1",
+        email: "Ada@ex.com",
+        phone: "+41 79 111 22 33",
+        date: "2026-01-02",
+        time: "18:00",
+      },
+      ...fillers,
+      {
+        id: "bob-late",
+        email: "bob@ex.com",
+        phone: "+41791112233",
+        date: "2026-06-01",
+        time: "19:00",
+      },
+    ]
+    mocks.rows = rows
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+
+    const { listGuestMergeCandidates, confirmGuestMerge } =
+      (await import("@/app/actions/guest-profiles")) as MergeActions
+
+    const listed = await listGuestMergeCandidates("Ada@ex.com")
+    expect(listed).toEqual({ candidates: ["bob@ex.com"] })
+
+    await confirmGuestMerge({
+      survivingEmail: "Ada@ex.com",
+      otherEmail: "bob@ex.com",
+    })
+    expect(rows.find((row) => row.id === "bob-late")?.email).toBe("ada@ex.com")
+    expect(mocks.writes.find((write) => write.op === "update")).toEqual({
+      op: "update",
+      payload: { email: "ada@ex.com" },
+      eq: [["email_normalized", "bob@ex.com"]],
+      select: "id",
+    })
   })
 })
 

@@ -73,15 +73,43 @@ export async function updateGuestProfilePii(input: {
   return { ok: true }
 }
 
+const POSTGREST_MAX_ROWS = 1000
+
+type GuestMergeReservationRow = {
+  id: string
+  email: string | null
+  phone: string | null
+}
+
+async function readAllGuestMergeRows(
+  db: ReturnType<typeof createServiceClient>,
+): Promise<{
+  data: GuestMergeReservationRow[] | null
+  error: { message: string } | null
+}> {
+  const rows: GuestMergeReservationRow[] = []
+  for (let start = 0; ; start += POSTGREST_MAX_ROWS) {
+    const page = await db
+      .from("reservations")
+      .select("id, email, phone")
+      .order("id", { ascending: true })
+      .range(start, start + POSTGREST_MAX_ROWS - 1)
+    if (page.error) return page
+    const pageRows = (page.data ?? []) as GuestMergeReservationRow[]
+    rows.push(...pageRows)
+    if (pageRows.length < POSTGREST_MAX_ROWS) {
+      return { data: rows, error: null }
+    }
+  }
+}
+
 export async function listGuestMergeCandidates(
   email: string,
 ): Promise<{ error?: string; candidates?: string[] }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
 
-  const { data } = await createServiceClient()
-    .from("reservations")
-    .select("id, email, phone")
+  const { data } = await readAllGuestMergeRows(createServiceClient())
   return { candidates: mergeCandidateEmails(data ?? [], email) }
 }
 
@@ -107,9 +135,7 @@ export async function confirmGuestMerge({
   }
 
   const service = createServiceClient()
-  const { data, error } = await service
-    .from("reservations")
-    .select("id, email, phone")
+  const { data, error } = await readAllGuestMergeRows(service)
   if (error) return confirmMergeUnmapped(error.message)
   if (!mergeCandidateEmails(data ?? [], surviving).includes(other)) {
     return { ok: true }
