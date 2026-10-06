@@ -76,7 +76,7 @@ describe("baseline edits ship a dated migration", () => {
       /GRANT EXECUTE ON FUNCTION import_external_reservations\(jsonb\) TO service_role/i,
     )
     expect(sql).toMatch(
-      /UPDATE restaurant_settings\s+SET max_cover_capacity = 38\s+WHERE id = 1 AND max_cover_capacity IS NULL/i,
+      /UPDATE restaurant_settings\s+SET max_cover_capacity = GREATEST\(38[\s\S]*SUM\(seats\)\s*::\s*(?:integer|int)\b[\s\S]*WHERE id = 1 AND max_cover_capacity IS NULL/i,
     )
   })
 

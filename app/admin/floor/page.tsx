@@ -17,21 +17,26 @@ export const dynamic = "force-dynamic"
 export default async function FloorPage() {
   const t = await getTranslations()
   const today = getTodayInRestaurantTZ()
-  const [
-    authUser,
-    snapshot,
-    slotInterval,
-    occupancyDuration,
-    safetyBuffer,
-    maxCoverCapacity,
-  ] = await Promise.all([
-    getAuthUser(),
-    getFloorSnapshot(today),
-    getSlotIntervalMinutes(),
-    getOccupancyDurationMinutes(),
-    getSafetyBufferMinutes(),
-    getMaxCoverCapacity(),
-  ])
+  const [authUser, snapshot, slotInterval, occupancyDuration, safetyBuffer] =
+    await Promise.all([
+      getAuthUser(),
+      getFloorSnapshot(today),
+      getSlotIntervalMinutes(),
+      getOccupancyDurationMinutes(),
+      getSafetyBufferMinutes(),
+    ])
+
+  let maxCoverCapacity: number | null = null
+  try {
+    maxCoverCapacity = await getMaxCoverCapacity()
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== "errors.floor.addTableFailed"
+    ) {
+      throw error
+    }
+  }
 
   return (
     <StaffShell
