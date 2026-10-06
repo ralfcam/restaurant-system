@@ -5,6 +5,7 @@ import {
   deriveGuestIncidents,
   mergeCandidateEmails,
   normalizeGuestEmail,
+  segmentGuests,
 } from "@/lib/guest-profiles"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -148,4 +149,33 @@ export async function confirmGuestMerge({
     .select("id")
   if (updateError) return confirmMergeUnmapped(updateError.message)
   return { ok: true }
+}
+
+export async function listGuestSegments(
+  filters?: NonNullable<Parameters<typeof segmentGuests>[1]>,
+): Promise<{
+  error?: "errors.guestProfiles.unauthorized" | "errors.guestProfiles.unmapped"
+  guests?: ReturnType<typeof segmentGuests>
+}> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
+
+  const db = createServiceClient()
+  const rows: Parameters<typeof segmentGuests>[0] = []
+  for (let start = 0; ; start += POSTGREST_MAX_ROWS) {
+    const page = await db
+      .from("reservations")
+      .select("email, guest_name, phone, status, date, time")
+      .order("id", { ascending: true })
+      .range(start, start + POSTGREST_MAX_ROWS - 1)
+    if (page.error) {
+      console.error("[guest-profiles] listGuestSegments:", page.error.message)
+      return { error: "errors.guestProfiles.unmapped" }
+    }
+    const pageRows = (page.data ?? []) as Parameters<typeof segmentGuests>[0]
+    rows.push(...pageRows)
+    if (pageRows.length < POSTGREST_MAX_ROWS) {
+      return { guests: segmentGuests(rows, filters) }
+    }
+  }
 }

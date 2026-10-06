@@ -1,11 +1,11 @@
 # Guest segmentation
 
 **Status:** Draft
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-06
 
 ## Scope
 
-Staff can filter the guest list at `/admin/customers`. A guest is one non-blank normalized email, the same identity as [guest-profiles.md](./guest-profiles.md). Blank emails are not listed. The list is read with `requireStaffUser` and the service-role client. Applying or clearing filters does not update reservations or settings.
+Staff can filter the guest list at `/admin/customers`. A guest is one non-blank normalized email, the same identity as [guest-profiles.md](./guest-profiles.md). Blank emails are not listed. The list is read with `requireStaffUser` and the service-role client. That read orders `reservations` by `id` ascending and requests pages of 1000 with `.range` until a page returns fewer than 1000 rows. Applying or clearing filters does not update reservations or settings.
 
 Filters combine with AND. Each filter is optional. The supported filters are a case-insensitive name substring, a phone substring, a minimum count of `completed` reservations, whether the guest has a `no_show` reservation, and a last `completed` visit on or before a date. The displayed name and phone are those of the newest reservation in the group. Clearing every filter shows every non-blank normalized email. The list links to the existing ficha.
 
@@ -23,4 +23,10 @@ Out of this spec: saved segments, a marketing campaign, a fixed VIP or loyalty r
 
 5. **GS-5 — Read only.** Applying filters, clearing them, and loading the list leave every reservation column unchanged.
 
-6. **GS-6 — Clear.** Clearing all filters returns every guest row from GS-2, including guests hidden by the previous filter.
+6. **GS-6 — Clear.** Clearing all filters returns every guest row from GS-2, including guests hidden by the previous filter. A guest whose only reservation is past the first 1000 rows is still included.
+
+## Implementation trace (non-normative)
+
+FIX `res-86_guest_segmentation_88f7` (RES-86, 2026-10-06). GS-1–GS-6 shipped. `segmentGuests` in `lib/guest-profiles.ts` groups by `normalizeGuestEmail` (null, blank, or whitespace emails are dropped) and keeps the newest row by `date` then `time`: `(row.date ?? "").localeCompare(current.date ?? "")`, then the same on `time`, and an equal date and time keeps the stored row. It counts `status === "completed"` and sets `hasNoShow` when `status === "no_show"`. Optional filters AND: a trimmed name is a case-insensitive substring of the newest `guest_name` (empty after trim is unset); a trimmed phone is a substring of the newest `phone`; `minCompleted` drops a group whose completed count is lower; `hasNoShow` applies only when the flag is `true`; `lastVisitOnOrBefore` drops a group with no completed row, or whose newest completed `date` (`?? ""`) is greater than the cutoff, so a missing date on a completed row is not after the cutoff. Results sort by email. `parseGuestSegmentFilters` reads the first string (or the first string in an array): name and phone trim-to-empty means unset; `minCompleted` only when `/^\d+$/`; `hasNoShow` only for `"true"`, `"on"`, or `"1"`; `lastVisitOnOrBefore` only when `/^\d{4}-\d{2}-\d{2}$/`. `listGuestSegments` calls `requireStaffUser` then `createServiceClient().from("reservations").select("email, guest_name, phone, status, date, time")`. No staff returns `errors.guestProfiles.unauthorized`. A select error logs `[guest-profiles] listGuestSegments:` and returns `errors.guestProfiles.unmapped`. `app/admin/customers/page.tsx` awaits `searchParams`, passes `parseGuestSegmentFilters` into `listGuestSegments`, and returns `null` when `result.error` is set. The GET form is `data-testid="guest-segment-filters"`. Each row links with `guestProfileHref`. Tests: `tests/unit/guest-profiles/segmentation.test.ts`.
+
+FIX `pr180_cr_segment_page_7f3a`: `listGuestSegments` orders by `id` and pages with `.range` of `POSTGREST_MAX_ROWS` (1000) until a short page, then `segmentGuests`. A page error still returns `errors.guestProfiles.unmapped`. Test: `tests/unit/guest-profiles/segmentation.test.ts` "a guest past the first 1000 reservation rows is still listed when filters are clear".
