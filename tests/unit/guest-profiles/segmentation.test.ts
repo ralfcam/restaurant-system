@@ -632,4 +632,80 @@ describe("guest segmentation", () => {
       guests: [],
     })
   })
+
+  it("a guest past the first 1000 reservation rows is still listed when filters are clear", async () => {
+    const POSTGREST_MAX_ROWS = 1000
+    const fillers = Array.from({ length: POSTGREST_MAX_ROWS }, (_, index) => ({
+      email: `filler-${index}@ex.com`,
+      guest_name: `Filler ${index}`,
+      phone: "000",
+      status: "completed",
+      date: "2026-01-01",
+      time: "12:00",
+    }))
+    const rows = [
+      ...fillers,
+      {
+        email: "late@ex.com",
+        guest_name: "Late",
+        phone: "999",
+        status: "completed",
+        date: "2026-06-01",
+        time: "19:00",
+      },
+    ]
+
+    function pagingThenable() {
+      const state: { range: { start: number; end: number } | null } = {
+        range: null,
+      }
+      const builder: Record<string, unknown> = {}
+      const self = new Proxy(builder, {
+        get(_target, prop) {
+          if (prop === "then") {
+            return (
+              resolve: (value: { data: typeof rows; error: null }) => unknown,
+              reject?: (reason: unknown) => unknown,
+            ) => {
+              const window =
+                state.range == null
+                  ? rows.slice(0, POSTGREST_MAX_ROWS)
+                  : rows
+                      .slice(state.range.start, state.range.end + 1)
+                      .slice(0, POSTGREST_MAX_ROWS)
+              return Promise.resolve({ data: window, error: null }).then(
+                resolve,
+                reject,
+              )
+            }
+          }
+          if (prop === "range") {
+            return (start: unknown, end: unknown) => {
+              state.range = { start: Number(start), end: Number(end) }
+              return self
+            }
+          }
+          return () => self
+        },
+      })
+      return self
+    }
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.from.mockImplementation(() => pagingThenable())
+
+    const listGuestSegments =
+      guestProfileActions.listGuestSegments as unknown as (
+        filters?: Record<string, unknown>,
+      ) => Promise<{
+        guests?: Array<{ email: string; href?: string | null }>
+      }>
+
+    const listed = await listGuestSegments({})
+    expect(listed.guests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ email: "late@ex.com" }),
+      ]),
+    )
+  })
 })
