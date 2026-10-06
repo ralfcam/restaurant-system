@@ -524,7 +524,11 @@ export function FloorPlan({
     if (!selectedTable || selectedTable.merge) return
     const seats = Math.max(1, Math.min(12, selectedTable.seats + delta))
     try {
-      await updateTableState({ id, seats })
+      const result = await updateTableState({ id, seats })
+      if (result?.error) {
+        toast.error(t(result.error))
+        return
+      }
       await mutate()
     } catch {
       toast.error(t("staff.floor.updateCapacityFailed"))
@@ -588,10 +592,14 @@ export function FloorPlan({
 
   async function addTable() {
     try {
-      const newTable = await createTable()
+      const result = await createTable()
+      if ("error" in result) {
+        toast.error(t(result.error))
+        return
+      }
       await mutate()
-      setSelectedId(newTable.id)
-      toast.success(t("staff.floor.tableAdded", { label: newTable.label }))
+      setSelectedId(result.id)
+      toast.success(t("staff.floor.tableAdded", { label: result.label }))
     } catch {
       toast.error(t("staff.floor.addTableFailed"))
     }
@@ -1006,11 +1014,15 @@ export function FloorPlan({
                       if (raw === "") return
                       const value = Number(raw)
                       if (!Number.isFinite(value)) return
-                      void setMaxCoverCapacity(value).catch(() => {
-                        toast.error(
-                          t("errors.floor.maxCoverCapacitySaveFailed"),
-                        )
-                      })
+                      void setMaxCoverCapacity(value)
+                        .then((result) => {
+                          if (result?.error) toast.error(t(result.error))
+                        })
+                        .catch(() => {
+                          toast.error(
+                            t("errors.floor.maxCoverCapacitySaveFailed"),
+                          )
+                        })
                     }}
                   />
                 </div>

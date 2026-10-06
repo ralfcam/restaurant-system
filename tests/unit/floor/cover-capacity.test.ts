@@ -31,6 +31,22 @@ function read(rel: string) {
   return readFileSync(path.join(root, rel), "utf8")
 }
 
+function sliceBalanced(source: string, marker: string) {
+  const start = source.indexOf(marker)
+  if (start < 0) return ""
+  const open = source.indexOf("{", start)
+  if (open < 0) return ""
+  let depth = 0
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === "{") depth += 1
+    else if (source[i] === "}") {
+      depth -= 1
+      if (depth === 0) return source.slice(start, i + 1)
+    }
+  }
+  return ""
+}
+
 function readOptional(rel: string) {
   try {
     return read(rel)
@@ -229,9 +245,9 @@ describe("restaurant cover capacity", () => {
     const invalidValues: Array<number | string> = [0, -1, 1.5, "4"]
     for (const value of invalidValues) {
       mocks.upsert.mockClear()
-      await expect(setMaxCoverCapacity(value as number)).rejects.toThrow(
-        "errors.floor.maxCoverCapacityInvalid",
-      )
+      await expect(setMaxCoverCapacity(value as number)).resolves.toEqual({
+        error: "errors.floor.maxCoverCapacityInvalid",
+      })
       expect(mocks.upsert).not.toHaveBeenCalled()
     }
   })
@@ -276,9 +292,9 @@ describe("restaurant cover capacity", () => {
 
     tableUpdate.mockClear()
     tableDelete.mockClear()
-    await expect(setMaxCoverCapacity(9)).rejects.toThrow(
-      "errors.floor.maxCoverCapacityBelowSum",
-    )
+    await expect(setMaxCoverCapacity(9)).resolves.toEqual({
+      error: "errors.floor.maxCoverCapacityBelowSum",
+    })
     expect(mocks.upsert).not.toHaveBeenCalled()
     expect(tableUpdate).not.toHaveBeenCalled()
     expect(tableDelete).not.toHaveBeenCalled()
@@ -465,15 +481,17 @@ describe("restaurant cover capacity", () => {
       deleteTable: (id: string) => Promise<unknown>
     }
 
-    await expect(actions.createTable()).rejects.toThrow(
-      "errors.floor.maxCoverCapacityUnset",
-    )
+    await expect(actions.createTable()).resolves.toEqual({
+      error: "errors.floor.maxCoverCapacityUnset",
+    })
     expect(mocks.insert).not.toHaveBeenCalled()
 
     mocks.update.mockClear()
     await expect(
       actions.updateTableState({ id: "t1", seats: 6 }),
-    ).rejects.toThrow("errors.floor.maxCoverCapacityUnset")
+    ).resolves.toEqual({
+      error: "errors.floor.maxCoverCapacityUnset",
+    })
     expect(mocks.update).not.toHaveBeenCalled()
 
     mocks.update.mockClear()
@@ -606,9 +624,9 @@ describe("restaurant cover capacity", () => {
       { id: "t2", label: "2", x: 1, y: 0, seats: 4 },
     ]
     mocks.insert.mockClear()
-    await expect(actions.createTable()).rejects.toThrow(
-      "errors.floor.maxCoverCapacityReached",
-    )
+    await expect(actions.createTable()).resolves.toEqual({
+      error: "errors.floor.maxCoverCapacityReached",
+    })
     expect(mocks.insert).not.toHaveBeenCalled()
 
     orderedTables = [
@@ -618,7 +636,9 @@ describe("restaurant cover capacity", () => {
     mocks.update.mockClear()
     await expect(
       actions.updateTableState({ id: "t1", seats: 8 }),
-    ).rejects.toThrow("errors.floor.maxCoverCapacityReached")
+    ).resolves.toEqual({
+      error: "errors.floor.maxCoverCapacityReached",
+    })
     expect(mocks.update).not.toHaveBeenCalled()
 
     mocks.update.mockClear()
@@ -633,6 +653,208 @@ describe("restaurant cover capacity", () => {
     expect(messages.errors.floor.maxCoverCapacityReached).toBe(
       "The restaurant's maximum cover capacity has been reached.",
     )
+  })
+
+  it("CC-6 returns the reached key and the floor shows it", async () => {
+    const capacityKeys = [
+      "errors.floor.maxCoverCapacityReached",
+      "errors.floor.maxCoverCapacityBelowSum",
+      "errors.floor.maxCoverCapacityUnset",
+      "errors.floor.maxCoverCapacityInvalid",
+    ]
+    const returnedErrorToast = /t\(\s*(?:result\??\.)?error\s*\)/
+    const returnedErrorCheck =
+      /"error"\s+in\s+|if\s*\(\s*(?:result\??\.)?error\b|result\??\.error\b|\{\s*error\b/
+
+    const floor = read("components/staff/floor-plan.tsx")
+    const addTableBody = sliceBalanced(floor, "async function addTable(")
+    const adjustSeatsBody = sliceBalanced(floor, "async function adjustSeats(")
+    const blurBody = sliceBalanced(floor, "onBlur={(event) => {")
+    expect(addTableBody).toContain("createTable")
+    expect(adjustSeatsBody).toContain("updateTableState")
+    expect(blurBody).toContain("setMaxCoverCapacity")
+
+    const capacityInputAt = floor.indexOf(
+      'data-testid="floor-max-cover-capacity"',
+    )
+    expect(capacityInputAt).toBeGreaterThanOrEqual(0)
+    const inputStart = floor.lastIndexOf("<Input", capacityInputAt)
+    const attributes = floor.slice(
+      inputStart,
+      floor.indexOf("onBlur", capacityInputAt),
+    )
+    expect(attributes).not.toMatch(/\bvalue\s*=/)
+
+    for (const [name, body] of [
+      ["addTable", addTableBody],
+      ["adjustSeats", adjustSeatsBody],
+      ["ceiling onBlur", blurBody],
+    ] as const) {
+      expect
+        .soft(body, `${name} toasts t of a returned error`)
+        .toMatch(returnedErrorToast)
+      expect
+        .soft(body, `${name} checks a returned error`)
+        .toMatch(returnedErrorCheck)
+    }
+
+    const current = { status: "available", x: 0, y: 0, seats: 4 }
+    let ceiling = 10
+    let orderedTables: Array<{ seats: number; label: string }> = [
+      { label: "1", seats: 6 },
+      { label: "2", seats: 4 },
+    ]
+    let insertError: { message: string } | null = null
+    let updateError: { message: string } | null = null
+    let upsertError: { message: string } | null = null
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.insert.mockClear()
+    mocks.update.mockClear()
+    mocks.upsert.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "restaurant_settings") {
+          return {
+            select: () =>
+              queryChain(emptyRow, {
+                eq: () =>
+                  queryChain(emptyRow, {
+                    maybeSingle: () =>
+                      queryChain({
+                        data: { max_cover_capacity: ceiling },
+                        error: null,
+                      }),
+                  }),
+              }),
+            upsert: (row: unknown) => {
+              mocks.upsert(table, row)
+              return Promise.resolve({ error: upsertError })
+            },
+          }
+        }
+        if (table === "tables") {
+          return {
+            select: (columns: string) => {
+              if (columns === "status, x, y, seats") {
+                return queryChain(emptyRow, {
+                  eq: () =>
+                    queryChain(emptyRow, {
+                      single: () => queryChain({ data: current, error: null }),
+                    }),
+                })
+              }
+              if (columns === "seats") {
+                return queryChain(
+                  { data: orderedTables, error: null },
+                  {
+                    order: () =>
+                      queryChain({ data: orderedTables, error: null }),
+                  },
+                )
+              }
+              return queryChain(emptyRow, {
+                order: () => queryChain({ data: orderedTables, error: null }),
+              })
+            },
+            insert: (row: unknown) => {
+              mocks.insert(row)
+              return {
+                select: () => ({
+                  single: async () => ({ data: null, error: insertError }),
+                }),
+              }
+            },
+            update: (patch: unknown) => ({
+              eq: async () => {
+                mocks.update(patch)
+                return { error: updateError }
+              },
+            }),
+          }
+        }
+        return { select: () => queryChain() }
+      },
+    }))
+
+    const actions = (await import("@/app/actions/operations")) as {
+      createTable: () => Promise<unknown>
+      updateTableState: (input: {
+        id: string
+        seats?: number
+      }) => Promise<unknown>
+      setMaxCoverCapacity: (value: number | null) => Promise<unknown>
+    }
+
+    async function settle(run: () => Promise<unknown>) {
+      try {
+        return {
+          resolved: await run(),
+          thrown: undefined as string | undefined,
+        }
+      } catch (error) {
+        return {
+          resolved: undefined as unknown,
+          thrown: error instanceof Error ? error.message : String(error),
+        }
+      }
+    }
+
+    mocks.insert.mockClear()
+    const overCeilingCreate = await settle(() => actions.createTable())
+    expect.soft(overCeilingCreate.thrown).toBeUndefined()
+    expect.soft(overCeilingCreate.resolved).toEqual({
+      error: "errors.floor.maxCoverCapacityReached",
+    })
+    expect(mocks.insert).not.toHaveBeenCalled()
+
+    orderedTables = [
+      { label: "1", seats: 4 },
+      { label: "2", seats: 4 },
+    ]
+    mocks.update.mockClear()
+    const overCeilingSeats = await settle(() =>
+      actions.updateTableState({ id: "t1", seats: 8 }),
+    )
+    expect.soft(overCeilingSeats.thrown).toBeUndefined()
+    expect.soft(overCeilingSeats.resolved).toEqual({
+      error: "errors.floor.maxCoverCapacityReached",
+    })
+    expect(mocks.update).not.toHaveBeenCalled()
+
+    ceiling = 40
+    orderedTables = [
+      { label: "1", seats: 4 },
+      { label: "2", seats: 2 },
+    ]
+    for (const key of capacityKeys) {
+      insertError = { message: key }
+      mocks.insert.mockClear()
+      const inserted = await settle(() => actions.createTable())
+      expect.soft(inserted.thrown).toBeUndefined()
+      expect.soft(inserted.resolved).toEqual({ error: key })
+      expect(mocks.insert).toHaveBeenCalled()
+    }
+
+    updateError = { message: "errors.floor.maxCoverCapacityBelowSum" }
+    mocks.update.mockClear()
+    const updated = await settle(() =>
+      actions.updateTableState({ id: "t1", seats: 5 }),
+    )
+    expect.soft(updated.thrown).toBeUndefined()
+    expect.soft(updated.resolved).toEqual({
+      error: "errors.floor.maxCoverCapacityBelowSum",
+    })
+    expect(mocks.update).toHaveBeenCalled()
+
+    upsertError = { message: "errors.floor.maxCoverCapacityInvalid" }
+    mocks.upsert.mockClear()
+    const saved = await settle(() => actions.setMaxCoverCapacity(30))
+    expect.soft(saved.thrown).toBeUndefined()
+    expect.soft(saved.resolved).toEqual({
+      error: "errors.floor.maxCoverCapacityInvalid",
+    })
+    expect(mocks.upsert).toHaveBeenCalled()
   })
 
   it("CC-8 clear returns to the unset block", async () => {
@@ -709,15 +931,17 @@ describe("restaurant cover capacity", () => {
     )
 
     mocks.insert.mockClear()
-    await expect(actions.createTable()).rejects.toThrow(
-      "errors.floor.maxCoverCapacityUnset",
-    )
+    await expect(actions.createTable()).resolves.toEqual({
+      error: "errors.floor.maxCoverCapacityUnset",
+    })
     expect(mocks.insert).not.toHaveBeenCalled()
 
     mocks.update.mockClear()
     await expect(
       actions.updateTableState({ id: "t1", seats: 6 }),
-    ).rejects.toThrow("errors.floor.maxCoverCapacityUnset")
+    ).resolves.toEqual({
+      error: "errors.floor.maxCoverCapacityUnset",
+    })
     expect(mocks.update).not.toHaveBeenCalled()
   })
 
