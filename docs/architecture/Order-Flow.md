@@ -1,7 +1,7 @@
 # Order flow (menu → POS → KDS)
 
 **Status:** Reference  
-**Last updated:** 2026-09-15
+**Last updated:** 2026-10-06
 
 Summary — criteria in [../specs/menu-availability.md](../specs/menu-availability.md).
 
@@ -20,7 +20,10 @@ Table/Server `Select` with a placeholder (`value={… || undefined}`).
 POS picker lines come from live `menu_items` (`available = true`), not
 `MENU_ITEMS`. `createKitchenOrder` re-checks unique line ids against
 `menu_items` (`id, name, price_value, available`) and throws before any
-`orders` / `order_items` insert. Tickets persist in those tables
+`orders` / `order_items` insert. It also throws `errors.floor.tableNotFound`
+before any insert when `table` is empty or matches no `tables` row, and stores
+`table_id: table.id` (never null). `PosTerminal` Send stays `disabled`, and
+`sendToKitchen` returns early, while `!table`. Tickets persist in those tables
 (`00000000000000_baseline.sql`): service-role `FOR ALL` + `GRANT ALL` only;
 `REVOKE ALL` from `PUBLIC`/`anon`/`authenticated`; no authenticated policy.
 Sequence `orders_order_number_seq` is `REVOKE ALL` from

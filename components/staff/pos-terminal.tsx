@@ -75,7 +75,7 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
   }))
 
   async function sendToKitchen() {
-    if (cart.length === 0 || sending) return
+    if (cart.length === 0 || sending || !table) return
     setSending(true)
     try {
       const result = await createKitchenOrder({
@@ -270,7 +270,7 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
             </Button>
             <Button
               className="flex-[2]"
-              disabled={cart.length === 0 || sending}
+              disabled={cart.length === 0 || sending || !table}
               onClick={sendToKitchen}
             >
               <Send className="size-4" />{" "}
