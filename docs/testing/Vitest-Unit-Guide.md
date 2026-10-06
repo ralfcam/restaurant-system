@@ -76,9 +76,11 @@
 - Weekly service overview (WA-1–WA-7):
   `tests/unit/floor/weekly-service-overview.test.ts`,
   `tests/unit/floor/dashboard-weekly-overview.test.ts`
-- Restaurant cover capacity (CC-1–CC-13):
-  `tests/unit/floor/cover-capacity.test.ts` (CC-1–CC-11, CC-13).
+- Restaurant cover capacity (CC-1–CC-17):
+  `tests/unit/floor/cover-capacity.test.ts` (CC-1–CC-11, CC-13–CC-17).
   `tests/unit/floor/schema.test.ts` (CC-12 seed ceiling).
+  `tests/unit/dev-toolchain/baseline-forward-migration.test.ts` pins the
+  hosted null-ceiling `GREATEST(38, SUM(seats)::integer)` backfill (CC-17).
   `tests/unit/floor/operations-shape.test.ts` and
   `tests/unit/floor/message-keys.test.ts` script the settings read.
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,

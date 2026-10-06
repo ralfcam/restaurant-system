@@ -83,8 +83,9 @@ REVOKE ALL ON FUNCTION import_external_reservations(jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION import_external_reservations(jsonb) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION import_external_reservations(jsonb) TO service_role;
 
--- A hosted apply does not run seed.sql. Write the dining-room seat sum only
--- when the ceiling is still null so an existing ceiling is left alone.
+-- A hosted apply does not run seed.sql. When the ceiling is still null, set
+-- it to the greater of 38 and the current table seat sum so a larger floor
+-- is covered and an existing ceiling is left alone.
 UPDATE restaurant_settings
-SET max_cover_capacity = 38
+SET max_cover_capacity = GREATEST(38, COALESCE((SELECT SUM(seats)::integer FROM public.tables), 0))
 WHERE id = 1 AND max_cover_capacity IS NULL;

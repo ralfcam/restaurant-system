@@ -291,6 +291,45 @@ describe("restaurant cover capacity", () => {
     )
   })
 
+  it("CC-16 does not call a seat-read failure a below-sum refusal", async () => {
+    const actions = (await import("@/app/actions/operations")) as {
+      setMaxCoverCapacity?: (value: number | null) => Promise<unknown>
+    }
+    const setMaxCoverCapacity = actions.setMaxCoverCapacity!
+
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+    mocks.upsert.mockClear()
+    mocks.createServiceClient.mockImplementation(() => ({
+      from: (table: string) => {
+        if (table === "tables") {
+          return {
+            select: (columns: string) =>
+              columns === "seats"
+                ? Promise.resolve({
+                    data: null,
+                    error: { message: "seat read failed" },
+                  })
+                : Promise.resolve({ data: null, error: null }),
+          }
+        }
+        if (table === "restaurant_settings") {
+          return {
+            upsert: (row: unknown) => {
+              mocks.upsert("restaurant_settings", row)
+              return Promise.resolve({ error: null })
+            },
+          }
+        }
+        return {}
+      },
+    }))
+
+    await expect(setMaxCoverCapacity(10)).rejects.toThrow(
+      "errors.floor.maxCoverCapacitySaveFailed",
+    )
+    expect(mocks.upsert).not.toHaveBeenCalled()
+  })
+
   it("CC-3 unset maximum blocks create and seat increase", async () => {
     const empty = { data: null, error: null as null }
     const tables = [{ label: "1", x: 0, y: 0, seats: 4 }]
@@ -1085,5 +1124,97 @@ describe("restaurant cover capacity", () => {
       actions.updateTableState({ id: "t1", seats: 6 }),
     ).rejects.toThrow("errors.floor.updateTableFailed")
     expect(mocks.update).not.toHaveBeenCalled()
+  })
+
+  it("CC-14 gates getMaxCoverCapacity", async () => {
+    const { getMaxCoverCapacity } =
+      (await import("@/app/actions/operations")) as {
+        getMaxCoverCapacity: () => Promise<number | null>
+      }
+
+    mocks.requireStaffUser.mockResolvedValue(null)
+    mocks.createServiceClient.mockClear()
+    await expect(getMaxCoverCapacity()).rejects.toThrow(
+      "errors.operations.unauthorized",
+    )
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+  })
+
+  it("CC-15 keeps the floor page up when the capacity read throws", () => {
+    const page = read("app/admin/floor/page.tsx")
+
+    expect(page).toContain("getMaxCoverCapacity")
+
+    const open = page.indexOf("Promise.all([")
+    expect(open).toBeGreaterThanOrEqual(0)
+    const bodyStart = open + "Promise.all([".length
+    let depth = 1
+    let close = -1
+    for (let i = bodyStart; i < page.length; i++) {
+      const char = page[i]
+      if (char === "[") depth += 1
+      else if (char === "]") {
+        depth -= 1
+        if (depth === 0) {
+          close = i
+          break
+        }
+      }
+    }
+    expect(close).toBeGreaterThan(bodyStart)
+    expect(page.slice(close)).toMatch(/^\]\s*\)/)
+    const parallelLoads = page.slice(bodyStart, close)
+    expect(parallelLoads).not.toContain("getMaxCoverCapacity")
+
+    expect(page).toContain("errors.floor.addTableFailed")
+    expect(page).toContain("<FloorPlan")
+
+    const prop = page.match(/initialMaxCoverCapacity=\{([^}]+)\}/)?.[1]?.trim()
+    expect(prop).toBeTruthy()
+
+    const catchRe = /\bcatch\b/g
+    let capacityCatch = ""
+    for (const match of page.matchAll(catchRe)) {
+      const brace = page.indexOf("{", match.index)
+      if (brace < 0) continue
+      let blockDepth = 0
+      for (let i = brace; i < page.length; i++) {
+        if (page[i] === "{") blockDepth += 1
+        else if (page[i] === "}") {
+          blockDepth -= 1
+          if (blockDepth === 0) {
+            const block = page.slice(match.index, i + 1)
+            if (block.includes("errors.floor.addTableFailed")) {
+              capacityCatch = block
+            }
+            break
+          }
+        }
+      }
+    }
+    expect(capacityCatch).not.toBe("")
+    expect(capacityCatch).toMatch(/\bthrow\b/)
+
+    if (prop !== "null") {
+      expect(page).toMatch(
+        new RegExp(`\\b${prop}\\b(?:\\s*:[^=]+)?\\s*=\\s*null\\b`),
+      )
+    }
+  })
+
+  it("CC-17 derives the hosted ceiling from the seat sum", () => {
+    const sql = read(
+      "supabase/migrations/20261005170000_hosted_baseline_columns.sql",
+    )
+
+    expect(sql).not.toMatch(/SET\s+max_cover_capacity\s*=\s*38\b/i)
+    expect(sql).toMatch(/GREATEST\s*\(\s*38\b/i)
+    expect(sql).toMatch(/SUM\s*\(\s*seats\s*\)/i)
+    expect(sql).toMatch(
+      /SUM\s*\(\s*seats\s*\)[^;]{0,240}?::\s*(?:integer|int)\b/i,
+    )
+    expect(sql).toMatch(
+      /UPDATE\s+restaurant_settings\b[^;]*\bWHERE\s+id\s*=\s*1\s+AND\s+max_cover_capacity\s+IS\s+NULL\b/i,
+    )
   })
 })

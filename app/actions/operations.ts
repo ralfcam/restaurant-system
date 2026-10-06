@@ -407,6 +407,9 @@ async function readMaxCoverCapacity(
 }
 
 export async function getMaxCoverCapacity(): Promise<number | null> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
+
   return readMaxCoverCapacity(
     createServiceClient(),
     "errors.floor.addTableFailed",
@@ -1195,7 +1198,7 @@ export async function setMaxCoverCapacity(value: number | null) {
   const db = createServiceClient()
   if (value !== null) {
     const { data, error } = await db.from("tables").select("seats")
-    if (error) throw new Error("errors.floor.maxCoverCapacityBelowSum")
+    if (error) throw new Error("errors.floor.maxCoverCapacitySaveFailed")
     const sum = (data ?? []).reduce(
       (total, row) => total + Number(row.seats),
       0,

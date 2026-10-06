@@ -1,7 +1,7 @@
 # Restaurant cover capacity
 
 **Status:** Draft
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-06
 
 ## Scope
 
@@ -41,8 +41,18 @@ Out of this spec: a change to the booking-occupancy formula, a change to slot or
 
 13. **CC-13 — A failed capacity read is not an unset ceiling.** When the `restaurant_settings.max_cover_capacity` read returns a PostgREST error, `createTable` throws `errors.floor.addTableFailed` and does not insert. A seat change through `updateTableState` throws `errors.floor.updateTableFailed` and does not update. The read does not return null for that error.
 
+14. **CC-14 — Capacity read is staff-gated.** `getMaxCoverCapacity` calls `requireStaffUser` before `createServiceClient`. An unauthenticated or non-staff caller throws `errors.operations.unauthorized` and does not read `restaurant_settings`.
+
+15. **CC-15 — A failed capacity read does not take down the floor page.** `getMaxCoverCapacity` still throws `errors.floor.addTableFailed` when that settings read returns a PostgREST error, and it does not return null (CC-13). `app/admin/floor/page.tsx` does not await that call inside the `Promise.all` that loads the rest of the page. On `errors.floor.addTableFailed` the page still renders `FloorPlan` and passes `initialMaxCoverCapacity={null}`. Any other error, including `errors.operations.unauthorized`, still rejects the page.
+
+16. **CC-16 — A failed seat read is not a below-sum refusal.** When `setMaxCoverCapacity` cannot read `tables.seats`, it throws `errors.floor.maxCoverCapacitySaveFailed` and does not upsert. It does not throw `errors.floor.maxCoverCapacityBelowSum` for that read error. A successful read whose sum is greater than the requested ceiling still throws `errors.floor.maxCoverCapacityBelowSum`.
+
+17. **CC-17 — Hosted ceiling covers the current seat sum.** `supabase/migrations/20261005170000_hosted_baseline_columns.sql` sets `restaurant_settings.max_cover_capacity` for `id = 1`, only while that column is null, to `GREATEST(38,` the current `SUM(seats)` of `tables` `)` with that sum cast to integer. It does not assign the bare integer 38.
+
 ## Implementation trace (non-normative)
 
 FIX `seed_cover_ceiling_c4e8` (RES-138, 2026-10-05). CC-12 shipped. `supabase/seed.sql` sets `restaurant_settings.max_cover_capacity` for `id = 1` to `38` (the dining-room `INSERT INTO tables` seat sum) before that insert. `ON CONFLICT (id) DO UPDATE` sets `max_cover_capacity` only `WHERE restaurant_settings.max_cover_capacity IS NULL`.
 
 FIX `res138_cc13_baseline_e7c2` (RES-138, 2026-10-05). CC-13 shipped. `readMaxCoverCapacity` throws the caller's floor failure key when PostgREST returns an error. `createTable` and `getMaxCoverCapacity` pass `errors.floor.addTableFailed`. A seat change through `updateTableState` passes `errors.floor.updateTableFailed`. The read does not return null for that error.
+
+FIX `res-143_cover_read_b7c4` (RES-143, 2026-10-06). CC-14 through CC-17 shipped. `getMaxCoverCapacity` calls `requireStaffUser` before `createServiceClient`. `/admin/floor` awaits that read outside `Promise.all` and renders with a null ceiling only when the throw is `errors.floor.addTableFailed`. `setMaxCoverCapacity` throws `errors.floor.maxCoverCapacitySaveFailed` when the seat read fails. `20261005170000_hosted_baseline_columns.sql` sets a null ceiling to `GREATEST(38, COALESCE((SELECT SUM(seats)::integer FROM public.tables), 0))`.
