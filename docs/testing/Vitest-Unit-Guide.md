@@ -144,7 +144,8 @@
   `tests/unit/pos/orders-persistence-isolation.test.ts` (AST glob-scan of
   `tests/integration/pos/*.integ.test.ts`; requires `beforeAll`)
 - Reservation analytics: `tests/unit/analytics/` (staff gate, fail-closed
-  reader, period, duration, patterns, staff-page PII)
+  reader, period, duration, patterns, staff-page PII, reservations
+  `.select()` allowlist)
 - Event inquiries: `tests/unit/inquiries/` (staff gate + Service `NAV_GROUPS`,
   schema CHECKs, create allowlist, STAFF-LIST, status-only update, no
   convert/confirm export, EI-9 isolation scan)

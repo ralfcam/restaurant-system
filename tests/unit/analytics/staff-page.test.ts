@@ -176,4 +176,55 @@ describe("/admin/analytics staff page", () => {
     expect(payload).not.toContain(PII.email)
     expect(payload).not.toContain(PII.phone)
   })
+
+  it("reservations analytics select is an explicit column allowlist", async () => {
+    let reservationsSelect: string | undefined
+
+    function recordingQuery(table: string) {
+      const payload = { data: [] as unknown[], error: null as null }
+      const chain = {
+        select(columns: string) {
+          if (table === "reservations") reservationsSelect = columns
+          return chain
+        },
+        gte() {
+          return chain
+        },
+        lte() {
+          return chain
+        },
+        eq() {
+          return chain
+        },
+        in() {
+          return chain
+        },
+        then(
+          resolve: (value: typeof payload) => unknown,
+          reject?: (reason: unknown) => unknown,
+        ) {
+          return Promise.resolve(payload).then(resolve, reject)
+        },
+      }
+      return chain
+    }
+
+    mocks.from.mockImplementation((table: string) => recordingQuery(table))
+
+    const { getReservationAnalytics } = await import("@/app/actions/analytics")
+    const result = await getReservationAnalytics({
+      from: "2026-09-06",
+      to: "2026-09-12",
+    })
+
+    expect(result).not.toHaveProperty("error")
+    expect(reservationsSelect).toBe(
+      "id, status, date, completed_at, time, party_size",
+    )
+    const selectArg = reservationsSelect ?? ""
+    expect(selectArg).not.toContain("*")
+    expect(selectArg).not.toContain("guest_name")
+    expect(selectArg).not.toContain("email")
+    expect(selectArg).not.toContain("phone")
+  })
 })

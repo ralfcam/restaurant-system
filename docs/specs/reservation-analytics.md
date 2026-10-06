@@ -1,7 +1,7 @@
 # Reservation and occupancy analytics
 
 **Status:** Draft
-**Last updated:** 2026-09-20
+**Last updated:** 2026-10-06
 
 ## Scope
 
@@ -87,7 +87,12 @@ RES-STATUS-FORWARD), so those rows can persist.
    AC-5 and scheduling SIB-PRIV stay.
 
 10. **RA-10 — No guest PII on the surface** — The analytics UI and JSON
-    MUST NOT include `guest_name`, `email`, or `phone`.
+    MUST NOT include `guest_name`, `email`, or `phone`. The reservations
+    read in `getReservationAnalytics` MUST call `.select()` with exactly
+    `id, status, date, completed_at, time, party_size`. That argument MUST
+    NOT be `*`, MUST NOT name `guest_name`, `email`, or `phone`, and a unit
+    test MUST observe the argument passed to `.select()`. A query thenable
+    that ignores `.select()` is not evidence.
 
 ## References
 
