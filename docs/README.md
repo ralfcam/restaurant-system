@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-06
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -190,6 +190,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-138 failed capacity read (`res138_cc13_baseline_e7c2`)                                        | 2026-10-05 | `specs/cover-capacity.md` (CC-13 impl-trace), `specs/dev-toolchain.md` (G-MIG6, already the contract), `specs/README.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                      |
 | Next advisory pin (`next_og_advisory_c5e1`)                                                       | 2026-10-05 | `specs/dev-toolchain.md` (G-AUD1), `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                        |
 | RES-130 capture protocol turn (`res-130_capture_protocol_turn_fd16`)                              | 2026-10-05 | `specs/dev-toolchain.md` (G-CAP1 impl-trace; normative body already amended), `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                             |
+| RES-131 POS table required (`res-131_pos_table_required_4489`)                                    | 2026-10-06 | `specs/scheduling.md` (FP-13, by orchestrator), `architecture/Order-Flow.md`, `architecture/Floor-Plan.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                    |
 
 ## Seed path
 

@@ -1059,10 +1059,11 @@ export async function createKitchenOrder(input: {
     .select("id")
     .eq("label", input.table)
     .maybeSingle()
+  if (!table) throw new Error("errors.floor.tableNotFound")
   const { data: order, error } = await db
     .from("orders")
     .insert({
-      table_id: table?.id ?? null,
+      table_id: table.id,
       table_label: input.table,
       server_name: input.server.slice(0, 80),
       subtotal,

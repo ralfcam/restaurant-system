@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-06
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -81,7 +81,11 @@ after reset (no `PUBLIC`/`anon`/`authenticated` table privilege or authenticated
 `FOR ALL`; staff reads via `requireStaffUser` + `createServiceClient`). Spec:
 [../specs/scheduling.md](../specs/scheduling.md) SIB-PRIV (§19). When `tables` or `servers` is
 empty, that `Select` is `disabled` with `value={… || undefined}` and a
-placeholder (`No tables available` / `No servers available`). Occupancy-duration
+placeholder (`No tables available` / `No servers available`). Kitchen send
+requires that selected table: `createKitchenOrder` throws
+`errors.floor.tableNotFound` before any insert when the label is empty or
+matches no `tables` row and stores `table_id: table.id`; Send stays `disabled`
+and `sendToKitchen` returns early while `!table` (FP-13). Occupancy-duration
 and safety-buffer chrome on `/admin/floor` take an `isSuperAdmin` prop (SA-10);
 slot-interval stays ungated in chrome. Operating hours: `operating_windows` in
 `supabase/migrations/00000000000000_baseline.sql`.
