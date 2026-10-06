@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   rows: [] as StoredMergeRow[],
   writes: [] as MergeWrite[],
+  failNext: null as "select" | "update" | null,
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -73,7 +74,19 @@ function thenable<T>(value: T) {
           resolve: (_resolved: T) => unknown,
           reject?: (reason: unknown) => unknown,
         ) => {
+          const failThis = mocks.failNext != null && state.op === mocks.failNext
+          if (failThis) {
+            mocks.failNext = null
+            if (
+              state.op === "insert" ||
+              state.op === "update" ||
+              state.op === "delete"
+            ) {
+              state.recorded = true
+            }
+          }
           if (
+            !failThis &&
             !state.recorded &&
             (state.op === "insert" ||
               state.op === "update" ||
@@ -102,8 +115,9 @@ function thenable<T>(value: T) {
               }
             }
           }
-          const resolvedValue =
-            state.op === "select" || state.selected != null
+          const resolvedValue = failThis
+            ? { data: null, error: { message: "db down" } }
+            : state.op === "select" || state.selected != null
               ? { data: mocks.rows, error: null }
               : value
           return Promise.resolve(resolvedValue as T).then(resolve, reject)
@@ -165,6 +179,7 @@ describe("guest profile merge", () => {
     mocks.from.mockReset()
     mocks.rows = []
     mocks.writes = []
+    mocks.failNext = null
     mocks.from.mockImplementation(() => thenable({ data: [], error: null }))
     mocks.createServiceClient.mockReturnValue({ from: mocks.from })
   })
@@ -276,6 +291,92 @@ describe("guest profile merge", () => {
         (row) => (row as unknown as { id: string }).id,
       ),
     ).toEqual(["r2", "r3", "r1"])
+  })
+
+  it("confirm returns unmapped and keeps bob@ex.com when the candidate read fails", async () => {
+    const rows: Array<MergeRow & { phone: string }> = [
+      {
+        id: "r1",
+        email: "Ada@ex.com",
+        phone: "+41 79 111 22 33",
+        date: "2026-01-02",
+        time: "18:00",
+      },
+      {
+        id: "r2",
+        email: "bob@ex.com",
+        phone: "+41791112233",
+        date: "2026-06-01",
+        time: "19:00",
+      },
+      {
+        id: "r3",
+        email: "bob@ex.com",
+        phone: "+41791112233",
+        date: "2026-06-01",
+        time: "12:00",
+      },
+    ]
+    mocks.rows = rows
+    mocks.failNext = "select"
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+
+    const { confirmGuestMerge } =
+      (await import("@/app/actions/guest-profiles")) as MergeActions
+    const result = await confirmGuestMerge({
+      survivingEmail: "Ada@ex.com",
+      otherEmail: "bob@ex.com",
+    })
+
+    expect(result).toEqual({ error: "errors.guestProfiles.unmapped" })
+    expect(rows.map((row) => row.email)).toEqual([
+      "Ada@ex.com",
+      "bob@ex.com",
+      "bob@ex.com",
+    ])
+  })
+
+  it("confirm returns unmapped and keeps bob@ex.com when the email rewrite fails", async () => {
+    const rows: Array<MergeRow & { phone: string }> = [
+      {
+        id: "r1",
+        email: "Ada@ex.com",
+        phone: "+41 79 111 22 33",
+        date: "2026-01-02",
+        time: "18:00",
+      },
+      {
+        id: "r2",
+        email: "bob@ex.com",
+        phone: "+41791112233",
+        date: "2026-06-01",
+        time: "19:00",
+      },
+      {
+        id: "r3",
+        email: "bob@ex.com",
+        phone: "+41791112233",
+        date: "2026-06-01",
+        time: "12:00",
+      },
+    ]
+    mocks.rows = rows
+    mocks.failNext = "update"
+    mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
+
+    const { confirmGuestMerge } =
+      (await import("@/app/actions/guest-profiles")) as MergeActions
+    const result = await confirmGuestMerge({
+      survivingEmail: "Ada@ex.com",
+      otherEmail: "bob@ex.com",
+    })
+
+    expect(result).toEqual({ error: "errors.guestProfiles.unmapped" })
+    expect(rows.map((row) => row.email)).toEqual([
+      "Ada@ex.com",
+      "bob@ex.com",
+      "bob@ex.com",
+    ])
   })
 
   it("confirm leaves a third email and a blank email unchanged", async () => {

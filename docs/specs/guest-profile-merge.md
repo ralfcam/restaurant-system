@@ -23,7 +23,7 @@ Out of this spec: an automatic merge, a `guests` table, a name-only match, and m
 
 3. **GM-3 — No automatic merge.** Opening the ficha, reloading it, or viewing candidates writes no `email` change. A merge persists only after the staff confirm action.
 
-4. **GM-4 — Surviving email.** The confirm action takes the surviving email and the other email. Every reservation whose normalized email is the other email is updated to the surviving email. No reservation id is inserted or deleted. The surviving ficha then lists the previous rows of both emails. Reservation ids are unique in that list.
+4. **GM-4 — Surviving email.** The confirm action takes the surviving email and the other email. Every reservation whose normalized email is the other email is updated to the surviving email. No reservation id is inserted or deleted. The surviving ficha then lists the previous rows of both emails. Reservation ids are unique in that list. If the candidate read or the rewrite fails, confirm returns `{ error: "errors.guestProfiles.unmapped" }` and does not return ok.
 
 5. **GM-5 — Unrelated rows.** Reservations whose normalized email is neither email in the pair are unchanged. A reservation with a null or blank email is unchanged.
 
@@ -31,4 +31,4 @@ Out of this spec: an automatic merge, a `guests` table, a name-only match, and m
 
 ## Implementation trace (non-normative)
 
-FIX `res-84_guest_profile_merge_a475` (RES-84, 2026-10-06). GM-1–GM-6 shipped. `normalizeGuestPhone` trims and removes spaces. `mergeCandidateEmails` returns the sorted other emails that share a non-blank normalized phone with the subject. `listGuestMergeCandidates` and `confirmGuestMerge` call `requireStaffUser` then `createServiceClient`. Confirm updates `reservations.email` to the surviving normalized email with `.eq("email_normalized", other)` only when that other email is a candidate. `GuestProfilePanel` renders `data-testid="guest-merge"` and submits `confirmGuestMerge` for either survivor. `/admin/customers/[email]` passes `mergeCandidates`. Tests: `tests/unit/guest-profiles/merge.test.ts`.
+FIX `res-84_guest_profile_merge_a475` (RES-84, 2026-10-06). GM-1–GM-6 shipped. `normalizeGuestPhone` trims and removes spaces. `mergeCandidateEmails` returns the sorted other emails that share a non-blank normalized phone with the subject. `listGuestMergeCandidates` and `confirmGuestMerge` call `requireStaffUser` then `createServiceClient`. Confirm updates `reservations.email` to the surviving normalized email with `.eq("email_normalized", other)` only when that other email is a candidate. A failed candidate read or rewrite returns `errors.guestProfiles.unmapped` via file-local `confirmMergeUnmapped`. `GuestProfilePanel` renders `data-testid="guest-merge"` and submits `confirmGuestMerge` for either survivor. `/admin/customers/[email]` passes `mergeCandidates`. Tests: `tests/unit/guest-profiles/merge.test.ts`.

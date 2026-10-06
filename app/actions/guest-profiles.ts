@@ -85,6 +85,11 @@ export async function listGuestMergeCandidates(
   return { candidates: mergeCandidateEmails(data ?? [], email) }
 }
 
+function confirmMergeUnmapped(message: string): { error: string } {
+  console.error("[guest-profiles] confirmGuestMerge:", message)
+  return { error: "errors.guestProfiles.unmapped" }
+}
+
 export async function confirmGuestMerge({
   survivingEmail,
   otherEmail,
@@ -102,15 +107,19 @@ export async function confirmGuestMerge({
   }
 
   const service = createServiceClient()
-  const { data } = await service.from("reservations").select("id, email, phone")
+  const { data, error } = await service
+    .from("reservations")
+    .select("id, email, phone")
+  if (error) return confirmMergeUnmapped(error.message)
   if (!mergeCandidateEmails(data ?? [], surviving).includes(other)) {
     return { ok: true }
   }
 
-  await service
+  const { error: updateError } = await service
     .from("reservations")
     .update({ email: surviving })
     .eq("email_normalized", other)
     .select("id")
+  if (updateError) return confirmMergeUnmapped(updateError.message)
   return { ok: true }
 }
