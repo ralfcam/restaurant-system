@@ -1,7 +1,7 @@
 # Guest profile merge
 
 **Status:** Draft
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-06
 
 ## Scope
 
@@ -28,3 +28,7 @@ Out of this spec: an automatic merge, a `guests` table, a name-only match, and m
 5. **GM-5 — Unrelated rows.** Reservations whose normalized email is neither email in the pair are unchanged. A reservation with a null or blank email is unchanged.
 
 6. **GM-6 — Refused pair.** Confirming two emails that are not candidates, confirming an email with itself, or confirming a blank email writes nothing.
+
+## Implementation trace (non-normative)
+
+FIX `res-84_guest_profile_merge_a475` (RES-84, 2026-10-06). GM-1–GM-6 shipped. `normalizeGuestPhone` trims and removes spaces. `mergeCandidateEmails` returns the sorted other emails that share a non-blank normalized phone with the subject. `listGuestMergeCandidates` and `confirmGuestMerge` call `requireStaffUser` then `createServiceClient`. Confirm updates `reservations.email` to the surviving normalized email with `.eq("email_normalized", other)` only when that other email is a candidate. `GuestProfilePanel` renders `data-testid="guest-merge"` and submits `confirmGuestMerge` for either survivor. `/admin/customers/[email]` passes `mergeCandidates`. Tests: `tests/unit/guest-profiles/merge.test.ts`.

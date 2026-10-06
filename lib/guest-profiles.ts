@@ -45,6 +45,43 @@ export function normalizeGuestEmail(email: string | null): string | null {
   return email?.trim().toLowerCase() || null
 }
 
+export function normalizeGuestPhone(
+  phone: string | null | undefined,
+): string | null {
+  if (phone == null) return null
+  return phone.trim().replaceAll(" ", "") || null
+}
+
+export function mergeCandidateEmails(
+  rows: Array<{
+    email: string | null
+    phone: string | null
+    guest_name?: string | null
+  }>,
+  email: string | null,
+): string[] {
+  const subject = normalizeGuestEmail(email)
+  if (subject == null) return []
+
+  const subjectPhones = new Set<string>()
+  for (const row of rows) {
+    if (normalizeGuestEmail(row.email) !== subject) continue
+    const phone = normalizeGuestPhone(row.phone)
+    if (phone != null) subjectPhones.add(phone)
+  }
+
+  const candidateEmails = new Set<string>()
+  for (const row of rows) {
+    const rowEmail = normalizeGuestEmail(row.email)
+    if (rowEmail == null || rowEmail === subject) continue
+    const phone = normalizeGuestPhone(row.phone)
+    if (phone != null && subjectPhones.has(phone)) {
+      candidateEmails.add(rowEmail)
+    }
+  }
+  return [...candidateEmails].sort()
+}
+
 export function guestEmailFromRouteParam(param: string): string | null {
   try {
     return normalizeGuestEmail(decodeURIComponent(param))

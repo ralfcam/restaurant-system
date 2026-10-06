@@ -3,6 +3,7 @@
 import {
   buildGuestProfile,
   deriveGuestIncidents,
+  mergeCandidateEmails,
   normalizeGuestEmail,
 } from "@/lib/guest-profiles"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
@@ -69,5 +70,47 @@ export async function updateGuestProfilePii(input: {
     return { error: "errors.guestProfiles.unmapped" }
   }
   if (!data?.length) return { error: "errors.guestProfiles.notFound" }
+  return { ok: true }
+}
+
+export async function listGuestMergeCandidates(
+  email: string,
+): Promise<{ error?: string; candidates?: string[] }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
+
+  const { data } = await createServiceClient()
+    .from("reservations")
+    .select("id, email, phone")
+  return { candidates: mergeCandidateEmails(data ?? [], email) }
+}
+
+export async function confirmGuestMerge({
+  survivingEmail,
+  otherEmail,
+}: {
+  survivingEmail: string
+  otherEmail: string
+}): Promise<{ error?: string; ok?: true }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
+
+  const surviving = normalizeGuestEmail(survivingEmail)
+  const other = normalizeGuestEmail(otherEmail)
+  if (surviving == null || other == null || surviving === other) {
+    return { ok: true }
+  }
+
+  const service = createServiceClient()
+  const { data } = await service.from("reservations").select("id, email, phone")
+  if (!mergeCandidateEmails(data ?? [], surviving).includes(other)) {
+    return { ok: true }
+  }
+
+  await service
+    .from("reservations")
+    .update({ email: surviving })
+    .eq("email_normalized", other)
+    .select("id")
   return { ok: true }
 }
