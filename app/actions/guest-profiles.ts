@@ -5,6 +5,7 @@ import {
   deriveGuestIncidents,
   mergeCandidateEmails,
   normalizeGuestEmail,
+  segmentGuests,
 } from "@/lib/guest-profiles"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { createServiceClient } from "@/lib/supabase/service"
@@ -148,4 +149,24 @@ export async function confirmGuestMerge({
     .select("id")
   if (updateError) return confirmMergeUnmapped(updateError.message)
   return { ok: true }
+}
+
+export async function listGuestSegments(
+  filters?: NonNullable<Parameters<typeof segmentGuests>[1]>,
+): Promise<{
+  error?: "errors.guestProfiles.unauthorized" | "errors.guestProfiles.unmapped"
+  guests?: ReturnType<typeof segmentGuests>
+}> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
+
+  const { data, error } = await createServiceClient()
+    .from("reservations")
+    .select("email, guest_name, phone, status, date, time")
+  if (error) {
+    console.error("[guest-profiles] listGuestSegments:", error.message)
+    return { error: "errors.guestProfiles.unmapped" }
+  }
+
+  return { guests: segmentGuests(data ?? [], filters) }
 }
