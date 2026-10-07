@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-07
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -196,6 +196,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | FIX reservations SELECT allowlist (`res-113_select_allowlist_71a3`)                               | 2026-10-06 | `specs/reservation-analytics.md` (RA-10, already amended), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                   |
 | FIX cover capacity read (`res-143_cover_read_b7c4`)                                               | 2026-10-06 | `specs/cover-capacity.md` (CC-14–CC-17, already the contract), `specs/README.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                            |
 | FIX cover capacity refusal (`res-140_capacity_refusal_8a41`)                                      | 2026-10-06 | `specs/cover-capacity.md` (CC-6 impl-trace; CC-6 already the contract), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                      |
+| RES-121 blocked-date load key (`res-121_bd_read_fail_key_9550`)                                   | 2026-10-07 | `specs/booking-rules.md` (BD-READ-FAIL, already the contract), `architecture/Reservation-Flow.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                             |
 
 ## Seed path
 

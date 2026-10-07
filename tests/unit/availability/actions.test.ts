@@ -341,4 +341,25 @@ describe("blocked-date readers", () => {
       mocks.from.mock.calls.every(([table]) => table === "blocked_dates"),
     ).toBe(true)
   })
+
+  it("BD-READ-FAIL names the blockedDatesLoadFailed catalog key", () => {
+    const spec = readFileSync(
+      path.join(process.cwd(), "docs/specs/booking-rules.md"),
+      "utf8",
+    )
+    const itemStart = spec.indexOf("24. **BD-READ-FAIL")
+    const itemEnd = spec.indexOf("\n25. ", itemStart)
+    const item24 = spec.slice(itemStart, itemEnd)
+    const traceRow = spec
+      .split("\n")
+      .find((line) => /^\|\s*BD-READ-FAIL\s*\|/.test(line))
+    const englishMessage = "Could not load blocked dates."
+
+    expect(item24).toContain("**BD-READ-FAIL")
+    expect(traceRow).toEqual(expect.any(String))
+    expect(item24).toContain(BLOCKED_DATES_LOAD_ERROR)
+    expect(traceRow).not.toContain(englishMessage)
+    expect(item24).not.toContain(englishMessage)
+    expect(traceRow).toContain(BLOCKED_DATES_LOAD_ERROR)
+  })
 })
