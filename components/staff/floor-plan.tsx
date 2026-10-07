@@ -80,6 +80,7 @@ import {
 import {
   FLOOR_CELL_PX,
   FLOOR_DRAG_THRESHOLD_PX,
+  FLOOR_LG_MIN_PX,
   floorCanvasCells,
   floorCellStyle,
   floorDropCell,
@@ -403,6 +404,8 @@ export function FloorPlan({
     fallbackData?.tables[0]?.id ?? null,
   )
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false)
+  // Desktop initial width matches SSR and the first client render.
+  const [viewportWidth, setViewportWidth] = useState(FLOOR_LG_MIN_PX)
   const [seating, setSeating] = useState(false)
   const [mergePick, setMergePick] = useState<string[]>([])
   const [activeFilter, setActiveFilter] = useState<TableStatus | "all">("all")
@@ -470,7 +473,9 @@ export function FloorPlan({
 
   useEffect(() => {
     function closeSheetOnLg() {
-      if (!shouldOpenMobileInspector(window.innerWidth)) {
+      const width = window.innerWidth
+      setViewportWidth(width)
+      if (!shouldOpenMobileInspector(width)) {
         setMobileInspectorOpen(false)
       }
     }
@@ -1650,158 +1655,164 @@ export function FloorPlan({
           )}
         </div>
       </div>
-      <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
-        <SheetContent
-          side="bottom"
-          className="max-h-[78vh] rounded-t-2xl p-0 lg:hidden"
-        >
-          <SheetHeader className="border-b border-border pr-12">
-            <SheetTitle>
-              {selected
-                ? t("staff.floor.tableHeading", {
-                    label: selected.merge
-                      ? selected.merge.label
-                      : selected.label,
-                  })
-                : t("staff.floor.selectedTable")}
-            </SheetTitle>
-            <SheetDescription>
-              {selected
-                ? t("staff.floor.statusSeats", {
-                    status: t(TABLE_STATUS_META[selected.displayStatus].label),
-                    seats: selected.merge?.seats ?? selected.seats,
-                  })
-                : t("staff.floor.chooseTable")}
-            </SheetDescription>
-          </SheetHeader>
-          {selected ? (
-            <div className="flex flex-col gap-4 overflow-y-auto p-4">
-              {selected.reservation ? (
-                <div className="rounded-lg border border-border bg-secondary/40 p-3">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {t("staff.floor.reservation")}
-                  </p>
-                  <p className="font-medium">
-                    {selected.reservation.guestName}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {t("staff.floor.partyAt", {
-                      time: selected.reservation.time,
-                      count: selected.reservation.partySize,
-                    })}
-                  </p>
-                  {selected.reservation.status === "confirmed" ? (
-                    <Button
-                      className="mt-3 w-full"
-                      disabled={seating}
-                      onClick={() => {
-                        const row = reservations.find(
-                          (r) => r.id === selected.reservation?.id,
-                        )
-                        if (row) void seatParty(row)
-                      }}
-                    >
-                      <Armchair data-icon="inline-start" />{" "}
-                      {t("staff.floor.seatParty")}
-                    </Button>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  {t("staff.floor.noReservation")}
-                </p>
-              )}
-              <WalkInSeat
-                key={selected.id}
-                tableLabel={selected.label}
-                onSeated={() => mutate()}
-              />
-              <div className="grid grid-cols-2 gap-2">
-                {STATUS_ORDER.map((status) => (
-                  <Button
-                    key={status}
-                    size="sm"
-                    variant={
-                      selected.displayStatus === status ? "default" : "outline"
-                    }
-                    onClick={() => void setStatus(selected.id, status)}
-                  >
-                    {t(TABLE_STATUS_META[status].label)}
-                  </Button>
-                ))}
-              </div>
-              <InspectorCapacityControls
-                table={selected}
-                memberTables={tables}
-                onAdjustSeats={adjustSeats}
-                onAdjustExpected={adjustExpected}
-              />
-              <div>
-                <p className="mb-2 text-sm font-medium">
-                  {t("staff.floor.mergeTables")}
-                </p>
-                {selected.merge ? (
-                  <Button
-                    variant="outline"
-                    onClick={() => void splitSelected()}
-                  >
-                    <Unlink data-icon="inline-start" />{" "}
-                    {t("staff.floor.splitTables")}
-                  </Button>
-                ) : selectedMergeable ? (
-                  <div className="space-y-2">
-                    {mergePartners.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">
-                        {t("staff.floor.noMergePartners")}
-                      </p>
-                    ) : (
-                      <MergePartnerChips
-                        partners={mergePartners}
-                        pickedIds={mergePick}
-                        onToggle={toggleMergePick}
-                      />
-                    )}
-                    <Button
-                      className="w-full"
-                      variant="outline"
-                      disabled={mergePick.length === 0 || merging}
-                      onClick={() => void combineSelected()}
-                    >
-                      <Combine data-icon="inline-start" />{" "}
-                      {t("staff.floor.mergeTables")}
-                    </Button>
+      {shouldOpenMobileInspector(viewportWidth) && (
+        <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
+          <SheetContent
+            side="bottom"
+            className="max-h-[78vh] rounded-t-2xl p-0"
+          >
+            <SheetHeader className="border-b border-border pr-12">
+              <SheetTitle>
+                {selected
+                  ? t("staff.floor.tableHeading", {
+                      label: selected.merge
+                        ? selected.merge.label
+                        : selected.label,
+                    })
+                  : t("staff.floor.selectedTable")}
+              </SheetTitle>
+              <SheetDescription>
+                {selected
+                  ? t("staff.floor.statusSeats", {
+                      status: t(
+                        TABLE_STATUS_META[selected.displayStatus].label,
+                      ),
+                      seats: selected.merge?.seats ?? selected.seats,
+                    })
+                  : t("staff.floor.chooseTable")}
+              </SheetDescription>
+            </SheetHeader>
+            {selected ? (
+              <div className="flex flex-col gap-4 overflow-y-auto p-4">
+                {selected.reservation ? (
+                  <div className="rounded-lg border border-border bg-secondary/40 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {t("staff.floor.reservation")}
+                    </p>
+                    <p className="font-medium">
+                      {selected.reservation.guestName}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {t("staff.floor.partyAt", {
+                        time: selected.reservation.time,
+                        count: selected.reservation.partySize,
+                      })}
+                    </p>
+                    {selected.reservation.status === "confirmed" ? (
+                      <Button
+                        className="mt-3 w-full"
+                        disabled={seating}
+                        onClick={() => {
+                          const row = reservations.find(
+                            (r) => r.id === selected.reservation?.id,
+                          )
+                          if (row) void seatParty(row)
+                        }}
+                      >
+                        <Armchair data-icon="inline-start" />{" "}
+                        {t("staff.floor.seatParty")}
+                      </Button>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    {t("staff.floor.onlyAvailableMerge")}
+                    {t("staff.floor.noReservation")}
                   </p>
                 )}
+                <WalkInSeat
+                  key={selected.id}
+                  tableLabel={selected.label}
+                  onSeated={() => mutate()}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  {STATUS_ORDER.map((status) => (
+                    <Button
+                      key={status}
+                      size="sm"
+                      variant={
+                        selected.displayStatus === status
+                          ? "default"
+                          : "outline"
+                      }
+                      onClick={() => void setStatus(selected.id, status)}
+                    >
+                      {t(TABLE_STATUS_META[status].label)}
+                    </Button>
+                  ))}
+                </div>
+                <InspectorCapacityControls
+                  table={selected}
+                  memberTables={tables}
+                  onAdjustSeats={adjustSeats}
+                  onAdjustExpected={adjustExpected}
+                />
+                <div>
+                  <p className="mb-2 text-sm font-medium">
+                    {t("staff.floor.mergeTables")}
+                  </p>
+                  {selected.merge ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => void splitSelected()}
+                    >
+                      <Unlink data-icon="inline-start" />{" "}
+                      {t("staff.floor.splitTables")}
+                    </Button>
+                  ) : selectedMergeable ? (
+                    <div className="space-y-2">
+                      {mergePartners.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          {t("staff.floor.noMergePartners")}
+                        </p>
+                      ) : (
+                        <MergePartnerChips
+                          partners={mergePartners}
+                          pickedIds={mergePick}
+                          onToggle={toggleMergePick}
+                        />
+                      )}
+                      <Button
+                        className="w-full"
+                        variant="outline"
+                        disabled={mergePick.length === 0 || merging}
+                        onClick={() => void combineSelected()}
+                      >
+                        <Combine data-icon="inline-start" />{" "}
+                        {t("staff.floor.mergeTables")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {t("staff.floor.onlyAvailableMerge")}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => toggleUnlock(selected.id)}
+                >
+                  {selectedUnlocked ? (
+                    <Lock data-icon="inline-start" />
+                  ) : (
+                    <LockOpen data-icon="inline-start" />
+                  )}
+                  {selectedUnlocked
+                    ? t("staff.floor.lockPosition")
+                    : t("staff.floor.unlockToMove")}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive hover:text-destructive"
+                  onClick={() => removeTable(selected.id)}
+                >
+                  <Trash2 data-icon="inline-start" />{" "}
+                  {t("staff.floor.removeTable")}
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => toggleUnlock(selected.id)}
-              >
-                {selectedUnlocked ? (
-                  <Lock data-icon="inline-start" />
-                ) : (
-                  <LockOpen data-icon="inline-start" />
-                )}
-                {selectedUnlocked
-                  ? t("staff.floor.lockPosition")
-                  : t("staff.floor.unlockToMove")}
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full text-destructive hover:text-destructive"
-                onClick={() => removeTable(selected.id)}
-              >
-                <Trash2 data-icon="inline-start" />{" "}
-                {t("staff.floor.removeTable")}
-              </Button>
-            </div>
-          ) : null}
-        </SheetContent>
-      </Sheet>
+            ) : null}
+          </SheetContent>
+        </Sheet>
+      )}
     </>
   )
 }

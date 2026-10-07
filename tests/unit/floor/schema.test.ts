@@ -347,13 +347,25 @@ describe("floor tables schema and live surfaces", () => {
     expect(floor).toMatch(
       /setMobileInspectorOpen\(\s*false\s*\)|matchMedia[\s\S]{0,800}setMobileInspectorOpen\(|addEventListener\(\s*["']resize["'][\s\S]{0,800}setMobileInspectorOpen\(/,
     )
-    // Inversion: lg:hidden on SheetContent already ships; it does not satisfy FP-12.
-    expect(floor).toMatch(/SheetContent[\s\S]*\blg:hidden\b/)
 
     const layout = await import("@/lib/floor/layout")
     expect(layout.shouldOpenMobileInspector).toEqual(expect.any(Function))
     expect(layout.shouldOpenMobileInspector(1024)).toBe(false)
     expect(layout.shouldOpenMobileInspector(1280)).toBe(false)
+  })
+
+  it("mobile Sheet unmounts at lg so the overlay cannot stick", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+    const sheetOpen = floor.indexOf("<Sheet")
+    expect(sheetOpen).toBeGreaterThan(-1)
+    const sheetClose = floor.indexOf("</Sheet>", sheetOpen)
+    expect(sheetClose).toBeGreaterThan(sheetOpen)
+    const sheet = floor.slice(sheetOpen, sheetClose + "</Sheet>".length)
+
+    expect(sheet).not.toMatch(/\blg:hidden\b/)
+    expect(floor.slice(0, sheetOpen)).toMatch(
+      /shouldOpenMobileInspector\(\s*[A-Za-z_$][\w$]*\s*\)\s*(?:&&|\?)\s*\(\s*$/,
+    )
   })
 
   it("selecting a table below lg opens the bottom Sheet inspector", async () => {
