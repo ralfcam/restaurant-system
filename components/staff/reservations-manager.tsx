@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { TABLE_STATUS_META, type ReservationStatus } from "@/lib/data"
 import { guestProfileHref } from "@/lib/guest-profiles"
 import { staffListEmptyCopy } from "@/lib/reservations/list-empty-copy"
+import { shiftCalendarDate } from "@/lib/timezone"
 import { selectableTablesForAssignment } from "@/lib/reservations/selectable-tables"
 import {
   type ReservationRow,
@@ -84,11 +85,10 @@ const TAB_VALUES: Tab[] = [
   "no_show",
 ]
 
-function offsetDate(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00")
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
+// DOM event name. Kept above toast.error(t(...)) so the copy scanner does not
+// treat it as toast text — that call leaves the scanner armed until the next
+// string literal.
+const POP_STATE_EVENT = "popstate"
 
 export function ReservationsManager({
   initialReservations = [],
@@ -109,6 +109,11 @@ export function ReservationsManager({
   const [isPending, startTransition] = useTransition()
   const currentDate = selectedDate ?? new Date().toISOString().slice(0, 10)
   const todayISO = today ?? new Date().toISOString().slice(0, 10)
+  const [displayedDate, setDisplayedDate] = useState(currentDate)
+  const inFlightRouteDates = useRef<string[]>([])
+  const historyRestoration = useRef(false)
+  const reconciledDate = useRef(currentDate)
+  const [historyEpoch, setHistoryEpoch] = useState(0)
 
   const [reservations, setReservations] = useState<Reservation[]>(
     initialReservations.map(rowToReservation),
@@ -152,7 +157,7 @@ export function ReservationsManager({
     queueMicrotask(() => {
       if (!cancelled) setLoadingDate(true)
     })
-    getReservationsByDate(currentDate).then((result) => {
+    getReservationsByDate(displayedDate).then((result) => {
       if (!cancelled) {
         setReservations(result.reservations.map(rowToReservation))
         setListError(result.error)
@@ -163,9 +168,54 @@ export function ReservationsManager({
     return () => {
       cancelled = true
     }
-  }, [currentDate, listEpoch, t])
+  }, [displayedDate, listEpoch, t])
+
+  useEffect(() => {
+    function onPopState() {
+      historyRestoration.current = true
+      setHistoryEpoch((epoch) => epoch + 1)
+    }
+    window.addEventListener(POP_STATE_EVENT, onPopState)
+    return () => {
+      window.removeEventListener(POP_STATE_EVENT, onPopState)
+    }
+  }, [])
+
+  // popstate can restore a selectedDate string currentDate already holds.
+  // historyEpoch forces this effect to run and adopt that date. A staff click
+  // in the same turn clears the flag; if currentDate is still reconciled, leave
+  // displayedDate and the in-flight list alone.
+  useEffect(() => {
+    if (historyRestoration.current) {
+      historyRestoration.current = false
+      inFlightRouteDates.current = []
+      setDisplayedDate(currentDate)
+      reconciledDate.current = currentDate
+      return
+    }
+    if (currentDate === reconciledDate.current) {
+      return
+    }
+    reconciledDate.current = currentDate
+    const inFlight = inFlightRouteDates.current
+    const latest = inFlight[inFlight.length - 1]
+    if (latest === currentDate) {
+      inFlightRouteDates.current = []
+      return
+    }
+    const earlierIndex = inFlight.indexOf(currentDate)
+    if (earlierIndex >= 0) {
+      inFlightRouteDates.current = inFlight.slice(earlierIndex + 1)
+      return
+    }
+    setDisplayedDate(currentDate)
+    inFlightRouteDates.current = []
+  }, [currentDate, historyEpoch])
 
   function navigateToDate(date: string) {
+    setDisplayedDate(date)
+    historyRestoration.current = false
+    inFlightRouteDates.current = [...inFlightRouteDates.current, date]
     startTransition(() => {
       router.push(`/admin/reservations?date=${date}`)
     })
@@ -289,8 +339,7 @@ export function ReservationsManager({
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigateToDate(offsetDate(currentDate, -1))}
-          disabled={isPending}
+          onClick={() => navigateToDate(shiftCalendarDate(displayedDate, -1))}
           title={t("staff.reservations.previousDay")}
         >
           <ChevronLeft className="size-4" />
@@ -298,15 +347,14 @@ export function ReservationsManager({
         </Button>
         <input
           type="date"
-          value={currentDate}
+          value={displayedDate}
           onChange={(e) => e.target.value && navigateToDate(e.target.value)}
           className="h-9 rounded-md border border-border bg-background px-3 text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigateToDate(offsetDate(currentDate, 1))}
-          disabled={isPending}
+          onClick={() => navigateToDate(shiftCalendarDate(displayedDate, 1))}
           title={t("staff.reservations.nextDay")}
         >
           <ChevronRight className="size-4" />

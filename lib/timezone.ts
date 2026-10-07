@@ -20,6 +20,17 @@ export function getTodayInRestaurantTZ(): string {
 }
 
 /**
+ * Shift a YYYY-MM-DD calendar date by a whole number of days.
+ * Uses UTC date parts so a positive local offset cannot skip a day.
+ */
+export function shiftCalendarDate(iso: string, days: number): string {
+  const [year, month, day] = iso.split("-").map(Number)
+  return new Date(Date.UTC(year, month - 1, day + days))
+    .toISOString()
+    .slice(0, 10)
+}
+
+/**
  * Get the current time in the restaurant's local timezone as HH:MM.
  */
 export function getNowTimeInRestaurantTZ(): string {
