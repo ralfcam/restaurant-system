@@ -19,6 +19,7 @@ import { toast } from "sonner"
 import { TABLE_STATUS_META, type ReservationStatus } from "@/lib/data"
 import { guestProfileHref } from "@/lib/guest-profiles"
 import { staffListEmptyCopy } from "@/lib/reservations/list-empty-copy"
+import { shiftCalendarDate } from "@/lib/timezone"
 import { selectableTablesForAssignment } from "@/lib/reservations/selectable-tables"
 import {
   type ReservationRow,
@@ -84,12 +85,6 @@ const TAB_VALUES: Tab[] = [
   "no_show",
 ]
 
-function offsetDate(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00")
-  d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
-}
-
 export function ReservationsManager({
   initialReservations = [],
   selectedDate,
@@ -109,6 +104,7 @@ export function ReservationsManager({
   const [isPending, startTransition] = useTransition()
   const currentDate = selectedDate ?? new Date().toISOString().slice(0, 10)
   const todayISO = today ?? new Date().toISOString().slice(0, 10)
+  const [displayedDate, setDisplayedDate] = useState(currentDate)
 
   const [reservations, setReservations] = useState<Reservation[]>(
     initialReservations.map(rowToReservation),
@@ -152,7 +148,7 @@ export function ReservationsManager({
     queueMicrotask(() => {
       if (!cancelled) setLoadingDate(true)
     })
-    getReservationsByDate(currentDate).then((result) => {
+    getReservationsByDate(displayedDate).then((result) => {
       if (!cancelled) {
         setReservations(result.reservations.map(rowToReservation))
         setListError(result.error)
@@ -163,9 +159,10 @@ export function ReservationsManager({
     return () => {
       cancelled = true
     }
-  }, [currentDate, listEpoch, t])
+  }, [displayedDate, listEpoch, t])
 
   function navigateToDate(date: string) {
+    setDisplayedDate(date)
     startTransition(() => {
       router.push(`/admin/reservations?date=${date}`)
     })
@@ -289,8 +286,7 @@ export function ReservationsManager({
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigateToDate(offsetDate(currentDate, -1))}
-          disabled={isPending}
+          onClick={() => navigateToDate(shiftCalendarDate(displayedDate, -1))}
           title={t("staff.reservations.previousDay")}
         >
           <ChevronLeft className="size-4" />
@@ -298,15 +294,14 @@ export function ReservationsManager({
         </Button>
         <input
           type="date"
-          value={currentDate}
+          value={displayedDate}
           onChange={(e) => e.target.value && navigateToDate(e.target.value)}
           className="h-9 rounded-md border border-border bg-background px-3 text-sm font-medium tabular-nums focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigateToDate(offsetDate(currentDate, 1))}
-          disabled={isPending}
+          onClick={() => navigateToDate(shiftCalendarDate(displayedDate, 1))}
           title={t("staff.reservations.nextDay")}
         >
           <ChevronRight className="size-4" />

@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-07
 
 ## Layout
 
@@ -117,6 +117,10 @@
   `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
   visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit
   `r.email?.trim()` gate)
+- Staff reservations date navigation (scheduling criterion 3 / STAFF-LIST
+  latest date): `tests/unit/reservations/date-navigation.test.ts`
+  ("previous and next move one calendar day in a positive UTC offset";
+  "a stale reservations response does not replace the latest date")
 - Guest widget fully booked confirm (BW-16):
   `tests/unit/reservation-widget/fully-booked-error.test.ts` (source-scan
   `confirm()` exact-string branch; no page toast; step 2 `role="alert"`;
