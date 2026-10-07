@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, useTransition } from "react"
+import { useEffect, useMemo, useRef, useState, useTransition } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
@@ -105,6 +105,7 @@ export function ReservationsManager({
   const currentDate = selectedDate ?? new Date().toISOString().slice(0, 10)
   const todayISO = today ?? new Date().toISOString().slice(0, 10)
   const [displayedDate, setDisplayedDate] = useState(currentDate)
+  const inFlightRouteDates = useRef<string[]>([])
 
   const [reservations, setReservations] = useState<Reservation[]>(
     initialReservations.map(rowToReservation),
@@ -161,8 +162,25 @@ export function ReservationsManager({
     }
   }, [displayedDate, listEpoch, t])
 
+  useEffect(() => {
+    const inFlight = inFlightRouteDates.current
+    const latest = inFlight[inFlight.length - 1]
+    if (latest === currentDate) {
+      inFlightRouteDates.current = []
+      return
+    }
+    const earlierIndex = inFlight.indexOf(currentDate)
+    if (earlierIndex >= 0) {
+      inFlightRouteDates.current = inFlight.slice(earlierIndex + 1)
+      return
+    }
+    setDisplayedDate(currentDate)
+    inFlightRouteDates.current = []
+  }, [currentDate])
+
   function navigateToDate(date: string) {
     setDisplayedDate(date)
+    inFlightRouteDates.current = [...inFlightRouteDates.current, date]
     startTransition(() => {
       router.push(`/admin/reservations?date=${date}`)
     })

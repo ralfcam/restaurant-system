@@ -293,4 +293,98 @@ describe("reservation date navigation", () => {
     expect(document.body.textContent).toContain("Fresh Guest")
     expect(document.body.textContent).not.toContain("Stale Guest")
   })
+
+  it("a later route date updates the list unless a newer staff date is in flight", async () => {
+    pendingByDate.clear()
+    mocks.getReservationsByDate.mockClear()
+    mocks.getReservationsByDate.mockImplementation((date: string) => {
+      const pending = defer<DatedList>()
+      pendingByDate.set(date, pending)
+      return pending.promise
+    })
+    mocks.getReservationTables.mockResolvedValue([])
+
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    mountedRoot = createRoot(container)
+
+    function renderOnDate(selectedDate: string) {
+      mountedRoot!.render(
+        createElement(
+          NextIntlClientProvider as FunctionComponent<
+            Omit<ComponentProps<typeof NextIntlClientProvider>, "children">
+          >,
+          {
+            locale: "en",
+            messages: en,
+            timeZone: "Europe/Zurich",
+          },
+          createElement(ReservationsManager, {
+            selectedDate,
+            today: "2026-10-07",
+            initialReservations: [],
+            occupancyWindow: {
+              occupancyDurationMinutes: 90,
+              safetyBufferMinutes: 15,
+            },
+          }),
+        ),
+      )
+    }
+
+    await act(async () => {
+      renderOnDate("2026-10-07")
+    })
+
+    await act(async () => {
+      renderOnDate("2026-10-06")
+    })
+
+    expect(dateInput().value).toBe("2026-10-06")
+    expect(mocks.getReservationsByDate).toHaveBeenCalledWith("2026-10-06")
+
+    const october6 = pendingByDate.get("2026-10-06")
+    expect(october6, "route date 2026-10-06 is fetched").toBeDefined()
+    await act(async () => {
+      october6!.resolve({
+        reservations: [reservationRow("Back Guest", "2026-10-06")],
+      })
+      await Promise.resolve()
+    })
+    expect(document.body.textContent).toContain("Back Guest")
+
+    await act(async () => {
+      buttonNamed("Next day").click()
+    })
+    await act(async () => {
+      buttonNamed("Next day").click()
+    })
+    expect(dateInput().value).toBe("2026-10-08")
+
+    await act(async () => {
+      renderOnDate("2026-10-07")
+    })
+    expect(dateInput().value).toBe("2026-10-08")
+
+    const october8 = pendingByDate.get("2026-10-08")
+    expect(october8, "latest staff date is fetched").toBeDefined()
+    await act(async () => {
+      october8!.resolve({
+        reservations: [reservationRow("Latest Guest", "2026-10-08")],
+      })
+      await Promise.resolve()
+    })
+
+    const inFlightOctober7 = pendingByDate.get("2026-10-07")
+    expect(inFlightOctober7, "in-flight 2026-10-07 list").toBeDefined()
+    await act(async () => {
+      inFlightOctober7!.resolve({
+        reservations: [reservationRow("Stale Route Guest", "2026-10-07")],
+      })
+      await Promise.resolve()
+    })
+
+    expect(document.body.textContent).toContain("Latest Guest")
+    expect(document.body.textContent).not.toContain("Stale Route Guest")
+  })
 })
