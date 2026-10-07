@@ -1,7 +1,7 @@
 # Reservation flow
 
 **Status:** Reference  
-**Last updated:** 2026-10-03
+**Last updated:** 2026-10-07
 
 Summary of guest booking — criteria live in [../specs/booking-rules.md](../specs/booking-rules.md)
 (BW-1…BW-22 for the segmented homepage widget, occupancy window,
@@ -102,7 +102,7 @@ Criteria:
 **Blocked-date reads.** `isDateBlocked`, `getBlockedDatesInMonth`, and
 `getBlockedDatesInRange` in `app/actions/availability.ts` query `blocked_dates`
 on the anon client. A non-null SELECT `error` is logged server-side and thrown as
-`Error("Could not load blocked dates.")` — they do not resolve `false` or `[]`.
+`Error("errors.availability.blockedDatesLoadFailed")` — they do not resolve `false` or `[]`.
 Successful empty/null data is unchanged (`isDateBlocked` is `false` with no row;
 list readers return `[]` only then). Caller recovery UI is out of scope.
 Criterion: [../specs/booking-rules.md](../specs/booking-rules.md) BD-READ-FAIL.
