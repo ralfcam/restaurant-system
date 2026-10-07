@@ -920,8 +920,8 @@ export function FloorPlan({
           <LocateFixed data-icon="inline-start" />
         </Button>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <div className="space-y-6">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[1fr_300px]">
+        <div className="min-w-0 space-y-6">
           <div className="rounded-xl border border-border bg-card p-5">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1136,7 +1136,7 @@ export function FloorPlan({
                 {editMode ? t("staff.floor.done") : t("staff.floor.editLayout")}
               </Button>
             </div>
-            <div className="overflow-auto rounded-lg border border-dashed border-border bg-secondary/30 p-3">
+            <div className="isolate overflow-auto rounded-lg border border-dashed border-border bg-secondary/30 p-3">
               <div
                 ref={canvasRef}
                 className="relative"
@@ -1425,7 +1425,7 @@ export function FloorPlan({
           </div>
         </div>
 
-        <div className="hidden rounded-xl border border-border bg-card p-5 lg:block">
+        <div className="hidden rounded-xl border border-border bg-card p-5 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:self-start lg:block">
           {selected ? (
             <div className="space-y-5">
               <div>

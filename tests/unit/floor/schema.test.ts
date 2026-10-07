@@ -655,4 +655,114 @@ describe("floor tables schema and live surfaces", () => {
       settingsBeforeTables: true,
     })
   })
+
+  it("floor grid shrinks so the fixed canvas scrolls inside the page", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+    const gridToken = "lg:grid-cols-[1fr_300px]"
+    const gridAt = floor.indexOf(gridToken)
+    expect(gridAt).toBeGreaterThan(-1)
+
+    const classAttr = 'className="'
+    const gridClassOpen = floor.lastIndexOf(classAttr, gridAt)
+    expect(gridClassOpen).toBeGreaterThan(-1)
+    const gridClassStart = gridClassOpen + classAttr.length
+    const gridClassEnd = floor.indexOf('"', gridClassStart)
+    expect(gridClassEnd).toBeGreaterThan(gridClassStart)
+    const gridClass = floor.slice(gridClassStart, gridClassEnd)
+    expect(gridClass).toContain(gridToken)
+    // FP-12: default min-width:auto on this grid keeps the fixed canvas
+    // from shrinking, so overflow-auto below never becomes the scrollport.
+    expect(gridClass.split(/\s+/)).toContain("min-w-0")
+
+    const nextClassOpen = floor.indexOf(classAttr, gridClassEnd)
+    expect(nextClassOpen).toBeGreaterThan(gridClassEnd)
+    const nextClassStart = nextClassOpen + classAttr.length
+    const nextClassEnd = floor.indexOf('"', nextClassStart)
+    expect(nextClassEnd).toBeGreaterThan(nextClassStart)
+    const mainColumnClass = floor.slice(nextClassStart, nextClassEnd)
+    expect(mainColumnClass.split(/\s+/)).toContain("min-w-0")
+
+    const canvasAt = floor.indexOf("canvas.cols * FLOOR_CELL_PX")
+    expect(canvasAt).toBeGreaterThan(-1)
+    const canvasTag = floor.lastIndexOf("<div", canvasAt)
+    expect(canvasTag).toBeGreaterThan(-1)
+    const wrapperClassOpen = floor.lastIndexOf(classAttr, canvasTag)
+    expect(wrapperClassOpen).toBeGreaterThan(-1)
+    const wrapperClassStart = wrapperClassOpen + classAttr.length
+    const wrapperClassEnd = floor.indexOf('"', wrapperClassStart)
+    expect(wrapperClassEnd).toBeGreaterThan(wrapperClassStart)
+    expect(wrapperClassEnd).toBeLessThan(canvasTag)
+    const wrapperClass = floor.slice(wrapperClassStart, wrapperClassEnd)
+    expect(wrapperClass.split(/\s+/)).toContain("overflow-auto")
+  })
+
+  it("floor canvas stacking stays under the header and the side inspector sticks below it", () => {
+    const floor = read("components/staff/floor-plan.tsx")
+    const classAttr = 'className="'
+
+    const canvasAt = floor.indexOf("canvas.cols * FLOOR_CELL_PX")
+    expect(canvasAt).toBeGreaterThan(-1)
+    const canvasTag = floor.lastIndexOf("<div", canvasAt)
+    expect(canvasTag).toBeGreaterThan(-1)
+    const wrapperClassOpen = floor.lastIndexOf(classAttr, canvasTag)
+    expect(wrapperClassOpen).toBeGreaterThan(-1)
+    const wrapperClassStart = wrapperClassOpen + classAttr.length
+    const wrapperClassEnd = floor.indexOf('"', wrapperClassStart)
+    expect(wrapperClassEnd).toBeGreaterThan(wrapperClassStart)
+    expect(wrapperClassEnd).toBeLessThan(canvasTag)
+    const wrapperTokens = floor
+      .slice(wrapperClassStart, wrapperClassEnd)
+      .split(/\s+/)
+      .filter(Boolean)
+    expect(wrapperTokens).toContain("overflow-auto")
+
+    // Desktop inspector only: t("staff.floor.selected") is not the Sheet's
+    // staff.floor.selectedTable heading.
+    const selectedKey = 't("staff.floor.selected")'
+    const selectedAt = floor.indexOf(selectedKey)
+    expect(selectedAt).toBeGreaterThan(-1)
+    const sheetAt = floor.indexOf("<Sheet")
+    expect(sheetAt).toBeGreaterThan(selectedAt)
+
+    let inspectorClass = ""
+    let cursor = selectedAt
+    while (cursor > 0) {
+      const classOpen = floor.lastIndexOf(classAttr, cursor - 1)
+      if (classOpen < 0) break
+      const classStart = classOpen + classAttr.length
+      const classEnd = floor.indexOf('"', classStart)
+      if (classEnd < 0) break
+      const candidate = floor.slice(classStart, classEnd)
+      const tokens = candidate.split(/\s+/).filter(Boolean)
+      if (classEnd < selectedAt && tokens.includes("lg:block")) {
+        const tagOpen = floor.lastIndexOf("<", classOpen)
+        expect(floor.slice(tagOpen, classOpen)).toContain("div")
+        expect(floor.slice(tagOpen, classOpen)).not.toContain("Sheet")
+        inspectorClass = candidate
+        break
+      }
+      cursor = classOpen
+    }
+
+    const inspectorTokens = inspectorClass.split(/\s+/).filter(Boolean)
+    expect(inspectorTokens).toContain("lg:block")
+
+    // FP-12: isolate keeps chip z-index under the sticky header, and the
+    // lg inspector sticks below that header in its own scroll box.
+    expect({
+      isolate: wrapperTokens.includes("isolate"),
+      sticky: inspectorTokens.includes("lg:sticky"),
+      top: inspectorTokens.some((token) => token.startsWith("lg:top-")),
+      maxH: inspectorTokens.some((token) => token.startsWith("lg:max-h-")),
+      overflowY: inspectorTokens.includes("lg:overflow-y-auto"),
+      selfStart: inspectorTokens.includes("lg:self-start"),
+    }).toEqual({
+      isolate: true,
+      sticky: true,
+      top: true,
+      maxH: true,
+      overflowY: true,
+      selfStart: true,
+    })
+  })
 })
