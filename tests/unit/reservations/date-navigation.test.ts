@@ -387,4 +387,123 @@ describe("reservation date navigation", () => {
     expect(document.body.textContent).toContain("Latest Guest")
     expect(document.body.textContent).not.toContain("Stale Route Guest")
   })
+
+  it("browser back to a queued date updates the list", async () => {
+    pendingByDate.clear()
+    mocks.getReservationsByDate.mockClear()
+    mocks.getReservationsByDate.mockImplementation((date: string) => {
+      const pending = defer<DatedList>()
+      pendingByDate.set(date, pending)
+      return pending.promise
+    })
+    mocks.getReservationTables.mockResolvedValue([])
+
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    mountedRoot = createRoot(container)
+
+    function renderOnDate(selectedDate: string) {
+      mountedRoot!.render(
+        createElement(
+          NextIntlClientProvider as FunctionComponent<
+            Omit<ComponentProps<typeof NextIntlClientProvider>, "children">
+          >,
+          {
+            locale: "en",
+            messages: en,
+            timeZone: "Europe/Zurich",
+          },
+          createElement(ReservationsManager, {
+            selectedDate,
+            today: "2026-10-07",
+            initialReservations: [],
+            occupancyWindow: {
+              occupancyDurationMinutes: 90,
+              safetyBufferMinutes: 15,
+            },
+          }),
+        ),
+      )
+    }
+
+    await act(async () => {
+      renderOnDate("2026-10-07")
+    })
+
+    await act(async () => {
+      buttonNamed("Next day").click()
+    })
+    await act(async () => {
+      buttonNamed("Previous day").click()
+    })
+    await act(async () => {
+      buttonNamed("Next day").click()
+    })
+    expect(dateInput().value).toBe("2026-10-08")
+
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent("popstate"))
+      renderOnDate("2026-10-07")
+    })
+
+    expect(dateInput().value).toBe("2026-10-07")
+    expect(mocks.getReservationsByDate).toHaveBeenCalledWith("2026-10-07")
+
+    const historyList = pendingByDate.get("2026-10-07")
+    expect(historyList, "history date 2026-10-07 is fetched").toBeDefined()
+    await act(async () => {
+      historyList!.resolve({
+        reservations: [reservationRow("History Guest", "2026-10-07")],
+      })
+      await Promise.resolve()
+    })
+
+    expect(document.body.textContent).toContain("History Guest")
+  })
+
+  it("a staff date chosen after browser back stays shown", async () => {
+    pendingByDate.clear()
+    mocks.getReservationsByDate.mockClear()
+    mocks.getReservationsByDate.mockImplementation((date: string) => {
+      const pending = defer<DatedList>()
+      pendingByDate.set(date, pending)
+      return pending.promise
+    })
+    mocks.getReservationTables.mockResolvedValue([])
+
+    const container = document.createElement("div")
+    document.body.appendChild(container)
+    mountedRoot = createRoot(container)
+
+    await act(async () => {
+      mountedRoot!.render(
+        createElement(
+          NextIntlClientProvider as FunctionComponent<
+            Omit<ComponentProps<typeof NextIntlClientProvider>, "children">
+          >,
+          {
+            locale: "en",
+            messages: en,
+            timeZone: "Europe/Zurich",
+          },
+          createElement(ReservationsManager, {
+            selectedDate: "2026-10-07",
+            today: "2026-10-07",
+            initialReservations: [],
+            occupancyWindow: {
+              occupancyDurationMinutes: 90,
+              safetyBufferMinutes: 15,
+            },
+          }),
+        ),
+      )
+    })
+
+    await act(async () => {
+      window.dispatchEvent(new PopStateEvent("popstate"))
+      buttonNamed("Next day").click()
+    })
+
+    expect(dateInput().value).toBe("2026-10-08")
+  })
 })

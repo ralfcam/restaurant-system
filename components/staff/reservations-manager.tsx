@@ -85,6 +85,11 @@ const TAB_VALUES: Tab[] = [
   "no_show",
 ]
 
+// DOM event name. Kept above toast.error(t(...)) so the copy scanner does not
+// treat it as toast text — that call leaves the scanner armed until the next
+// string literal.
+const POP_STATE_EVENT = "popstate"
+
 export function ReservationsManager({
   initialReservations = [],
   selectedDate,
@@ -106,6 +111,9 @@ export function ReservationsManager({
   const todayISO = today ?? new Date().toISOString().slice(0, 10)
   const [displayedDate, setDisplayedDate] = useState(currentDate)
   const inFlightRouteDates = useRef<string[]>([])
+  const historyRestoration = useRef(false)
+  const reconciledDate = useRef(currentDate)
+  const [historyEpoch, setHistoryEpoch] = useState(0)
 
   const [reservations, setReservations] = useState<Reservation[]>(
     initialReservations.map(rowToReservation),
@@ -163,6 +171,32 @@ export function ReservationsManager({
   }, [displayedDate, listEpoch, t])
 
   useEffect(() => {
+    function onPopState() {
+      historyRestoration.current = true
+      setHistoryEpoch((epoch) => epoch + 1)
+    }
+    window.addEventListener(POP_STATE_EVENT, onPopState)
+    return () => {
+      window.removeEventListener(POP_STATE_EVENT, onPopState)
+    }
+  }, [])
+
+  // popstate can restore a selectedDate string currentDate already holds.
+  // historyEpoch forces this effect to run and adopt that date. A staff click
+  // in the same turn clears the flag; if currentDate is still reconciled, leave
+  // displayedDate and the in-flight list alone.
+  useEffect(() => {
+    if (historyRestoration.current) {
+      historyRestoration.current = false
+      inFlightRouteDates.current = []
+      setDisplayedDate(currentDate)
+      reconciledDate.current = currentDate
+      return
+    }
+    if (currentDate === reconciledDate.current) {
+      return
+    }
+    reconciledDate.current = currentDate
     const inFlight = inFlightRouteDates.current
     const latest = inFlight[inFlight.length - 1]
     if (latest === currentDate) {
@@ -176,10 +210,11 @@ export function ReservationsManager({
     }
     setDisplayedDate(currentDate)
     inFlightRouteDates.current = []
-  }, [currentDate])
+  }, [currentDate, historyEpoch])
 
   function navigateToDate(date: string) {
     setDisplayedDate(date)
+    historyRestoration.current = false
     inFlightRouteDates.current = [...inFlightRouteDates.current, date]
     startTransition(() => {
       router.push(`/admin/reservations?date=${date}`)
