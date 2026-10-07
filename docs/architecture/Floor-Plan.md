@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-07
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -51,8 +51,11 @@ same 5s `useFloorPlan` refresh (FP-15; `lib/floor/table-bills.ts` sums persisted
 chips omit the bill.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
-`hooks/use-floor-plan.ts`. From `lg` (1024px) up, table selection updates the
-side inspector (`lg:block`); the mobile bottom Sheet MUST NOT be open on
+`hooks/use-floor-plan.ts`. The `lg:grid-cols-[1fr_300px]` grid and its main column include `min-w-0`,
+and the canvas wrapper includes `overflow-auto` and `isolate`, so the
+fixed-pixel canvas scrolls inside `/admin/floor` and chip `z-index` stays
+under the sticky staff header. From `lg` (1024px) up, table selection updates the
+side inspector (`lg:block`, plus `lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:self-start`); the mobile bottom Sheet MUST NOT be open on
 desktop selection (FP-12). Below `lg`, the open Sheet names the selected
 table and calls the same handlers as that side inspector: `setStatus`,
 `adjustSeats`, `adjustExpected`, `combineSelected`, `splitSelected`,
