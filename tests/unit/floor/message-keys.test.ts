@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import en from "@/messages/en.json"
+import fr from "@/messages/fr.json"
 import { expectCatalogKey } from "@/tests/unit/i18n/helpers/catalog"
 import { canAddTablesToMerge, canMergeTables } from "@/lib/floor/table-use"
 import {
@@ -698,5 +700,27 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
       await messageFrom(() => updateKitchenOrderStatus("order-1", "preparing")),
       KEYS.kitchenUpdateFailed,
     )
+  })
+
+  it("cover-capacity refusal keys resolve in French and English", () => {
+    function resolveLeaf(catalog: unknown, key: string): unknown {
+      let node: unknown = catalog
+      for (const part of key.split(".")) {
+        if (node === null || typeof node !== "object" || Array.isArray(node)) {
+          return undefined
+        }
+        node = (node as Record<string, unknown>)[part]
+      }
+      return node
+    }
+
+    for (const key of [
+      "errors.floor.maxCoverCapacityUnset",
+      "errors.floor.maxCoverCapacityInvalid",
+      "errors.floor.maxCoverCapacityBelowSum",
+    ]) {
+      expectCatalogKey(key)
+      expect(resolveLeaf(fr, key), `fr ${key}`).not.toBe(resolveLeaf(en, key))
+    }
   })
 })

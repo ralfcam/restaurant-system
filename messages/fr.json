@@ -635,7 +635,10 @@
       "addTableFailed": "Impossible d'ajouter la table.",
       "removeTableFailed": "Impossible de retirer la table.",
       "maxCoverCapacitySaveFailed": "Impossible d'enregistrer le maximum de couverts",
-      "maxCoverCapacityReached": "La capacité maximale de couverts du restaurant est atteinte."
+      "maxCoverCapacityReached": "La capacité maximale de couverts du restaurant est atteinte.",
+      "maxCoverCapacityUnset": "Définissez un maximum de couverts avant d'ajouter des places.",
+      "maxCoverCapacityInvalid": "Le maximum de couverts doit être un entier d'au moins 1.",
+      "maxCoverCapacityBelowSum": "Le maximum de couverts ne peut pas être inférieur au total actuel des places."
     },
     "pos": {
       "orderNeedsItems": "La commande doit contenir des articles.",

@@ -635,7 +635,10 @@
       "addTableFailed": "Unable to add table.",
       "removeTableFailed": "Unable to remove table.",
       "maxCoverCapacitySaveFailed": "Could not save maximum covers",
-      "maxCoverCapacityReached": "The restaurant's maximum cover capacity has been reached."
+      "maxCoverCapacityReached": "The restaurant's maximum cover capacity has been reached.",
+      "maxCoverCapacityUnset": "Set a maximum cover capacity before adding seats.",
+      "maxCoverCapacityInvalid": "Maximum covers must be a whole number of at least 1.",
+      "maxCoverCapacityBelowSum": "Maximum covers cannot be below the current seat total."
     },
     "pos": {
       "orderNeedsItems": "Order must contain items.",
