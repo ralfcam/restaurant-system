@@ -15,8 +15,10 @@ import {
   getNowTimeInRestaurantTZ,
 } from "@/lib/timezone"
 import {
+  DATE_RE,
   EMAIL_RE,
   PHONE_RE,
+  TIME_RE,
   validateReservationPayload,
   type ReservationPayload,
 } from "@/lib/reservations/validation"
@@ -72,6 +74,7 @@ export type ReservationRow = {
   table_label: string | null
   conf_code: string
   created_at: string
+  allergens: string | null
 }
 
 function generateConfCode(): string {
@@ -80,6 +83,7 @@ function generateConfCode(): string {
 }
 
 const SAVE_FAILED = "errors.reservation.saveFailed"
+const MAX_ALLERGEN_LENGTH = 500
 
 /** P0001 trigger texts from validate_reservation_availability. */
 const P0001_BOOKING_KEYS: Record<string, string> = {
@@ -149,6 +153,16 @@ export async function createReservation(
   const email = (payload.email ?? "").trim()
   const phone = payload.phone.trim()
   const notes = payload.notes?.trim() || null
+  // Trimmed text is written after insert, blank as null, and only that column.
+  // Over the cap returns before insert. The column stays off the guest INSERT.
+  const trimmedAllergens =
+    typeof payload.allergens === "string" ? payload.allergens.trim() : undefined
+  if (
+    trimmedAllergens !== undefined &&
+    trimmedAllergens.length > MAX_ALLERGEN_LENGTH
+  ) {
+    return { confCode: "", error: SAVE_FAILED }
+  }
 
   // conf_code is a random 4-digit suffix guarded by a DB unique constraint —
   // collisions are rare but possible, so retry with a fresh code on a
@@ -177,6 +191,25 @@ export async function createReservation(
     })
 
     if (!error) {
+      if (trimmedAllergens !== undefined) {
+        const service = createServiceClient()
+        const { error: allergenError } = await service
+          .from("reservations")
+          .update({
+            allergens: trimmedAllergens === "" ? null : trimmedAllergens,
+          })
+          .eq("conf_code", confCode)
+        if (allergenError) {
+          console.error(
+            "[reservations] createReservation allergens error:",
+            allergenError.message,
+            allergenError.code,
+            allergenError.details,
+          )
+          await service.from("reservations").delete().eq("conf_code", confCode)
+          return { confCode: "", error: SAVE_FAILED }
+        }
+      }
       revalidatePath("/admin/reservations")
       revalidatePath("/admin")
       try {
@@ -310,6 +343,7 @@ export async function seatWalkIn(input: {
     phone,
     email,
     conf_code: generateConfCode(),
+    seated_at: new Date().toISOString(),
   })
   if (error) {
     if (
@@ -322,6 +356,98 @@ export async function seatWalkIn(input: {
   }
   if (table?.id) {
     await syncTableGroupStatus(input.table_label, "seated")
+  }
+  return {}
+}
+
+export async function importExternalReservations(
+  csvText: string,
+): Promise<{ error?: string; inserted?: number; skipped?: number }> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) redirect("/auth/login")
+    return { error: "errors.reservation.unauthorized" }
+  }
+
+  const supabase = createServiceClient()
+  const lines = csvText.split(/\r?\n/)
+  if (
+    lines[0] !==
+    "external_booking_id,guest_name,party_size,date,time,phone,email,notes"
+  ) {
+    return { error: "errors.reservation.importInvalidFile" }
+  }
+  const dataLines = lines.filter((line) => line.trim() !== "").slice(1)
+  const rows = dataLines.map((line) => {
+    const [
+      externalBookingId = "",
+      guestName = "",
+      partySize = "",
+      date = "",
+      time = "",
+      phone = "",
+      email = "",
+      notes = "",
+    ] = line.split(",")
+    return {
+      external_booking_id: externalBookingId.trim(),
+      guest_name: guestName.trim(),
+      party_size: Number(partySize),
+      date: date.trim(),
+      time: time.trim(),
+      phone: phone.trim(),
+      email: email.trim() || null,
+      notes: notes.trim() || null,
+      status: "confirmed" as const,
+      table_label: null,
+      conf_code: generateConfCode(),
+    }
+  })
+
+  for (const row of rows) {
+    if (
+      row.external_booking_id === "" ||
+      !DATE_RE.test(row.date) ||
+      !TIME_RE.test(row.time)
+    ) {
+      return { error: "errors.reservation.importInvalidFile" }
+    }
+    if (row.phone && !PHONE_RE.test(row.phone)) {
+      return { error: "errors.reservation.phoneInvalid" }
+    }
+    if (row.email && !EMAIL_RE.test(row.email)) {
+      return { error: "errors.reservation.emailInvalid" }
+    }
+    if (!Number.isInteger(row.party_size) || row.party_size < 1) {
+      return { error: "errors.reservation.partySizeInvalid" }
+    }
+  }
+
+  const seenIds = new Set<string>()
+  for (const row of rows) {
+    if (seenIds.has(row.external_booking_id)) {
+      return { error: "errors.reservation.importDuplicateId" }
+    }
+    seenIds.add(row.external_booking_id)
+  }
+
+  const { data, error } = await supabase.rpc("import_external_reservations", {
+    rows,
+  })
+  if (error) return { error: error.message }
+  if (
+    data !== null &&
+    typeof data === "object" &&
+    "inserted" in data &&
+    "skipped" in data &&
+    typeof data.inserted === "number" &&
+    typeof data.skipped === "number"
+  ) {
+    return { inserted: data.inserted, skipped: data.skipped }
   }
   return {}
 }
@@ -429,6 +555,8 @@ export async function transitionReservationStatus(
   )
     patch.table_label = null
   if (nextStatus === "completed") patch.completed_at = new Date().toISOString()
+  if (nextStatus === "cancelled") patch.cancelled_at = new Date().toISOString()
+  if (nextStatus === "seated") patch.seated_at = new Date().toISOString()
   const { error } = await db
     .from("reservations")
     .update(patch)

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import en from "@/messages/en.json"
+import fr from "@/messages/fr.json"
 import { expectCatalogKey } from "@/tests/unit/i18n/helpers/catalog"
 import { canAddTablesToMerge, canMergeTables } from "@/lib/floor/table-use"
 import {
@@ -307,7 +309,7 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
       KEYS.unauthorized,
     )
 
-    script(fail("missing"))
+    script(ok({ max_cover_capacity: 100 }), fail("missing"))
     expectMessageKey(
       await messageFrom(() => updateTableState({ id: "t1", seats: 4 })),
       KEYS.tableNotFound,
@@ -325,7 +327,11 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
   it("updateTableState write failures are errors.* catalog keys", async () => {
     const { updateTableState } = await import("@/app/actions/operations")
 
-    script(ok(current), fail("could not write seats"))
+    script(
+      ok({ max_cover_capacity: 100 }),
+      ok(current),
+      fail("could not write seats"),
+    )
     expectMessageKey(
       await messageFrom(() => updateTableState({ id: "t1", seats: 4 })),
       KEYS.updateTableFailed,
@@ -597,7 +603,7 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
     mocks.requireStaffUser.mockResolvedValue(null)
     expectMessageKey(await messageFrom(() => createTable()), KEYS.unauthorized)
 
-    script(ok([]), fail("duplicate key"))
+    script(ok({ max_cover_capacity: 100 }), ok([]), fail("duplicate key"))
     expectMessageKey(
       await messageFrom(() => createTable()),
       KEYS.addTableFailed,
@@ -694,5 +700,27 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
       await messageFrom(() => updateKitchenOrderStatus("order-1", "preparing")),
       KEYS.kitchenUpdateFailed,
     )
+  })
+
+  it("cover-capacity refusal keys resolve in French and English", () => {
+    function resolveLeaf(catalog: unknown, key: string): unknown {
+      let node: unknown = catalog
+      for (const part of key.split(".")) {
+        if (node === null || typeof node !== "object" || Array.isArray(node)) {
+          return undefined
+        }
+        node = (node as Record<string, unknown>)[part]
+      }
+      return node
+    }
+
+    for (const key of [
+      "errors.floor.maxCoverCapacityUnset",
+      "errors.floor.maxCoverCapacityInvalid",
+      "errors.floor.maxCoverCapacityBelowSum",
+    ]) {
+      expectCatalogKey(key)
+      expect(resolveLeaf(fr, key), `fr ${key}`).not.toBe(resolveLeaf(en, key))
+    }
   })
 })

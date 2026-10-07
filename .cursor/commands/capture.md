@@ -650,11 +650,14 @@ You are a **capture orchestrator, not an implementer**. When this plan is execut
   `linear-resolver` delegations. It does NOT authorize executing the **Approved
   reconciliation scope**: that section is advisory hand-off text for `/sdd-to-tdd`
   FIX, not a checklist to run here.
-- Execute the listed todos **one at a time**, each via its subagent Task call;
-  never satisfy a todo with an inline edit. When every listed todo is done (or was
-  already satisfied in a prior turn), the run is **complete** — do NOT continue into
-  spec/code/test work. STOP and surface the Next-in-the-Cycle pointer (`→ /triage`,
-  or `→ /sdd-to-tdd <RES-###>` FIX when a `linear-register` issue was filed).
+- Execute the listed todos **one at a time** locally unless STEP 0B, each via
+  its subagent Task call; never satisfy a todo with an inline edit. After STEP
+  0B (managed Cloud), execute every listed PHASE 5 todo sequentially in this
+  same turn, each via its subagent Task call. When every listed todo is done
+  (or, locally unless STEP 0B, was already satisfied in a prior turn), the run
+  is **complete** — do NOT continue into spec/code/test work. STOP and surface
+  the Next-in-the-Cycle pointer (`→ /triage`, or `→ /sdd-to-tdd <RES-###>` FIX
+  when a `linear-register` issue was filed).
 - An approved clarification-only plan must invoke `linear-resolver` and then stop.
   An untracked or unapproved clarification remains non-executable. If the plan
   lists no ledger, `linear-register`, or `clarify-*` todos, report the

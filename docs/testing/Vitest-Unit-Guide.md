@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-06
 
 ## Layout
 
@@ -9,7 +9,8 @@
 - Setup: `tests/unit/setup.ts`
 - Tests: `tests/unit/**/*.test.ts`
 - Branding logo upload: `tests/unit/branding/` (actions, validation, `next.config.mjs`
-  bodySizeLimit schema guard)
+  bodySizeLimit schema guard). BC-10 seed pin: `tests/unit/branding/schema.test.ts`
+  (null `logo_url` and `hero_image_url` by column index)
 - Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
   queue-on-complete, cron job auth, cron mailer factory, Supabase hourly
   Edge Function pin, marketing page, PV-ISO schema isolation scan)
@@ -23,6 +24,12 @@
   in `components/site/home-page-client.tsx`); homepage HP-1/HP-3
   `tests/unit/site/homepage-layout.test.ts`; HP-2
   `tests/unit/site/home-page-chefs-picks-ssr.test.ts`
+- Standalone reservation page (SW-1–SW-7):
+  `tests/unit/site/standalone-reservation-widget.test.ts` (editorial
+  upsert including `show_reservation_phone`, settings editor submit,
+  editor hydrate from `restaurant_settings` id `1`, phone visibility,
+  display name, centered `/[locale]/reserve`, hero/hours/address,
+  existing widget accordions)
 - Guest and staff i18n: `tests/unit/i18n/` (header locale nav, catalog chrome,
   `isActiveNavPath`, `resolveDocumentLang`, `DocumentLangSync` layout mount,
   sheet switcher, middleware-scope cookie-option merge and segment-bounded
@@ -46,12 +53,19 @@
   `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks, with CodeRabbit label
   `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
   spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
-  G-CAP1 PHASE 5 heading-range chrome-scan in
+  G-CAP1 PHASE 5 heading-range chrome-scan and Execution Protocol
+  list-item chrome-scan in
   `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`; G-DES1 PowerShell
   runtime-probe, isolated STEP 0 fail-closed denial (`MUST NOT enter STEP
 0B`), and labeled command-index paragraph isolation (one-shot trio plus
   interactive `/design`) in
-  `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`)
+  `tests/unit/dev-toolchain/design-cloud-dialogue.test.ts`; G-MIG1–G-MIG5
+  workflow contract in
+  `tests/unit/dev-toolchain/staging-migrations-ci.test.ts`; G-MIG6
+  path-list pin in
+  `tests/unit/dev-toolchain/baseline-forward-migration.test.ts`; G-AUD1
+  Next pin in `tests/unit/dev-toolchain/next-advisory.test.ts`; G-AUD2
+  brace-expansion pins in `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
@@ -62,6 +76,13 @@
 - Weekly service overview (WA-1–WA-7):
   `tests/unit/floor/weekly-service-overview.test.ts`,
   `tests/unit/floor/dashboard-weekly-overview.test.ts`
+- Restaurant cover capacity (CC-1–CC-17):
+  `tests/unit/floor/cover-capacity.test.ts` (CC-1–CC-11, CC-13–CC-17).
+  `tests/unit/floor/schema.test.ts` (CC-12 seed ceiling).
+  `tests/unit/dev-toolchain/baseline-forward-migration.test.ts` pins the
+  hosted null-ceiling `GREATEST(38, SUM(seats)::integer)` backfill (CC-17).
+  `tests/unit/floor/operations-shape.test.ts` and
+  `tests/unit/floor/message-keys.test.ts` script the settings read.
 - Staff Data API cookie vs service: `tests/unit/menu/catalog-service-client.test.ts`,
   `tests/unit/reservations/get-range-service-client.test.ts`
 - Live menu tabs (`menus`): `tests/unit/menu/menu-tab-identity.test.ts`,
@@ -82,6 +103,16 @@
 - Walk-in seating (WI-1–WI-8): `tests/unit/reservations/walk-in.test.ts`
   (`seatWalkIn` staff gate, seated insert, trigger message, fit/overlap,
   party size above 8, contact format, table-group seat, seated completion)
+- Allergen capture (AL-1–AL-6): `tests/unit/reservations/allergen-capture.test.ts`
+  (blank guest field stores null; trimmed service-role write and rollback;
+  staff row shows non-null text; per-reservation isolation; completed
+  transition leaves `allergens`; name, email, party cap, and confirmation stay)
+- External booking import (EI-1–EI-8): `tests/unit/reservations/external-booking-import.test.ts`
+  (staff gate and `reservation-import`; hidden `external_booking_id` omitted
+  from guest INSERT; confirmed insert, existing-id skip, and in-file duplicate;
+  all-or-nothing on a bad row or trigger refusal; no import exception on
+  `validate_reservation_availability`; file shape via exported `DATE_RE` /
+  `TIME_RE`; result counts and the date list)
 - Staff list guest email (STAFF-GUEST-EMAIL / STAFF-GUEST-EMAIL-ABSENT):
   `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
   visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit
@@ -115,13 +146,14 @@
   `tests/unit/pos/orders-persistence-isolation.test.ts` (AST glob-scan of
   `tests/integration/pos/*.integ.test.ts`; requires `beforeAll`)
 - Reservation analytics: `tests/unit/analytics/` (staff gate, fail-closed
-  reader, period, duration, patterns, staff-page PII)
+  reader, period, duration, patterns, staff-page PII, reservations
+  `.select()` allowlist)
 - Event inquiries: `tests/unit/inquiries/` (staff gate + Service `NAV_GROUPS`,
   schema CHECKs, create allowlist, STAFF-LIST, status-only update, no
   convert/confirm export, EI-9 isolation scan)
 - Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
   `guestEmailFromRouteParam`, `buildGuestProfile` summary, RES-PRIV, staff
-  gate + ficha Save/PII/history table, PII `ok` / `notFound`, live
+  gate + ficha Save/PII/history table, `incidents.test.ts` (GI-1–GI-6), `merge.test.ts` (GM-1–GM-6), `segmentation.test.ts` (GS-1–GS-6), PII `ok` / `notFound`, live
   `email_normalized` read, reservation-row `fichaHref` `Link`,
   `playwright-local-supabase.test.ts` source-scan of Playwright `globalSetup`)
 

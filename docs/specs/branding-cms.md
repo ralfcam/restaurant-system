@@ -1,7 +1,7 @@
 # Branding CMS (admin-managed logo)
 
 **Status:** Draft  
-**Last updated:** 2026-09-03
+**Last updated:** 2026-10-05
 
 ## Scope
 
@@ -66,13 +66,18 @@ restaurant name only.
    at upload time, the action creates it (public, 2MB, allowed image MIME
    types) and then stores the object.
 
+10. **BC-10 — Blank seed is column-aligned** — The seed `INSERT INTO restaurant_settings` for `id = 1` keeps `logo_url` and `hero_image_url` null. The pin binds those nulls to the column names. A trailing `max_cover_capacity` equal to the dining-room seat sum does not violate the blank default. A fixed `VALUES (1, NULL, NULL, NULL, NULL, true)` tuple does not satisfy BC-10.
+
 ## Implementation trace (non-normative)
 
 FIX `reazed-296_chefs_picks_service` (REAZED-296, 2026-09-03). C296-1 shipped.
 
+FIX `branding_seed_tuple_b7e4` (2026-10-05). BC-10 shipped. `supabase/seed.sql` is unchanged in this wave. The pin splits the `INSERT INTO restaurant_settings` column list and `VALUES` list, then compares `logo_url` and `hero_image_url` at those indexes. Both are null on `id = 1`. The tuple still ends with `max_cover_capacity` `38`.
+
 | Criterion | Shipped in                                                                | Tests                                                                                                                      |
 | --------- | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | BC-1      | `setChefsPicksEnabled` in `app/actions/menu.ts` (`createServiceClient()`) | `tests/unit/menu/chefs-picks-enabled.test.ts` → "setChefsPicksEnabled upserts restaurant_settings via createServiceClient" |
+| BC-10     | `supabase/seed.sql` `INSERT INTO restaurant_settings` for `id = 1`        | `tests/unit/branding/schema.test.ts` → "seed keeps the CMS singleton blank by default (no logo, no hero photo)"            |
 
 ## References
 

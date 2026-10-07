@@ -71,12 +71,12 @@ Path: `docs/specs/guest-incident-history.md`
 
 ## Out-of-Scope Deferrals
 
-| Item | Why deferred | Severity |
-| ---- | ------------ | -------- |
-| Separate incident table | v1 derives the list from the reservation | low |
-| Guest-facing incident history | v1 is the staff ficha | low |
-| Other late-cancel window | v1 is 24 hours | low |
-| Other delay threshold | v1 is 15 minutes | low |
+| Item                          | Why deferred                             | Severity |
+| ----------------------------- | ---------------------------------------- | -------- |
+| Separate incident table       | v1 derives the list from the reservation | low      |
+| Guest-facing incident history | v1 is the staff ficha                    | low      |
+| Other late-cancel window      | v1 is 24 hours                           | low      |
+| Other delay threshold         | v1 is 15 minutes                         | low      |
 
 ## Clarifications Needed
 
@@ -84,9 +84,9 @@ none
 
 ## PHASE 5 Execution Todos
 
-| Todo id | Delegation |
-| --- | --- |
-| `write-spec` | Write `docs/specs/guest-incident-history.md` |
+| Todo id               | Delegation                                                   |
+| --------------------- | ------------------------------------------------------------ |
+| `write-spec`          | Write `docs/specs/guest-incident-history.md`                 |
 | `product-gaps-phase5` | Append the four deferrals to `docs/findings/product-gaps.md` |
 
 ## Next in the Cycle

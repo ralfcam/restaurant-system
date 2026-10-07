@@ -383,6 +383,58 @@ async function applyStatusToIds(
   }
 }
 
+function sumTableSeats(
+  rows: readonly { seats?: unknown }[] | null | undefined,
+): number {
+  return (rows ?? []).reduce((total, row) => {
+    const seats = Number(row.seats)
+    return total + (Number.isFinite(seats) ? seats : 0)
+  }, 0)
+}
+
+const COVER_CAPACITY_REFUSALS = new Set<string>([
+  "errors.floor.maxCoverCapacityUnset",
+  "errors.floor.maxCoverCapacityInvalid",
+  "errors.floor.maxCoverCapacityBelowSum",
+  "errors.floor.maxCoverCapacityReached",
+])
+
+function coverCapacityRefusal(
+  message: string | null | undefined,
+): { error: string } | null {
+  if (message && COVER_CAPACITY_REFUSALS.has(message)) return { error: message }
+  return null
+}
+
+// Success callers read table fields without narrowing; the refusal arm stays
+// a partial table so those reads typecheck. Runtime refusals are `{ error }` only.
+type CoverCapacityResult =
+  PersistedTable | ({ error: string } & Partial<PersistedTable>)
+
+async function readMaxCoverCapacity(
+  db: ServiceDb,
+  readFailed: string,
+): Promise<number | null> {
+  const { data, error } = await db
+    .from("restaurant_settings")
+    .select("max_cover_capacity")
+    .eq("id", 1)
+    .maybeSingle()
+  if (error) throw new Error(readFailed)
+  const capacity = data?.max_cover_capacity
+  return typeof capacity === "number" ? capacity : null
+}
+
+export async function getMaxCoverCapacity(): Promise<number | null> {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
+
+  return readMaxCoverCapacity(
+    createServiceClient(),
+    "errors.floor.addTableFailed",
+  )
+}
+
 export async function updateTableState(input: {
   id: string
   status?: TableStatus
@@ -395,11 +447,17 @@ export async function updateTableState(input: {
   if (!staffUser) throw new Error("errors.operations.unauthorized")
 
   const db = createServiceClient()
-  const { data: current, error: currentError } = await db
-    .from("tables")
-    .select("status, x, y")
-    .eq("id", input.id)
-    .single()
+  const changingSeats = input.seats !== undefined
+  const ceiling = changingSeats
+    ? await readMaxCoverCapacity(db, "errors.floor.updateTableFailed")
+    : null
+  const { data: current, error: currentError } = changingSeats
+    ? await db
+        .from("tables")
+        .select("status, x, y, seats")
+        .eq("id", input.id)
+        .single()
+    : await db.from("tables").select("status, x, y").eq("id", input.id).single()
   if (currentError || !current) throw new Error("errors.floor.tableNotFound")
   if (
     input.status &&
@@ -418,6 +476,25 @@ export async function updateTableState(input: {
 
   if (input.seats !== undefined) {
     const seats = Math.max(1, Math.min(12, Math.round(input.seats)))
+    const currentSeats = "seats" in current ? current.seats : undefined
+    if (
+      typeof currentSeats === "number" &&
+      Number.isFinite(currentSeats) &&
+      seats > currentSeats
+    ) {
+      if (ceiling === null) {
+        return { error: "errors.floor.maxCoverCapacityUnset" }
+      }
+      const { data: seatRows, error: seatReadError } = await db
+        .from("tables")
+        .select("seats")
+        .order("label")
+      if (seatReadError) throw new Error("errors.floor.updateTableFailed")
+      const seatSum = sumTableSeats(seatRows)
+      if (seatSum - currentSeats + seats > ceiling) {
+        return { error: "errors.floor.maxCoverCapacityReached" }
+      }
+    }
     const { error } = await db
       .from("tables")
       .update({
@@ -426,7 +503,11 @@ export async function updateTableState(input: {
         updated_at: now.toISOString(),
       })
       .eq("id", input.id)
-    if (error) throw new Error("errors.floor.updateTableFailed")
+    if (error) {
+      const refusal = coverCapacityRefusal(error.message)
+      if (refusal) return refusal
+      throw new Error("errors.floor.updateTableFailed")
+    }
   }
 
   if (input.expectedMinutes !== undefined) {
@@ -908,15 +989,24 @@ export async function splitMerge(mergeId: string): Promise<{ error?: string }> {
   }
 }
 
-export async function createTable() {
+export async function createTable(): Promise<CoverCapacityResult> {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("errors.operations.unauthorized")
 
   const db = createServiceClient()
-  const { data: existing } = await db
+  const ceiling = await readMaxCoverCapacity(db, "errors.floor.addTableFailed")
+  if (ceiling === null) {
+    return { error: "errors.floor.maxCoverCapacityUnset" }
+  }
+  const { data: existing, error: existingError } = await db
     .from("tables")
-    .select("label, x, y")
+    .select("label, x, y, seats")
     .order("label")
+  if (existingError) throw new Error("errors.floor.addTableFailed")
+  const seatSum = sumTableSeats(existing)
+  if (seatSum + 2 > ceiling) {
+    return { error: "errors.floor.maxCoverCapacityReached" }
+  }
   const next =
     Math.max(0, ...(existing ?? []).map((row) => Number(row.label) || 0)) + 1
   const cell = nextFreeCell(
@@ -939,7 +1029,11 @@ export async function createTable() {
     })
     .select("*")
     .single()
-  if (error) throw new Error("errors.floor.addTableFailed")
+  if (error) {
+    const refusal = coverCapacityRefusal(error.message)
+    if (refusal) return refusal
+    throw new Error("errors.floor.addTableFailed")
+  }
   revalidatePath("/admin/floor")
   return mapTable(data)
 }
@@ -995,10 +1089,11 @@ export async function createKitchenOrder(input: {
     .select("id")
     .eq("label", input.table)
     .maybeSingle()
+  if (!table) throw new Error("errors.floor.tableNotFound")
   const { data: order, error } = await db
     .from("orders")
     .insert({
-      table_id: table?.id ?? null,
+      table_id: table.id,
       table_label: input.table,
       server_name: input.server.slice(0, 80),
       subtotal,
@@ -1114,4 +1209,39 @@ export async function updateKitchenOrderStatus(
     to_status: status,
   })
   revalidatePath("/kds")
+}
+
+export async function setMaxCoverCapacity(value: number | null) {
+  const staffUser = await requireStaffUser()
+  if (!staffUser) throw new Error("errors.operations.unauthorized")
+
+  if (
+    value !== null &&
+    !(typeof value === "number" && Number.isInteger(value) && value >= 1)
+  ) {
+    return { error: "errors.floor.maxCoverCapacityInvalid" }
+  }
+
+  const db = createServiceClient()
+  if (value !== null) {
+    const { data, error } = await db.from("tables").select("seats")
+    if (error) throw new Error("errors.floor.maxCoverCapacitySaveFailed")
+    const sum = (data ?? []).reduce(
+      (total, row) => total + Number(row.seats),
+      0,
+    )
+    if (value < sum) return { error: "errors.floor.maxCoverCapacityBelowSum" }
+  }
+
+  const { error } = await db.from("restaurant_settings").upsert({
+    id: 1,
+    max_cover_capacity: value,
+    updated_at: new Date().toISOString(),
+  })
+  if (error) {
+    const refusal = coverCapacityRefusal(error.message)
+    if (refusal) return refusal
+    throw new Error("errors.floor.maxCoverCapacitySaveFailed")
+  }
+  revalidatePath("/admin/floor")
 }

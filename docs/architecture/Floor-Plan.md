@@ -1,7 +1,7 @@
 # Floor plan & table status
 
 **Status:** Reference  
-**Last updated:** 2026-09-24
+**Last updated:** 2026-10-07
 
 Summary — criteria in [../specs/scheduling.md](../specs/scheduling.md).
 
@@ -51,9 +51,16 @@ same 5s `useFloorPlan` refresh (FP-15; `lib/floor/table-bills.ts` sums persisted
 chips omit the bill.
 
 UI: `components/staff/floor-plan.tsx`, `app/admin/floor/page.tsx`,
-`hooks/use-floor-plan.ts`. From `lg` (1024px) up, table selection updates the
-side inspector (`lg:block`); the mobile bottom Sheet MUST NOT be open on
-desktop selection (FP-12). Inventory is persisted in Postgres (`tables`), not
+`hooks/use-floor-plan.ts`. The `lg:grid-cols-[1fr_300px]` grid and its main column include `min-w-0`,
+and the canvas wrapper includes `overflow-auto` and `isolate`, so the
+fixed-pixel canvas scrolls inside `/admin/floor` and chip `z-index` stays
+under the sticky staff header. From `lg` (1024px) up, table selection updates the
+side inspector (`lg:block`, plus `lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto lg:self-start`); the mobile bottom Sheet MUST NOT be open on
+desktop selection (FP-12). Below `lg`, the open Sheet names the selected
+table and calls the same handlers as that side inspector: `setStatus`,
+`adjustSeats`, `adjustExpected`, `combineSelected`, `splitSelected`,
+`toggleUnlock`, and `removeTable`. Closing the Sheet does not clear the
+canvas selection. Inventory is persisted in Postgres (`tables`), not
 mock-only. `/admin` Dashboard occupancy widgets (Floor occupancy, Service is
 live, Floor status) read the same live `tables` snapshot as `/admin/floor`
 (`getFloorSnapshot` + `countFloorOccupancy` in `app/admin/page.tsx`), not the
@@ -77,7 +84,37 @@ after reset (no `PUBLIC`/`anon`/`authenticated` table privilege or authenticated
 `FOR ALL`; staff reads via `requireStaffUser` + `createServiceClient`). Spec:
 [../specs/scheduling.md](../specs/scheduling.md) SIB-PRIV (§19). When `tables` or `servers` is
 empty, that `Select` is `disabled` with `value={… || undefined}` and a
-placeholder (`No tables available` / `No servers available`). Occupancy-duration
+placeholder (`No tables available` / `No servers available`). Kitchen send
+requires that selected table: `createKitchenOrder` throws
+`errors.floor.tableNotFound` before any insert when the label is empty or
+matches no `tables` row and stores `table_id: table.id`; Send stays `disabled`
+and `sendToKitchen` returns early while `!table` (FP-13). Occupancy-duration
 and safety-buffer chrome on `/admin/floor` take an `isSuperAdmin` prop (SA-10);
 slot-interval stays ungated in chrome. Operating hours: `operating_windows` in
 `supabase/migrations/00000000000000_baseline.sql`.
+
+Restaurant-wide maximum cover capacity is nullable
+`restaurant_settings.max_cover_capacity INT` with
+`CHECK (max_cover_capacity IS NULL OR max_cover_capacity >= 1)` in that same
+baseline. Guest `INSERT`/`UPDATE`/`DELETE` on `restaurant_settings` stays
+revoked (`REVOKE … FROM anon, authenticated`). `setMaxCoverCapacity` in
+`app/actions/operations.ts` uses `requireStaffUser` then `createServiceClient`.
+Null clears the column. A non-null value must be an integer `>= 1`. A number
+below `sum(tables.seats)` is refused. The upsert writes `id` 1,
+`max_cover_capacity`, and `updated_at`. `createTable` and a seat increase in
+`updateTableState` write nothing while the column is null, and write nothing
+when the resulting sum would exceed a set maximum. A failed read of table
+seats also writes nothing: `createTable` throws `errors.floor.addTableFailed`
+and `updateTableState` throws `errors.floor.updateTableFailed`. Lowering seats
+and `deleteTable` stay allowed. `public.enforce_cover_capacity()` takes
+`pg_advisory_xact_lock(69, 1)` before the seat sum, on `BEFORE INSERT OR UPDATE
+OF seats` on `tables` and `BEFORE INSERT OR UPDATE OF max_cover_capacity` on
+`restaurant_settings`. That function and both triggers are in the baseline and
+in `supabase/migrations/20261004161500_max_cover_capacity.sql`. The dated file
+also adds nullable `max_cover_capacity INT` and
+`CHECK (max_cover_capacity IS NULL OR max_cover_capacity >= 1)` for remotes
+that already applied the baseline. Seats stay clamped to 1–12. Floor chrome has
+`data-testid="floor-max-cover-capacity"` and, when the maximum is unset,
+`data-testid="floor-max-cover-prompt"`. `/admin/floor` loads
+`getMaxCoverCapacity`. Spec:
+[../specs/cover-capacity.md](../specs/cover-capacity.md) (CC-1–CC-11).

@@ -1,7 +1,7 @@
 # Platform overview
 
 **Status:** Reference  
-**Last updated:** 2026-09-24
+**Last updated:** 2026-10-04
 
 ## Stack
 
@@ -33,6 +33,7 @@ upload a mark (`BrandMark` + branding CMS). `lib/site-chrome.ts` exports
 | ---------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------------------ |
 | `/`, `/menu`                                   | Guest    | Marketing home and menu (default locale **fr**, unprefixed)                                                        |
 | `/en`, `/en/menu`                              | Guest    | English public site (`localePrefix: as-needed`)                                                                    |
+| `/reserve`, `/en/reserve`                      | Guest    | Standalone reservation page (`data-testid="standalone-reserve"`; existing widget)                                  |
 | `/auth/login`, `/auth/callback`, `/auth/error` | Staff    | Supabase auth (flat routes; no locale segment)                                                                     |
 | `/admin/*`                                     | Staff    | Menu, reservations, inquiries, scheduling, floor, branding, marketing, analytics (English-only; no locale segment) |
 | `/api/cron/review-email`                       | Cron     | Bearer `CRON_SECRET` GET; `createReviewEmailMailer()`; Supabase `review-email` Edge Function                       |
@@ -69,6 +70,7 @@ unauthenticated → `/auth/login`, authenticated non-staff → `/`. Spec:
 | Operations   | `app/actions/operations.ts`   |
 | Analytics    | `app/actions/analytics.ts`    |
 | Inquiries    | `app/actions/inquiries.ts`    |
+| Widget page  | `app/actions/widget-page.ts`  |
 
 Custom logo uploads use base64 on a Server Action (not multipart). `next.config.mjs` sets
 `experimental.serverActions.bodySizeLimit` to `4mb` (`LOGO_UPLOAD_BODY_SIZE_LIMIT` in

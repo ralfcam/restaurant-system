@@ -1,7 +1,7 @@
 # Guest incident history
 
 **Status:** Draft
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-05
 
 ## Scope
 
@@ -26,3 +26,7 @@ Out of this spec: a separate incident table, a guest-facing history, a late-canc
 5. **GI-5 — Persistence and fan-out.** Reloading the ficha shows the same incidents. One email with three matching reservations shows three incidents. An incident for one email is absent from a different email's ficha.
 
 6. **GI-6 — One type per reservation.** A `no_show` row contributes only `no_show`. A late `cancelled` row contributes only `late_cancel`. A delayed `seated` or `completed` row contributes only `delay`.
+
+## Implementation trace (non-normative)
+
+FIX `res-107_guest_incidents_b8d2` (RES-107, 2026-10-05). GI-1–GI-6 shipped. `deriveGuestIncidents` in `lib/guest-profiles.ts` classifies each row: `no_show` → `{ type: "no_show", date }`; `cancelled` with non-null `cancelled_at` at or after 24 hours before `dateTimeToUTC(date, time)` → `late_cancel`; `seated` or `completed` with `seated_at` more than 15 minutes after that start → `delay`. `getGuestProfile` still calls `requireStaffUser` then `createServiceClient`, and returns `incidents` from those same rows. `transitionReservationStatus` stamps `cancelled_at` when the next status is `cancelled` and `seated_at` when it is `seated`. `seatWalkIn` inserts `seated_at`. `GuestProfilePanel` renders `<ul data-testid="guest-incidents">` with `incident.type` and `incident.date`. Both `app/admin/customers/[email]/page.tsx` and `app/admin/@modal/(.)customers/[email]/page.tsx` pass `incidents`. Baseline `reservations.cancelled_at` and `reservations.seated_at` are nullable `TIMESTAMPTZ` on `CREATE TABLE` and `ADD COLUMN IF NOT EXISTS`, stay off the guest `GRANT INSERT` list, and are named in the privilege comment beside `completed_at`.

@@ -107,7 +107,15 @@ CREATE TABLE IF NOT EXISTS reservations (
   -- RES-104 / GP-2: stored trim+lower membership key (not inserted; generated).
   email_normalized TEXT GENERATED ALWAYS AS (lower(btrim(email))) STORED,
   -- RES-45 / PV-13: completion clock for post-visit review delay (not updated_at).
-  completed_at TIMESTAMPTZ
+  completed_at TIMESTAMPTZ,
+  -- RES-107: cancellation clock for late_cancel (not guest-inserted).
+  cancelled_at TIMESTAMPTZ,
+  -- RES-107: seat clock for delay (not guest-inserted).
+  seated_at TIMESTAMPTZ,
+  -- RES-75 / AL-2: nullable allergen text. Service-role write only; not guest-inserted.
+  allergens TEXT,
+  -- RES-80 / EI-8: nullable external booking id. Service-role write only; not guest-inserted.
+  external_booking_id TEXT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code);
@@ -118,6 +126,12 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email TEXT;
 -- RES-45 / PV-13: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
 -- without completed_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- RES-107: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without cancelled_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+-- RES-107: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without seated_at; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS seated_at TIMESTAMPTZ;
 -- RES-67 / RES-STATUS-FORWARD: remotes already recorded baseline; same
 -- DROP/ADD last-writer as 20260920183000 so a fresh reset converges.
 ALTER TABLE reservations
@@ -132,6 +146,16 @@ ALTER TABLE reservations ADD COLUMN IF NOT EXISTS email_normalized TEXT
 -- RES-104 / GP-2: btree on the generated membership key for getGuestProfile .eq.
 CREATE INDEX IF NOT EXISTS reservations_email_normalized_idx
   ON public.reservations (email_normalized);
+-- RES-75 / AL-2: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without allergens; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS allergens TEXT;
+-- RES-80 / EI-8: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without external_booking_id; ADD COLUMN IF NOT EXISTS still applies on db reset.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS external_booking_id TEXT;
+-- RES-80 / EI-8: partial unique index; nulls stay out, each non-null id appears once.
+CREATE UNIQUE INDEX IF NOT EXISTS reservations_external_booking_id_uidx
+  ON public.reservations (external_booking_id)
+  WHERE external_booking_id IS NOT NULL;
 
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 
@@ -143,8 +167,8 @@ CREATE POLICY "Allow public insert reservations"
 
 -- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
 -- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
--- id, status, table_label, created_at, completed_at, email_normalized have no
--- guest INSERT privilege.
+-- id, status, table_label, created_at, completed_at, cancelled_at, seated_at, email_normalized,
+-- allergens (RES-75), and external_booking_id (RES-80 / EI-8) have no guest INSERT privilege.
 -- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 
@@ -566,6 +590,67 @@ $$;
 REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated;
 
+-- RES-80 / EI-6: service-role import. An availability failure aborts the call.
+CREATE OR REPLACE FUNCTION import_external_reservations(rows jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = ''
+AS $import_ext$
+DECLARE
+  item jsonb;
+  inserted_count integer := 0;
+  skipped_count integer := 0;
+BEGIN
+  FOR item IN
+    SELECT jsonb_array_elements(rows)
+  LOOP
+    IF EXISTS (
+      SELECT 1
+      FROM public.reservations
+      WHERE external_booking_id = (item->>'external_booking_id')
+    ) THEN
+      skipped_count := skipped_count + 1;
+    ELSE
+      INSERT INTO public.reservations (
+        guest_name,
+        party_size,
+        date,
+        time,
+        phone,
+        email,
+        notes,
+        status,
+        table_label,
+        conf_code,
+        external_booking_id
+      ) VALUES (
+        COALESCE(item->>'guest_name', ''),
+        (item->>'party_size')::integer,
+        (item->>'date')::date,
+        item->>'time',
+        COALESCE(item->>'phone', ''),
+        item->>'email',
+        item->>'notes',
+        'confirmed',
+        NULL,
+        item->>'conf_code',
+        item->>'external_booking_id'
+      );
+      inserted_count := inserted_count + 1;
+    END IF;
+  END LOOP;
+
+  RETURN jsonb_build_object(
+    'inserted', inserted_count,
+    'skipped', skipped_count
+  );
+END;
+$import_ext$;
+
+REVOKE ALL ON FUNCTION import_external_reservations(jsonb) FROM PUBLIC;
+REVOKE ALL ON FUNCTION import_external_reservations(jsonb) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION import_external_reservations(jsonb) TO service_role;
+
 -- Atomic replace of the full weekly opening-hour schedule (staff / service role).
 -- Maps optional guest_note with NULLIF(BTRIM(...)) so blank/whitespace becomes NULL.
 CREATE OR REPLACE FUNCTION replace_operating_windows(p_windows jsonb)
@@ -943,6 +1028,15 @@ ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_enabled BO
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_copy TEXT;
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_maps_url TEXT;
 ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS review_email_delay_hours INT NOT NULL DEFAULT 24;
+-- RES-69: nullable restaurant-wide max cover capacity (null = unset).
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS max_cover_capacity INT;
+-- RES-118: standalone reservation page editorial copy and phone visibility.
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS restaurant_display_name TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS tagline TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS welcome_title TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS welcome_message TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS closing_message TEXT;
+ALTER TABLE restaurant_settings ADD COLUMN IF NOT EXISTS show_reservation_phone BOOLEAN NOT NULL DEFAULT false;
 
 DO $$
 BEGIN
@@ -976,6 +1070,95 @@ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
+
+-- RES-69: ceiling is unset or an integer of at least 1.
+DO $$
+BEGIN
+  ALTER TABLE restaurant_settings
+    ADD CONSTRAINT restaurant_settings_max_cover_capacity_check
+    CHECK (max_cover_capacity IS NULL OR max_cover_capacity >= 1);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
+
+-- CC-11: growth and a lower ceiling share pg_advisory_xact_lock(69, 1)
+-- through the write. DELETE and seat decreases do not raise.
+CREATE OR REPLACE FUNCTION public.enforce_cover_capacity()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_ceiling INT;
+  v_sum INT;
+  v_next INT;
+BEGIN
+  IF TG_TABLE_NAME = 'restaurant_settings' THEN
+    IF NEW.max_cover_capacity IS NULL THEN
+      RETURN NEW;
+    END IF;
+
+    PERFORM pg_advisory_xact_lock(69, 1);
+    SELECT COALESCE(SUM(seats), 0)
+      INTO v_sum
+      FROM public.tables;
+
+    IF NEW.max_cover_capacity < v_sum THEN
+      RAISE EXCEPTION 'errors.floor.maxCoverCapacityBelowSum'
+        USING ERRCODE = 'P0001';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF TG_OP = 'UPDATE' AND NEW.seats <= OLD.seats THEN
+    RETURN NEW;
+  END IF;
+
+  PERFORM pg_advisory_xact_lock(69, 1);
+
+  SELECT max_cover_capacity
+    INTO v_ceiling
+    FROM public.restaurant_settings
+   WHERE id = 1;
+
+  IF v_ceiling IS NULL THEN
+    RAISE EXCEPTION 'errors.floor.maxCoverCapacityUnset'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT COALESCE(SUM(seats), 0)
+    INTO v_sum
+    FROM public.tables;
+
+  v_next := v_sum + NEW.seats;
+  IF TG_OP = 'UPDATE' THEN
+    v_next := v_sum - OLD.seats + NEW.seats;
+  END IF;
+
+  IF v_next > v_ceiling THEN
+    RAISE EXCEPTION 'errors.floor.maxCoverCapacityReached'
+      USING ERRCODE = 'P0001';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.enforce_cover_capacity() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.enforce_cover_capacity() FROM anon, authenticated;
+
+DROP TRIGGER IF EXISTS enforce_cover_capacity_tables ON public.tables;
+CREATE TRIGGER enforce_cover_capacity_tables
+  BEFORE INSERT OR UPDATE OF seats ON public.tables
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_cover_capacity();
+
+DROP TRIGGER IF EXISTS enforce_cover_capacity_settings ON public.restaurant_settings;
+CREATE TRIGGER enforce_cover_capacity_settings
+  BEFORE INSERT OR UPDATE OF max_cover_capacity ON public.restaurant_settings
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_cover_capacity();
 
 ALTER TABLE restaurant_settings ENABLE ROW LEVEL SECURITY;
 

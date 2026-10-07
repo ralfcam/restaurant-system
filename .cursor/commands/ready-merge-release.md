@@ -86,6 +86,9 @@ Emit a paste-ready `/capture` fence per finding, then treat Step 2 as clean
 and continue to ready. Do not route those leftovers to `/sdd-to-tdd` and do
 not stop.
 
+If the adapter returns `ok: true` with reason `captured_threads_resolved`,
+Step 2 is clean. Continue to ready. This reason exists only for `--loop`.
+
 If the adapter returns active findings on any other reason, dedupe by stable
 finding ID and emit a paste-ready argv fence plus an inert report for each:
 
@@ -109,6 +112,14 @@ Critical and unknown to `/sdd-to-tdd`; Major, Minor, and Trivial to
 above is unchanged when the flag is absent. An outdated thread
 (`isOutdated === true`) stays exempt. An unresolved thread on any other path
 still blocks readying. Do not ready while those threads are open.
+
+Under `--loop`, reason `captured_threads_resolved` means the current-HEAD US
+review is `CHANGES_REQUESTED`, no unresolved product thread remains, and at
+least one resolved non-outdated US product thread exists. Treat that reason
+as a clean preflight and continue to ready. `/conduct` posts the ledger reply
+and calls `resolveReviewThread` before this re-run. This command still does
+not comment. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still
+fails closed.
 
 If the adapter reports pending/stale review, changes requested without a
 parseable finding, wrong bot, rate limit, billing, explicit override,

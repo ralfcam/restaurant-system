@@ -9,6 +9,7 @@ import {
   getSlotIntervalMinutes,
 } from "@/app/actions/branding"
 import { getFloorSnapshot } from "@/app/actions/reservations"
+import { getMaxCoverCapacity } from "@/app/actions/operations"
 import { getTodayInRestaurantTZ } from "@/lib/timezone"
 
 export const dynamic = "force-dynamic"
@@ -25,6 +26,18 @@ export default async function FloorPage() {
       getSafetyBufferMinutes(),
     ])
 
+  let maxCoverCapacity: number | null = null
+  try {
+    maxCoverCapacity = await getMaxCoverCapacity()
+  } catch (error) {
+    if (
+      !(error instanceof Error) ||
+      error.message !== "errors.floor.addTableFailed"
+    ) {
+      throw error
+    }
+  }
+
   return (
     <StaffShell
       title={t("staff.floor.title")}
@@ -38,6 +51,7 @@ export default async function FloorPage() {
         initialSlotInterval={slotInterval}
         initialOccupancyDuration={occupancyDuration}
         initialSafetyBuffer={safetyBuffer}
+        initialMaxCoverCapacity={maxCoverCapacity}
         isSuperAdmin={isSuperAdminUser(authUser)}
       />
     </StaffShell>

@@ -32,4 +32,24 @@ describe("login staff landing", () => {
     expect(unguardedAdminNav).toBe(false)
     expect(afterSignIn).toMatch(/\bisStaffUser\s*\(/)
   })
+
+  it("non-staff password sign-in signs out before the handler returns", () => {
+    const source = readLoginPageSource()
+    const gateStart = source.search(/if\s*\(\s*!\s*isStaffUser\b/)
+    expect(gateStart).toBeGreaterThanOrEqual(0)
+
+    const fromGate = source.slice(gateStart)
+    const returnIdx = fromGate.search(/\breturn\b/)
+    expect(returnIdx).toBeGreaterThanOrEqual(0)
+
+    const nonStaffBranch = fromGate.slice(0, returnIdx + "return".length)
+    const branchCode = nonStaffBranch
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "")
+
+    expect(branchCode).toMatch(/\bsignOut\s*\(/)
+
+    const afterBranch = fromGate.slice(returnIdx + "return".length)
+    expect(afterBranch).toMatch(/window\.location\.href\s*=\s*["']\/admin["']/)
+  })
 })

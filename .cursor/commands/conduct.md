@@ -144,9 +144,24 @@ Then run `/ready-merge-release <PR> --loop` (`roundsUsed`, `roundCap: 3`):
   branch, then start the next round. That in-loop fix skips START and
   CLOSE-OUT.
 - **Only Major, Minor, or Trivial:** run `/capture` with only the local refs
-  that are not already in the ledger for `PR #<n>`. If none are new, stop
-  with "waiting on you" and do not push. Otherwise commit through the
-  docs-artifact lane, push, then stop and list the open threads.
+  that are not already in the ledger for `PR #<n>`. A finding is already in
+  the ledger when its path appears on an open `- [ ]` line under
+  `docs/findings/`. If any finding is new, capture those, commit through the
+  docs-artifact lane, push, then stop and list the open threads. If none are
+  new, post one reply on each open product thread and resolve it, then run
+  `/ready-merge-release <PR> --loop` again. The reply body is:
+
+  ```
+  Already recorded on the open findings ledger. Resolving this thread so the draft can be readied.
+
+  <ledger-path> — <open line title>
+  ```
+
+  Post it with `addPullRequestReviewThreadReply`, then resolve that thread
+  with `resolveReviewThread`. Do not post a `@coderabbitai` command. A clean
+  `captured_threads_resolved` verdict readies the PR. Do not resolve a thread
+  that is not already an open ledger line.
+
 - **Round cap reached, a merge conflict, or an operational failure other than
   pending:** the PR stays open as a draft and keeps the lane. Report the
   reason so the next digest lists the PR under "needs your decision".

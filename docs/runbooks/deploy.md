@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-10-05
 
 ## Vercel
 
@@ -96,6 +96,23 @@ Vault (`project_url` = `https://tilcqrudqxznnpepxjqq.supabase.co`, `cron_secret`
 **Linked project:** `supabase-green-tree` (ref `tilcqrudqxznnpepxjqq`). Verify with
 `npx supabase projects list` (exactly one `LINKED` marker).
 
+### Staging migrations (CI)
+
+Push to `staging` runs `.github/workflows/staging-migrations.yml`. Job `apply`
+(`github.event_name == 'push' && github.ref == 'refs/heads/staging'`) runs
+`npx supabase db push --project-ref tilcqrudqxznnpepxjqq` with `continue-on-error: false`. A pull request into
+`staging` that touches `supabase/migrations/**` runs job `validate-migrations`:
+every file under `supabase/migrations` must be a non-empty `*.sql`, and the
+step prints `merge will apply these migrations to staging`. That check does
+not run `db push`. A pull request that does not touch those paths does not
+run the check. Push to `main` does not apply migrations; production stays an
+operator step.
+
+GitHub Actions secrets on the apply step: `SUPABASE_ACCESS_TOKEN` and
+`SUPABASE_DB_PASSWORD`. The apply command passes
+`--project-ref tilcqrudqxznnpepxjqq`. Spec: G-MIG1–G-MIG5 in
+[../specs/dev-toolchain.md](../specs/dev-toolchain.md).
+
 ### Hosted Auth signup (SA-6)
 
 Hosted Auth on `tilcqrudqxznnpepxjqq` must have email signup disabled
@@ -121,6 +138,7 @@ SA-6.
 | Forward: slot/service cover limits     | `supabase/migrations/20260918140655_slot_service_cover_limits.sql`     | Yes on local reset; apply when table-fit is already recorded        |
 | Forward: restaurant_settings privilege | `supabase/migrations/20260902214500_restaurant_settings_privilege.sql` | Yes on local reset; apply when `20260825140000` is already recorded |
 | Forward: menus bootstrap               | `supabase/migrations/20260915180000_menus_bootstrap.sql`               | Yes on local reset; apply when `20260827160000` is already recorded |
+| Forward: max cover capacity            | `supabase/migrations/20261004161500_max_cover_capacity.sql`            | Yes on local reset; apply on already-baselined remotes              |
 | Reference data                         | `supabase/seed.sql`                                                    | Yes — when `[db.seed] enabled = true` in `supabase/config.toml`     |
 
 RES-45 review-email objects (`restaurant_settings.review_email_*`,
@@ -128,7 +146,7 @@ RES-45 review-email objects (`restaurant_settings.review_email_*`,
 baseline only. Local `db reset` applies them. This ship has no dated forward
 for already-baselined remotes.
 
-`seed.sql` holds `restaurant_settings` (singleton, no custom logo),
+`seed.sql` holds `restaurant_settings` (singleton `id = 1`, no custom logo; `max_cover_capacity` `38` before the dining-room tables insert, and `ON CONFLICT` sets that column only when it is null),
 `operating_windows` (7 rows), `menus` (5 tab ids: `midi`, `soir`, `boissons`,
 `blanc`, `rouge`), `menu_items` (120 rows from the sample
 `lib/menu-catalog.json` catalog), and `servers` (Maya, Jon, Priya, Dev). Kitchen
@@ -150,8 +168,9 @@ instead of adding dated migration files. Policy detail:
 `20260827180000_occupancy_duration_buffer.sql`,
 `20260828121224_table_fit_availability.sql`,
 `20260918140655_slot_service_cover_limits.sql`,
-`20260902214500_restaurant_settings_privilege.sql`, and
-`20260915180000_menus_bootstrap.sql` are the forward-only exceptions
+`20260902214500_restaurant_settings_privilege.sql`,
+`20260915180000_menus_bootstrap.sql`, and
+`20261004161500_max_cover_capacity.sql` are the forward-only exceptions
 for remotes that already applied baseline (see below).
 
 ### Linked remote vs repo SQL
@@ -619,23 +638,24 @@ Use `--local` instead of `--linked` when testing against the local stack.
 `.cursor/environment.json` `install` is exactly:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
 ```
 
-`package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
+The CodeRabbit CLI helper is paused and is not invoked. GitHub review stays
+required. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
 and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 `unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`
 `pnpm.overrides` (pnpm 12 ignores that field). Spec: [../specs/dev-toolchain.md](../specs/dev-toolchain.md)
-G-O1 / G-CR1 / G-CR2 / G-CR3. The helper pins `CODERABBIT_VERSION=0.7.6`, requires the Cursor
-Cloud secret `CODERABBIT_API_KEY`, and always runs:
+G-O1 / G-CR1 / G-CR2 / G-CR3. The unused helper still pins `CODERABBIT_VERSION=0.7.6`, requires the Cursor
+Cloud secret `CODERABBIT_API_KEY`, and when resumed always runs:
 
 ```sh
 coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-Missing key, failed login, or non-US `"region"` fails setup. Recovery (same
-command as install):
+Missing key, failed login, or non-US `"region"` fails the helper. Resume
+appends the helper to `install`:
 
 ```
 corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh

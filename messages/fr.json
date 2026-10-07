@@ -116,6 +116,7 @@
     "phonePlaceholder": "+33 6 12 34 56 78",
     "email": "Courriel",
     "emailPlaceholder": "camille@courriel.fr",
+    "allergens": "Allergènes",
     "confirming": "Confirmation en cours…",
     "confirmReservation": "Confirmer la réservation"
   },
@@ -197,6 +198,8 @@
       "nextDay": "Jour suivant",
       "today": "Aujourd'hui",
       "refresh": "Actualiser",
+      "importCsv": "Importer un CSV",
+      "importResult": "{inserted} ajoutées, {skipped} ignorées",
       "searchPlaceholder": "Rechercher un nom ou un téléphone",
       "columnTime": "Heure",
       "columnGuest": "Convive",
@@ -405,6 +408,8 @@
       "reservationsUpdate": " · les réservations se mettent à jour automatiquement",
       "slotInterval": "Intervalle de créneau",
       "occupancyDuration": "Durée d'occupation",
+      "maxCoverCapacity": "Couverts maximum",
+      "maxCoverPrompt": "Définissez le maximum de couverts du restaurant avant d'ajouter des places.",
       "decreaseOccupancy": "Diminuer la durée d'occupation",
       "increaseOccupancy": "Augmenter la durée d'occupation",
       "safetyBuffer": "Marge de sécurité",
@@ -505,7 +510,14 @@
       "chooseHeroImage": "Choisir une image",
       "chooseDifferentHero": "Choisir une autre image",
       "removeHero": "Retirer l'image d'en-tête",
-      "saveHero": "Enregistrer l'image d'en-tête"
+      "saveHero": "Enregistrer l'image d'en-tête",
+      "restaurantDisplayName": "Nom affiché du restaurant",
+      "widgetTagline": "Accroche",
+      "welcomeTitle": "Titre d'accueil",
+      "welcomeMessage": "Message d'accueil",
+      "closingMessage": "Message de clôture",
+      "showReservationPhone": "Afficher le téléphone de réservation",
+      "saveWidgetCopy": "Enregistrer"
     },
     "marketing": {
       "title": "Communication",
@@ -592,7 +604,9 @@
       "tableOverlap": "Cette table est déjà réservée sur un créneau qui se chevauche.",
       "tablesLoadFailed": "Impossible de charger les tables.",
       "listFilterEmpty": "Aucune réservation ne correspond à vos filtres.",
-      "listDateEmpty": "Aucune réservation pour cette date."
+      "listDateEmpty": "Aucune réservation pour cette date.",
+      "importDuplicateId": "Ce fichier répète le même identifiant de réservation externe.",
+      "importInvalidFile": "Ce fichier ne correspond pas au format d'import des réservations externes."
     },
     "operations": {
       "unauthorized": "Non autorisé.",
@@ -619,7 +633,12 @@
       "mergeFailed": "Impossible de fusionner les tables.",
       "splitFailed": "Impossible de séparer les tables.",
       "addTableFailed": "Impossible d'ajouter la table.",
-      "removeTableFailed": "Impossible de retirer la table."
+      "removeTableFailed": "Impossible de retirer la table.",
+      "maxCoverCapacitySaveFailed": "Impossible d'enregistrer le maximum de couverts",
+      "maxCoverCapacityReached": "La capacité maximale de couverts du restaurant est atteinte.",
+      "maxCoverCapacityUnset": "Définissez un maximum de couverts avant d'ajouter des places.",
+      "maxCoverCapacityInvalid": "Le maximum de couverts doit être un entier d'au moins 1.",
+      "maxCoverCapacityBelowSum": "Le maximum de couverts ne peut pas être inférieur au total actuel des places."
     },
     "pos": {
       "orderNeedsItems": "La commande doit contenir des articles.",

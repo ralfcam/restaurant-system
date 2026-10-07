@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-09-18
+**Last updated:** 2026-10-05
 
 ## Auth flow
 
@@ -27,8 +27,9 @@ either staff claim; `requireSuperAdminUser` returns the user only for
 super-admin (staff-only sessions get `null`). Both gates read
 `app_metadata.role` only. Privileged mutations use one of those two guards;
 booking-config **reads** stay on `requireStaffUser`. `/auth/login` is sign-in
-only (no `signUp`); after `signInWithPassword` it calls `isStaffUser(data.user)`
-before `window.location.href = "/admin"`.
+only (no `signUp`); after `signInWithPassword` it calls `isStaffUser(data.user)`.
+A non-staff user awaits `supabase.auth.signOut()` on that same client before
+the handler returns. A staff session continues with `window.location.href = "/admin"`.
 
 Seed identities in `supabase/seed.sql` (every `db reset`, `--local` and
 `--linked` non-prod): `admin@test.local` (`11111111-1111-1111-1111-111111111111`,
@@ -159,14 +160,23 @@ guest INSERT is not table-wide. Identity is still unique:
 `CREATE UNIQUE INDEX IF NOT EXISTS reservations_conf_code_uidx ON public.reservations (conf_code)`
 immediately after the `reservations` table create, even though guests can set
 `conf_code`. Server-owned `id`, `status`, `table_label`,
-`created_at`, and `completed_at` have no guest INSERT privilege.
+`created_at`, `completed_at`, `cancelled_at`, `seated_at`, `allergens`, and `external_booking_id` have no guest INSERT privilege.
 `DROP POLICY IF EXISTS "Allow public read reservations"` (no `CREATE`); public
 INSERT policy stays. There is no `GRANT SELECT ON TABLE reservations`.
 There is no authenticated `FOR ALL` (or other write) policy on those catalog
 tables.
-Nullable `reservations.email` and `reservations.completed_at` are in baseline
+Nullable `reservations.email`, `reservations.completed_at`,
+`reservations.cancelled_at`, `reservations.seated_at`,
+`reservations.allergens`, and `reservations.external_booking_id` are in baseline
 (CREATE TABLE column plus `ALTER TABLE … ADD COLUMN IF NOT EXISTS`); RES-PRIV
-is unchanged. `review_email_sends` is service-role-only (`ENABLE RLS`,
+is unchanged. `allergens` is a service-role update after the guest insert
+(RES-75 / AL-2). `cancelled_at` and `seated_at` are service-role stamps
+(`transitionReservationStatus` to `cancelled` / `seated`; `seatWalkIn` also
+inserts `seated_at`; RES-107 / GI-3, GI-4). `external_booking_id` is written only by service-role
+`import_external_reservations` (`SET search_path = ''`; `REVOKE ALL` from
+`PUBLIC`, `anon`, and `authenticated`; `GRANT EXECUTE` to `service_role`) and
+is unique when non-null (`reservations_external_booking_id_uidx`
+`WHERE external_booking_id IS NOT NULL`; RES-80 / EI-8). `review_email_sends` is service-role-only (`ENABLE RLS`,
 `service_role` `FOR ALL`, `GRANT ALL`, `REVOKE ALL` from `anon`/`authenticated`).
 Spec: [../specs/post-visit-review-email.md](../specs/post-visit-review-email.md)
 PV-9, PV-12, PV-13.

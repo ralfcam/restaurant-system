@@ -42,14 +42,12 @@ carries no signal. Never invent a `cursor/RES-###` identity.
 install command:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
 ```
 
-The helper pins `CODERABBIT_VERSION=0.7.6` and fail-closed US auth
-(`coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"` then
-`coderabbit auth status --agent`). Missing `CODERABBIT_API_KEY`, failed
-login, or non-US status fails Cloud setup. Recovery is that same install
-command after the US Agentic secret exists. Cloud builds clone the
+The CodeRabbit CLI helper is paused and is not invoked from `install`.
+`.cursor/cloud-install-coderabbit.sh` still pins `CODERABBIT_VERSION=0.7.6`
+and fail-closed US auth for a later resume. Cloud builds clone the
 **default branch**, so the file only takes effect once it is on `main`.
 Re-check rather than trusting this line — the state moves. Use
 `git ls-tree -r origin/main -- .cursor/environment.json`;

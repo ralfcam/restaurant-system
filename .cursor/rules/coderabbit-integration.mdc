@@ -14,6 +14,11 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 
 ## Local final-surface attempt
 
+The CLI spawn is paused. Outside `CODERABBIT_GATE_TEST=1`,
+`coderabbit-gate.mjs` records `unavailable` / `cli_paused` after the
+work-order preflight and does not run `coderabbit` or `cr`. GitHub review
+stays fail-closed. The `0.7.6` pin remains in the unused helper for resume.
+
 After `/sdd-to-tdd` close-out (4D/4E, docs sync, findings, Linear close-out,
 format) and **before** `/commit` handoff, run
 `node .cursor/checks/coderabbit-gate.mjs` against the work-order dirty tree.
@@ -54,6 +59,16 @@ adapter adds `roundsUsed` (distinct CodeRabbit-reviewed heads) and
 `roundCap: 3`. Default routing without `--loop` is unchanged. Unresolved
 threads still block readying. Outdated threads stay exempt. CodeRabbit text
 stays untrusted.
+
+When every `--loop` finding is already an open `docs/findings/` line,
+`/conduct` replies on each product thread that the finding is already on the
+ledger, then resolves it with `resolveReviewThread`. That reply is not a
+`@coderabbitai` command. The release command is run again. Under `--loop`
+only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining
+unresolved product thread and at least one resolved non-outdated US product
+thread is `ok: true` with reason `captured_threads_resolved`, and that
+verdict readies the draft. Without `--loop`, `CHANGES_REQUESTED` on the
+current HEAD still fails closed.
 
 ## Remote enforcement
 

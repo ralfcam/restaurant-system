@@ -116,6 +116,7 @@
     "phonePlaceholder": "+1 (503) 555-0100",
     "email": "Email",
     "emailPlaceholder": "jamie@email.com",
+    "allergens": "Allergens",
     "confirming": "Confirming…",
     "confirmReservation": "Confirm reservation"
   },
@@ -197,6 +198,8 @@
       "nextDay": "Next day",
       "today": "Today",
       "refresh": "Refresh",
+      "importCsv": "Import CSV",
+      "importResult": "{inserted} inserted, {skipped} skipped",
       "searchPlaceholder": "Search name or phone",
       "columnTime": "Time",
       "columnGuest": "Guest",
@@ -405,6 +408,8 @@
       "reservationsUpdate": " · reservations update automatically",
       "slotInterval": "Slot interval",
       "occupancyDuration": "Occupancy duration",
+      "maxCoverCapacity": "Maximum covers",
+      "maxCoverPrompt": "Set the restaurant maximum covers before adding seats.",
       "decreaseOccupancy": "Decrease occupancy duration",
       "increaseOccupancy": "Increase occupancy duration",
       "safetyBuffer": "Safety buffer",
@@ -505,7 +510,14 @@
       "chooseHeroImage": "Choose an image",
       "chooseDifferentHero": "Choose a different image",
       "removeHero": "Remove hero image",
-      "saveHero": "Save hero image"
+      "saveHero": "Save hero image",
+      "restaurantDisplayName": "Restaurant display name",
+      "widgetTagline": "Tagline",
+      "welcomeTitle": "Welcome title",
+      "welcomeMessage": "Welcome message",
+      "closingMessage": "Closing message",
+      "showReservationPhone": "Show reservation phone",
+      "saveWidgetCopy": "Save"
     },
     "marketing": {
       "title": "Marketing",
@@ -592,7 +604,9 @@
       "tableOverlap": "That table is already reserved for an overlapping time.",
       "tablesLoadFailed": "Could not load tables.",
       "listFilterEmpty": "No reservations match your filters.",
-      "listDateEmpty": "No reservations for this date."
+      "listDateEmpty": "No reservations for this date.",
+      "importDuplicateId": "This file lists the same external booking id more than once.",
+      "importInvalidFile": "This file does not match the external booking import format."
     },
     "operations": {
       "unauthorized": "Unauthorized.",
@@ -619,7 +633,12 @@
       "mergeFailed": "Unable to merge tables.",
       "splitFailed": "Unable to split tables.",
       "addTableFailed": "Unable to add table.",
-      "removeTableFailed": "Unable to remove table."
+      "removeTableFailed": "Unable to remove table.",
+      "maxCoverCapacitySaveFailed": "Could not save maximum covers",
+      "maxCoverCapacityReached": "The restaurant's maximum cover capacity has been reached.",
+      "maxCoverCapacityUnset": "Set a maximum cover capacity before adding seats.",
+      "maxCoverCapacityInvalid": "Maximum covers must be a whole number of at least 1.",
+      "maxCoverCapacityBelowSum": "Maximum covers cannot be below the current seat total."
     },
     "pos": {
       "orderNeedsItems": "Order must contain items.",

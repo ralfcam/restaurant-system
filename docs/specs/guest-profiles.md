@@ -1,7 +1,7 @@
 # Guest profiles
 
 **Status:** Draft
-**Last updated:** 2026-10-01
+**Last updated:** 2026-10-06
 
 ## Scope
 
@@ -27,10 +27,12 @@ Guest roles still cannot `SELECT` reservations
 ([booking-rules.md](./booking-rules.md) AC-5 / RES-PRIV). This spec does not
 change guest INSERT allowlists.
 
-Out of this spec: a customer list/directory, a guest-facing portal, a
+Out of this spec: a customer list/directory
+(RES-86 / [guest-segmentation.md](./guest-segmentation.md)), a guest-facing portal, a
 `guests` table / `guest_id`, duplicate merge and name/phone matching
-(RES-84 / RES-92), editing or merging by email, tags / blacklist / channel /
-ratings / no-show ledger (RES-105–111), returning-guest highlight
+(RES-84 / [guest-profile-merge.md](./guest-profile-merge.md); RES-92), editing or merging by email, tags / blacklist / channel /
+ratings / no-show ledger (RES-105–111; incidents:
+[guest-incident-history.md](./guest-incident-history.md)), returning-guest highlight
 (RES-82), and editing `notes` on the ficha.
 
 ## Acceptance criteria
@@ -205,6 +207,9 @@ The same panel is the `@modal` intercept via `GuestProfileDialog`
 - [staff-authorization.md](./staff-authorization.md) (SA-1 / SA-2 / SA-8)
 - [booking-rules.md](./booking-rules.md) (AC-5 / RES-PRIV, STAFF-LIST, STAFF-GUEST-EMAIL)
 - [site-localization.md](./site-localization.md) (AC-20 / AC-26, French on staff)
+- [guest-incident-history.md](./guest-incident-history.md) (GI-1–GI-6)
+- [guest-profile-merge.md](./guest-profile-merge.md) (GM-1–GM-6)
+- [guest-segmentation.md](./guest-segmentation.md) (GS-1–GS-6)
 - [RES-104](https://linear.app/realized/issue/RES-104)
 - [RES-116](https://linear.app/realized/issue/RES-116)
 - [RES-120](https://linear.app/realized/issue/RES-120)

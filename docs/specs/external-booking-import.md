@@ -1,7 +1,7 @@
 # External booking import
 
 **Status:** Draft
-**Last updated:** 2026-10-02
+**Last updated:** 2026-10-03
 
 ## Scope
 
@@ -32,3 +32,7 @@ Out of this spec: an API or webhook ingest, a channel column, Google Reserve, a 
 7. **EI-7 — Result.** After a successful upload the page reports how many rows were inserted and how many existing ids were skipped, with `data-testid="reservation-import-result"`. Imported rows appear in `/admin/reservations` for that date alongside reservations created directly. The guest INSERT allowlist is unchanged.
 
 8. **EI-8 — Hidden id.** `external_booking_id` is not rendered on `/admin/reservations` or the guest ficha. A guest insert cannot set the column.
+
+## Implementation trace (non-normative)
+
+FEATURE `res-80_external_booking_import_c4e1` (RES-80, 2026-10-03). EI-1–EI-8 shipped. `importExternalReservations` in `app/actions/reservations.ts` uses `requireStaffUser` then `createServiceClient`. An unauthenticated caller redirects to `/auth/login`. An authenticated non-staff caller returns `errors.reservation.unauthorized`. The header must equal `external_booking_id,guest_name,party_size,date,time,phone,email,notes`. A blank `external_booking_id`, a date failing exported `DATE_RE`, or a time failing exported `TIME_RE` returns `errors.reservation.importInvalidFile` and does not call `import_external_reservations`. A non-blank phone failing `PHONE_RE` returns `errors.reservation.phoneInvalid`. A non-blank email failing `EMAIL_RE` returns `errors.reservation.emailInvalid`. A party size that is not an integer of at least 1 returns `errors.reservation.partySizeInvalid`. A repeated trimmed id in the file returns `errors.reservation.importDuplicateId` before the RPC. `DATE_RE` and `TIME_RE` are exported from `lib/reservations/validation.ts` beside `PHONE_RE` and `EMAIL_RE`. The RPC inserts `status` `confirmed`, `table_label` null, trimmed fields, omitted email and notes as null, and `conf_code` from `generateConfCode()` (`TVL-####`). An id already stored is skipped. `import_external_reservations(jsonb)` is `GRANT EXECUTE` to `service_role` only. `validate_reservation_availability` has no import exception. `reservations.external_booking_id` is nullable text (`CREATE TABLE` and `ADD COLUMN IF NOT EXISTS`) with partial unique index `reservations_external_booking_id_uidx` `WHERE external_booking_id IS NOT NULL`, and it is omitted from the guest `GRANT INSERT` list. Staff `/admin/reservations` uses `data-testid="reservation-import"` and, on success, `data-testid="reservation-import-result"` (`staff.reservations.importResult`). The column is not rendered. No `sendBookingConfirmation`.

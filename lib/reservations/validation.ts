@@ -16,8 +16,8 @@
 
 export const RESERVATION_ONLINE_MAX_PARTY = 8
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
+export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+export const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 export const PHONE_RE = /^[0-9+()\-.\s]{6,20}$/
 // BW-13: trimmed local@domain with a `.` in the domain — not RFC 5322.
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -32,6 +32,7 @@ export type ReservationPayload = {
   phone: string
   email: string
   notes?: string
+  allergens?: string
 }
 
 /**
