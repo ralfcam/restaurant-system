@@ -98,6 +98,7 @@ export function guestProfileHref(email: string | null): string | null {
 export function buildGuestProfile(
   email: string,
   reservations: Array<{
+    id?: string
     email: string
     status?: string
     date?: string
@@ -119,6 +120,7 @@ export function buildGuestProfile(
     lastVisit: string | null
   }
   history: Array<{
+    id?: string
     email: string
     status: string
     isVisit: boolean
@@ -135,10 +137,15 @@ export function buildGuestProfile(
   const history = reservations
     .filter((row) => normalizeGuestEmail(row.email) === key)
     .map((row) => ({
-      ...row,
+      id: row.id,
+      email: row.email,
+      guest_name: row.guest_name,
+      phone: row.phone,
+      notes: row.notes,
       date: row.date ?? "",
       time: row.time ?? "",
       party_size: row.party_size as number,
+      table_label: row.table_label,
       status: row.status as string,
       isVisit: row.status === "completed",
     }))
