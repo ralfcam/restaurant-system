@@ -1,7 +1,7 @@
 # Staff authorization
 
 **Status:** Draft
-**Last updated:** 2026-10-07
+**Last updated:** 2026-10-08
 
 ## Scope
 
@@ -21,11 +21,15 @@ implies staff.
    session is authenticated but not staff. Privileged server actions that
    already call `requireStaffUser` inherit this gate.
 
-2. **SA-2 — Staff routes require the same claim** — Paths prefixed `/admin`,
-   `/pos`, or `/kds` are staff-only. Unauthenticated requests redirect to
-   `/auth/login`. Authenticated non-staff requests MUST NOT receive staff
-   chrome; they redirect to `/`. A staff-claim session continues. Guest
-   paths are unchanged. A `super_admin` session satisfies this gate (SA-1).
+2. **SA-2 — Staff routes require the same claim** — A pathname is a staff
+   path only when it equals `/admin`, `/pos`, or `/kds`, or continues with
+   a slash (`/admin/...`, `/pos/...`, `/kds/...`). Lookalike pathnames
+   `/administrator`, `/position`, and `/kds-extra` are not staff paths.
+   Unauthenticated requests to a staff path redirect to `/auth/login`.
+   Authenticated non-staff requests MUST NOT receive staff chrome; they
+   redirect to `/`. A staff-claim session continues. Guest paths, including
+   those lookalikes, are unchanged. A `super_admin` session satisfies this
+   gate (SA-1).
 
 3. **SA-3 — Login does not grant staff chrome to non-staff** — `/auth/login`
    is sign-in only (no `signUp`). After a successful password sign-in, a
@@ -132,9 +136,11 @@ FIX `ux_staffchrome_pos_batch_9c4a1b` (REAZED-332, 2026-09-02). SA-10 shipped.
 FIX `res-37_service_boundary_ffc7ec3c` (RES-37, 2026-09-10). SA-11 shipped.
 FIX `res-128_nonstaff_signout_6938` (RES-128, 2026-10-05). SA-3 shipped.
 FIX `res-129_callback_next_ad67` (RES-129, 2026-10-07). SA-3-NEXT shipped.
+FIX `res-98_staff_path_segment_0d6a` (RES-98, 2026-10-08). SA-2 shipped.
 
 | Criterion | Shipped in                                                                                                                                                                                                                                                | Tests                                                                                                                                                                                                  |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| SA-2      | `lib/supabase/proxy.ts` staff path is `pathname === prefix` or `pathname.startsWith(prefix + "/")` for `/admin`, `/pos`, `/kds`                                                                                                                           | `tests/unit/auth/staff-proxy.test.ts` → "lookalike pathnames are not staff routes"                                                                                                                     |
 | SA-3      | `app/auth/login/page.tsx` non-staff branch awaits `supabase.auth.signOut()` on the same `createClient()` before `return`; staff sets `window.location.href = "/admin"`                                                                                    | `tests/unit/auth/login-staff-gate.test.ts` → "non-staff password sign-in signs out before the handler returns"                                                                                         |
 | SA-3-NEXT | `app/auth/callback/route.ts` accepts `next` only when it starts with `/`, the second character is not `/` or `\`, and the value has no `://`; otherwise `/admin`; success redirect is `` `${origin}${next}` ``                                            | `tests/unit/auth/callback-next.test.ts` → "callback next falls back to /admin when it is not a same-origin path"                                                                                       |
 | SA-5      | `supabase/seed.sql` staff `auth.users.email` `'admin@test.local'`                                                                                                                                                                                         | `tests/unit/auth/seed-staff-claim.test.ts` → "seed staff auth.users.email is admin@test.local"                                                                                                         |
