@@ -7,6 +7,7 @@ import {
   normalizeGuestEmail,
   segmentGuests,
 } from "@/lib/guest-profiles"
+import { PHONE_RE } from "@/lib/reservations/validation"
 import { requireStaffUser } from "@/lib/supabase/require-staff"
 import { createServiceClient } from "@/lib/supabase/service"
 
@@ -52,6 +53,8 @@ export async function getGuestProfile(email: string): Promise<
   }
 }
 
+const GUEST_NAME_MAX_LENGTH = 100
+
 export async function updateGuestProfilePii(input: {
   email: string
   guest_name: string
@@ -60,9 +63,20 @@ export async function updateGuestProfilePii(input: {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
 
+  const trimmedGuestName = input.guest_name.trim()
+  if (!trimmedGuestName) return { error: "errors.guestProfiles.nameRequired" }
+  if (trimmedGuestName.length > GUEST_NAME_MAX_LENGTH) {
+    return { error: "errors.guestProfiles.nameTooLong" }
+  }
+
+  const trimmedPhone = input.phone.trim()
+  if (trimmedPhone && !PHONE_RE.test(trimmedPhone)) {
+    return { error: "errors.guestProfiles.phoneInvalid" }
+  }
+
   const { data, error } = await createServiceClient()
     .from("reservations")
-    .update({ guest_name: input.guest_name, phone: input.phone })
+    .update({ guest_name: trimmedGuestName, phone: trimmedPhone })
     // GP-10: write the GP-2 generated-key group — not exact stored email.
     .eq("email_normalized", normalizeGuestEmail(input.email))
     .select("id")

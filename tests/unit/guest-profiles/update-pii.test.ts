@@ -105,4 +105,128 @@ describe("updateGuestProfilePii", () => {
     expect(updatePayload()).not.toHaveProperty("email")
     expectCatalogKey("errors.guestProfiles.notFound")
   })
+
+  it("updateGuestProfilePii rejects a blank or oversized guest_name and does not update", async () => {
+    const { updateGuestProfilePii } =
+      (await import("@/app/actions/guest-profiles")) as {
+        updateGuestProfilePii: UpdateGuestProfilePii
+      }
+
+    await expect(mocks.requireStaffUser()).resolves.toEqual({ id: "staff-1" })
+    mocks.requireStaffUser.mockClear()
+
+    const blank = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: "   ",
+      phone: "555-0100",
+    })
+    expect(blank).toEqual({ error: "errors.guestProfiles.nameRequired" })
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+
+    mocks.from.mockClear()
+    mocks.update.mockClear()
+    mocks.eq.mockClear()
+    mocks.createServiceClient.mockClear()
+
+    const tooLong = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: "a".repeat(101),
+      phone: "555-0100",
+    })
+    expect(tooLong).toEqual({ error: "errors.guestProfiles.nameTooLong" })
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+
+    expectCatalogKey("errors.guestProfiles.nameRequired")
+    expectCatalogKey("errors.guestProfiles.nameTooLong")
+
+    mocks.from.mockClear()
+    mocks.update.mockClear()
+    mocks.eq.mockClear()
+    mocks.createServiceClient.mockClear()
+
+    const boundedName = "a".repeat(100)
+    const accepted = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: boundedName,
+      phone: "555-0100",
+    })
+    expect(accepted?.error).toBeUndefined()
+    expect(mocks.update).toHaveBeenCalledTimes(1)
+    expect(mocks.update).toHaveBeenCalledWith({
+      guest_name: boundedName,
+      phone: "555-0100",
+    })
+  })
+
+  it("updateGuestProfilePii rejects an invalid phone and allows a blank phone", async () => {
+    const { updateGuestProfilePii } =
+      (await import("@/app/actions/guest-profiles")) as {
+        updateGuestProfilePii: UpdateGuestProfilePii
+      }
+
+    const invalid = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: "Ada Lovelace",
+      phone: "abc",
+    })
+    expect(invalid).toEqual({ error: "errors.guestProfiles.phoneInvalid" })
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+
+    mocks.from.mockClear()
+    mocks.update.mockClear()
+    mocks.eq.mockClear()
+    mocks.createServiceClient.mockClear()
+
+    const blankPhone = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: "Ada Lovelace",
+      phone: "",
+    })
+    expect(blankPhone).toEqual({ ok: true })
+    expect(mocks.update).toHaveBeenCalledTimes(1)
+
+    expectCatalogKey("errors.guestProfiles.phoneInvalid")
+  })
+
+  it("updateGuestProfilePii stores trimmed guest_name and phone", async () => {
+    const { updateGuestProfilePii } =
+      (await import("@/app/actions/guest-profiles")) as {
+        updateGuestProfilePii: UpdateGuestProfilePii
+      }
+
+    const padded = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: "  Ada Lovelace  ",
+      phone: "  555-0100  ",
+    })
+    expect(padded?.error).toBeUndefined()
+    expect(mocks.update).toHaveBeenCalledWith({
+      guest_name: "Ada Lovelace",
+      phone: "555-0100",
+    })
+    expect(updatePayload()).not.toHaveProperty("email")
+    expect(mocks.eq).toHaveBeenCalledWith(
+      "email_normalized",
+      normalizeGuestEmail(piiDraft.email),
+    )
+
+    mocks.from.mockClear()
+    mocks.update.mockClear()
+    mocks.eq.mockClear()
+    mocks.createServiceClient.mockClear()
+
+    const blankPhone = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: "Ada Lovelace",
+      phone: "   ",
+    })
+    expect(blankPhone?.error).toBeUndefined()
+    expect(mocks.update).toHaveBeenCalledWith({
+      guest_name: "Ada Lovelace",
+      phone: "",
+    })
+  })
 })

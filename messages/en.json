@@ -732,7 +732,10 @@
     "guestProfiles": {
       "unauthorized": "Unauthorized.",
       "unmapped": "Something went wrong. Please try again.",
-      "notFound": "Guest profile not found."
+      "notFound": "Guest profile not found.",
+      "nameRequired": "Please enter a guest name.",
+      "nameTooLong": "Name is too long.",
+      "phoneInvalid": "Please provide a valid phone number."
     }
   },
   "auth": {

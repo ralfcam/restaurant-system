@@ -732,7 +732,10 @@
     "guestProfiles": {
       "unauthorized": "Non autorisé.",
       "unmapped": "Une erreur s'est produite. Veuillez réessayer.",
-      "notFound": "Fiche convive introuvable."
+      "notFound": "Fiche convive introuvable.",
+      "nameRequired": "Veuillez saisir le nom de l'invité.",
+      "nameTooLong": "Le nom est trop long.",
+      "phoneInvalid": "Veuillez indiquer un numéro de téléphone valide."
     }
   },
   "auth": {
