@@ -228,6 +228,7 @@ type ValidateTriggerAcl = {
     enabled: boolean
     before_insert_or_update: boolean
     function: string
+    schema: string
   } | null
 }
 
@@ -243,7 +244,7 @@ SELECT json_build_object(
         COALESCE(p.proacl, acldefault('f'::"char", p.proowner))
       ) AS a
       LEFT JOIN pg_roles r ON r.oid = a.grantee
-      WHERE n.nspname = 'public'
+      WHERE n.nspname = 'private'
         AND p.proname = 'validate_reservation_availability'
         AND pg_get_function_identity_arguments(p.oid) = ''
         AND a.privilege_type = 'EXECUTE'
@@ -251,16 +252,16 @@ SELECT json_build_object(
     ) x
   ),
   'anon_execute', has_function_privilege(
-    'anon', 'public.validate_reservation_availability()', 'EXECUTE'
+    'anon', 'private.validate_reservation_availability()', 'EXECUTE'
   ),
   'authenticated_execute', has_function_privilege(
-    'authenticated', 'public.validate_reservation_availability()', 'EXECUTE'
+    'authenticated', 'private.validate_reservation_availability()', 'EXECUTE'
   ),
   'prosecdef', (
     SELECT p.prosecdef
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
+    WHERE n.nspname = 'private'
       AND p.proname = 'validate_reservation_availability'
       AND pg_get_function_identity_arguments(p.oid) = ''
   ),
@@ -272,12 +273,14 @@ SELECT json_build_object(
         (t.tgtype & 2) = 2
         AND (t.tgtype & 4) = 4
         AND (t.tgtype & 16) = 16,
-      'function', p.proname
+      'function', p.proname,
+      'schema', pn.nspname
     )
     FROM pg_trigger t
     JOIN pg_class c ON c.oid = t.tgrelid
     JOIN pg_namespace ns ON ns.oid = c.relnamespace
     JOIN pg_proc p ON p.oid = t.tgfoid
+    JOIN pg_namespace pn ON pn.oid = p.pronamespace
     WHERE ns.nspname = 'public'
       AND c.relname = 'reservations'
       AND t.tgname = 'enforce_booking_rules'
@@ -519,6 +522,11 @@ describe("RES-TRIGGER-EXEC local catalog coverage", () => {
       if (catalog.trigger.function !== "validate_reservation_availability") {
         violations.push(
           `enforce_booking_rules points at ${catalog.trigger.function}`,
+        )
+      }
+      if (catalog.trigger.schema !== "private") {
+        violations.push(
+          `enforce_booking_rules function schema expected private got ${catalog.trigger.schema}`,
         )
       }
     }

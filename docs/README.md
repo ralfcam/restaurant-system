@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-07
+**Last updated:** 2026-10-08
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -201,6 +201,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-136 floor overflow (`res136_floor_overflow_f3b8`)                                             | 2026-10-07 | `specs/scheduling.md` (FP-12 impl-trace; containment and stacking already normative), `architecture/Floor-Plan.md`, `dev-journal.md`                                                                                                                                                                                                                                                                            |
 | RES-122 date navigation (`res-122_date_nav_e94a`)                                                 | 2026-10-07 | `specs/scheduling.md` (criterion 3 impl-trace; AC already updated), `specs/booking-rules.md` (STAFF-LIST impl-trace; AC already updated), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                    |
 | RES-129 callback next (`res-129_callback_next_ad67`)                                              | 2026-10-07 | `specs/staff-authorization.md` (SA-3-NEXT impl-trace; SA-3-NEXT already normative), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
+| RES-101 private booking trigger (`res-101_private_schema_b4e1`)                                   | 2026-10-08 | `specs/booking-rules.md` (RES-TRIGGER-EXEC, already amended), `architecture/Auth-And-RLS.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                          |
 
 ## Seed path
 

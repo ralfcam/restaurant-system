@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-08
 
 ## Vercel
 
@@ -512,6 +512,14 @@ try to replay history the remote has diverged from.
    Confirm `has_function_privilege('anon', 'public.validate_reservation_availability()', 'EXECUTE')`
    and `has_function_privilege('authenticated', 'public.validate_reservation_availability()', 'EXECUTE')`
    are false; `enforce_booking_rules` remains enabled.
+
+   This file recreates the function in `public`. The later forward
+   `20261008120000_private_validate_reservation_availability.sql` moves it to
+   schema `private` and rebinds `enforce_booking_rules` to
+   `private.validate_reservation_availability()`. After that file has run,
+   confirm EXECUTE is false for `anon` and `authenticated` on
+   `private.validate_reservation_availability()`, and that
+   `public.validate_reservation_availability()` is gone.
 
 ### Apply `20260902214500_restaurant_settings_privilege.sql` on an already-baselined remote
 
