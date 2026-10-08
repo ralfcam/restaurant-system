@@ -3,7 +3,9 @@
  * identity, no unresolved CodeRabbit threads except `.cursor/plans/`
  * work-orders, outdated leftovers, or incremental-pause leftovers, no
  * rate-limit/billing/override markers, and deterministic severity routing
- * for active findings.
+ * for active findings. A head with no formal US review is
+ * `ready_no_coderabbit_review`. Quiet-mode walkthrough bodies are not
+ * findings. A COMMENTED review body with actionable comments still blocks.
  */
 import {
   US_APP_ID,
@@ -186,6 +188,137 @@ export function codeRabbitFindingId(comment, thread = {}) {
 }
 
 export const LOOP_ROUND_CAP = 3
+
+export const NO_FORMAL_REVIEW_OPERATOR_COMMENT =
+  "No formal CodeRabbit review ran on this head. The draft is marked ready. Comment `@coderabbitai full review` if you want a review, or merge without one."
+
+export const NO_FORMAL_REVIEW_BODY_HEADING = "## CodeRabbit note"
+
+export function resolveOperatorNotePlacement({
+  commentPosted = false,
+  commentStatus = null,
+  commentError = "",
+} = {}) {
+  if (commentPosted === true) {
+    return { fatal: false, ready: true, recordIn: ["issue_comment"] }
+  }
+  const status = Number(commentStatus)
+  const errorText = String(commentError || "")
+  const is403 =
+    status === 403 ||
+    /\b403\b/.test(errorText) ||
+    /Resource not accessible by integration/i.test(errorText)
+  if (is403) {
+    return {
+      fatal: false,
+      ready: true,
+      recordIn: ["pr_body", "report"],
+      log: "operator comment failed with 403 (GitHub App token lacks issues: write); recording the note on the PR body and in the agent report",
+    }
+  }
+  const statusPart =
+    commentStatus == null || commentStatus === "" || !Number.isFinite(status)
+      ? ""
+      : ` with ${status}`
+  return {
+    fatal: false,
+    ready: true,
+    recordIn: ["report"],
+    log: `operator comment failed${statusPart}; recording the note in the agent report`,
+  }
+}
+
+export function appendOperatorNoteToPrBody(existingBody, note) {
+  const body = String(existingBody || "").trimEnd()
+  const text = String(note || "").trim()
+  const block = text
+    ? `${NO_FORMAL_REVIEW_BODY_HEADING}\n\n${text}`
+    : NO_FORMAL_REVIEW_BODY_HEADING
+  if (
+    (text && body.includes(text)) ||
+    body.includes(NO_FORMAL_REVIEW_BODY_HEADING)
+  ) {
+    return body || block
+  }
+  return body ? `${body}\n\n${block}` : block
+}
+
+const QUIET_WALKTHROUGH_MARKERS = [
+  /auto-generated comment:\s*summarize by coderabbit\.ai/i,
+  /<!--\s*walkthrough_start\s*-->/i,
+  /<!--\s*walkthrough_end\s*-->/i,
+  /^##\s+Walkthrough\b/m,
+  /^walkthrough$/i,
+]
+
+export function actionableCommentsPosted(body) {
+  const match = String(body || "").match(
+    /Actionable comments posted:\s*(\d+)/i,
+  )
+  return match ? Number(match[1]) : null
+}
+
+export function isQuietModeWalkthroughBody(body) {
+  const text = String(body || "")
+  if (!text.trim()) return false
+  if (!QUIET_WALKTHROUGH_MARKERS.some((re) => re.test(text))) return false
+  const posted = actionableCommentsPosted(text)
+  if (posted != null && posted > 0) return false
+  return !parseCodeRabbitSeverity(text)
+}
+
+export function reviewBodyHasActionableFindings(body) {
+  const text = String(body || "")
+  if (!text.trim() || isQuietModeWalkthroughBody(text)) return false
+  if (parseCodeRabbitSeverity(text)) return true
+  const posted = actionableCommentsPosted(text)
+  return posted != null && posted > 0
+}
+
+function collectCommentedReviewBodyFindings(
+  snapshot,
+  headSha,
+  { loop = false } = {},
+) {
+  const findings = []
+  for (const review of snapshot?.reviews || []) {
+    if (!isUsBotLogin(reviewAuthorLogin(review))) continue
+    if (reviewCommitId(review) !== headSha) continue
+    if (reviewState(review) !== "COMMENTED") continue
+    const body = String(review.body || "")
+    if (!reviewBodyHasActionableFindings(body)) continue
+    const severity = parseCodeRabbitSeverity(body)
+    const id = codeRabbitFindingId(
+      {
+        body,
+        id: review.id || review.node_id,
+        databaseId: review.id,
+      },
+      {},
+    )
+    const routing = classifyFindingRouting({ severity, body }, { loop })
+    findings.push({
+      id,
+      path: "",
+      title: parseCodeRabbitTitle(body),
+      ...routing,
+      route: "capture",
+      command: "/capture",
+    })
+  }
+  return findings
+}
+
+function readyMetadata(headSha, isDraft, extra = {}) {
+  return {
+    headSha,
+    isDraft,
+    usAppId: US_APP_ID,
+    checkName: US_LATEST_HEAD_CHECK_NAME,
+    statusContext: REQUIRED_US_STATUS_CONTEXT,
+    ...extra,
+  }
+}
 
 export function countCodeRabbitReviewedHeads(snapshot) {
   const heads = new Set()
@@ -413,17 +546,34 @@ function evaluateReadyPrCore(
       return {
         ok: true,
         reason: "incremental_paused",
-        headSha,
-        isDraft,
-        findings: captureRoutedFindings(snapshot),
-        usAppId: US_APP_ID,
-        checkName: US_LATEST_HEAD_CHECK_NAME,
-        statusContext: REQUIRED_US_STATUS_CONTEXT,
+        ...readyMetadata(headSha, isDraft, {
+          findings: captureRoutedFindings(snapshot),
+        }),
       }
     }
+    const commentedFindings = collectCommentedReviewBodyFindings(
+      snapshot,
+      headSha,
+      { loop },
+    )
+    if (commentedFindings.length) {
+      return {
+        ok: false,
+        reason: "commented_review_findings",
+        findings: commentedFindings,
+      }
+    }
+    const formalElsewhere = usReviews.some((review) =>
+      ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
+    )
+    if (formalElsewhere) {
+      return { ok: false, reason: "stale_approval" }
+    }
     return {
-      ok: false,
-      reason: usReviews.length > 0 ? "stale_approval" : "pending",
+      ok: true,
+      reason: "ready_no_coderabbit_review",
+      operatorComment: NO_FORMAL_REVIEW_OPERATOR_COMMENT,
+      ...readyMetadata(headSha, isDraft),
     }
   }
   const latest = ranked[ranked.length - 1]
@@ -437,12 +587,21 @@ function evaluateReadyPrCore(
       return {
         ok: true,
         reason: "captured_threads_resolved",
-        headSha,
-        commitId: reviewCommitId(latest),
-        isDraft,
-        usAppId: US_APP_ID,
-        checkName: US_LATEST_HEAD_CHECK_NAME,
-        statusContext: REQUIRED_US_STATUS_CONTEXT,
+        ...readyMetadata(headSha, isDraft, {
+          commitId: reviewCommitId(latest),
+        }),
+      }
+    }
+    if (
+      reviewState(latest) === "CHANGES_REQUESTED" &&
+      isQuietModeWalkthroughBody(latest.body)
+    ) {
+      return {
+        ok: true,
+        reason: "changes_requested_meta_only",
+        ...readyMetadata(headSha, isDraft, {
+          commitId: reviewCommitId(latest),
+        }),
       }
     }
     return {
@@ -458,12 +617,9 @@ function evaluateReadyPrCore(
   return {
     ok: true,
     reason: "clean",
-    headSha,
-    commitId: reviewCommitId(latest),
-    isDraft,
-    usAppId: US_APP_ID,
-    checkName: US_LATEST_HEAD_CHECK_NAME,
-    statusContext: REQUIRED_US_STATUS_CONTEXT,
+    ...readyMetadata(headSha, isDraft, {
+      commitId: reviewCommitId(latest),
+    }),
   }
 }
 

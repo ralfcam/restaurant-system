@@ -97,9 +97,10 @@ Never fix one. A docs PR does not hold the lane.
 
 While an issue PR is open, resume only that PR. Never start new work.
 
-- Waiting on CodeRabbit or on the operator: stop with "waiting on you".
+- Waiting on the operator after a ready PR: stop with "waiting on you".
 - Otherwise `git switch -C <headRefName> origin/<headRefName>` and run the
-  review loop below.
+  review loop below. A draft whose head has no formal CodeRabbit review is
+  not a wait: `/ready-merge-release` readies that case.
 
 ### 4. Fresh claim
 
@@ -138,7 +139,11 @@ ticks, 60-minute cap per round). If `/loop` timers are missing, use one
 bounded shell wait of 10 minutes or less per tick, up to the 60-minute cap.
 Then run `/ready-merge-release <PR> --loop` (`roundsUsed`, `roundCap: 3`):
 
-- **Clean:** the release command readies the PR and returns APPROVED FOR OPERATOR MERGE. Stop.
+- **Clean, `ready_no_coderabbit_review`, or `changes_requested_meta_only`:**
+  the release command readies the PR and returns APPROVED FOR OPERATOR MERGE.
+  For `ready_no_coderabbit_review` it tries the operator comment. A 403
+  (`issues: write` missing) is non-fatal: the draft still readies and the
+  note goes on the PR body or in the report. Stop.
 - **Critical or unknown, under 3 rounds:** run
   `/sdd-to-tdd "bug: CodeRabbit finding <local-ref> on PR #<n>"` on the PR
   branch, then start the next round. That in-loop fix skips START and
@@ -163,9 +168,11 @@ Then run `/ready-merge-release <PR> --loop` (`roundsUsed`, `roundCap: 3`):
   that is not already an open ledger line.
 
 - **Round cap reached, a merge conflict, or an operational failure other than
-  pending:** the PR stays open as a draft and keeps the lane. Report the
-  reason so the next digest lists the PR under "needs your decision".
-  Unresolved threads still block readying. Outdated threads stay exempt.
+  pending or `ready_no_coderabbit_review`:** the PR stays open as a draft and
+  keeps the lane. Report the reason so the next digest lists the PR under
+  "needs your decision". Unresolved threads and COMMENTED review-body
+  findings still block readying. Outdated threads and quiet-mode walkthrough
+  bodies stay exempt.
 
 ### 9. Failure before a PR exists
 

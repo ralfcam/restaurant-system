@@ -3,10 +3,15 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { test } from "node:test"
 import {
+  NO_FORMAL_REVIEW_BODY_HEADING,
+  NO_FORMAL_REVIEW_OPERATOR_COMMENT,
   US_APP_ID,
   US_LATEST_HEAD_CHECK_NAME,
+  appendOperatorNoteToPrBody,
   classifyFindingRouting,
   evaluateReadyPr,
+  isQuietModeWalkthroughBody,
+  resolveOperatorNotePlacement,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
 
 const FIX = join(process.cwd(), ".cursor", "checks", "fixtures", "coderabbit")
@@ -30,7 +35,7 @@ const CASES = [
   ["remote-rate-limit.json", false, "rate_limited"],
   ["remote-billing.json", false, "billing"],
   ["remote-override.json", false, "explicit_override"],
-  ["remote-pending.json", false, "pending"],
+  ["remote-pending.json", true, "ready_no_coderabbit_review"],
   ["remote-draft.json", false, "draft"],
   ["remote-wrong-bot.json", false, "wrong_bot"],
 ]
@@ -180,6 +185,161 @@ test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
     ).command,
     "/capture",
   )
+})
+
+function commentedBodySnapshot(body, { state = "COMMENTED", sha = "abc123" } = {}) {
+  return {
+    isDraft: false,
+    headSha: sha,
+    pull: {
+      number: 12,
+      isDraft: false,
+      base: "main",
+      head: "staging",
+      headSha: sha,
+    },
+    reviews: [
+      {
+        user: { login: "coderabbitai[bot]" },
+        state,
+        commit_id: sha,
+        body,
+      },
+    ],
+    threads: [],
+    issueComments: [],
+    reviewComments: [],
+    checkRuns: [],
+  }
+}
+
+test("no formal review on latest head is ready_no_coderabbit_review with operator comment", () => {
+  const none = evaluateReadyPr(load("remote-pending.json"))
+  assert.equal(none.ok, true)
+  assert.equal(none.reason, "ready_no_coderabbit_review")
+  assert.equal(none.operatorComment, NO_FORMAL_REVIEW_OPERATOR_COMMENT)
+  assert.match(none.operatorComment, /@coderabbitai full review/)
+
+  const draft = evaluateReadyPr(load("remote-draft.json"), { allowDraft: true })
+  assert.equal(draft.ok, true)
+  assert.equal(draft.reason, "ready_no_coderabbit_review")
+  assert.equal(draft.operatorComment, NO_FORMAL_REVIEW_OPERATOR_COMMENT)
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /ready_no_coderabbit_review/)
+  assert.match(command, /gh pr comment/)
+  assert.match(command, /operator comment/)
+})
+
+test("COMMENTED review with actionable findings blocks into /capture", () => {
+  const result = evaluateReadyPr(
+    commentedBodySnapshot(
+      `| _Critical_ | **Leaked secret**\n<!-- cr-comment:v1:body-critical -->\n`,
+    ),
+  )
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "commented_review_findings")
+  assert.equal(result.findings.length, 1)
+  assert.equal(result.findings[0].command, "/capture")
+  assert.equal(result.findings[0].route, "capture")
+  assert.equal(result.findings[0].title, "Leaked secret")
+})
+
+test("quiet-mode walkthrough body is ignored", () => {
+  assert.equal(isQuietModeWalkthroughBody("walkthrough"), true)
+  assert.equal(
+    isQuietModeWalkthroughBody(
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\n<!-- walkthrough_start -->\nSummary only.\n<!-- walkthrough_end -->\n**Actionable comments posted: 0**\n",
+    ),
+    true,
+  )
+  assert.equal(
+    isQuietModeWalkthroughBody(
+      `| _Minor_ | **Real finding**\n<!-- cr-comment:v1:not-quiet -->\n`,
+    ),
+    false,
+  )
+
+  const quiet = evaluateReadyPr(
+    commentedBodySnapshot(
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\nQuiet summary.\n**Actionable comments posted: 0**\n",
+    ),
+  )
+  assert.equal(quiet.ok, true)
+  assert.equal(quiet.reason, "ready_no_coderabbit_review")
+  assert.equal(quiet.findings, undefined)
+
+  const wordOnly = evaluateReadyPr(commentedBodySnapshot("walkthrough"))
+  assert.equal(wordOnly.ok, true)
+  assert.equal(wordOnly.reason, "ready_no_coderabbit_review")
+})
+
+test("operator comment 403 is non-fatal and still readies", () => {
+  const ready = evaluateReadyPr(load("remote-pending.json"))
+  assert.equal(ready.ok, true)
+  assert.equal(ready.reason, "ready_no_coderabbit_review")
+
+  const outcome = resolveOperatorNotePlacement({
+    commentPosted: false,
+    commentStatus: 403,
+    commentError: "HTTP 403: Resource not accessible by integration",
+  })
+  assert.equal(outcome.fatal, false)
+  assert.equal(outcome.ready, true)
+  assert.deepEqual(outcome.recordIn, ["pr_body", "report"])
+  assert.match(outcome.log, /403/)
+  assert.match(outcome.log, /issues: write/)
+
+  const posted = resolveOperatorNotePlacement({ commentPosted: true })
+  assert.equal(posted.fatal, false)
+  assert.equal(posted.ready, true)
+  assert.deepEqual(posted.recordIn, ["issue_comment"])
+
+  const body = appendOperatorNoteToPrBody(
+    "## Summary\n\nFeature work.",
+    ready.operatorComment,
+  )
+  assert.match(body, new RegExp(NO_FORMAL_REVIEW_BODY_HEADING))
+  assert.match(body, /No formal CodeRabbit review/)
+  assert.equal(
+    appendOperatorNoteToPrBody(body, ready.operatorComment),
+    body,
+  )
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /non-fatal/)
+  assert.match(command, /403/)
+  assert.match(command, /PR body/)
+  assert.match(command, /issues: write/)
+})
+
+test("changes_requested_meta_only still passes for walkthrough-only formal reviews", () => {
+  const meta = evaluateReadyPr(
+    commentedBodySnapshot(
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\nMeta only.\n",
+      { state: "CHANGES_REQUESTED" },
+    ),
+  )
+  assert.equal(meta.ok, true)
+  assert.equal(meta.reason, "changes_requested_meta_only")
+
+  const fixtureStyle = evaluateReadyPr(
+    commentedBodySnapshot("walkthrough", { state: "CHANGES_REQUESTED" }),
+  )
+  assert.equal(fixtureStyle.ok, true)
+  assert.equal(fixtureStyle.reason, "changes_requested_meta_only")
+
+  const real = evaluateReadyPr(
+    commentedBodySnapshot("", { state: "CHANGES_REQUESTED" }),
+  )
+  assert.equal(real.ok, false)
+  assert.equal(real.reason, "changes_requested")
 })
 
 test("main-gate workflow is read-only, staging→main, and named US latest-head", () => {

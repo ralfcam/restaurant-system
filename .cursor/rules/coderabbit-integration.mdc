@@ -68,14 +68,29 @@ only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining
 unresolved product thread and at least one resolved non-outdated US product
 thread is `ok: true` with reason `captured_threads_resolved`, and that
 verdict readies the draft. Without `--loop`, `CHANGES_REQUESTED` on the
-current HEAD still fails closed.
+current HEAD still fails closed unless the review body is only a quiet-mode
+walkthrough (`changes_requested_meta_only`).
+
+When CodeRabbit has not posted a formal `APPROVED` or `CHANGES_REQUESTED`
+review on the latest head, the adapter returns `ok: true` with reason
+`ready_no_coderabbit_review`. `/ready-merge-release` marks the draft ready
+and tries one operator comment so the human can trigger
+`@coderabbitai full review` or merge without it. A 403 on that comment
+(GitHub App token lacks `issues: write`) is non-fatal: still ready, log the
+403, and record the note on the PR body or in the agent report. A
+`COMMENTED` review whose body carries actionable comments still blocks into
+`/capture`. Quiet-mode walkthrough or summary bodies are not findings.
 
 ## Remote enforcement
 
 CodeRabbit reviews draft PRs. Incremental review pauses after
 `auto_pause_after_reviewed_commits` (integer >= 20). `/ready-merge-release PR#`
 verifies the current US-reviewed HEAD. Adapter `incremental_paused` leftover
-findings (any severity) go to `/capture` and Step 2 is clean. Otherwise it
+findings (any severity) go to `/capture` and Step 2 is clean. Reason
+`ready_no_coderabbit_review` is also a clean preflight. A 403 on the
+operator comment is non-fatal; record the note on the PR body or in the
+report. Reason `changes_requested_meta_only` is a clean preflight.
+`commented_review_findings` go to `/capture`. Otherwise it
 routes Critical/Major/unknown findings to `/sdd-to-tdd` and
 Minor/Trivial findings to `/capture` → `docs/findings`. It re-reads
 `headRefOid` immediately before readying and MUST NOT mutate when that differs

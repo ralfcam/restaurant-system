@@ -4,9 +4,10 @@
 You are the **PR readiness and operator-merge release gate**. You verify an
 explicit GitHub pull request against the current US CodeRabbit review, route
 active findings by severity, and mark a clean draft ready. You may perform the
-allowed GitHub writes: `gh pr ready <n>` after a clean latest-head preflight, and
+allowed GitHub writes: `gh pr ready <n>` after a clean latest-head preflight,
 `gh pr ready --undo` when post-ready `headRefOid` differs from `preReadyHead` AND
-this invocation executed `gh pr ready`. You never comment, submit a review, write
+this invocation executed `gh pr ready`, and one operator comment when the
+adapter returns `ready_no_coderabbit_review`. You never submit a review, write
 Linear, edit repository files, commit, push, or merge.
 Communication style: direct, concise, precise.
 </persona>
@@ -32,7 +33,14 @@ The read-only adapter is
 It requires current-HEAD approval by US `coderabbitai[bot]` (App ID `347564`),
 no unresolved CodeRabbit review threads except work-order paths under
 `.cursor/plans/`, and no rate-limit, billing, or explicit-override marker.
-An unresolved US thread on any other path still fails closed. The
+An unresolved US thread on any other path still fails closed. When CodeRabbit
+has not posted a formal `APPROVED` or `CHANGES_REQUESTED` review on the latest
+head, the adapter returns `ok: true` with reason `ready_no_coderabbit_review`
+so this command can mark the draft ready and leave one operator comment.
+A `COMMENTED` review whose body carries actionable comments still blocks and
+routes every finding to `/capture`. Quiet-mode walkthrough or summary bodies
+are not findings. A `CHANGES_REQUESTED` review whose body is only a quiet-mode
+walkthrough is `changes_requested_meta_only` and is treated as clean. The
 mandatory advisory local JSONL attempt remains separate under
 [`.cursor/checks/coderabbit-gate.mjs`](.cursor/checks/coderabbit-gate.mjs).
 
@@ -89,6 +97,28 @@ not stop.
 If the adapter returns `ok: true` with reason `captured_threads_resolved`,
 Step 2 is clean. Continue to ready. This reason exists only for `--loop`.
 
+If the adapter returns `ok: true` with reason `ready_no_coderabbit_review`,
+Step 2 is clean. Continue to ready. After Step 3 (draft readied or already
+ready), try one operator comment with the adapter `operatorComment` text
+via `gh pr comment <n> --body "<operatorComment>"`. Skip the comment when
+an identical comment already exists on the PR. Do not post a
+`@coderabbitai` command yourself.
+
+A failed operator comment is non-fatal. The in-VM GitHub App token often
+lacks `issues: write`, so `gh pr comment` returns 403 (`Resource not
+accessible by integration`). Log that 403 clearly, still mark the draft
+ready, and record the same note on the PR body (`gh pr edit`) when that
+write works. If the body write also fails, keep the note in this command's
+report. Never treat a comment or body-write 403 as Step 2 or Step 3 FAIL.
+
+If the adapter returns `ok: true` with reason `changes_requested_meta_only`,
+Step 2 is clean. Continue to ready. Do not treat that walkthrough body as a
+finding.
+
+If the adapter returns `ok: false` with reason `commented_review_findings`,
+emit a `/capture` fence per finding and stop. Do not escalate those
+review-body findings to `/sdd-to-tdd`.
+
 If the adapter returns active findings on any other reason, dedupe by stable
 finding ID and emit a paste-ready argv fence plus an inert report for each:
 
@@ -116,16 +146,21 @@ still blocks readying. Do not ready while those threads are open.
 Under `--loop`, reason `captured_threads_resolved` means the current-HEAD US
 review is `CHANGES_REQUESTED`, no unresolved product thread remains, and at
 least one resolved non-outdated US product thread exists. Treat that reason
-as a clean preflight and continue to ready. `/conduct` posts the ledger reply
+as a clean preflight and continue to ready.   `/conduct` posts the ledger reply
 and calls `resolveReviewThread` before this re-run. This command still does
-not comment. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still
-fails closed.
+not comment on that loop path. The only comment this command may post is the
+`ready_no_coderabbit_review` operator comment. Without `--loop`,
+`CHANGES_REQUESTED` on the current HEAD still fails closed unless the body is
+only a quiet-mode walkthrough (`changes_requested_meta_only`).
 
 If the adapter reports pending/stale review, changes requested without a
 parseable finding, wrong bot, rate limit, billing, explicit override,
 missing evidence, or API/auth failure, report that operational FAIL and
-stop. Do not disguise it as a product finding. There is no manual-review
-fallback. `incremental_paused` is not stale.
+stop. Do not disguise it as a product finding. `ready_no_coderabbit_review`
+is not an operational FAIL and is not a manual-review fallback: it means no
+formal CodeRabbit review ran on that head, so the human may trigger
+`@coderabbitai full review` or merge without one. `incremental_paused` and
+`changes_requested_meta_only` are not stale.
 
 ### 3. Ready only a clean draft
 
@@ -170,9 +205,15 @@ merge.
 
 1. Require the explicit open PR and valid feature/promotion branch shape.
 2. Freeze HEAD and verify the current US CodeRabbit result, including drafts.
-3. Route substantive findings by severity; route operational failures to their
-   concrete retry/setup action.
-4. Ready a draft only after a clean preflight.
+   Treat `ready_no_coderabbit_review` and `changes_requested_meta_only` as
+   clean preflights.
+3. Route substantive findings by severity; route COMMENTED review-body
+   findings to `/capture`; route operational failures to their concrete
+   retry/setup action.
+4. Ready a draft only after a clean preflight. Try the operator comment
+   only for `ready_no_coderabbit_review`. A 403 on that comment is
+   non-fatal: still ready, record the note on the PR body or in the report,
+   and log the 403.
 5. Re-read HEAD, CodeRabbit, threads, and required checks after readiness.
 6. Approve the operator merge only on the final clean snapshot.
 
@@ -180,10 +221,12 @@ merge.
 
 <constraints>
 - The PR argument is mandatory; never auto-discover.
-- Allowed GitHub writes are post-pass `gh pr ready <n>` and
+- Allowed GitHub writes are post-pass `gh pr ready <n>`,
   `gh pr ready --undo` when post-ready `headRefOid` differs from `preReadyHead`
-  AND this invocation executed `gh pr ready`.
-- No edits, Linear MCP, PR comments, review submissions, commits, or pushes.
+  AND this invocation executed `gh pr ready`, one `gh pr comment` when the
+  adapter reason is `ready_no_coderabbit_review`, and a PR-body append of that
+  same note when the comment returns 403.
+- No edits, Linear MCP, other PR comments, review submissions, commits, or pushes.
 - Never run `gh pr merge`.
 - Never use `@coderabbitai approve`, `@coderabbitai resolve`,
   `ignore pre-merge checks`, or `--use-credits`.
@@ -197,8 +240,9 @@ Tone: professional and actionable. Length: concise.
 Exactly these sections:
 
 1. **PR** — number, title, `<head> → <base>`, draft | ready | stopped, frozen HEAD.
-2. **US latest-head** — `green` | `incremental_paused` | `pending` | `stale` | `wrong-bot` |
-   `changes_requested` | `FAIL: <reason>`.
+2. **US latest-head** — `green` | `incremental_paused` | `ready_no_coderabbit_review` |
+   `changes_requested_meta_only` | `pending` | `stale` | `wrong-bot` |
+   `changes_requested` | `commented_review_findings` | `FAIL: <reason>`.
 3. **Finding routes** — paste-ready `/sdd-to-tdd` or `/capture` with
    `<local-ref>`; inert severity, ID, path, title, and capture provenance;
    `none` when clean.
