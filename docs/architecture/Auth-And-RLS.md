@@ -1,7 +1,7 @@
 # Auth & RLS
 
 **Status:** Reference  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-08
 
 ## Auth flow
 
@@ -202,14 +202,20 @@ Spec:
 [../specs/menu-availability.md](../specs/menu-availability.md) AC-2, MT-4, MT-4a, MT-4c, MT-4e, MT-6a.
 
 `validate_reservation_availability` (`enforce_booking_rules`) is
-`SECURITY DEFINER` so that insert-only path can still cover-count and
+`SECURITY DEFINER` with `SET search_path TO public` so that insert-only path can still cover-count and
 table-fit `reservations` / `tables` for the occupancy window (booking-rules
 BW-9), compatible-table bookability (BW-12), and slot/service cover caps
 (BW-18 / BW-19 / BW-20). It is trigger-only, not a
-guest RPC: every migration that `CREATE OR REPLACE`s the function immediately
-follows the body with `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC`
+guest RPC. Every unqualified `CREATE OR REPLACE` while the function is still in `public`
+immediately follows the body with `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM PUBLIC`
 and `REVOKE ALL ON FUNCTION public.validate_reservation_availability() FROM anon, authenticated`
-(`CREATE OR REPLACE` preserves an already-open ACL). Spec:
+(`CREATE OR REPLACE` preserves an already-open ACL).
+`20261008120000_private_validate_reservation_availability.sql` then moves it with
+`ALTER FUNCTION public.validate_reservation_availability() SET SCHEMA private`,
+rebinds `enforce_booking_rules` to `EXECUTE FUNCTION private.validate_reservation_availability()`,
+and revokes `USAGE` on schema `private` plus `EXECUTE` on
+`private.validate_reservation_availability()` from `PUBLIC`, `anon`, and `authenticated`.
+That move stays a dated file after every unqualified `CREATE OR REPLACE`; folding it into baseline lets a later unqualified writer recreate the function in `public` and leave the trigger on a stale private body. Exposed API schemas stay `public` and `graphql_public`. Spec:
 [../specs/booking-rules.md](../specs/booking-rules.md) RES-TRIGGER-EXEC.
 Last-writer body is identical in baseline,
 `20260818162000_operating_hour_segments.sql`,
