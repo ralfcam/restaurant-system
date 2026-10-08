@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-07
+**Last updated:** 2026-10-08
 
 ## Layout
 
@@ -158,7 +158,7 @@
   convert/confirm export, EI-9 isolation scan)
 - Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
   `guestEmailFromRouteParam`, `buildGuestProfile` summary, RES-PRIV, staff
-  gate + ficha Save/PII/history table, `incidents.test.ts` (GI-1–GI-6), `merge.test.ts` (GM-1–GM-6), `segmentation.test.ts` (GS-1–GS-6), PII `ok` / `notFound`, live
+  gate + ficha Save/PII/history table, `incidents.test.ts` (GI-1–GI-6), `merge.test.ts` (GM-1–GM-6), `segmentation.test.ts` (GS-1–GS-6), PII trim and bounds (`invalidInput`, `nameRequired`, `nameTooLong`, `phoneInvalid`; blank phone stored as `""`), `ok` / `notFound`, live
   `email_normalized` read, reservation-row `fichaHref` `Link`,
   `playwright-local-supabase.test.ts` source-scan of Playwright `globalSetup`)
 
