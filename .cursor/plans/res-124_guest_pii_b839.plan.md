@@ -7,9 +7,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 - Your **only direct writes** are: (1) the **approved spec edit** under
   `docs/specs/**` (local: after operator yes; managed Cloud: the exact path
   listed in `## Permissions Requested`), (2) the findings revision pass on
-  `docs/findings/runs/<plan-slug>.md` after every phase (and, at close-out, the
-  merge of its open lines into `docs/findings/<category>.md` + prune to
-  `archive.md`), (3) appending Refactor close-out sections to
+  `docs/findings/runs/<plan-slug>.md` after every phase, (3) appending Refactor close-out sections to
   `docs/verifier-reports/tdd/<plan-slug>.md` after each `tdd-refactor` phase,
   and (4) at close-out, **`## Suggested Review Order (collated)`** (Step 4D),
   **`## Traceability (final)`**, and **`## Run metrics`** (Step 4E) in the same
@@ -19,7 +17,9 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   (`docs/findings/<category>.md`) write, `pnpm exec prettier --write` **that
   file** (never `prettier --write .`). Snapshot trees (`docs/eval`,
   `docs/verifier-reports`, `docs/findings/runs`) are prettierignored.
-  Everything else is delegated.
+  Everything else is delegated. The close-out merge of that run file's open
+  lines into `docs/findings/<category>.md` goes through `docs-updater`
+  `ledger-apply`, consistent with the archive-prune instruction below.
 - **Every test change** comes from a `tdd-red` Task call. **Every source change**
   from `tdd-green`. **Every cleanup / re-verify** from `tdd-refactor`. Run them
   sequentially, one **phase** at a time (not one criterion at a time), honoring
@@ -102,8 +102,10 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   pass reconciles, it doesn't blind-append: remove entries this phase resolved
   in-run, dedupe/sharpen existing ones, append only genuinely new out-of-scope
   items that no later criterion handles, and drop process notes. At close-out,
-  **merge** the run file's open lines into the matching `docs/findings/<category>.md`
-  (dedupe/sharpen), delegate `linear-resolver` to read the (already-curated)
+  the merge of the run file's open lines into the matching
+  `docs/findings/<category>.md` (dedupe/sharpen) goes through `docs-updater`
+  `ledger-apply`, consistent with the archive prune below. Delegate
+  `linear-resolver` to read the (already-curated)
   `docs/findings/*.md` (plus the plan's Out-of-Scope Findings table), file the
   findings as linked Linear issues (your confirmation gates creation — managed
   Cloud does not auto-confirm net-new finding issues; persist to the ledger and

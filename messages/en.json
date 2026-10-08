@@ -735,7 +735,8 @@
       "notFound": "Guest profile not found.",
       "nameRequired": "Please enter a guest name.",
       "nameTooLong": "Name is too long.",
-      "phoneInvalid": "Please provide a valid phone number."
+      "phoneInvalid": "Please provide a valid phone number.",
+      "invalidInput": "Name and phone must be text."
     }
   },
   "auth": {

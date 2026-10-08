@@ -229,4 +229,36 @@ describe("updateGuestProfilePii", () => {
       phone: "",
     })
   })
+
+  it("updateGuestProfilePii rejects a non-string guest_name or phone and does not update", async () => {
+    const { updateGuestProfilePii } =
+      (await import("@/app/actions/guest-profiles")) as {
+        updateGuestProfilePii: UpdateGuestProfilePii
+      }
+
+    const badName = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: 12 as unknown as string,
+      phone: "555-0100",
+    })
+    expect(badName).toEqual({ error: "errors.guestProfiles.invalidInput" })
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+
+    mocks.from.mockClear()
+    mocks.update.mockClear()
+    mocks.eq.mockClear()
+    mocks.createServiceClient.mockClear()
+
+    const badPhone = await updateGuestProfilePii({
+      email: piiDraft.email,
+      guest_name: "Ada Lovelace",
+      phone: null as unknown as string,
+    })
+    expect(badPhone).toEqual({ error: "errors.guestProfiles.invalidInput" })
+    expect(mocks.update).not.toHaveBeenCalled()
+    expect(mocks.createServiceClient).not.toHaveBeenCalled()
+
+    expectCatalogKey("errors.guestProfiles.invalidInput")
+  })
 })

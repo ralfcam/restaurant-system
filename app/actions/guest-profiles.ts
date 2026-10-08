@@ -63,6 +63,10 @@ export async function updateGuestProfilePii(input: {
   const staffUser = await requireStaffUser()
   if (!staffUser) return { error: "errors.guestProfiles.unauthorized" }
 
+  if (typeof input.guest_name !== "string" || typeof input.phone !== "string") {
+    return { error: "errors.guestProfiles.invalidInput" }
+  }
+
   const trimmedGuestName = input.guest_name.trim()
   if (!trimmedGuestName) return { error: "errors.guestProfiles.nameRequired" }
   if (trimmedGuestName.length > GUEST_NAME_MAX_LENGTH) {
