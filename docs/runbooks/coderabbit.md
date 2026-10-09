@@ -1,15 +1,22 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-10-08
+**Last updated:** 2026-10-09
 
-This repository uses **one** CodeRabbit installation: **US Team**. The CLI
-spawn and the Cloud `install` helper are paused. Pull request reviews still
-come from **`coderabbitai`** (App ID `347564`) when a formal review runs.
-`/ready-merge-release` does not block a latest head that has no formal
-CodeRabbit review (`ready_no_coderabbit_review`): it marks the draft ready
-and tries an operator comment so a human can trigger
-`@coderabbitai full review` or merge without one. A 403 on that comment
+This repository uses **one** CodeRabbit installation: **US Team**. The
+Cloud `install` helper stays paused. `/push` runs one local CLI pass over
+the committed branch diff against `origin/staging` after the cursor-head
+firewall has finalized `HEAD` and before `git push`.
+`/commit` and `/sdd-to-tdd` STEP 4G do not spawn the CLI. Pull request
+reviews still come from **`coderabbitai`** (App ID `347564`) when a formal
+review runs. `/ready-merge-release` pauses for a second review only when
+an automated review is in progress on the draft's latest commit. When no
+review is running, it goes straight to `ready_no_coderabbit_review` with
+no blind wait: it marks the draft ready and tries an operator comment so
+a human can trigger `@coderabbitai full review` or merge without one. An
+expired `review_in_progress` wait is carried as that same reason into Step
+4, which does not start a second unbounded wait. Formal reviews, threads,
+HEAD identity, and required checks still apply. A 403 on that comment
 (missing `issues: write`) is non-fatal; the note goes on the PR body or in
 the agent report. Actionable findings that do exist, including a
 `COMMENTED` review body with actionable comments, still block into
@@ -99,9 +106,11 @@ Exit `0` is schema-valid. Exit `1` is missing, unreadable, or invalid YAML.
 
 ## Agentic API key (Cloud / headless)
 
-The CLI is paused. Cloud `install` does not run the helper, and the local
-gate records `cli_paused` without spawning `coderabbit`. The notes below
-are the resume path.
+Cloud `install` does not run the helper. The dirty-tree work-order path
+still records `cli_paused` without spawning `coderabbit`. `/push`
+`--branch-diff` actually runs the CLI when a key is present; if the CLI
+is unavailable it records that and continues. The notes below are the
+auth and resume path.
 
 Browser OAuth does not persist into Cursor Cloud. Provision an **Agentic**
 API key (not a user API key) from the **US** account:
@@ -235,14 +244,14 @@ creator when present) or an `isUsApp` check-run or check-suite on HEAD
 (CodeRabbit label `name` or `app.name`) without a new
 review is `incremental_paused`: leftover threads go to `/capture` and
 `/ready-merge-release` may PASS. If CodeRabbit reports a rate limit, wait for the reset time
-before relying on another review. Local 4G records `unavailable` and
+before relying on another review. The `/push` CLI pass records `unavailable` and
 continues; G-CR3 remains blocked. Do **not** substitute a manual review, and
 do **not** treat a passing **Review rate limited** GitHub check as approval.
 
 ### Billing confirmation
 
 If the CLI or GitHub check asks for a billing/usage confirmation, resolve
-billing in the US dashboard, then re-run. Local 4G records `unavailable` and
+billing in the US dashboard, then re-run. The `/push` CLI pass records `unavailable` and
 continues; G-CR3 remains blocked. Do not report billing as a clean review.
 
 ### Missing `cr` on Windows
@@ -307,15 +316,28 @@ Do not infer these from YAML. Re-run the commands.
 
 ## Factory gates
 
-Local close-out (`/sdd-to-tdd` STEP 4G) must run
-`node .cursor/checks/coderabbit-gate.mjs` and write an ignored audit receipt
-under `.cursor/hooks/state/`. The attempt records `attemptStatus` as `clean`,
-`findings`, or `unavailable` with a stable `reason`. Findings at every severity
-and authentication/setup failure, rate limit, billing, timeout, skipped
-review, malformed/partial JSONL, and reviewed-file/scope mismatch are advisory:
-the attempt exits zero and close-out continues. File-list aliases
+`/push` must run
+`node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging`
+and write an ignored audit receipt under `.cursor/hooks/state/`. The attempt
+records `attemptStatus` as `clean`, `findings`, or `unavailable` with a
+stable `reason`. Critical, Major, and unknown findings route to
+`/sdd-to-tdd`; Minor and Trivial route to `/capture` by severity, including
+in-scope Minor and Trivial, and push in the same pass. Only a nonempty
+`/sdd-to-tdd` list routes or stops. One fix round only, kept across its
+fix commit via `--fix-round` or the leftover record. On `route`, printed
+`fixRound` is the started round. After a successful `git push`,
+`--ack-push` clears the saved cycle. `runCr` uses an absolute deadline as
+well as inactivity and records `unavailable` / `timeout` on either
+expiry. Auth `--version` and `auth status --agent` use the same finite
+timeout. Then push anyway and
+list leftovers. A failed `git diff` for
+`--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
+`--branch-diff` `secret_path` and a non-zero gate exit still push.
+`.env.example` is not a secret. A successful empty diff stays `clean`.
+Unavailable CLI (no key, error, timeout) still pushes. File-list aliases
 (`reviewedFiles`, `files`, `filesToReview`) are still inspected independently
-so parsing failures remain visible in the receipt.
+so parsing failures remain visible in the receipt. `/sdd-to-tdd` STEP 4G
+and `/commit` do not run the CLI.
 
 Missing/malformed work orders, secret paths, unrelated dirty paths, no
 reviewable paths, and changed bytes are hard failures. The command re-hashes
@@ -333,7 +355,10 @@ before unresolved-thread routing. Unresolved US threads whose path is
 under `.cursor/plans/` or whose `isOutdated` is boolean `true` are
 process-meta; they do not fail as
 `unresolved_threads` and do not appear in routed findings. An unresolved
-non-outdated US thread on any other path still fails closed. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. Under `--loop` only, exempt `.cursor/plans/` threads and review-body findings that all route to `/capture` are reason `capture_only_findings` (one `/capture` fence per finding, then Step 2 is clean and the draft is readied). A collected finding that routes to `/sdd-to-tdd` is reason `changes_requested_body_findings` and routes to `/sdd-to-tdd`. `/conduct` treats `capture_only_findings` as a clean loop preflight. `/conduct` posts one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and runs `/ready-merge-release <PR> --loop` again. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
+non-outdated US thread on any other path still fails closed. When current
+HEAD has no ranked US review, in-progress-on-head is checked before
+`incremental_paused` and before `stale_approval`. `--review-wait-expired` maps `review_in_progress` to
+`ready_no_coderabbit_review`. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. Under `--loop` only, exempt `.cursor/plans/` threads and review-body findings that all route to `/capture` are reason `capture_only_findings` (one `/capture` fence per finding, then Step 2 is clean and the draft is readied). A collected finding that routes to `/sdd-to-tdd` is reason `changes_requested_body_findings` and routes to `/sdd-to-tdd`. `/conduct` treats `capture_only_findings` as a clean loop preflight. `/conduct` posts one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and runs `/ready-merge-release <PR> --loop` again. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
 `/ready-merge-release PR#`. Adapter `incremental_paused` leftovers (any
 severity) go to `/capture` and Step 2 is clean. Otherwise Critical/Major

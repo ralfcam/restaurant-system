@@ -41,8 +41,9 @@ A `COMMENTED` review whose body carries actionable comments still blocks and
 routes every finding to `/capture`. Quiet-mode walkthrough or summary bodies
 are not findings. A `CHANGES_REQUESTED` review whose body is only a quiet-mode
 walkthrough is `changes_requested_meta_only` and is treated as clean. The
-mandatory advisory local JSONL attempt remains separate under
-[`.cursor/checks/coderabbit-gate.mjs`](.cursor/checks/coderabbit-gate.mjs).
+mandatory advisory local CodeRabbit attempt lives on `/push` via
+[`.cursor/checks/coderabbit-gate.mjs`](.cursor/checks/coderabbit-gate.mjs)
+`--branch-diff`. `/commit` does not run the CLI.
 
 CodeRabbit severity routing is exact:
 
@@ -106,8 +107,19 @@ stop. Do not ready the draft.
 If the adapter returns `ok: true` with reason `captured_threads_resolved`,
 Step 2 is clean. Continue to ready. This reason exists only for `--loop`.
 
+If the adapter returns `ok: false` with reason `review_in_progress`,
+CodeRabbit has an automated review in flight on this head (in-progress
+comment or status for that SHA). Pause for that second review only then.
+Poll the adapter again within the existing bounded ticks (the same
+bounded interval and at-most-10-minute cap used in Step 4). When a later
+tick returns any other reason, continue this step with that result. If
+the ticks expire and the reason is still `review_in_progress`, treat Step
+2 as `ready_no_coderabbit_review`, record that expired-wait decision, and
+continue — do not wait forever.
+
 If the adapter returns `ok: true` with reason `ready_no_coderabbit_review`,
-Step 2 is clean. Continue to ready. After Step 3 (draft readied or already
+Step 2 is clean. **No blind wait** — go straight to ready when no review
+is running on this head. After Step 3 (draft readied or already
 ready), try one operator comment with the adapter `operatorComment` text
 via `gh pr comment <n> --body "<operatorComment>"`. Skip the comment when
 an identical comment already exists on the PR. Do not post a
@@ -168,10 +180,12 @@ missing evidence, or API/auth failure, report that operational FAIL and
 stop. Do not disguise it as a product finding. `ready_no_coderabbit_review`
 is not an operational FAIL and is not a manual-review fallback: it means no
 formal CodeRabbit review ran on that head, so the human may trigger
-`@coderabbitai full review` or merge without one. `incremental_paused`,
+`@coderabbitai full review` or merge without one. Do not insert a blind
+wait before that reason. Wait only when `review_in_progress` is true for
+this head SHA. `incremental_paused`,
 `changes_requested_meta_only`, and `capture_only_findings` are not stale.
 `changes_requested_body_findings` is a `/sdd-to-tdd` route, not this
-operational FAIL.
+operational FAIL. Formal review gating that does exist is unchanged.
 
 ### 3. Ready only a clean draft
 
@@ -193,8 +207,15 @@ no mutation (already-ready), HEAD drift MUST STOP with no `--undo`.
 Run the adapter again without draft allowance:
 
 ```powershell
-node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop]
+node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop] [--review-wait-expired]
 ```
+
+If Step 2 already expired the `review_in_progress` wait and treated it as
+`ready_no_coderabbit_review`, pass `--review-wait-expired` so the adapter
+maps `review_in_progress` to `ready_no_coderabbit_review`. Do not start a
+second unbounded wait. Formal `APPROVED` / `CHANGES_REQUESTED` reviews,
+unresolved threads, HEAD identity, and required checks still apply. Bound
+any latest-head wait to the same interval and 10-minute cap.
 
 Then inspect `statusCheckRollup`/`gh pr checks <n>`. Poll at a bounded interval
 for at most 10 minutes after `gh pr ready`; pending is not pass. Fail on any
@@ -217,7 +238,9 @@ merge.
 1. Require the explicit open PR and valid feature/promotion branch shape.
 2. Freeze HEAD and verify the current US CodeRabbit result, including drafts.
    Treat `ready_no_coderabbit_review` and `changes_requested_meta_only` as
-   clean preflights.
+   clean preflights. Pause only when `review_in_progress` is set for this
+   head; otherwise no blind wait. An expired `review_in_progress` wait
+   stays `ready_no_coderabbit_review` through Step 4.
 3. Route substantive findings by severity; route COMMENTED review-body
    findings to `/capture`; route operational failures to their concrete
    retry/setup action.
@@ -241,7 +264,7 @@ merge.
 - Never run `gh pr merge`.
 - Never use `@coderabbitai approve`, `@coderabbitai resolve`,
   `ignore pre-merge checks`, or `--use-credits`.
-- Remote review never substitutes for the mandatory advisory local JSONL attempt.
+- Remote review never substitutes for the mandatory advisory local CodeRabbit attempt on `/push`.
 - Inability to verify is FAIL, never a silent pass.
 </constraints>
 
@@ -252,9 +275,10 @@ Exactly these sections:
 
 1. **PR** — number, title, `<head> → <base>`, draft | ready | stopped, frozen HEAD.
 2. **US latest-head** — `green` | `incremental_paused` | `ready_no_coderabbit_review` |
-   `changes_requested_meta_only` | `capture_only_findings` | `pending` | `stale` |
-   `wrong-bot` | `changes_requested` | `changes_requested_body_findings` |
-   `commented_review_findings` | `FAIL: <reason>`.
+   `review_in_progress` | `changes_requested_meta_only` | `capture_only_findings` |
+   `pending` | `stale` | `wrong-bot` | `changes_requested` |
+   `changes_requested_body_findings` | `commented_review_findings` |
+   `FAIL: <reason>`.
 3. **Finding routes** — paste-ready `/sdd-to-tdd` or `/capture` with
    `<local-ref>`; inert severity, ID, path, title, and capture provenance;
    `none` when clean.

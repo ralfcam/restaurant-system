@@ -1,0 +1,31 @@
+{
+  "isDraft": true,
+  "headSha": "abc123",
+  "pull": {
+    "number": 12,
+    "isDraft": true,
+    "base": "staging",
+    "head": "sdd/RES-1",
+    "headSha": "abc123"
+  },
+  "reviews": [
+    {
+      "user": { "login": "coderabbitai[bot]" },
+      "state": "CHANGES_REQUESTED",
+      "commit_id": "fff111aaa222bbb333ccc444ddd555eee666ffff",
+      "body": "Older head still wants changes."
+    }
+  ],
+  "threads": [],
+  "issueComments": [],
+  "reviewComments": [],
+  "checkRuns": [
+    {
+      "name": "CodeRabbit",
+      "status": "in_progress",
+      "conclusion": null,
+      "app": { "id": 347564, "slug": "coderabbit", "name": "CodeRabbit" }
+    }
+  ],
+  "statuses": []
+}

@@ -14,6 +14,10 @@ import {
   parseGitPorcelain,
   parseJsonl,
   resolveCrBinary,
+  resolveBranchDiff,
+  resolveBranchDiffPaths,
+  isCrRunExpired,
+  resolvePushPriorRound,
   reviewCommandArgs,
   unrelatedDirtyPaths,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
@@ -50,6 +54,7 @@ test("unrelatedDirtyPaths and secret paths fail the work-order", () => {
   )
   assert.equal(isSecretPath(".env"), true)
   assert.equal(isSecretPath(".env.local"), true)
+  assert.equal(isSecretPath(".env.example"), false)
   assert.equal(isSecretPath("id_rsa"), true)
   assert.equal(isSecretPath("tls.pem"), true)
   assert.equal(isSecretPath("lib/example.ts"), false)
@@ -208,6 +213,62 @@ test("review command is uncommitted+untracked with policy config and never --use
   assert.ok(args.includes(".cursor/rules/coderabbit-integration.mdc"))
   assert.ok(args.includes("docs/specs/dev-toolchain.md"))
   assert.ok(!args.includes("--use-credits"))
+  const branch = reviewCommandArgs({
+    owningSpec: "docs/specs/dev-toolchain.md",
+    base: "origin/staging",
+    branchDiff: true,
+  })
+  assert.deepEqual(branch.slice(0, 2), ["review", "--agent"])
+  assert.ok(!branch.includes("--uncommitted"))
+  assert.ok(!branch.includes("--include-untracked"))
+  assert.ok(branch.includes("origin/staging"))
+  assert.deepEqual(
+    resolveBranchDiffPaths(process.cwd(), "origin/staging", {
+      CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts,app/b.ts",
+    }),
+    ["lib/a.ts", "app/b.ts"],
+  )
+  assert.deepEqual(
+    resolveBranchDiff(process.cwd(), "origin/staging", {
+      CODERABBIT_STUB_DIFF_FAILED: "1",
+      CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts",
+    }),
+    { ok: false, paths: [], reason: "diff_failed" },
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/RES-1", head: "bbb", findingIds: ["c2"] },
+    ),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/RES-1", head: "aaa", findingIds: ["c1"] },
+    ),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(null, {
+      branch: "sdd/RES-1",
+      head: "bbb",
+      findingIds: ["c2"],
+      fixRound: 1,
+    }),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "other", head: "aaa", round: 0 },
+      {
+        branch: "sdd/RES-1",
+        head: "bbb",
+        leftoverRecord: { record: "fix_round", round: 1 },
+      },
+    ),
+    1,
+  )
   const src = readFileSync(
     join(
       process.cwd(),
@@ -220,6 +281,33 @@ test("review command is uncommitted+untracked with policy config and never --use
   )
   assert.match(src, /Never executes finding\.codegenInstructions/)
   assert.doesNotMatch(src, /\beval\(/)
+})
+
+test("isCrRunExpired fires on absolute deadline even when stdout is recent", () => {
+  assert.equal(
+    isCrRunExpired(1_000, {
+      startedAt: 100,
+      lastEvent: 990,
+      timeoutMs: 800,
+    }),
+    true,
+  )
+  assert.equal(
+    isCrRunExpired(500, {
+      startedAt: 100,
+      lastEvent: 480,
+      timeoutMs: 800,
+    }),
+    false,
+  )
+  assert.equal(
+    isCrRunExpired(1_000, {
+      startedAt: 100,
+      lastEvent: 100,
+      timeoutMs: 800,
+    }),
+    true,
+  )
 })
 
 test("resolveCrBinary prefers CODERABBIT_BIN then Windows install path", () => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, test } from "node:test"
@@ -9,7 +10,10 @@ import {
   US_LATEST_HEAD_CHECK_NAME,
   appendOperatorNoteToPrBody,
   classifyFindingRouting,
+  commentLooksReviewInProgress,
+  decidePushCliAction,
   evaluateReadyPr,
+  hasCodeRabbitReviewInProgress,
   isQuietModeWalkthroughBody,
   resolveOperatorNotePlacement,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
@@ -215,6 +219,210 @@ function commentedBodySnapshot(
     checkRuns: [],
   }
 }
+
+test("in-progress CodeRabbit check, status, or comment is review_in_progress", () => {
+  for (const file of [
+    "remote-review-in-progress-check.json",
+    "remote-review-in-progress-status.json",
+    "remote-review-in-progress-comment.json",
+  ]) {
+    const snapshot = load(file)
+    assert.equal(hasCodeRabbitReviewInProgress(snapshot), true, file)
+    const result = evaluateReadyPr(snapshot, { allowDraft: true })
+    assert.equal(result.ok, false, file)
+    assert.equal(result.reason, "review_in_progress", file)
+  }
+
+  const none = evaluateReadyPr(load("remote-pending.json"), {
+    allowDraft: true,
+  })
+  assert.equal(
+    hasCodeRabbitReviewInProgress(load("remote-pending.json")),
+    false,
+  )
+  assert.equal(none.reason, "ready_no_coderabbit_review")
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /review_in_progress/)
+  assert.match(command, /no blind wait/)
+})
+
+test("older-head CHANGES_REQUESTED plus in-progress on head is review_in_progress", () => {
+  const snapshot = load("remote-review-stale-plus-in-progress.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), true)
+  const result = evaluateReadyPr(snapshot, { allowDraft: true })
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "review_in_progress")
+})
+
+test("incremental pause plus in-progress on head is review_in_progress", () => {
+  const snapshot = load("remote-incremental-paused-in-progress.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), true)
+  const result = evaluateReadyPr(snapshot)
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "review_in_progress")
+
+  const expired = evaluateReadyPr(snapshot, { reviewWaitExpired: true })
+  assert.equal(expired.ok, true)
+  assert.equal(expired.reason, "incremental_paused")
+})
+
+test("review-wait-expired maps review_in_progress to ready_no_coderabbit_review", () => {
+  const inProgress = load("remote-review-in-progress-check.json")
+  const mapped = evaluateReadyPr(inProgress, {
+    allowDraft: true,
+    reviewWaitExpired: true,
+  })
+  assert.equal(mapped.ok, true)
+  assert.equal(mapped.reason, "ready_no_coderabbit_review")
+
+  const stalePlus = load("remote-review-stale-plus-in-progress.json")
+  const stillFormal = evaluateReadyPr(stalePlus, {
+    allowDraft: true,
+    reviewWaitExpired: true,
+  })
+  assert.equal(stillFormal.ok, false)
+  assert.equal(stillFormal.reason, "stale_approval")
+
+  const gate = spawnSync(
+    process.execPath,
+    [
+      join(process.cwd(), ".cursor", "checks", "coderabbit-pr-gate.mjs"),
+      "--snapshot",
+      join(
+        process.cwd(),
+        ".cursor",
+        "checks",
+        "fixtures",
+        "coderabbit",
+        "remote-review-in-progress-check.json",
+      ),
+      "--allow-draft",
+      "--review-wait-expired",
+    ],
+    { encoding: "utf8" },
+  )
+  assert.equal(gate.status, 0, gate.stderr)
+  assert.equal(JSON.parse(gate.stdout).reason, "ready_no_coderabbit_review")
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /--review-wait-expired/)
+})
+
+test("progress comment tied to a different commit is not the current head", () => {
+  const headSha = "abc123def456"
+  const oldSha = "fff111aaa222bbb333ccc444ddd555eee666ffff"
+  assert.equal(
+    commentLooksReviewInProgress(
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: oldSha,
+        body: "Review in progress",
+      },
+      headSha,
+    ),
+    false,
+  )
+  assert.equal(
+    commentLooksReviewInProgress(
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: headSha,
+        body: "Review in progress",
+      },
+      headSha,
+    ),
+    true,
+  )
+
+  const snapshot = load("remote-review-stale-progress-comment.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), false)
+  const result = evaluateReadyPr(snapshot, { allowDraft: true })
+  assert.equal(result.ok, true)
+  assert.equal(result.reason, "ready_no_coderabbit_review")
+})
+
+test("push CLI action routes one fix round then leftover-pushes", () => {
+  const critical = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 0,
+  })
+  assert.equal(critical.action, "route")
+  assert.equal(critical.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const major = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "major", id: "m1" }],
+    priorRound: 0,
+  })
+  assert.equal(major.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const unknown = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "nope", id: "u1" }],
+    priorRound: 0,
+  })
+  assert.equal(unknown.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const minor = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n1" }],
+    priorRound: 0,
+  })
+  assert.equal(minor.action, "push")
+  assert.equal(minor.record, "capture_and_push")
+  assert.equal(minor.capture[0].command, "/capture")
+
+  const inScopeMinor = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n2", inScope: true }],
+    priorRound: 0,
+  })
+  assert.equal(inScopeMinor.action, "push")
+  assert.equal(inScopeMinor.record, "capture_and_push")
+  assert.equal(inScopeMinor.capture[0].command, "/capture")
+  assert.equal(inScopeMinor.sddToTdd.length, 0)
+
+  const emptyRouted = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(emptyRouted.action, "push")
+  assert.equal(emptyRouted.sddToTdd.length, 0)
+
+  const leftover = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 1,
+  })
+  assert.equal(leftover.action, "push")
+  assert.equal(leftover.record, "leftover_after_fix_round")
+  assert.equal(leftover.leftover.length, 1)
+
+  const unavailable = decidePushCliAction({
+    attemptStatus: "unavailable",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(unavailable.action, "push")
+  assert.equal(unavailable.record, "unavailable")
+
+  const clean = decidePushCliAction({
+    attemptStatus: "clean",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(clean.action, "push")
+  assert.deepEqual(clean.leftover, [])
+})
 
 test("no formal review on latest head is ready_no_coderabbit_review with operator comment", () => {
   const none = evaluateReadyPr(load("remote-pending.json"))

@@ -313,10 +313,25 @@ describe("G-CR2 empty reviewedFiles fallback", () => {
     )
     const normalized = gcr2Body.replace(/\s+/g, " ")
     expect(normalized).toContain("Mandatory advisory local JSONL review")
+    expect(normalized).toContain("/push")
+    expect(normalized).toContain("--branch-diff")
+    expect(normalized).not.toContain("before `/commit`")
     expect(normalized).toContain("are advisory outcomes")
     expect(normalized).toContain("it never authorizes or blocks")
     expect(normalized).toContain("missing or malformed work order")
     expect(normalized).toContain("dirty bytes changing during review")
     expect(normalized).toContain("G-CR3 stays fail-closed and unchanged")
+    expect(normalized).toMatch(
+      /On the dirty-tree work-order path only[\s\S]*cli_paused/,
+    )
+    expect(normalized).not.toMatch(
+      /While the CLI pause is in effect, a run that is not/,
+    )
+    expect(normalized).toContain("print `fixRound` as the started round")
+    expect(normalized).toContain("--ack-push")
+    expect(normalized).toContain("clear the saved fix-round file")
+    expect(normalized).toContain("absolute deadline")
+    expect(normalized).toContain("unavailable")
+    expect(normalized).toContain("timeout")
   })
 })

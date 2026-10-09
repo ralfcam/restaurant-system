@@ -273,8 +273,8 @@ A cloud PR was not produced by `/commit`, so it usually has no
 No Linear MCP. Do not invent an ID.
 
 When the title/body is missing owning spec/criteria, fresh executed-test
-evidence from this worktree gate, or optional audit-only CodeRabbit 4G
-`attemptStatus`/`reason` metadata, append those facts in the same edit (never
+evidence from this worktree gate, or optional audit-only CodeRabbit
+`/push` CLI `attemptStatus`/`reason` metadata, append those facts in the same edit (never
 overwrite). Handoff is draft CodeRabbit review →
 `/ready-merge-release <PR#>` → operator merge.
 
