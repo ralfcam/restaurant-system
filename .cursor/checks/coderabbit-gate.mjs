@@ -30,12 +30,13 @@ import {
   loadPushRound,
   loadWaivers,
   parseJsonl,
-  resolveBranchDiffPaths,
+  resolveBranchDiff,
   resolveCrBinary,
   resolveDirtyPaths,
   resolveHead,
   resolveManifest,
   reviewCommandArgs,
+  resolvePushPriorRound,
   savePushRound,
   saveReceipt,
   branchDiffBaseExists,
@@ -236,13 +237,19 @@ async function main() {
   let owningSpec = owningSpecArg
   let base
   let scope
+  let branchDiffFailed = false
   if (branchDiff) {
     base = argValue("--base") || "origin/staging"
     owningSpec = owningSpecArg || null
-    const paths = resolveBranchDiffPaths(cwd, base)
-    const secrets = paths.filter(isSecretPath)
-    if (secrets.length) fail("secret_path", { paths: secrets })
-    scope = { ok: true, reviewablePaths: paths }
+    const diff = resolveBranchDiff(cwd, base)
+    if (!diff.ok) {
+      branchDiffFailed = true
+      scope = { ok: true, reviewablePaths: [] }
+    } else {
+      const secrets = diff.paths.filter(isSecretPath)
+      if (secrets.length) fail("secret_path", { paths: secrets })
+      scope = { ok: true, reviewablePaths: diff.paths }
+    }
   } else {
     const workOrder = loadWorkOrder(argValue("--work-order"))
     owningSpec = owningSpecArg || workOrder.owningSpec
@@ -268,6 +275,8 @@ async function main() {
   let evaluated
   if (!isTestMode() && !branchDiff) {
     evaluated = unavailable("cli_paused", [], waivers)
+  } else if (branchDiff && branchDiffFailed) {
+    evaluated = unavailable("diff_failed", [], waivers)
   } else if (branchDiff && !branchDiffBaseExists(cwd, base)) {
     evaluated = unavailable("missing_base", [], waivers)
   } else if (branchDiff && scope.reviewablePaths.length === 0) {
@@ -357,7 +366,11 @@ async function main() {
   })
   saveReceipt(defaultStateDir(), receipt)
   const prior = loadPushRound(defaultStateDir())
-  const priorRound = prior.branch === branch ? Number(prior.round) || 0 : 0
+  const priorRound = resolvePushPriorRound(prior, {
+    branch,
+    head,
+    findingIds: receipt.findingIds,
+  })
   const decision = branchDiff
     ? decidePushCliAction({
         attemptStatus: receipt.attemptStatus,

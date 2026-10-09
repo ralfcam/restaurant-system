@@ -18,7 +18,8 @@ The Cloud flow is `/sdd-to-tdd` → `/commit` → `/push`. `/commit` does not
 run the CLI. `/sdd-to-tdd` STEP 4G does not spawn it either.
 
 `/push` runs **one** mandatory advisory local CodeRabbit attempt over the
-whole committed branch diff against `origin/staging` before `git push`:
+whole committed branch diff against `origin/staging` after the cursor-head
+firewall has finalized `HEAD` and before `git push`:
 
 `node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging`
 

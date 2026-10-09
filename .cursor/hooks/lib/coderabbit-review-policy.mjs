@@ -576,21 +576,63 @@ export function savePushRound(stateDir, record) {
   writeFileSync(pushRoundPath(stateDir), JSON.stringify(record, null, 2))
 }
 
+export function resolveBranchDiff(
+  cwd = process.cwd(),
+  base = "origin/staging",
+  env = process.env,
+) {
+  if (env.CODERABBIT_STUB_DIFF_FAILED === "1") {
+    return { ok: false, paths: [], reason: "diff_failed" }
+  }
+  if (Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
+    return {
+      ok: true,
+      paths: env.CODERABBIT_STUB_BRANCH_DIFF.split(",")
+        .map((s) => posixPath(s.trim()))
+        .filter(Boolean),
+    }
+  }
+  const result = spawnSync("git", ["diff", "--name-only", `${base}...HEAD`], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  })
+  if (result.status !== 0) {
+    return { ok: false, paths: [], reason: "diff_failed" }
+  }
+  return {
+    ok: true,
+    paths: String(result.stdout || "")
+      .split(/\r?\n/)
+      .map((s) => posixPath(s.trim()))
+      .filter(Boolean),
+  }
+}
+
 export function resolveBranchDiffPaths(
   cwd = process.cwd(),
   base = "origin/staging",
   env = process.env,
 ) {
-  if (Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
-    return env.CODERABBIT_STUB_BRANCH_DIFF.split(",")
-      .map((s) => posixPath(s.trim()))
-      .filter(Boolean)
+  return resolveBranchDiff(cwd, base, env).paths
+}
+
+export function resolvePushPriorRound(
+  prior,
+  { branch, head, findingIds = [] } = {},
+) {
+  if (!prior || prior.branch !== branch) return 0
+  if (head && prior.head && prior.head !== head) return 0
+  const saved = new Set(prior.findingIds || [])
+  if (
+    saved.size > 0 &&
+    findingIds.length > 0 &&
+    (saved.size !== findingIds.length ||
+      findingIds.some((id) => !saved.has(id)))
+  ) {
+    return 0
   }
-  const text = gitCapture(["diff", "--name-only", `${base}...HEAD`], cwd)
-  return text
-    .split(/\r?\n/)
-    .map((s) => posixPath(s.trim()))
-    .filter(Boolean)
+  return Number(prior.round) || 0
 }
 
 export function branchDiffBaseExists(

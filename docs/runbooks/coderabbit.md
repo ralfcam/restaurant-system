@@ -5,7 +5,8 @@
 
 This repository uses **one** CodeRabbit installation: **US Team**. The
 Cloud `install` helper stays paused. `/push` runs one local CLI pass over
-the committed branch diff against `origin/staging` before `git push`.
+the committed branch diff against `origin/staging` after the cursor-head
+firewall has finalized `HEAD` and before `git push`.
 `/commit` and `/sdd-to-tdd` STEP 4G do not spawn the CLI. Pull request
 reviews still come from **`coderabbitai`** (App ID `347564`) when a formal
 review runs. `/ready-merge-release` pauses for a second review only when

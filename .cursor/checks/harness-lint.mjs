@@ -509,6 +509,7 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "origin/staging",
     "one fix round",
     "mandatory advisory local CodeRabbit attempt",
+    "cursor-head firewall",
   ],
   ".cursor/commands/intake.md": [
     "/ready-merge-release",
@@ -529,6 +530,7 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "`gh pr merge`",
     "review_in_progress",
     "no blind wait",
+    "expired-wait",
   ],
   ".cursor/rules/coderabbit-integration.mdc": [
     "0.7.6",

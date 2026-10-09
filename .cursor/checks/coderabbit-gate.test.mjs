@@ -334,6 +334,23 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     const emptyBody = JSON.parse(empty.stdout)
     assert.equal(emptyBody.attemptStatus, "clean")
     assert.equal(emptyBody.action, "push")
+
+    const failedDiff = runBranchDiff("local-clean.jsonl", {
+      CODERABBIT_STUB_DIFF_FAILED: "1",
+    })
+    assert.equal(failedDiff.status, 0, failedDiff.stderr)
+    const failedBody = JSON.parse(failedDiff.stdout)
+    assert.equal(failedBody.attemptStatus, "unavailable")
+    assert.equal(failedBody.reason, "diff_failed")
+    assert.equal(failedBody.action, "push")
+
+    const newHead = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "cafebabe",
+    })
+    assert.equal(newHead.status, 0, newHead.stderr)
+    const newHeadBody = JSON.parse(newHead.stdout)
+    assert.equal(newHeadBody.action, "route")
+    assert.equal(newHeadBody.record, "fix_round")
   })
 
   test("pr-gate snapshots: clean and no-formal-review pass; rate-limit fails", () => {

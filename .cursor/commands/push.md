@@ -122,10 +122,38 @@ gate red. Product-code agents already live under `/sdd-to-tdd` (`tdd-red` /
 `tdd-green` / `tdd-refactor`) — pass a valid `bug:` (or `RES-###`) argument;
 do not invent a classifier agent.
 
+### 1a. Cursor-head firewall
+
+When the current branch matches
+`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`:
+
+1. `git fetch origin staging` and `git fetch origin main`.
+2. Descendant check: `git merge-base --is-ancestor origin/staging HEAD`.
+   - Exit 0: continue.
+   - Exit 1: drift. `git merge origin/staging`. Never rebase. Never
+     force-push. If the merge fails, STOP.
+   - Exit 128 / missing refs: STOP — `cannot verify` ancestry.
+3. Drag-in check: if
+   `git rev-list --count origin/staging..origin/main` is greater than 0 and
+   `git merge-base --is-ancestor origin/main HEAD` exits 0, STOP. Merging
+   `origin/staging` cannot drop those commits, and rebase is forbidden.
+4. After the checks (and any merge), build the `## Gate evidence` block with
+   the CLI. Pass the current PR body on stdin, or an empty stdin when
+   creating. `Head:` is the full `HEAD` SHA. `Result:` is `pass` or
+   `merged origin/staging`.
+
+   ```powershell
+   node .cursor/checks/gate-evidence.mjs replace --head <sha> --result <pass|merged origin/staging>
+   ```
+
+This step finalizes `HEAD` before the local CodeRabbit pass. Non-`cursor/`
+heads skip it.
+
 ### 1b. Local CodeRabbit CLI (one pass, branch diff vs `origin/staging`)
 
-After the whole-suite gate is green and **before** `git push`, run **one**
-mandatory advisory local CodeRabbit attempt over the whole committed branch
+After the whole-suite gate is green, after the cursor-head firewall has
+finalized `HEAD`, and **before** `git push`, run **one** mandatory advisory
+local CodeRabbit attempt over the whole committed branch
 diff against `origin/staging`:
 
 ```powershell
@@ -173,30 +201,6 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
 - If a PR argument was given whose head is a **different** branch than the
   current one, also skip the push here (note why) — you push only the current
   branch; the pinned PR's own commits are already on its head.
-
-### 2b. Cursor-head firewall
-
-When the current branch matches
-`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`:
-
-1. `git fetch origin staging` and `git fetch origin main`.
-2. Descendant check: `git merge-base --is-ancestor origin/staging HEAD`.
-   - Exit 0: continue.
-   - Exit 1: drift. `git merge origin/staging`. Never rebase. Never
-     force-push. If the merge fails, STOP.
-   - Exit 128 / missing refs: STOP — `cannot verify` ancestry.
-3. Drag-in check: if
-   `git rev-list --count origin/staging..origin/main` is greater than 0 and
-   `git merge-base --is-ancestor origin/main HEAD` exits 0, STOP. Merging
-   `origin/staging` cannot drop those commits, and rebase is forbidden.
-4. After the checks (and any merge), build the `## Gate evidence` block with
-   the CLI. Pass the current PR body on stdin, or an empty stdin when
-   creating. `Head:` is the full `HEAD` SHA. `Result:` is `pass` or
-   `merged origin/staging`.
-
-   ```powershell
-   node .cursor/checks/gate-evidence.mjs replace --head <sha> --result <pass|merged origin/staging>
-   ```
 
 ### 3. Resolve the PR
 
@@ -341,11 +345,13 @@ When the current branch matches
    (AC-1312-2), and emit a paste-ready Operator next with a required
    argument — never a generic "fix lint + typecheck + test:unit", empty `/sdd-to-tdd`, or
    `/capture`.
-   1b. Run one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass.
-   On `action: route`, STOP and hand Critical/Major/unknown to `/sdd-to-tdd`
-   and Minor/Trivial to `/capture`, then `/commit` then `/push`. After one
-   fix round, push anyway and list leftover findings. Unavailable CLI:
-   push and record. Never wait forever.
+   1a. On a `cursor/` head, run the cursor-head firewall and any
+   `origin/staging` merge so `HEAD` is final.
+   1b. Run one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass
+   against that finalized `HEAD`. On `action: route`, STOP and hand
+   Critical/Major/unknown to `/sdd-to-tdd` and Minor/Trivial to `/capture`,
+   then `/commit` then `/push`. After one fix round, push anyway and list
+   leftover findings. Unavailable CLI: push and record. Never wait forever.
 2. Push the current branch if it has unpushed commits (skip with a note if
    nothing to push, or if a pinned PR's head differs).
 3. Resolve the PR — pinned via the argument, or auto-discovered by current

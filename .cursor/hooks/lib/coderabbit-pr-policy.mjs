@@ -285,7 +285,10 @@ export function decidePushCliAction({
   }
   const routed = (findings || []).map((finding) => ({
     ...finding,
-    ...classifyFindingRouting(finding),
+    ...classifyFindingRouting({
+      severity: finding.severity,
+      body: finding.body,
+    }),
   }))
   if (priorRound >= PUSH_CLI_FIX_ROUND_CAP) {
     return {

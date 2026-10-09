@@ -313,6 +313,15 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
   assert.equal(minor.action, "route")
   assert.equal(minor.capture[0].command, "/capture")
 
+  const inScopeMinor = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n2", inScope: true }],
+    priorRound: 0,
+  })
+  assert.equal(inScopeMinor.action, "route")
+  assert.equal(inScopeMinor.capture[0].command, "/capture")
+  assert.equal(inScopeMinor.sddToTdd.length, 0)
+
   const leftover = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "critical", id: "c1" }],

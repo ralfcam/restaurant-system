@@ -114,7 +114,8 @@ Poll the adapter again within the existing bounded ticks (the same
 bounded interval and at-most-10-minute cap used in Step 4). When a later
 tick returns any other reason, continue this step with that result. If
 the ticks expire and the reason is still `review_in_progress`, treat Step
-2 as `ready_no_coderabbit_review` and continue — do not wait forever.
+2 as `ready_no_coderabbit_review`, record that expired-wait decision, and
+continue — do not wait forever.
 
 If the adapter returns `ok: true` with reason `ready_no_coderabbit_review`,
 Step 2 is clean. **No blind wait** — go straight to ready when no review
@@ -209,6 +210,13 @@ Run the adapter again without draft allowance:
 node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop]
 ```
 
+If Step 2 already expired the `review_in_progress` wait and treated it as
+`ready_no_coderabbit_review`, carry that decision here: do not start a
+second unbounded wait when the post-ready adapter still returns
+`review_in_progress`. Formal `APPROVED` / `CHANGES_REQUESTED` reviews,
+unresolved threads, HEAD identity, and required checks still apply. Bound
+any latest-head wait to the same interval and 10-minute cap.
+
 Then inspect `statusCheckRollup`/`gh pr checks <n>`. Poll at a bounded interval
 for at most 10 minutes after `gh pr ready`; pending is not pass. Fail on any
 required failing/cancelled/pending check. For `staging → main`, the Actions
@@ -231,7 +239,8 @@ merge.
 2. Freeze HEAD and verify the current US CodeRabbit result, including drafts.
    Treat `ready_no_coderabbit_review` and `changes_requested_meta_only` as
    clean preflights. Pause only when `review_in_progress` is set for this
-   head; otherwise no blind wait.
+   head; otherwise no blind wait. An expired `review_in_progress` wait
+   stays `ready_no_coderabbit_review` through Step 4.
 3. Route substantive findings by severity; route COMMENTED review-body
    findings to `/capture`; route operational failures to their concrete
    retry/setup action.

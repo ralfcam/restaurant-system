@@ -14,7 +14,9 @@ import {
   parseGitPorcelain,
   parseJsonl,
   resolveCrBinary,
+  resolveBranchDiff,
   resolveBranchDiffPaths,
+  resolvePushPriorRound,
   reviewCommandArgs,
   unrelatedDirtyPaths,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
@@ -223,6 +225,27 @@ test("review command is uncommitted+untracked with policy config and never --use
       CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts,app/b.ts",
     }),
     ["lib/a.ts", "app/b.ts"],
+  )
+  assert.deepEqual(
+    resolveBranchDiff(process.cwd(), "origin/staging", {
+      CODERABBIT_STUB_DIFF_FAILED: "1",
+      CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts",
+    }),
+    { ok: false, paths: [], reason: "diff_failed" },
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/RES-1", head: "bbb", findingIds: ["c2"] },
+    ),
+    0,
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/RES-1", head: "aaa", findingIds: ["c1"] },
+    ),
+    1,
   )
   const src = readFileSync(
     join(
