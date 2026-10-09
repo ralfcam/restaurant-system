@@ -159,7 +159,7 @@
 - Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
   `guestEmailFromRouteParam`, `buildGuestProfile` summary, RES-PRIV, staff
   gate + ficha Save/PII/history table, `incidents.test.ts` (GI-1–GI-6), `merge.test.ts` (GM-1–GM-6), `segmentation.test.ts` (GS-1–GS-6), PII trim and bounds (`invalidInput`, `nameRequired`, `nameTooLong`, `phoneInvalid`; blank phone stored as `""`), `ok` / `notFound`, live
-  `email_normalized` read, reservation-row `fichaHref` `Link`,
+  `email_normalized` read with the ficha column allowlist (never `*`) and named history fields (no row spread), reservation-row `fichaHref` `Link`,
   `playwright-local-supabase.test.ts` source-scan of Playwright `globalSetup`)
 
 ## Conventions

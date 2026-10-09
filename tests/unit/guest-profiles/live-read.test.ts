@@ -188,4 +188,55 @@ describe("getGuestProfile live read", () => {
       ]),
     )
   })
+
+  it("getGuestProfile selects the ficha allowlist and never star", async () => {
+    const { getGuestProfile } =
+      (await import("@/app/actions/guest-profiles")) as {
+        getGuestProfile: (email: string) => Promise<GuestProfile>
+      }
+
+    const selects: string[] = []
+    mocks.from.mockImplementation(() => {
+      const resolved = { data: [] as Row[], error: null }
+      const builder: Record<string, unknown> = {}
+      const self = new Proxy(builder, {
+        get(_target, prop) {
+          if (prop === "then") {
+            return (
+              resolve: (value: typeof resolved) => unknown,
+              reject?: (reason: unknown) => unknown,
+            ) => Promise.resolve(resolved).then(resolve, reject)
+          }
+          if (prop === "select") {
+            return (columns: string) => {
+              selects.push(columns)
+              return self
+            }
+          }
+          return () => self
+        },
+      })
+      return self
+    })
+
+    await getGuestProfile("ada@ex.com")
+
+    expect(selects).toHaveLength(1)
+    const argument = selects[0]
+    expect(argument.split(",").map((part) => part.trim())).toEqual([
+      "id",
+      "email",
+      "guest_name",
+      "phone",
+      "notes",
+      "date",
+      "time",
+      "party_size",
+      "table_label",
+      "status",
+      "cancelled_at",
+      "seated_at",
+    ])
+    expect(argument).not.toContain("*")
+  })
 })

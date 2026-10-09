@@ -206,4 +206,44 @@ describe("buildGuestProfile", () => {
     expect(emails).not.toContain("ada@ex.com")
     expect(emails).not.toContain("ben@ex.com")
   })
+
+  it("history rows keep named fields and drop extra reservation columns", () => {
+    const reservations = [
+      {
+        id: "res-1",
+        email: "ada@ex.com",
+        guest_name: "Ada",
+        phone: "+41 79 000 00 00",
+        notes: "window",
+        date: "2026-09-20",
+        time: "20:00",
+        party_size: 2,
+        table_label: "12",
+        status: "confirmed",
+        conf_code: "ABC123",
+        created_at: "2026-09-01T00:00:00.000Z",
+        cancelled_at: "2026-09-19T00:00:00.000Z",
+        seated_at: "2026-09-20T20:10:00.000Z",
+      },
+    ]
+    const profile = buildGuestProfile(
+      "ada@ex.com",
+      reservations as Array<{ email: string }>,
+    )
+    expect(profile.history).toEqual([
+      {
+        id: "res-1",
+        email: "ada@ex.com",
+        guest_name: "Ada",
+        phone: "+41 79 000 00 00",
+        notes: "window",
+        date: "2026-09-20",
+        time: "20:00",
+        party_size: 2,
+        table_label: "12",
+        status: "confirmed",
+        isVisit: false,
+      },
+    ])
+  })
 })

@@ -22,7 +22,9 @@ export async function getGuestProfile(email: string): Promise<
 
   const { data, error } = await createServiceClient()
     .from("reservations")
-    .select("*")
+    .select(
+      "id, email, guest_name, phone, notes, date, time, party_size, table_label, status, cancelled_at, seated_at",
+    )
     // GP-2: generated trim+lower key — not exact stored email.
     .eq("email_normalized", normalizeGuestEmail(email))
   if (error) {
