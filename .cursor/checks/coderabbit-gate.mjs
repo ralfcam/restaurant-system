@@ -20,6 +20,7 @@ import {
   POLICY_REL,
   applyWaivers,
   assertPinnedUsAuth,
+  shouldReinstallCli,
   buildReceipt,
   clearPushRound,
   configHashes,
@@ -179,6 +180,9 @@ function readPinnedAuth(cwd, { timeoutMs } = {}) {
     versionRun.signal === "SIGTERM"
   ) {
     return { timedOut: true, bin }
+  }
+  if (versionRun.error?.code === "ENOENT") {
+    return { bin, version: "", auth: "", spawnErrorCode: "ENOENT" }
   }
   const authRun = spawnTimed(bin, ["auth", "status", "--agent"], {
     cwd,
@@ -350,7 +354,39 @@ async function main() {
         : assertPinnedUsAuth({
             version: pinned.version,
             auth: pinned.auth,
+            spawnErrorCode: pinned.spawnErrorCode,
           })
+      if (
+        !evaluated &&
+        !isTestMode() &&
+        branchDiff &&
+        shouldReinstallCli(authCheck)
+      ) {
+        const install = spawnTimed(
+          "sh",
+          [resolve(cwd, ".cursor/cloud-install-coderabbit.sh")],
+          { cwd, timeoutMs },
+        )
+        if (
+          install.error?.code === "ETIMEDOUT" ||
+          install.signal === "SIGTERM"
+        ) {
+          evaluated = unavailable("timeout", [], waivers)
+          authCheck = { ok: false, reason: "timeout" }
+        } else {
+          pinned = readPinnedAuth(cwd, { timeoutMs })
+          if (pinned.timedOut) {
+            evaluated = unavailable("timeout", [], waivers)
+            authCheck = { ok: false, reason: "timeout" }
+          } else {
+            authCheck = assertPinnedUsAuth({
+              version: pinned.version,
+              auth: pinned.auth,
+              spawnErrorCode: pinned.spawnErrorCode,
+            })
+          }
+        }
+      }
       if (!authCheck.ok) {
         evaluated = unavailable(authCheck.reason, [], waivers)
       } else {
@@ -406,7 +442,7 @@ async function main() {
   }
 
   const receipt = buildReceipt({
-    cliVersion: pinned?.version || PINNED_CLI_VERSION,
+    cliVersion: authCheck?.version || pinned?.version || "",
     region: authCheck?.region || pinned?.auth?.region || "unknown",
     attemptStatus: evaluated.attemptStatus,
     reason: evaluated.reason,

@@ -9,19 +9,41 @@ the committed branch diff against `origin/staging` after the cursor-head
 firewall has finalized `HEAD` and before `git push`.
 `/commit` and `/sdd-to-tdd` STEP 4G do not spawn the CLI. Pull request
 reviews still come from **`coderabbitai`** (App ID `347564`) when a formal
-review runs. `/ready-merge-release` pauses for a second review only when
+review runs. `/push` posts no pull-request comment. A missing binary is
+`cli_missing` and a reported version other than the pin is
+`version_mismatch`; the branch-diff pass runs
+`.cursor/cloud-install-coderabbit.sh` once and then re-reads version and
+auth. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
+`attemptStatus:` for that SHA. `/ready-merge-release` does not post a
+review trigger. On 2026-10-09 the cursor GitHub App token received HTTP 403
+`Resource not accessible by integration` creating an issue comment on pull
+request 201, so the trigger never reached CodeRabbit and was dropped.
+`/ready-merge-release` pauses for a second review only when
 an automated review is in progress on the draft's latest commit. When no
-review is running, it goes straight to `ready_no_coderabbit_review` with
+review is running and there is no bot-skip notice, it goes straight to
+`ready_no_coderabbit_review` with
 no blind wait: it marks the draft ready and tries an operator comment so
-a human can trigger `@coderabbitai full review` or merge without one. An
-expired `review_in_progress` wait is carried as that same reason into Step
-4, which does not start a second unbounded wait. Formal reviews, threads,
+a human can trigger `@coderabbitai full review` or merge without one. A
+bot-skip notice ("Review skipped" and "Bot user detected") with no formal
+review on the head is blocking `coderabbit_review_skipped` unless that
+same head's CLI evidence is `clean`, which is `ready_cli_evidence`. Clean
+CLI evidence on the current head also turns `stale_approval` into
+`ready_cli_evidence`. `findings`, `unavailable`, or clean evidence for an
+older SHA only stay blocking. An
+expired `review_in_progress` wait is carried as `ready_no_coderabbit_review`
+only when there is no bot-skip notice. With a skip notice it becomes
+`coderabbit_review_skipped` or `ready_cli_evidence`. Step
+4 does not start a second unbounded wait. Formal reviews, threads,
 HEAD identity, and required checks still apply. A 403 on that comment
 (missing `issues: write`) is non-fatal; the note goes on the PR body or in
 the agent report. Actionable findings that do exist, including a
 `COMMENTED` review body with actionable comments, still block into
 `/capture`. Quiet-mode walkthrough bodies are not findings. CLI pin
-`0.7.6` remains in the unused helper. When the CLI runs again, it must
+`0.9.0` stays in `.cursor/cloud-install-coderabbit.sh`. Release `0.7.6`
+has no `SHA256SUMS.sig`. `/push` runs that
+helper once when the branch-diff pass sees `cli_missing` or
+`version_mismatch`. The Cloud `environment.json` install still does not
+call the helper. When the CLI runs, it must
 authenticate against [app.coderabbit.ai](https://app.coderabbit.ai) with
 `"region":"us"`.
 
@@ -41,7 +63,7 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 2. In the US dashboard
    ([app.coderabbit.ai](https://app.coderabbit.ai)), confirm this
    repository is connected and billed on the **Team** plan with a seat.
-3. Local CLI: `cr --version` must print `0.7.6`. `cr auth status --agent`
+3. Local CLI: `cr --version` must print `0.9.0`. `cr auth status --agent`
    must report `"region":"us"`. If it does not, re-authenticate to US.
 4. GitHub App identity on this repository is US `coderabbitai`
    (`347564`). YAML does not prove the live App. Check a recent commit:
@@ -66,11 +88,12 @@ connected.
 
 Install is per-user; administrator rights are not required.
 
-Pin the Windows installer to CodeRabbit CLI v0.7.6 (`cr --version`
-prints `0.7.6`; do not set `CODERABBIT_VERSION=v0.7.6`):
+Pin the Windows installer to CodeRabbit CLI 0.9.0 (`cr --version`
+prints `0.9.0`; do not set a leading `v`. Release `0.7.6` has no
+`SHA256SUMS.sig`):
 
 ```powershell
-$env:CODERABBIT_VERSION = '0.7.6'
+$env:CODERABBIT_VERSION = '0.9.0'
 irm https://cli.coderabbit.ai/install.ps1 | iex
 Remove-Item Env:CODERABBIT_VERSION
 ```
@@ -129,8 +152,8 @@ corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
 ```
 
 The helper sets `CI=1` so the installer skips the interactive login prompt,
-pins `CODERABBIT_VERSION=0.7.6` (reinstalls when `coderabbit --version` is
-not `0.7.6`), and always runs:
+pins `CODERABBIT_VERSION=0.9.0` (reinstalls when `coderabbit --version` is
+not `0.9.0`), and always runs:
 
 ```sh
 coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
@@ -262,10 +285,10 @@ installer rather than copying the exe by hand.
 
 ### Wrong CLI version
 
-`coderabbit --version` / `cr --version` must print `0.7.6`. Reinstall:
+`coderabbit --version` / `cr --version` must print `0.9.0`. Reinstall:
 
 ```powershell
-$env:CODERABBIT_VERSION = '0.7.6'
+$env:CODERABBIT_VERSION = '0.9.0'
 irm https://cli.coderabbit.ai/install.ps1 | iex
 Remove-Item Env:CODERABBIT_VERSION
 ```
@@ -273,10 +296,10 @@ Remove-Item Env:CODERABBIT_VERSION
 Linux / Cloud:
 
 ```sh
-CODERABBIT_VERSION=0.7.6 curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+CODERABBIT_VERSION=0.9.0 curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 ```
 
-`CODERABBIT_VERSION=v0.7.6` 404s on `cli.coderabbit.ai`.
+`CODERABBIT_VERSION=v0.9.0` and unsigned `0.7.6` 404 on `cli.coderabbit.ai`.
 
 ### Cloud Build has CLI but reviews fail with 401
 
@@ -305,7 +328,7 @@ Do not infer these from YAML. Re-run the commands.
 
 | Check                    | Command / where                                                          | Required                                                                           |
 | ------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| CLI pin                  | `cr --version`                                                           | `0.7.6`                                                                            |
+| CLI pin                  | `cr --version`                                                           | `0.9.0`                                                                            |
 | YAML                     | `cr config validate`                                                     | exit 0                                                                             |
 | Local region             | `cr auth status --agent`                                                 | `"region":"us"`                                                                    |
 | US hosts                 | `cr doctor`                                                              | `app.coderabbit.ai` / `ide.coderabbit.ai`                                          |

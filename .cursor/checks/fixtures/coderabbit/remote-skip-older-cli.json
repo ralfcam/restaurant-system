@@ -1,0 +1,22 @@
+{
+  "isDraft": false,
+  "headSha": "abc123",
+  "body": "## CodeRabbit CLI evidence\nHead: oldsha\nattemptStatus: clean\n",
+  "pull": {
+    "number": 12,
+    "isDraft": false,
+    "base": "staging",
+    "head": "cursor/res-126-bf39",
+    "headSha": "abc123"
+  },
+  "reviews": [],
+  "threads": [],
+  "issueComments": [
+    {
+      "user": { "login": "coderabbitai[bot]" },
+      "body": "Review skipped\n\nBot user detected."
+    }
+  ],
+  "reviewComments": [],
+  "checkRuns": []
+}

@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-export const PINNED_CLI_VERSION = "0.7.6"
+export const PINNED_CLI_VERSION = "0.9.0"
 export const REQUIRED_REGION = "us"
 export const US_APP_ID = 347564
 export const US_BOT_LOGINS = Object.freeze([
@@ -165,16 +165,28 @@ export function parseAuthStatus(raw) {
   return { ok: true, region, authenticated: true }
 }
 
-export function assertPinnedUsAuth({ version, auth }) {
-  const ver = String(version || "")
-    .trim()
-    .replace(/^v/i, "")
+export function reportedCliVersion(version) {
+  const match = String(version ?? "").match(/v?(\d+\.\d+\.\d+)/i)
+  return match ? match[1] : ""
+}
+
+export function assertPinnedUsAuth({ version, auth, spawnErrorCode } = {}) {
+  const raw = String(version ?? "").trim()
+  if (spawnErrorCode === "ENOENT" || raw === "") {
+    return { ok: false, reason: "cli_missing", version: "" }
+  }
+  const ver = reportedCliVersion(raw)
   if (ver !== PINNED_CLI_VERSION) {
-    return { ok: false, reason: "version_mismatch", version: ver }
+    return { ok: false, reason: "version_mismatch", version: ver || raw }
   }
   const parsed = parseAuthStatus(auth)
   if (!parsed.ok) return parsed
   return { ok: true, version: ver, region: parsed.region }
+}
+
+export function shouldReinstallCli(authCheck) {
+  const reason = authCheck?.reason
+  return reason === "cli_missing" || reason === "version_mismatch"
 }
 
 export function parseJsonl(text) {

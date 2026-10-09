@@ -117,9 +117,27 @@ the ticks expire and the reason is still `review_in_progress`, treat Step
 2 as `ready_no_coderabbit_review`, record that expired-wait decision, and
 continue — do not wait forever.
 
+If the adapter returns `ok: false` with reason
+`coderabbit_review_skipped`, stop. Do not ready the draft. This is a bot
+skip notice ("Review skipped" and "Bot user detected") on the head with
+no formal review there, and the PR body does not record
+`attemptStatus: clean` in `## CodeRabbit CLI evidence` for that same head
+SHA. `findings`, `unavailable`, or clean evidence for an older SHA only
+stay this reason. On 2026-10-09 the cursor GitHub App token received HTTP
+403 `Resource not accessible by integration` creating an issue comment on
+pull request 201, so this command does not post a review trigger. The
+gate's allowed writes stay ready, undo, the
+`ready_no_coderabbit_review` operator comment, and that comment's body
+note.
+
+If the adapter returns `ok: true` with reason `ready_cli_evidence`, Step 2
+is clean. Continue to ready. Do not post the operator comment. This covers
+a bot skip, or `stale_approval`, when `## CodeRabbit CLI evidence` records
+`attemptStatus: clean` for the current head SHA.
+
 If the adapter returns `ok: true` with reason `ready_no_coderabbit_review`,
 Step 2 is clean. **No blind wait** — go straight to ready when no review
-is running on this head. After Step 3 (draft readied or already
+is running on this head and there is no bot-skip notice. After Step 3 (draft readied or already
 ready), try one operator comment with the adapter `operatorComment` text
 via `gh pr comment <n> --body "<operatorComment>"`. Skip the comment when
 an identical comment already exists on the PR. Do not post a
@@ -275,6 +293,7 @@ Exactly these sections:
 
 1. **PR** — number, title, `<head> → <base>`, draft | ready | stopped, frozen HEAD.
 2. **US latest-head** — `green` | `incremental_paused` | `ready_no_coderabbit_review` |
+   `ready_cli_evidence` | `coderabbit_review_skipped` |
    `review_in_progress` | `changes_requested_meta_only` | `capture_only_findings` |
    `pending` | `stale` | `wrong-bot` | `changes_requested` |
    `changes_requested_body_findings` | `commented_review_findings` |

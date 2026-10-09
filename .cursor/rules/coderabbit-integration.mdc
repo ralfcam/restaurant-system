@@ -6,7 +6,8 @@ alwaysApply: true
 # CodeRabbit integration (US Team)
 
 This repository uses **one** CodeRabbit installation: **US Team**. CLI pin is
-`0.7.6` (no leading `v`). `cr auth status --agent` must report
+`0.9.0` (no leading `v`). Release `0.7.6` has no `SHA256SUMS.sig`, so the
+authenticated Linux installer 404s on it. `cr auth status --agent` must report
 `"region":"us"`. GitHub reviews come from `coderabbitai` (App ID `347564`).
 
 CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
@@ -32,14 +33,25 @@ findings in the PR body. On `route`, printed `fixRound` is the started
 round. `--ack-push` after a successful `git push` clears the saved cycle.
 `runCr` uses an absolute deadline as well as inactivity, and records
 `unavailable` / `timeout` on either expiry. Auth `--version` and
-`auth status --agent` use the same finite timeout. If the CLI is unavailable (no key, error, timeout),
+`auth status --agent` use the same finite timeout. A missing binary is
+`cli_missing`. A reported version other than `0.9.0` is `version_mismatch`.
+The previous pin `0.7.6` is that mismatch.
+Either one, on the branch-diff pass, runs
+`.cursor/cloud-install-coderabbit.sh` once and then re-reads version and
+auth. `/push` posts no pull-request comment. It records
+`## CodeRabbit CLI evidence` with `Head:` and `attemptStatus:` for that
+SHA. If the CLI is unavailable (no key, error, timeout),
 or the gate exits non-zero / `secret_path`, push and record that. It must
-never block forever.
+never block forever. `/ready-merge-release` does not post a review trigger:
+on 2026-10-09 the cursor GitHub App token got HTTP 403 creating an issue
+comment. A bot skip with no formal head review is
+`coderabbit_review_skipped` unless that head's CLI evidence is `clean`
+(`ready_cli_evidence`). The same clean evidence covers `stale_approval`.
 
 The dirty-tree work-order path stays for tests. Outside
 `CODERABBIT_GATE_TEST=1`, that work-order path still records `unavailable` /
 `cli_paused` and does not spawn `coderabbit` or `cr`. GitHub review stays fail-closed.
-The `0.7.6` pin remains.
+The signed Linux pin is `0.9.0`.
 
 The local attempt is advisory after deterministic preflight. Findings at every
 severity and authentication/setup failure, rate limit, billing, timeout,

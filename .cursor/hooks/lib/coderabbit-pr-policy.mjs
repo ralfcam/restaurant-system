@@ -3,8 +3,11 @@
  * identity, no unresolved CodeRabbit threads except `.cursor/plans/`
  * work-orders, outdated leftovers, or incremental-pause leftovers, no
  * rate-limit/billing/override markers, and deterministic severity routing
- * for active findings. A head with no formal US review is
- * `ready_no_coderabbit_review`. A quiet-mode walkthrough with no tagged
+ * for active findings. A head with no formal US review and no bot-skip
+ * notice is `ready_no_coderabbit_review`. A bot-skip notice with no head
+ * review is `coderabbit_review_skipped` unless the PR body records clean
+ * CLI evidence for that same head (`ready_cli_evidence`). The same clean
+ * evidence also covers `stale_approval`. A quiet-mode walkthrough with no tagged
  * finding outside the walkthrough is still not a finding. A tagged
  * `cr-comment` outside the walkthrough section is still collected. A
  * COMMENTED review body with actionable comments still blocks.
@@ -327,6 +330,39 @@ export function decidePushCliAction({
     capture,
     record: "fix_round",
   }
+}
+
+export const CLI_EVIDENCE_HEADING = "## CodeRabbit CLI evidence"
+
+export function renderCliEvidenceBlock({ head, attemptStatus, reason } = {}) {
+  const lines = [
+    CLI_EVIDENCE_HEADING,
+    `Head: ${head}`,
+    `attemptStatus: ${attemptStatus}`,
+  ]
+  if (reason) lines.push(`reason: ${reason}`)
+  return `${lines.join("\n")}\n`
+}
+
+export function cliEvidenceStatusForHead(body, headSha) {
+  const want = String(headSha || "")
+  const re =
+    /## CodeRabbit CLI evidence\r?\nHead:\s*(\S+)\r?\nattemptStatus:\s*(clean|findings|unavailable)\b/g
+  let status = null
+  let match
+  while ((match = re.exec(String(body || "")))) {
+    if (match[1] === want) status = match[2]
+  }
+  return status
+}
+
+export function hasCleanCliEvidence(body, headSha) {
+  return cliEvidenceStatusForHead(body, headSha) === "clean"
+}
+
+export function isBotSkipNotice(body) {
+  const text = String(body || "")
+  return /review skipped/i.test(text) && /bot user detected/i.test(text)
 }
 
 export const NO_FORMAL_REVIEW_OPERATOR_COMMENT =
@@ -740,6 +776,21 @@ function collectLoopChangesRequestedFindings(latest, threads) {
   return [...byId.values()]
 }
 
+function headHasBotSkipNotice(snapshot, headSha) {
+  const comments = [
+    ...(snapshot?.issueComments || []),
+    ...(snapshot?.reviewComments || []),
+  ]
+  return comments.some((comment) => {
+    if (!isBotSkipNotice(comment?.body)) return false
+    const login = commentAuthorLogin(comment)
+    if (login && !isUsBotLogin(login) && !isCodeRabbitShaped(login)) {
+      return false
+    }
+    return commentMentionsHead(comment, headSha)
+  })
+}
+
 function evaluateReadyPrCore(
   snapshot,
   { allowDraft = false, loop = false, reviewWaitExpired = false } = {},
@@ -871,11 +922,34 @@ function evaluateReadyPrCore(
         findings: commentedFindings,
       }
     }
+    const prBody = snapshot.body || snapshot.pull?.body || ""
+    const cleanCli = hasCleanCliEvidence(prBody, headSha)
     const formalElsewhere = usReviews.some((review) =>
       ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
     )
     if (formalElsewhere) {
+      if (cleanCli) {
+        return {
+          ok: true,
+          reason: "ready_cli_evidence",
+          ...readyMetadata(headSha, isDraft),
+        }
+      }
       return { ok: false, reason: "stale_approval" }
+    }
+    if (headHasBotSkipNotice(snapshot, headSha)) {
+      if (cleanCli) {
+        return {
+          ok: true,
+          reason: "ready_cli_evidence",
+          ...readyMetadata(headSha, isDraft),
+        }
+      }
+      return {
+        ok: false,
+        reason: "coderabbit_review_skipped",
+        ...readyMetadata(headSha, isDraft),
+      }
     }
     return {
       ok: true,

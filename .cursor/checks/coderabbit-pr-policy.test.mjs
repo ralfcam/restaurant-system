@@ -52,6 +52,42 @@ for (const [file, ok, reason] of CASES) {
   })
 }
 
+test("bot skip with no CLI evidence is coderabbit_review_skipped", () => {
+  const result = evaluateReadyPr(load("remote-skip-no-cli.json"))
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "coderabbit_review_skipped")
+})
+
+test("bot skip with clean CLI evidence on the head is ready_cli_evidence", () => {
+  const result = evaluateReadyPr(load("remote-skip-clean-cli.json"))
+  assert.equal(result.ok, true)
+  assert.equal(result.reason, "ready_cli_evidence")
+})
+
+test("bot skip with clean CLI evidence on an older SHA stays skipped", () => {
+  const result = evaluateReadyPr(load("remote-skip-older-cli.json"))
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "coderabbit_review_skipped")
+})
+
+test("bot skip with findings or unavailable CLI evidence stays skipped", () => {
+  const findings = evaluateReadyPr(load("remote-skip-findings-cli.json"))
+  assert.equal(findings.ok, false)
+  assert.equal(findings.reason, "coderabbit_review_skipped")
+  const unavailable = evaluateReadyPr(load("remote-skip-unavailable-cli.json"))
+  assert.equal(unavailable.ok, false)
+  assert.equal(unavailable.reason, "coderabbit_review_skipped")
+})
+
+test("stale approval with clean CLI evidence on the head is ready_cli_evidence", () => {
+  const withEvidence = evaluateReadyPr(load("remote-stale-clean-cli.json"))
+  assert.equal(withEvidence.ok, true)
+  assert.equal(withEvidence.reason, "ready_cli_evidence")
+  const without = evaluateReadyPr(load("remote-stale-approval.json"))
+  assert.equal(without.ok, false)
+  assert.equal(without.reason, "stale_approval")
+})
+
 test("clean snapshot pins US app id and check name", () => {
   const result = evaluateReadyPr(load("remote-clean.json"))
   assert.equal(result.usAppId, US_APP_ID)

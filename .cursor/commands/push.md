@@ -196,6 +196,23 @@ If the CLI is unavailable (no key, error, timeout, missing
 and `attemptStatus` is `unavailable`. Push and record that reason on the
 PR body and in this report. Never wait forever for the CLI.
 
+A missing binary (`ENOENT` or empty `--version`) is `cli_missing`, not
+`version_mismatch`. `version_mismatch` is only a reported version other
+than the G-CR1 pin. On this `--branch-diff` pass, outside test mode, either
+reason runs `.cursor/cloud-install-coderabbit.sh` once, then re-reads
+`--version` and `auth status --agent` before the review. The receipt stores
+the reported version and does not substitute the pin when the report is
+empty. `/push` posts no pull-request comment. Record this block for the
+finalized head (only `attemptStatus: clean` on that same SHA is clean CLI
+evidence):
+
+```
+## CodeRabbit CLI evidence
+Head: <full HEAD sha>
+attemptStatus: clean|findings|unavailable
+reason: <reason>
+```
+
 A non-zero gate exit and `secret_path` never block the push. Record the
 reason on the PR body and continue. `.env.example` is not a secret path.
 

@@ -285,6 +285,7 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
       headSha,
     },
     headSha,
+    body: pull.body || "",
     reviews,
     issueComments,
     reviewComments,

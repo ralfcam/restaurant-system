@@ -25,13 +25,13 @@ describe("Cloud CodeRabbit US pin", () => {
     )
   })
 
-  it("pins CLI 0.7.6, reinstalls on mismatch, and fails closed for US auth", () => {
+  it("pins CLI 0.9.0, reinstalls on mismatch, and fails closed for US auth", () => {
     const script = readInstallScript()
 
     expect(script.startsWith("#!/bin/sh")).toBe(true)
     expect(script).toMatch(/^set -eu$/m)
     expect(script).toMatch(/CODERABBIT_VERSION="?\$\{PINNED_VERSION\}"?/)
-    expect(script).toMatch(/PINNED_VERSION="0\.7\.6"/)
+    expect(script).toMatch(/PINNED_VERSION="0\.9\.0"/)
     expect(script).not.toMatch(/^(?:export )?CODERABBIT_VERSION=v0\.7\.6/m)
     expect(script).toMatch(/if \[ "\$\{current\}" != "\$\{PINNED_VERSION\}" \]/)
     expect(script).toMatch(

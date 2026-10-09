@@ -46,7 +46,7 @@ corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
 ```
 
 The CodeRabbit CLI helper is paused and is not invoked from `install`.
-`.cursor/cloud-install-coderabbit.sh` still pins `CODERABBIT_VERSION=0.7.6`
+`.cursor/cloud-install-coderabbit.sh` still pins `CODERABBIT_VERSION=0.9.0`
 and fail-closed US auth for a later resume. Cloud builds clone the
 **default branch**, so the file only takes effect once it is on `main`.
 Re-check rather than trusting this line — the state moves. Use
