@@ -203,7 +203,8 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    `/ready-merge-release` and MUST NOT run `gh pr ready` to mark a PR ready.
    `gh pr ready --undo` is allowed only to return an already-ready PR to
    draft. They MUST NOT post `@coderabbitai review` and MUST NOT poll for a
-   remote CodeRabbit review.
+   remote CodeRabbit review. A published draft MUST already have completed
+   this CLI gate (a push decision) for the head it publishes.
 
    Test mode still exercises the parser.
    `critical`/`major`/`minor` findings and review unavailability
@@ -366,19 +367,23 @@ auth token`) MUST pass a finite positive `timeout` (milliseconds) to
    SUCCESS status remains `stale_approval`, unless the PR body records clean
    local CLI evidence for that same head SHA, which is `ready_cli_evidence`
    (`ok: true`). A CodeRabbit comment on the head whose body contains both
-   "Review skipped" and "Bot user detected", with no formal US review on
-   that head, is blocking `coderabbit_review_skipped` unless that same
-   clean CLI evidence is present, which is also `ready_cli_evidence`.
-   CLI evidence of `findings` or `unavailable`, or `clean` evidence for a
-   different SHA only, stays `coderabbit_review_skipped`. No review and no
-   skip notice stays `ready_no_coderabbit_review`. On 2026-10-09 the cursor
-   GitHub App token received HTTP 403 `Resource not accessible by integration`
-   when creating an issue comment on pull request 201, so a review trigger
-   never reached CodeRabbit. `/ready-merge-release` is operator/QA-owned.
+   "Review skipped" and "Bot user detected" marks a bot PR. Bot PRs do not
+   expect a formal CodeRabbit review and do not use a review trigger. That
+   decision is made before `stale_approval`. Recorded `## CodeRabbit CLI evidence`
+   for that same head SHA with `attemptStatus` `clean`, `findings`, or
+   `unavailable` is `ready_cli_evidence` (`ok: true`). Missing evidence, or
+   evidence for a different SHA only, stays blocking `coderabbit_review_skipped`.
+   No review and no skip notice stays `ready_no_coderabbit_review`, and its
+   operator comment MUST NOT tell anyone to post a review trigger. On
+   2026-10-09 the cursor GitHub App token received HTTP 403 `Resource not
+accessible by integration` when creating an issue comment on pull request
+   201, so a review trigger never reached CodeRabbit and is not used.
+   `/ready-merge-release` is operator/QA-owned.
    Agents, `/conduct`, and Cloud runs MUST NOT invoke it and MUST NOT poll
-   for a review. The QA bot posts as `ralfcam` (the CodeRabbit seat): it
-   posts `@coderabbitai review`, runs UAT, and marks the PR ready.
-   `/ready-merge-release` MUST NOT be the agent's review trigger. The
+   for a review. The QA bot posts as `ralfcam`: it runs UAT, digests the
+   agent transcript, and does not post a review trigger. Readiness is the
+   CLI evidence on the head plus that UAT.
+   `/ready-merge-release` MUST NOT be a review trigger. The
    gate's allowed writes stay the existing ready, undo,
    operator-comment, and body-note writes. When current HEAD has no ranked
    US review, `evaluateReadyPr` MUST check in-progress-on-head before
@@ -692,10 +697,12 @@ latest-head` so `on.pull_request.types` includes `edited`.
     and the hard limits, including never asking the operator a question.
     `/conduct` and Cloud runs MUST NOT call `/ready-merge-release` on an
     issue PR and MUST NOT mark a PR ready. After `/push` the issue PR stays
-    a draft. The QA bot posts as `ralfcam`, which holds the CodeRabbit seat:
-    it posts `@coderabbitai review`, runs UAT, and marks the PR ready. The
+    a draft, and that draft MUST already have completed the `/push` CLI gate
+    for its head. The QA bot posts as `ralfcam`: it runs UAT, digests the
+    agent transcript, and does not post a review trigger. Readiness is the
+    CLI evidence on the head plus that UAT. The
     operator command still documents `roundCap: 3`. `/conduct` does not run
-    it, does not poll CodeRabbit, and does not post a review trigger. The
+    it, does not poll CodeRabbit, and does not post `@coderabbitai review`. The
     lane is Linear status plus GitHub, with no labels. Todo in the current
     cycle is the queue. A `Work started:` comment is the claim. An open
     `cursor/res-<n>-<4 hex>` PR is in flight. A blocker before a PR exists

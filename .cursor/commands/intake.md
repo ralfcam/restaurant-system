@@ -276,14 +276,15 @@ When the title/body is missing owning spec/criteria, fresh executed-test
 evidence from this worktree gate, or optional audit-only CodeRabbit
 `/push` CLI `attemptStatus`/`reason` metadata, append those facts in the same edit (never
 overwrite). Handoff stops on the draft. Agents do not run
-`/ready-merge-release`. The QA bot `ralfcam` posts `@coderabbitai review`,
-runs UAT, and marks the PR ready.
+`/ready-merge-release`. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the /push CLI
+evidence on the head plus that UAT.
 
 ### 6. Leave the PR a draft
 
 - Do not request human review and do not run `gh pr ready`. Agents do not
-  run `/ready-merge-release`. The QA bot `ralfcam` posts
-  `@coderabbitai review`, runs UAT, and marks the PR ready.
+  run `/ready-merge-release`. The QA bot `ralfcam` runs UAT, digests the
+  agent transcript, and does not post a review trigger. Readiness is the
+  CLI evidence on the head plus that UAT.
 - If the PR is already ready, report that. Do not add a reviewer from this
   command.
 
@@ -294,7 +295,9 @@ runs UAT, and marks the PR ready.
   firewall outcome (already on staging | retargeted | stopped —
   rebase), worktree lint + typecheck + test:unit status, trailer status, draft
   status, and advisory checks. The next step belongs to the QA bot
-  `ralfcam`: post `@coderabbitai review`, run UAT, and mark the PR ready.
+  `ralfcam`: run UAT, digest the agent transcript, and mark the PR ready
+  from the CLI evidence on the head plus that UAT. Do not post a review
+  trigger.
   Agents do not run `/ready-merge-release`. Remote review never
   substitutes for the mandatory advisory local JSONL attempt.
 
@@ -329,8 +332,8 @@ note that rather than treating it as a gap.
 - **No Linear MCP calls, ever.** Review requests go through `gh`
   (`gh pr edit --add-reviewer`), never `save_comment`/`save_issue`.
 - **No `gh pr ready`.** Agents do not mark a PR ready and do not run
-  `/ready-merge-release`. The QA bot `ralfcam` posts `@coderabbitai review`,
-  runs UAT, and marks the PR ready.
+  `/ready-merge-release`. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the CLI
+  evidence on the head plus that UAT.
 - **DO NOT operate on a PR that is not OPEN.**
 - **DO NOT touch a non-`cursor/<slug>-<4 hex>` head.** Point at `/push`.
 - **DO NOT identify a cloud PR by author.**
@@ -370,8 +373,8 @@ Exactly these sections:
 3. **Base firewall** — "already on staging — ancestry held; no edit" | "retargeted — `<old-base>` → staging; descendant + drag-in checks held" | "stopped — head is not a descendant of `origin/staging`; rebase onto staging, then `/intake`" | "stopped — retarget would drag `origin/staging..origin/main` (<N> commits); rebase onto staging, then `/intake`" | "stopped — cannot verify ancestry".
 4. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed, isolated worktree intake-<n>)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run. On stop, remaining sections are `n/a — stopped at whole-suite gate`. Tear-down: `removed` | `failed — <why>`.
 5. **Linear trailer** — "already linked — <IDs>" | "injected — `Fixes RES-###[, …]`" | "skipped — cannot verify source issue" | "n/a — stopped earlier".
-6. **Draft** — "left a draft — QA bot `ralfcam` posts `@coderabbitai review`, runs UAT, and marks ready; agents do not run `/ready-merge-release`" | "already ready — reported, not changed" | "n/a — no PR / stopped earlier".
+6. **Draft** — "left a draft — QA bot `ralfcam` runs UAT and digests the transcript; readiness is CLI evidence on the head plus that UAT; agents do not run `/ready-merge-release`" | "already ready — reported, not changed" | "n/a — no PR / stopped earlier".
 7. **Checks** (advisory; omit if no PR) — each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local worktree lint + typecheck + test:unit is Step 4, not this section.
 8. **Linear expectations** — In Progress fires from a linked draft/open PR (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command. Report the `.cursor/environment.json` state on the default branch as observed this run.
-9. **Operator next** — "draft PR open — QA bot `ralfcam` posts `@coderabbitai review`, runs UAT, and marks ready; agents do not run `/ready-merge-release`; merge `<PR-URL>` in the GitHub UI only on `APPROVED FOR OPERATOR MERGE` — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | "no open cloud PR" (zero discovery; if Step 1 listed orphans: open a PR from the Dashboard/operator then `/intake`, or delete a plan-only stub — this command never `gh pr create`) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
+9. **Operator next** — "draft PR open — QA bot `ralfcam` runs UAT and digests the transcript; readiness is CLI evidence on the head plus that UAT; agents do not run `/ready-merge-release`; merge `<PR-URL>` in the GitHub UI only on `APPROVED FOR OPERATOR MERGE` — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | "no open cloud PR" (zero discovery; if Step 1 listed orphans: open a PR from the Dashboard/operator then `/intake`, or delete a plan-only stub — this command never `gh pr create`) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
    </output_format>

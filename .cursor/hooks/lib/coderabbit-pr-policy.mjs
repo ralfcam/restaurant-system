@@ -4,10 +4,12 @@
  * work-orders, outdated leftovers, or incremental-pause leftovers, no
  * rate-limit/billing/override markers, and deterministic severity routing
  * for active findings. A head with no formal US review and no bot-skip
- * notice is `ready_no_coderabbit_review`. A bot-skip notice with no head
- * review is `coderabbit_review_skipped` unless the PR body records clean
- * CLI evidence for that same head (`ready_cli_evidence`). The same clean
- * evidence also covers `stale_approval`. A quiet-mode walkthrough with no tagged
+ * notice is `ready_no_coderabbit_review`. A bot-skip notice does not expect
+ * a formal review. Any `## CodeRabbit CLI evidence` status for that same
+ * head (`clean`, `findings`, or `unavailable`) is `ready_cli_evidence`;
+ * missing evidence or another SHA stays `coderabbit_review_skipped`.
+ * Non-bot `stale_approval` still requires `clean` evidence. A quiet-mode
+ * walkthrough with no tagged
  * finding outside the walkthrough is still not a finding. A tagged
  * `cr-comment` outside the walkthrough section is still collected. A
  * COMMENTED review body with actionable comments still blocks.
@@ -365,7 +367,7 @@ export function isBotSkipNotice(body) {
 }
 
 export const NO_FORMAL_REVIEW_OPERATOR_COMMENT =
-  "No formal CodeRabbit review ran on this head. The draft is marked ready. Comment `@coderabbitai full review` if you want a review, or merge without one."
+  "No formal CodeRabbit review ran on this head. The draft is marked ready. Readiness is the /push CLI evidence for this SHA plus QA UAT. Do not request a CodeRabbit review."
 
 export const NO_FORMAL_REVIEW_BODY_HEADING = "## CodeRabbit note"
 
@@ -922,22 +924,11 @@ function evaluateReadyPrCore(
       }
     }
     const prBody = snapshot.body || snapshot.pull?.body || ""
-    const cleanCli = hasCleanCliEvidence(prBody, headSha)
-    const formalElsewhere = usReviews.some((review) =>
-      ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
-    )
-    if (formalElsewhere) {
-      if (cleanCli) {
-        return {
-          ok: true,
-          reason: "ready_cli_evidence",
-          ...readyMetadata(headSha, isDraft),
-        }
-      }
-      return { ok: false, reason: "stale_approval" }
-    }
+    const cliStatus = cliEvidenceStatusForHead(prBody, headSha)
+    // Bot PRs: the /push CLI record is the CodeRabbit check. A formal
+    // review is not required, and a stale one must not outrank that record.
     if (headHasBotSkipNotice(snapshot, headSha)) {
-      if (cleanCli) {
+      if (cliStatus) {
         return {
           ok: true,
           reason: "ready_cli_evidence",
@@ -949,6 +940,19 @@ function evaluateReadyPrCore(
         reason: "coderabbit_review_skipped",
         ...readyMetadata(headSha, isDraft),
       }
+    }
+    const formalElsewhere = usReviews.some((review) =>
+      ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
+    )
+    if (formalElsewhere) {
+      if (hasCleanCliEvidence(prBody, headSha)) {
+        return {
+          ok: true,
+          reason: "ready_cli_evidence",
+          ...readyMetadata(headSha, isDraft),
+        }
+      }
+      return { ok: false, reason: "stale_approval" }
     }
     return {
       ok: true,

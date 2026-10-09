@@ -70,13 +70,13 @@ test("bot skip with clean CLI evidence on an older SHA stays skipped", () => {
   assert.equal(result.reason, "coderabbit_review_skipped")
 })
 
-test("bot skip with findings or unavailable CLI evidence stays skipped", () => {
+test("bot skip with findings or unavailable CLI evidence is ready_cli_evidence", () => {
   const findings = evaluateReadyPr(load("remote-skip-findings-cli.json"))
-  assert.equal(findings.ok, false)
-  assert.equal(findings.reason, "coderabbit_review_skipped")
+  assert.equal(findings.ok, true)
+  assert.equal(findings.reason, "ready_cli_evidence")
   const unavailable = evaluateReadyPr(load("remote-skip-unavailable-cli.json"))
-  assert.equal(unavailable.ok, false)
-  assert.equal(unavailable.reason, "coderabbit_review_skipped")
+  assert.equal(unavailable.ok, true)
+  assert.equal(unavailable.reason, "ready_cli_evidence")
 })
 
 test("stale approval with clean CLI evidence on the head is ready_cli_evidence", () => {
@@ -493,7 +493,9 @@ test("no formal review on latest head is ready_no_coderabbit_review with operato
   assert.equal(none.ok, true)
   assert.equal(none.reason, "ready_no_coderabbit_review")
   assert.equal(none.operatorComment, NO_FORMAL_REVIEW_OPERATOR_COMMENT)
-  assert.match(none.operatorComment, /@coderabbitai full review/)
+  assert.match(none.operatorComment, /CLI evidence/)
+  assert.match(none.operatorComment, /QA UAT/)
+  assert.doesNotMatch(none.operatorComment, /@coderabbitai/)
 
   const draft = evaluateReadyPr(load("remote-draft.json"), { allowDraft: true })
   assert.equal(draft.ok, true)

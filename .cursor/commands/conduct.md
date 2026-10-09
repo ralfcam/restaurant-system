@@ -140,11 +140,12 @@ That comment is the claim. This command does not post one of its own.
 `/push` is this command's only CodeRabbit gate. It runs the local CLI,
 routes Critical, Major, and unknown findings to `/sdd-to-tdd` and Minor and
 Trivial findings to `/capture`, allows up to two fix rounds (three CLI
-passes), then pushes and leaves the PR a draft. `/conduct` does not wait on CodeRabbit, does not
+passes), then pushes and leaves the PR a draft. That draft has already
+passed the CLI gate for the head that was pushed. `/conduct` does not wait on CodeRabbit, does not
 poll, and does not post `@coderabbitai review`.
 
-Stop on the draft. The QA bot posts as `ralfcam` (the CodeRabbit seat): it
-posts `@coderabbitai review`, runs UAT, and marks the PR ready.
+Stop on the draft. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the /push
+CLI evidence on the head plus that UAT.
 `/ready-merge-release` stays on disk for that QA step and still documents
 `roundCap: 3`. `/conduct` does not invoke it.
 

@@ -20,34 +20,36 @@ Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
 CLI passes at most. Pass 1 routes every finding. Pass 2 routes only
 Critical, Major, and unknown findings; Minor and Trivial on that pass are
 captured and the branch pushes with no third pass. Pass 3 pushes anyway
-and lists leftovers. The PR is left a **draft**.
+and lists leftovers. The PR is left a **draft**, and that draft has already passed this CLI
+gate for the head that was pushed.
 Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do
 not run `gh pr ready`, do not post `@coderabbitai review`, and do not poll
-for a remote review. The QA bot posts as `ralfcam`, which holds the
-CodeRabbit seat: it posts `@coderabbitai review`, runs UAT, and marks the
-PR ready. `/ready-merge-release` is that operator/QA command. It does not
-post a review trigger. On 2026-10-09 the cursor GitHub App token received
-HTTP 403 `Resource not accessible by integration` creating an issue comment
-on pull request 201, so an agent trigger never reached CodeRabbit and was
-dropped. The verdicts in the rest of this section belong to that
-operator/QA command. Agents do not poll and do not wait on them.
+for a remote review. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the CLI
+evidence on the head plus that UAT. `/ready-merge-release` is that
+operator/QA command. It does not post a review trigger. On 2026-10-09 the
+cursor GitHub App token received HTTP 403 `Resource not accessible by
+integration` creating an issue comment on pull request 201, so an agent
+trigger never reached CodeRabbit and was dropped. Nobody posts one. The
+verdicts in the rest of this section belong to that operator/QA command.
+Agents do not poll and do not wait on them.
 `/ready-merge-release` pauses for a second review only when
-an automated review is in progress on the draft's latest commit. When no
-review is running and there is no bot-skip notice, it goes straight to
-`ready_no_coderabbit_review` with
-no blind wait: it marks the draft ready and tries an operator comment so
-a human can trigger `@coderabbitai full review` or merge without one. A
-bot-skip notice ("Review skipped" and "Bot user detected") with no formal
-review on the head is blocking `coderabbit_review_skipped` unless that
-same head's CLI evidence is `clean`, which is `ready_cli_evidence`. Clean
-CLI evidence on the current head also turns `stale_approval` into
-`ready_cli_evidence`. `findings`, `unavailable`, or clean evidence for an
-older SHA only stay blocking. An
-expired `review_in_progress` wait is carried as `ready_no_coderabbit_review`
-only when there is no bot-skip notice. With a skip notice it becomes
-`coderabbit_review_skipped` or `ready_cli_evidence`. Step
-4 does not start a second unbounded wait. Formal reviews, threads,
-HEAD identity, and required checks still apply. A 403 on that comment
+an automated review is in progress on a non-bot draft's latest commit.
+When no review is running and there is no bot-skip notice, it goes
+straight to `ready_no_coderabbit_review` with no blind wait: it marks the
+draft ready and tries an operator comment that does not request a
+CodeRabbit review. A bot-skip notice ("Review skipped" and "Bot user
+detected") does not expect a formal review. Recorded CLI evidence for
+that same head (`clean`, `findings`, or `unavailable`) is
+`ready_cli_evidence`. Missing evidence, or evidence for an older SHA
+only, stays blocking `coderabbit_review_skipped`. That decision is made
+before `stale_approval`. Non-bot `stale_approval` still becomes
+`ready_cli_evidence` only when the current head's evidence is `clean`.
+An expired `review_in_progress` wait is carried as
+`ready_no_coderabbit_review` only when there is no bot-skip notice. With
+a skip notice it becomes `coderabbit_review_skipped` or
+`ready_cli_evidence`. Step 4 does not start a second unbounded wait.
+Formal reviews that already exist on a non-bot PR, threads, HEAD
+identity, and required checks still apply. A 403 on that comment
 (missing `issues: write`) is non-fatal; the note goes on the PR body or in
 the agent report. Actionable findings that do exist, including a
 `COMMENTED` review body with actionable comments, still block into

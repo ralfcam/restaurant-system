@@ -308,9 +308,10 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
 
 1. Confirm `/push` opened the PR as `<head> → staging` and left it a draft.
    Agents do not request review and do not mark it ready.
-2. The QA bot `ralfcam` posts `@coderabbitai review`, runs UAT, and may run
-   `/ready-merge-release <PR#>`. Require `APPROVED FOR OPERATOR MERGE`; that
-   command verifies CodeRabbit, marks a clean draft ready, and re-checks the
+2. The QA bot `ralfcam` runs UAT, digests the agent transcript, and may run
+   `/ready-merge-release <PR#>`. It does not post a review trigger. Readiness
+   is the /push CLI evidence on the head plus that UAT. Require `APPROVED FOR OPERATOR MERGE`; that
+   command verifies that evidence, marks a clean draft ready, and re-checks the
    unchanged HEAD. Agents do not run it.
 3. Confirm the command reports required checks green.
 4. Merge the feature PR in the GitHub UI. The PR's own `Fixes RES-###`

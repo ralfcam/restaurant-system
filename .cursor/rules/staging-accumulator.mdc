@@ -47,8 +47,9 @@ Merging is the operator’s job in the GitHub UI. Commands (`/push`, `/intake`, 
 git-stage guard blocks it in Shell. Never compensate a missed Done transition
 with `save_issue`. Agents, `/conduct`, and `/push` do not invoke
 `/ready-merge-release` and do not mark a PR ready. The QA bot `ralfcam`
-posts `@coderabbitai review`, runs UAT, and may run
-`/ready-merge-release PR#`; only that command may mark a clean draft ready, and
+runs UAT, digests the agent transcript, and does not post a review
+trigger. Readiness is the /push CLI evidence on the head plus that UAT.
+It may run `/ready-merge-release PR#`; only that command may mark a clean draft ready, and
 the operator alone merges. CodeRabbit chat/Plan/Triage do not write Linear.
 
 ## Dispatch portfolio and daily queue

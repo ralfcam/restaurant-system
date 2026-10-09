@@ -47,13 +47,13 @@ never block forever. `/push` is the agent's only CodeRabbit gate. It
 opens or updates the PR as a draft and does not run `gh pr ready`.
 Agents, `/conduct`, and Cloud runs do not run `/ready-merge-release`, do
 not post `@coderabbitai review`, and do not poll for a remote review. The
-QA bot posts as `ralfcam` (the CodeRabbit seat): it posts
-`@coderabbitai review`, runs UAT, and marks the PR ready.
+QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post
+a review trigger. Readiness is the CLI evidence on the head plus that UAT.
 `/ready-merge-release` is that operator/QA command. It does not post a
 review trigger: on 2026-10-09 the cursor GitHub App token got HTTP 403
-creating an issue comment. A bot skip with no formal head review is
-`coderabbit_review_skipped` unless that head's CLI evidence is `clean`
-(`ready_cli_evidence`). The same clean evidence covers `stale_approval`.
+creating an issue comment. A bot skip is `coderabbit_review_skipped`
+unless that head's CLI evidence is `clean`, `findings`, or `unavailable`
+(`ready_cli_evidence`). Non-bot `stale_approval` still requires `clean`.
 
 The dirty-tree work-order path stays for tests. Outside
 `CODERABBIT_GATE_TEST=1`, that work-order path still records `unavailable` /
@@ -121,8 +121,8 @@ pauses for a second review only then, within the existing bounded ticks.
 When no review is running, it goes straight to
 `ready_no_coderabbit_review` with no blind wait. Formal review gating and
 `changes_requested_meta_only` are unchanged. On `ready_no_coderabbit_review`
-it marks the draft ready and tries one operator comment so the human can
-trigger `@coderabbitai full review` or merge without it. A 403 on that comment
+it marks the draft ready and tries one operator comment that does not
+request a CodeRabbit review. A 403 on that comment
 (GitHub App token lacks `issues: write`) is non-fatal: still ready, log the
 403, and record the note on the PR body or in the agent report. A
 `COMMENTED` review whose body carries actionable comments still blocks into
