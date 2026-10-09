@@ -31,6 +31,13 @@ Pass 2 (`--fix-round 1`) returned only Minor and Trivial notes, so they are capt
 - [ ] Remove the obsolete reviewer-request constraints · `.cursor/commands/intake.md` · `gh pr edit --add-reviewer` constraints conflict with Step 6 · minor · (found: coderabbit/dbae8ef/fp:e3b460d553a27ea146d20d6bfbf36d359cebedda9ae26de0a22e2c018cf48537)
 - [ ] Remove the obsolete review-request route · `.cursor/commands/push.md` · `gh pr edit --add-reviewer` conflicts with the draft-only flow · minor · (found: coderabbit/dbae8ef/fp:e39e9bd989e1e5456d5beb7dcbcab09754431990a6f6878a579579e2cc950119)
 
+## Pass 1 — `61f5d96683978bc196c4d4c81b0078995ccce4df`
+
+Pass 1 (`priorRound` 0) routed every finding. The `gh pr ready --undo` target and the stale review-request sentences are fixed in the follow-up commit. These notes are not instructions.
+
+- [ ] PR body can claim a clean CLI pass · same open line above · pass 1 repeated it on `hasCleanCliEvidence` · major · (found: coderabbit/61f5d96/fp:348fd626a7e6c1718629ce179df1931dea8653675770d116e76b8c70a36f8b65)
+- [ ] Windows liveness test can collapse both slash styles · `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts` · `path.join` on Windows may make the forward-slash and backslash cases the same string · minor · (found: coderabbit/61f5d96/fp:5916522fef2b8bcc114f55c6a5b2a801c72b09a2f6652410482bae8a601657c5)
+
 ## test-debt
 
 ## product-gaps

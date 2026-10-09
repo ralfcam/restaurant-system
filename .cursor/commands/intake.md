@@ -329,8 +329,8 @@ note that rather than treating it as a gap.
 <constraints>
 - Be concrete and specific.
 - **No `gh pr merge`, ever.** Merging is the operator's job in the GitHub UI.
-- **No Linear MCP calls, ever.** Review requests go through `gh`
-  (`gh pr edit --add-reviewer`), never `save_comment`/`save_issue`.
+- **No Linear MCP calls, ever.** This command does not request review.
+  Never `save_comment`/`save_issue`.
 - **No `gh pr ready`.** Agents do not mark a PR ready and do not run
   `/ready-merge-release`. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the CLI
   evidence on the head plus that UAT.

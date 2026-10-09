@@ -62,10 +62,10 @@ exists**. `/commit` stays entirely Linear-free (local commit only, never
 pushes). A single `/push` publishes the branch and creates or updates a
 **draft** PR; that draft/open PR event is what fires **In Progress**. `/push`
 preps the promotion close-out whenever the PR it resolves targets the default
-branch, and may **request PR review** (`gh pr edit --add-reviewer`) so
-**In Review** can fire from review activity — it never calls `gh pr ready`,
+branch. It does not request review. **In Review** can fire from review
+activity or when the QA bot marks the draft ready — `/push` never calls `gh pr ready`,
 never calls `gh pr merge`, and never calls Linear MCP. `/push` creates PRs as
-**drafts**. CodeRabbit reviews the draft HEAD; other GitHub Actions jobs may
+**drafts**. A bot PR does not wait for a formal CodeRabbit review; other GitHub Actions jobs may
 remain gated on `pull_request.draft == false`. On a fresh PR **In Review** fires
 from review activity or when `/ready-merge-release PR#` marks a clean draft
 ready; **In Progress** fires immediately via the `Draft PR open` automation.
