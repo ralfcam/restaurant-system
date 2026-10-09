@@ -843,6 +843,13 @@ function evaluateReadyPrCore(
     if (!usReviews.length && otherApproval) {
       return { ok: false, reason: "wrong_bot" }
     }
+    if (hasCodeRabbitReviewInProgress(snapshot) && !reviewWaitExpired) {
+      return {
+        ok: false,
+        reason: "review_in_progress",
+        ...readyMetadata(headSha, isDraft),
+      }
+    }
     if (incrementalPaused) {
       return {
         ok: true,
@@ -862,13 +869,6 @@ function evaluateReadyPrCore(
         ok: false,
         reason: "commented_review_findings",
         findings: commentedFindings,
-      }
-    }
-    if (hasCodeRabbitReviewInProgress(snapshot) && !reviewWaitExpired) {
-      return {
-        ok: false,
-        reason: "review_in_progress",
-        ...readyMetadata(headSha, isDraft),
       }
     }
     const formalElsewhere = usReviews.some((review) =>

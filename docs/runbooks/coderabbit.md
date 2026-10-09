@@ -324,7 +324,10 @@ stable `reason`. Critical, Major, and unknown findings route to
 `/sdd-to-tdd`; Minor and Trivial route to `/capture` by severity, including
 in-scope Minor and Trivial, and push in the same pass. Only a nonempty
 `/sdd-to-tdd` list routes or stops. One fix round only, kept across its
-fix commit via `--fix-round` or the leftover record. Then push anyway and
+fix commit via `--fix-round` or the leftover record. On `route`, printed
+`fixRound` is the started round. A completed `push` clears the saved
+cycle. `runCr` uses an absolute deadline as well as inactivity and
+records `unavailable` / `timeout` on either expiry. Then push anyway and
 list leftovers. A failed `git diff` for
 `--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
 `--branch-diff` `secret_path` and a non-zero gate exit still push.
@@ -352,7 +355,7 @@ process-meta; they do not fail as
 `unresolved_threads` and do not appear in routed findings. An unresolved
 non-outdated US thread on any other path still fails closed. When current
 HEAD has no ranked US review, in-progress-on-head is checked before
-`stale_approval`. `--review-wait-expired` maps `review_in_progress` to
+`incremental_paused` and before `stale_approval`. `--review-wait-expired` maps `review_in_progress` to
 `ready_no_coderabbit_review`. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. Under `--loop` only, exempt `.cursor/plans/` threads and review-body findings that all route to `/capture` are reason `capture_only_findings` (one `/capture` fence per finding, then Step 2 is clean and the draft is readied). A collected finding that routes to `/sdd-to-tdd` is reason `changes_requested_body_findings` and routes to `/sdd-to-tdd`. `/conduct` treats `capture_only_findings` as a clean loop preflight. `/conduct` posts one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and runs `/ready-merge-release <PR> --loop` again. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
 `/ready-merge-release PR#`. Adapter `incremental_paused` leftovers (any

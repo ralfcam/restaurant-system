@@ -349,9 +349,82 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     })
     assert.equal(newHead.status, 0, newHead.stderr)
     const newHeadBody = JSON.parse(newHead.stdout)
-    assert.equal(newHeadBody.action, "push")
-    assert.equal(newHeadBody.record, "leftover_after_fix_round")
+    assert.equal(newHeadBody.action, "route")
+    assert.equal(newHeadBody.fixRound, 1)
   })
+
+  test("route prints started fixRound and isolated second run uses that output", () => {
+    const firstDir = join(tmpdir(), `cr-gate-print-${process.pid}`)
+    mkdirSync(firstDir, { recursive: true })
+    const first = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "print-base",
+      CODERABBIT_STATE_DIR: firstDir,
+    })
+    assert.equal(first.status, 0, first.stderr)
+    const firstBody = JSON.parse(first.stdout)
+    assert.equal(firstBody.action, "route")
+    assert.equal(firstBody.record, "fix_round")
+    assert.equal(firstBody.fixRound, 1)
+
+    const isolated = join(tmpdir(), `cr-gate-print-iso-${process.pid}`)
+    mkdirSync(isolated, { recursive: true })
+    const second = runBranchDiff(
+      "local-critical.jsonl",
+      {
+        CODERABBIT_STUB_HEAD: "print-fixed",
+        CODERABBIT_STATE_DIR: isolated,
+      },
+      ["--fix-round", String(firstBody.fixRound)],
+    )
+    assert.equal(second.status, 0, second.stderr)
+    const body = JSON.parse(second.stdout)
+    assert.equal(body.action, "push")
+    assert.equal(body.record, "leftover_after_fix_round")
+  })
+
+  test("completed push clears the saved fix round for a later independent review", () => {
+    const dir = join(tmpdir(), `cr-gate-clear-${process.pid}`)
+    mkdirSync(dir, { recursive: true })
+    const first = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "clear-aaa",
+      CODERABBIT_STATE_DIR: dir,
+    })
+    assert.equal(first.status, 0, first.stderr)
+    assert.equal(JSON.parse(first.stdout).action, "route")
+
+    const leftover = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "clear-bbb",
+      CODERABBIT_STATE_DIR: dir,
+    })
+    assert.equal(leftover.status, 0, leftover.stderr)
+    assert.equal(JSON.parse(leftover.stdout).record, "leftover_after_fix_round")
+
+    const later = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "clear-ccc",
+      CODERABBIT_STATE_DIR: dir,
+    })
+    assert.equal(later.status, 0, later.stderr)
+    const laterBody = JSON.parse(later.stdout)
+    assert.equal(laterBody.action, "route")
+    assert.equal(laterBody.fixRound, 1)
+  })
+
+  test(
+    "runCr times out on continuous stdout at the absolute deadline",
+    { timeout: 5_000 },
+    async () => {
+      const { runCr } = await import("./coderabbit-gate.mjs")
+      const started = Date.now()
+      const result = await runCr(
+        process.execPath,
+        ["-e", "setInterval(() => process.stdout.write('tick\\n'), 20)"],
+        { timeoutMs: 400, cwd: ROOT },
+      )
+      const elapsed = Date.now() - started
+      assert.equal(result.timedOut, true)
+      assert.ok(elapsed < 2500, `elapsed ${elapsed}`)
+    },
+  )
 
   test("route then new head is leftover after one fix round", () => {
     const first = runBranchDiff("local-critical.jsonl", {

@@ -164,7 +164,10 @@ node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging [--f
 
 Pass `--fix-round <n>` from the prior gate output (`fixRound`) when this
 is the same remediation cycle, or pass the leftover record from the PR
-body (`--leftover-record`). That cycle survives a new HEAD and a new VM.
+body (`--leftover-record`). On `route`, `fixRound` is the started round
+(1 on the first route), not 0. That cycle survives a new HEAD and a new
+VM. A later completed `push` clears the saved cycle so an independent
+review does not inherit it.
 
 `/commit` does not run the CLI. Do not run a dirty-tree work-order review
 here. Fetch `origin/staging` first when that ref is missing.

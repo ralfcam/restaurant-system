@@ -21,11 +21,13 @@ import {
   applyWaivers,
   assertPinnedUsAuth,
   buildReceipt,
+  clearPushRound,
   configHashes,
   currentBranch,
   defaultStateDir,
   evaluateAgentStream,
   evaluateWorkOrder,
+  isCrRunExpired,
   isSecretPath,
   loadPushRound,
   loadWaivers,
@@ -106,15 +108,18 @@ function spawnOpts(bin, cwd) {
   }
 }
 
-function runCr(bin, args, { timeoutMs, cwd }) {
+export function runCr(bin, args, { timeoutMs, cwd }) {
   return new Promise((resolvePromise) => {
     const child = spawn(bin, args, spawnOpts(bin, cwd))
     let stdout = ""
     let stderr = ""
     let timedOut = false
-    let lastEvent = Date.now()
+    const startedAt = Date.now()
+    let lastEvent = startedAt
     const timer = setInterval(() => {
-      if (Date.now() - lastEvent <= timeoutMs) return
+      if (!isCrRunExpired(Date.now(), { startedAt, lastEvent, timeoutMs })) {
+        return
+      }
       timedOut = true
       child.kill()
       clearInterval(timer)
@@ -410,13 +415,17 @@ async function main() {
         priorRound,
       })
     : null
+  const startedRound =
+    decision?.action === "route" ? priorRound + 1 : priorRound
   if (decision?.action === "route") {
     savePushRound(defaultStateDir(), {
       branch,
       head,
-      round: priorRound + 1,
+      round: startedRound,
       findingIds: receipt.findingIds,
     })
+  } else if (decision?.action === "push") {
+    clearPushRound(defaultStateDir())
   }
   console.log(
     JSON.stringify(
@@ -435,7 +444,7 @@ async function main() {
               leftover: decision.leftover || [],
               sddToTdd: decision.sddToTdd || [],
               capture: decision.capture || [],
-              fixRound: priorRound,
+              fixRound: startedRound,
             }
           : {}),
       },

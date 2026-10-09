@@ -258,6 +258,18 @@ test("older-head CHANGES_REQUESTED plus in-progress on head is review_in_progres
   assert.equal(result.reason, "review_in_progress")
 })
 
+test("incremental pause plus in-progress on head is review_in_progress", () => {
+  const snapshot = load("remote-incremental-paused-in-progress.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), true)
+  const result = evaluateReadyPr(snapshot)
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "review_in_progress")
+
+  const expired = evaluateReadyPr(snapshot, { reviewWaitExpired: true })
+  assert.equal(expired.ok, true)
+  assert.equal(expired.reason, "incremental_paused")
+})
+
 test("review-wait-expired maps review_in_progress to ready_no_coderabbit_review", () => {
   const inProgress = load("remote-review-in-progress-check.json")
   const mapped = evaluateReadyPr(inProgress, {

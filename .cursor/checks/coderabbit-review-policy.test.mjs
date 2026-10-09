@@ -16,6 +16,7 @@ import {
   resolveCrBinary,
   resolveBranchDiff,
   resolveBranchDiffPaths,
+  isCrRunExpired,
   resolvePushPriorRound,
   reviewCommandArgs,
   unrelatedDirtyPaths,
@@ -280,6 +281,33 @@ test("review command is uncommitted+untracked with policy config and never --use
   )
   assert.match(src, /Never executes finding\.codegenInstructions/)
   assert.doesNotMatch(src, /\beval\(/)
+})
+
+test("isCrRunExpired fires on absolute deadline even when stdout is recent", () => {
+  assert.equal(
+    isCrRunExpired(1_000, {
+      startedAt: 100,
+      lastEvent: 990,
+      timeoutMs: 800,
+    }),
+    true,
+  )
+  assert.equal(
+    isCrRunExpired(500, {
+      startedAt: 100,
+      lastEvent: 480,
+      timeoutMs: 800,
+    }),
+    false,
+  )
+  assert.equal(
+    isCrRunExpired(1_000, {
+      startedAt: 100,
+      lastEvent: 100,
+      timeoutMs: 800,
+    }),
+    true,
+  )
 })
 
 test("resolveCrBinary prefers CODERABBIT_BIN then Windows install path", () => {

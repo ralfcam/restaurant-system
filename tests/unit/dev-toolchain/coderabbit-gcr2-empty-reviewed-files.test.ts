@@ -327,5 +327,10 @@ describe("G-CR2 empty reviewedFiles fallback", () => {
     expect(normalized).not.toMatch(
       /While the CLI pause is in effect, a run that is not/,
     )
+    expect(normalized).toContain("print `fixRound` as the started round")
+    expect(normalized).toContain("clear the saved fix-round file")
+    expect(normalized).toContain("absolute deadline")
+    expect(normalized).toContain("unavailable")
+    expect(normalized).toContain("timeout")
   })
 })

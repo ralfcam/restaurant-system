@@ -5,7 +5,13 @@
  * Never executes finding.codegenInstructions. Never passes --use-credits.
  */
 import { createHash } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { spawnSync } from "node:child_process"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -33,6 +39,17 @@ export const YAML_REL = ".coderabbit.yaml"
 export const RECEIPT_FILENAME = "coderabbit-receipt.json"
 export const WAIVERS_FILENAME = "coderabbit-waivers.json"
 export const DEFAULT_REVIEW_TIMEOUT_MS = 480_000
+
+export function isCrRunExpired(now, { startedAt, lastEvent, timeoutMs } = {}) {
+  const started = Number(startedAt)
+  const last = Number(lastEvent)
+  const limit = Number(timeoutMs)
+  if (!Number.isFinite(started) || !Number.isFinite(limit) || limit <= 0) {
+    return true
+  }
+  if (now - started > limit) return true
+  return Number.isFinite(last) && now - last > limit
+}
 
 const SECRET_PATH_RE =
   /(?:^|\/)(?:\.env(?:\..*)?|.*credentials.*|.*secret.*|id_rsa|id_ed25519)(?:$)|(?:^|\/)[^/]+\.(?:pem|key|p12|pfx)$/i
@@ -575,6 +592,11 @@ export function loadPushRound(stateDir = defaultStateDir()) {
 export function savePushRound(stateDir, record) {
   mkdirSync(stateDir, { recursive: true })
   writeFileSync(pushRoundPath(stateDir), JSON.stringify(record, null, 2))
+}
+
+export function clearPushRound(stateDir = defaultStateDir()) {
+  const path = pushRoundPath(stateDir)
+  if (existsSync(path)) unlinkSync(path)
 }
 
 export function resolveBranchDiff(
