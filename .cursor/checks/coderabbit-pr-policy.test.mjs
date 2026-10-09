@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { test } from "node:test"
+import { describe, test } from "node:test"
 import {
   NO_FORMAL_REVIEW_BODY_HEADING,
   NO_FORMAL_REVIEW_OPERATOR_COMMENT,
@@ -187,7 +187,10 @@ test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
   )
 })
 
-function commentedBodySnapshot(body, { state = "COMMENTED", sha = "abc123" } = {}) {
+function commentedBodySnapshot(
+  body,
+  { state = "COMMENTED", sha = "abc123" } = {},
+) {
   return {
     isDraft: false,
     headSha: sha,
@@ -304,10 +307,7 @@ test("operator comment 403 is non-fatal and still readies", () => {
   )
   assert.match(body, new RegExp(NO_FORMAL_REVIEW_BODY_HEADING))
   assert.match(body, /No formal CodeRabbit review/)
-  assert.equal(
-    appendOperatorNoteToPrBody(body, ready.operatorComment),
-    body,
-  )
+  assert.equal(appendOperatorNoteToPrBody(body, ready.operatorComment), body)
 
   const command = readFileSync(
     join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
@@ -382,4 +382,217 @@ test("main-gate workflow is read-only, staging→main, and named US latest-head"
   assert.doesNotMatch(yml, /github\.event\.pull_request\.base\.sha/)
   assert.doesNotMatch(yml, /--use-credits/)
   assert.doesNotMatch(yml, /gh pr merge/)
+})
+
+describe("G-CR4 loop capture_only_findings and body findings", () => {
+  test("loop exempt plan thread plus body minor is capture_only_findings", () => {
+    const snapshot = load("remote-loop-exempt-plan-body-minor.json")
+    const looped = evaluateReadyPr(snapshot, { allowDraft: true, loop: true })
+    assert.equal(looped.reason, "capture_only_findings")
+    assert.equal(looped.ok, true)
+    assert.equal(typeof looped.roundsUsed, "number")
+    assert.equal(looped.roundCap, 3)
+    assert.equal(looped.findings.length, 2)
+    assert.ok(
+      looped.findings.every((finding) => finding.command === "/capture"),
+    )
+    const plan = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:38d764802c7598c99a1a6827",
+    )
+    assert.equal(plan.process, true)
+    assert.equal(plan.path, ".cursor/plans/res-124_guest_pii_b839.plan.md")
+    assert.equal(plan.severity, "major")
+    const minor = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:ffc449232d7947fca6bb62c8",
+    )
+    assert.equal(minor.path, "app/actions/guest-profiles.ts")
+    assert.equal(minor.line, 66)
+    assert.equal(minor.severity, "minor")
+    assert.notEqual(minor.process, true)
+    assert.equal(
+      looped.findings.some(
+        (finding) => finding.id === "cr-comment:v1:footer-should-ignore",
+      ),
+      false,
+    )
+    const plain = evaluateReadyPr(snapshot, { allowDraft: true })
+    assert.equal(plain.ok, false)
+    assert.equal(plain.reason, "changes_requested")
+  })
+
+  test("exempt plan thread only is capture_only_findings and walkthrough precedence is explicit", () => {
+    const exempt = load("remote-loop-exempt-plan-only.json")
+    const looped = evaluateReadyPr(exempt, { allowDraft: true, loop: true })
+    assert.equal(looped.reason, "capture_only_findings")
+    assert.equal(looped.ok, true)
+    assert.equal(looped.findings.length, 1)
+    assert.equal(looped.findings[0].process, true)
+    assert.equal(looped.findings[0].command, "/capture")
+
+    const quietBody =
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\nMeta only.\n"
+    const walkthrough = commentedBodySnapshot(quietBody, {
+      state: "CHANGES_REQUESTED",
+    })
+    assert.equal(
+      evaluateReadyPr(walkthrough, { allowDraft: true, loop: true }).reason,
+      "changes_requested_meta_only",
+    )
+    assert.equal(
+      evaluateReadyPr(walkthrough, { allowDraft: true }).reason,
+      "changes_requested_meta_only",
+    )
+
+    const withPlan = commentedBodySnapshot(quietBody, {
+      state: "CHANGES_REQUESTED",
+    })
+    withPlan.threads = JSON.parse(JSON.stringify(exempt.threads))
+    assert.equal(
+      evaluateReadyPr(withPlan, { allowDraft: true, loop: true }).reason,
+      "capture_only_findings",
+    )
+  })
+
+  test("outdated plan thread is not a finding and a critical body finding blocks", () => {
+    const outdated = load("remote-loop-exempt-plan-body-minor.json")
+    outdated.threads[0].isOutdated = true
+    const dropped = evaluateReadyPr(outdated, {
+      allowDraft: true,
+      loop: true,
+    })
+    assert.equal(dropped.reason, "capture_only_findings")
+    assert.equal(
+      dropped.findings.some(
+        (finding) =>
+          finding.path === ".cursor/plans/res-124_guest_pii_b839.plan.md",
+      ),
+      false,
+    )
+    assert.equal(
+      dropped.findings.some(
+        (finding) => finding.id === "cr-comment:v1:ffc449232d7947fca6bb62c8",
+      ),
+      true,
+    )
+
+    const critical = evaluateReadyPr(load("remote-loop-body-critical.json"), {
+      allowDraft: true,
+      loop: true,
+    })
+    assert.equal(critical.ok, false)
+    assert.equal(critical.reason, "changes_requested_body_findings")
+    assert.equal(critical.findings[0].command, "/sdd-to-tdd")
+    assert.equal(critical.findings[0].path, "app/actions/guest-profiles.ts")
+
+    const product = {
+      headSha: "a".repeat(40),
+      isDraft: false,
+      reviews: [
+        {
+          user: { login: "coderabbitai[bot]" },
+          commit_id: "a".repeat(40),
+          state: "CHANGES_REQUESTED",
+        },
+      ],
+      threads: [
+        {
+          isResolved: false,
+          isOutdated: false,
+          path: "lib/example.ts",
+          comments: [
+            {
+              author: { login: "coderabbitai[bot]" },
+              path: "lib/example.ts",
+              body: "| _Major_ | **Example**\n<!-- cr-comment:v1:product -->\n",
+            },
+          ],
+        },
+      ],
+    }
+    const open = evaluateReadyPr(product, { allowDraft: true, loop: true })
+    assert.equal(open.reason, "unresolved_threads")
+  })
+
+  test("commands document capture_only_findings and changes_requested_body_findings", () => {
+    const docs = [
+      ".cursor/commands/ready-merge-release.md",
+      ".cursor/commands/conduct.md",
+      ".cursor/rules/coderabbit-integration.mdc",
+      "docs/runbooks/coderabbit.md",
+    ]
+    for (const rel of docs) {
+      const text = readFileSync(join(process.cwd(), rel), "utf8")
+      assert.equal(
+        text.includes("capture_only_findings"),
+        true,
+        `${rel} capture_only_findings`,
+      )
+      assert.equal(
+        text.includes("changes_requested_body_findings"),
+        true,
+        `${rel} changes_requested_body_findings`,
+      )
+    }
+    const gateSource = readFileSync(
+      join(process.cwd(), ".cursor", "checks", "coderabbit-pr-gate.mjs"),
+      "utf8",
+    )
+    const headerEnd = gateSource.indexOf("*/")
+    const header = headerEnd === -1 ? "" : gateSource.slice(0, headerEnd)
+    assert.match(header, /capture_only_findings/)
+    assert.match(header, /adapter never/)
+    assert.match(header, /\bcomments\b/)
+    assert.match(header, /\breadies\b/)
+    assert.match(header, /\bmerges\b/)
+  })
+
+  test("walkthrough plus mixed severities in one file block keeps each finding", () => {
+    const body = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+## Walkthrough
+Meta only.
+Actionable comments posted: 0
+
+<details>
+<summary>app/actions/guest-profiles.ts (2)</summary>
+<blockquote>
+
+\`10-10\`: **Stability** | **🟡 Minor** | **Quick win**
+
+**First finding.**
+
+<!-- cr-comment:v1:mixed-minor -->
+
+\`20-20\`: **Stability** | **🔴 Critical** | **Quick win**
+
+**Second finding.**
+
+<!-- cr-comment:v1:mixed-critical -->
+
+</blockquote></details>`
+    const snapshot = commentedBodySnapshot(body, {
+      state: "CHANGES_REQUESTED",
+    })
+    const looped = evaluateReadyPr(snapshot, { allowDraft: true, loop: true })
+    assert.equal(looped.reason, "changes_requested_body_findings")
+    assert.equal(looped.ok, false)
+    assert.equal(looped.findings.length, 2)
+    const minor = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:mixed-minor",
+    )
+    assert.equal(minor.path, "app/actions/guest-profiles.ts")
+    assert.equal(minor.line, 10)
+    assert.equal(minor.severity, "minor")
+    assert.equal(minor.command, "/capture")
+    const critical = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:mixed-critical",
+    )
+    assert.equal(critical.path, "app/actions/guest-profiles.ts")
+    assert.equal(critical.line, 20)
+    assert.equal(critical.severity, "critical")
+    assert.equal(critical.command, "/sdd-to-tdd")
+    assert.equal(
+      evaluateReadyPr(snapshot, { allowDraft: true }).reason,
+      "changes_requested",
+    )
+  })
 })
