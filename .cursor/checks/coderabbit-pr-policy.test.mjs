@@ -9,6 +9,7 @@ import {
   US_LATEST_HEAD_CHECK_NAME,
   appendOperatorNoteToPrBody,
   classifyFindingRouting,
+  commentLooksReviewInProgress,
   decidePushCliAction,
   evaluateReadyPr,
   hasCodeRabbitReviewInProgress,
@@ -246,6 +247,39 @@ test("in-progress CodeRabbit check, status, or comment is review_in_progress", (
   )
   assert.match(command, /review_in_progress/)
   assert.match(command, /no blind wait/)
+})
+
+test("progress comment tied to a different commit is not the current head", () => {
+  const headSha = "abc123def456"
+  const oldSha = "fff111aaa222bbb333ccc444ddd555eee666ffff"
+  assert.equal(
+    commentLooksReviewInProgress(
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: oldSha,
+        body: "Review in progress",
+      },
+      headSha,
+    ),
+    false,
+  )
+  assert.equal(
+    commentLooksReviewInProgress(
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: headSha,
+        body: "Review in progress",
+      },
+      headSha,
+    ),
+    true,
+  )
+
+  const snapshot = load("remote-review-stale-progress-comment.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), false)
+  const result = evaluateReadyPr(snapshot, { allowDraft: true })
+  assert.equal(result.ok, true)
+  assert.equal(result.reason, "ready_no_coderabbit_review")
 })
 
 test("push CLI action routes one fix round then leftover-pushes", () => {

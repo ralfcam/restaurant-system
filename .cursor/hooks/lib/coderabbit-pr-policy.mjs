@@ -228,7 +228,7 @@ function commentMentionsHead(comment, headSha) {
   const body = String(comment?.body || "")
   const commentSha =
     comment?.commit_id || comment?.commitId || comment?.commit?.oid || ""
-  if (commentSha && headSha && commentSha === headSha) return true
+  if (commentSha) return Boolean(headSha && commentSha === headSha)
   if (!headSha) return !/\b[0-9a-f]{7,40}\b/i.test(body)
   const sha = String(headSha)
   if (body.toLowerCase().includes(sha.toLowerCase())) return true

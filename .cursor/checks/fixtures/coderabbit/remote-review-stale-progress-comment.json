@@ -1,0 +1,23 @@
+{
+  "isDraft": true,
+  "headSha": "abc123def456",
+  "pull": {
+    "number": 12,
+    "isDraft": true,
+    "base": "staging",
+    "head": "sdd/RES-1",
+    "headSha": "abc123def456"
+  },
+  "reviews": [],
+  "threads": [],
+  "issueComments": [
+    {
+      "user": { "login": "coderabbitai[bot]" },
+      "commit_id": "fff111aaa222bbb333ccc444ddd555eee666ffff",
+      "body": "Review in progress"
+    }
+  ],
+  "reviewComments": [],
+  "checkRuns": [],
+  "statuses": []
+}
