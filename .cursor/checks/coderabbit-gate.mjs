@@ -44,7 +44,10 @@ import {
   saveReceipt,
   branchDiffBaseExists,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
-import { decidePushCliAction } from "../hooks/lib/coderabbit-pr-policy.mjs"
+import {
+  PUSH_CLI_FIX_ROUND_CAP,
+  decidePushCliAction,
+} from "../hooks/lib/coderabbit-pr-policy.mjs"
 
 function argValue(name) {
   const idx = process.argv.indexOf(name)
@@ -476,7 +479,9 @@ async function main() {
       })
     : null
   const startedRound =
-    decision?.action === "route" ? priorRound + 1 : priorRound
+    decision?.action === "route"
+      ? Math.min(priorRound + 1, PUSH_CLI_FIX_ROUND_CAP)
+      : Math.min(priorRound, PUSH_CLI_FIX_ROUND_CAP)
   if (decision?.action === "route") {
     savePushRound(defaultStateDir(), {
       branch,

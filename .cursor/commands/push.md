@@ -153,7 +153,7 @@ When the current branch matches
 This step finalizes `HEAD` before the local CodeRabbit pass. Non-`cursor/`
 heads skip it.
 
-### 1b. Local CodeRabbit CLI (one pass, branch diff vs `origin/staging`)
+### 1b. Local CodeRabbit CLI (counter capped at 2, branch diff vs `origin/staging`)
 
 After the whole-suite gate is green, after the cursor-head firewall has
 finalized `HEAD`, and **before** `git push`, run **one** mandatory advisory
@@ -164,14 +164,16 @@ diff against `origin/staging`:
 node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging [--fix-round <n>]
 ```
 
+`--fix-round` is a counter capped at 2, so three CLI passes at most.
 Pass `--fix-round <n>` from the prior gate output (`fixRound`) when this
 is the same remediation cycle, or pass the leftover record from the PR
 body (`--leftover-record`). On `route`, `fixRound` is the started round
-(1 on the first route), not 0. That cycle survives a new HEAD and a new
-VM. After a successful `git push`, run
+(1 on the first route, 2 on the second), not 0. That cycle survives a new
+HEAD and a new VM. After a successful `git push`, run
 `node .cursor/checks/coderabbit-gate.mjs --ack-push` so the saved cycle
 clears only once the publish landed. A failed push keeps the started
-round so the next attempt leftover-pushes instead of routing again.
+round. The next attempt continues that counter and leftover-pushes only
+when the counter is already at 2.
 
 `/commit` does not run the CLI. Do not run a dirty-tree work-order review
 here. Fetch `origin/staging` first when that ref is missing.
@@ -182,16 +184,22 @@ findings). Severity routing matches `/ready-merge-release` without `--loop`:
 - Critical / Major / unknown → `/sdd-to-tdd` as an immediate fix
 - Minor / Trivial → `/capture`
 
-**One fix round only.** If `action` is `route` and `sddToTdd` is nonempty,
-STOP. Do not push, do not create or edit a PR. Emit the paste-ready
-`/sdd-to-tdd` fences, then `/commit`, then `/push` again. Capture
-Minor/Trivial findings and push in the same pass. Only route or stop when
-there are `/sdd-to-tdd` findings.
+The cap is two fix rounds. Do not stop after one fix round when a later
+pass still has Critical, Major, or unknown findings.
 
-If this is already the second `/push` after that fix round (`action` is
-`push` with leftover findings, `record` is `leftover_after_fix_round`),
-push anyway and list the leftover findings in the PR body (create or
-append-only edit). Do not open a third CLI pass.
+- **Pass 1** (`priorRound` 0). Any finding sets `action` to `route` and
+  `record` to `fix_round`. STOP. Do not push, do not create or edit a PR.
+  Fix every finding: Critical, Major, and unknown through `/sdd-to-tdd`;
+  Minor and Trivial through `/capture`. Then `/commit`, then `/push` again
+  with `--fix-round` set to the printed `fixRound` (1).
+- **Pass 2** (`--fix-round 1`). If `sddToTdd` is nonempty, STOP and fix
+  only those Critical, Major, and unknown findings. Then `/commit`, then
+  `/push` with `--fix-round 2`. If the pass has only Minor or Trivial
+  findings, capture them and push in this same pass. Do not open a third
+  CLI pass. `record` is `capture_and_push`.
+- **Pass 3** (`--fix-round 2`, or `record` is `leftover_after_fix_round`).
+  Push anyway and list the leftover findings in the PR body (create or
+  append-only edit). Do not open a fourth CLI pass.
 
 If the CLI is unavailable (no key, error, timeout, missing
 `origin/staging`, skipped review, malformed JSONL), `action` is `push`
@@ -280,13 +288,13 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
          and criterion IDs, fresh executed-test evidence from this turn's
          whole-suite gate, and optional audit-only CodeRabbit CLI
          `attemptStatus`/`reason` metadata when present. A missing receipt is
-         non-blocking. List leftover CLI findings after one fix round.
+         non-blocking. List leftover CLI findings after the capped fix rounds.
        - If `<current-branch>` is any other non-default head: `--base staging`;
          derive title and body from `git log origin/staging...HEAD` (never
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
          Include the same Linear URL, owning spec/criteria, executed-test
          evidence, optional audit-only CLI attempt metadata, and leftover
-         CLI findings after one fix round.
+         CLI findings after the capped fix rounds.
        - **Duplicate issue PR.** When `<current-branch>` matches
          `cursor/res-<n>-<4 hex>`, list open PRs and **STOP** if another
          open PR's `headRefName` starts with `cursor/res-<n>-`. Do not open
@@ -333,7 +341,7 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
 - Do not post `@coderabbitai review` and do not poll for a remote review.
   `/push` posts no pull-request comment. Record `## CodeRabbit CLI evidence`
   (`Head:` and `attemptStatus:`) for the finalized head in the PR body,
-  plus any leftover CLI findings after the one fix round.
+  plus any leftover CLI findings after the capped fix rounds.
 - Agents do not run `/ready-merge-release`. The QA bot `ralfcam` posts
   `@coderabbitai review`, runs UAT, and marks the PR ready.
 
@@ -374,10 +382,12 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
    1a. On a `cursor/` head, run the cursor-head firewall and any
    `origin/staging` merge so `HEAD` is final.
    1b. Run one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass
-   against that finalized `HEAD`. On `action: route`, STOP and hand
-   Critical/Major/unknown to `/sdd-to-tdd` and Minor/Trivial to `/capture`,
-   then `/commit` then `/push`. After one fix round, push anyway and list
-   leftover findings. Unavailable CLI: push and record. Never wait forever.
+   against that finalized `HEAD`, passing `--fix-round` when this continues
+   a capped cycle. Pass 1 routes every finding. Pass 2 routes only
+   Critical/Major/unknown. Pass 2 Minor/Trivial capture-and-push with no
+   third pass. Pass 3 pushes anyway and lists leftovers. On `action: route`,
+   STOP, fix, `/commit`, then `/push`. Unavailable CLI: push and record.
+   Never wait forever.
 2. Push the current branch if it has unpushed commits (skip with a note if
    nothing to push, or if a pinned PR's head differs).
 3. Resolve the PR — pinned via the argument, or auto-discovered by current
@@ -453,7 +463,7 @@ Tone: professional and actionable. Length: concise.
 Exactly these sections:
 
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
-2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (one fix round)" ; CLI: `clean` | `findings routed` | `leftover listed` | `unavailable recorded`.
+2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (fix round <n> of 2)" ; CLI: `clean` | `findings routed` | `leftover listed` | `unavailable recorded`.
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Draft** — "left a draft" | "returned to draft — `gh pr ready --undo`" | "n/a — no PR". Agents do not run `/ready-merge-release`.

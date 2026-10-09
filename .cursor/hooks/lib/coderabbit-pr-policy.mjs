@@ -14,13 +14,14 @@
  */
 import {
   US_APP_ID,
+  PUSH_CLI_FIX_ROUND_CAP,
   containsOverrideMarker,
   eventLooksBilling,
   eventLooksRateLimited,
   isUsBotLogin,
 } from "./coderabbit-review-policy.mjs"
 
-export { US_APP_ID }
+export { US_APP_ID, PUSH_CLI_FIX_ROUND_CAP }
 
 export const US_LATEST_HEAD_CHECK_NAME = "CodeRabbit US latest-head gate"
 export const REQUIRED_US_STATUS_CONTEXT = "CodeRabbit"
@@ -194,7 +195,6 @@ export function codeRabbitFindingId(comment, thread = {}) {
 }
 
 export const LOOP_ROUND_CAP = 3
-export const PUSH_CLI_FIX_ROUND_CAP = 1
 
 const IN_PROGRESS_CHECK_STATES = new Set([
   "queued",
@@ -284,6 +284,12 @@ export function hasCodeRabbitReviewInProgress(snapshot) {
   )
 }
 
+function boundedPushRound(priorRound) {
+  const round = Number(priorRound)
+  if (!Number.isFinite(round) || round < 0) return 0
+  return Math.min(round, PUSH_CLI_FIX_ROUND_CAP)
+}
+
 export function decidePushCliAction({
   attemptStatus,
   findings = [],
@@ -305,30 +311,23 @@ export function decidePushCliAction({
   }))
   const sddToTdd = routed.filter((finding) => finding.route === "sdd-to-tdd")
   const capture = routed.filter((finding) => finding.route === "capture")
-  if (!sddToTdd.length) {
+  const packet = { leftover: routed, sddToTdd, capture }
+  const round = boundedPushRound(priorRound)
+  if (round >= PUSH_CLI_FIX_ROUND_CAP) {
     return {
       action: "push",
-      leftover: routed,
-      sddToTdd,
-      capture,
-      record: capture.length ? "capture_and_push" : "push",
+      ...packet,
+      record: routed.length ? "leftover_after_fix_round" : "push",
     }
   }
-  if (priorRound >= PUSH_CLI_FIX_ROUND_CAP) {
-    return {
-      action: "push",
-      leftover: routed,
-      sddToTdd,
-      capture,
-      record: "leftover_after_fix_round",
-    }
+  // Pass 1 routes every finding. Pass 2 routes only Critical, Major, and unknown.
+  if (routed.length > 0 && (round < 1 || sddToTdd.length > 0)) {
+    return { action: "route", ...packet, record: "fix_round" }
   }
   return {
-    action: "route",
-    leftover: routed,
-    sddToTdd,
-    capture,
-    record: "fix_round",
+    action: "push",
+    ...packet,
+    record: capture.length ? "capture_and_push" : "push",
   }
 }
 

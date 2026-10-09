@@ -288,6 +288,18 @@ test("review command is uncommitted+untracked with policy config and never --use
     1,
   )
   assert.equal(
+    resolvePushPriorRound(null, {
+      fixRound: 9,
+    }),
+    2,
+  )
+  assert.equal(
+    resolvePushPriorRound(null, {
+      leftoverRecord: { record: "leftover_after_fix_round", round: 1 },
+    }),
+    2,
+  )
+  assert.equal(
     resolvePushPriorRound(
       { branch: "other", head: "aaa", round: 0 },
       {

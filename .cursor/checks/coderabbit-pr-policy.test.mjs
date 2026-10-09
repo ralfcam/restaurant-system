@@ -384,13 +384,14 @@ test("progress comment tied to a different commit is not the current head", () =
   assert.equal(result.reason, "ready_no_coderabbit_review")
 })
 
-test("push CLI action routes one fix round then leftover-pushes", () => {
+test("push CLI action routes two fix rounds then leftover-pushes", () => {
   const critical = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "critical", id: "c1" }],
     priorRound: 0,
   })
   assert.equal(critical.action, "route")
+  assert.equal(critical.record, "fix_round")
   assert.equal(critical.sddToTdd[0].command, "/sdd-to-tdd")
 
   const major = decidePushCliAction({
@@ -412,19 +413,38 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
     findings: [{ severity: "minor", id: "n1" }],
     priorRound: 0,
   })
-  assert.equal(minor.action, "push")
-  assert.equal(minor.record, "capture_and_push")
+  assert.equal(minor.action, "route")
+  assert.equal(minor.record, "fix_round")
   assert.equal(minor.capture[0].command, "/capture")
+  assert.equal(minor.sddToTdd.length, 0)
 
   const inScopeMinor = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "minor", id: "n2", inScope: true }],
     priorRound: 0,
   })
-  assert.equal(inScopeMinor.action, "push")
-  assert.equal(inScopeMinor.record, "capture_and_push")
+  assert.equal(inScopeMinor.action, "route")
+  assert.equal(inScopeMinor.record, "fix_round")
   assert.equal(inScopeMinor.capture[0].command, "/capture")
   assert.equal(inScopeMinor.sddToTdd.length, 0)
+
+  const minorAfterPass1 = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n1" }],
+    priorRound: 1,
+  })
+  assert.equal(minorAfterPass1.action, "push")
+  assert.equal(minorAfterPass1.record, "capture_and_push")
+  assert.equal(minorAfterPass1.capture[0].command, "/capture")
+
+  const secondCritical = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 1,
+  })
+  assert.equal(secondCritical.action, "route")
+  assert.equal(secondCritical.record, "fix_round")
+  assert.equal(secondCritical.sddToTdd[0].command, "/sdd-to-tdd")
 
   const emptyRouted = decidePushCliAction({
     attemptStatus: "findings",
@@ -437,11 +457,19 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
   const leftover = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "critical", id: "c1" }],
-    priorRound: 1,
+    priorRound: 2,
   })
   assert.equal(leftover.action, "push")
   assert.equal(leftover.record, "leftover_after_fix_round")
   assert.equal(leftover.leftover.length, 1)
+
+  const overCap = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n3" }],
+    priorRound: 9,
+  })
+  assert.equal(overCap.action, "push")
+  assert.equal(overCap.record, "leftover_after_fix_round")
 
   const unavailable = decidePushCliAction({
     attemptStatus: "unavailable",

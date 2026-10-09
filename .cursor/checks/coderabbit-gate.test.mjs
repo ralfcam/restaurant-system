@@ -291,7 +291,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(existsSync(RECEIPT), false)
   })
 
-  test("branch-diff mode reviews origin/staging and routes one fix round", () => {
+  test("branch-diff mode reviews origin/staging and routes two fix rounds", () => {
     const gateSrc = readFileSync(
       join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"),
       "utf8",
@@ -317,8 +317,15 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     const again = runBranchDiff("local-critical.jsonl")
     assert.equal(again.status, 0, again.stderr)
     const againBody = JSON.parse(again.stdout)
-    assert.equal(againBody.action, "push")
-    assert.equal(againBody.record, "leftover_after_fix_round")
+    assert.equal(againBody.action, "route")
+    assert.equal(againBody.record, "fix_round")
+    assert.equal(againBody.fixRound, 2)
+
+    const third = runBranchDiff("local-critical.jsonl")
+    assert.equal(third.status, 0, third.stderr)
+    const thirdBody = JSON.parse(third.stdout)
+    assert.equal(thirdBody.action, "push")
+    assert.equal(thirdBody.record, "leftover_after_fix_round")
 
     const missingBase = runBranchDiff("local-clean.jsonl", {
       CODERABBIT_STUB_MISSING_BASE: "1",
@@ -380,8 +387,36 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     )
     assert.equal(second.status, 0, second.stderr)
     const body = JSON.parse(second.stdout)
-    assert.equal(body.action, "push")
-    assert.equal(body.record, "leftover_after_fix_round")
+    assert.equal(body.action, "route")
+    assert.equal(body.record, "fix_round")
+    assert.equal(body.fixRound, 2)
+
+    const third = runBranchDiff(
+      "local-critical.jsonl",
+      {
+        CODERABBIT_STUB_HEAD: "print-capped",
+        CODERABBIT_STATE_DIR: isolated,
+      },
+      ["--fix-round", "2"],
+    )
+    assert.equal(third.status, 0, third.stderr)
+    const thirdBody = JSON.parse(third.stdout)
+    assert.equal(thirdBody.action, "push")
+    assert.equal(thirdBody.record, "leftover_after_fix_round")
+
+    const over = runBranchDiff(
+      "local-critical.jsonl",
+      {
+        CODERABBIT_STUB_HEAD: "print-over",
+        CODERABBIT_STATE_DIR: join(
+          tmpdir(),
+          `cr-gate-print-over-${process.pid}`,
+        ),
+      },
+      ["--fix-round", "9"],
+    )
+    assert.equal(over.status, 0, over.stderr)
+    assert.equal(JSON.parse(over.stdout).record, "leftover_after_fix_round")
   })
 
   test("completed push clears the saved fix round for a later independent review", () => {
@@ -394,8 +429,17 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(first.status, 0, first.stderr)
     assert.equal(JSON.parse(first.stdout).action, "route")
 
-    const leftover = runBranchDiff("local-critical.jsonl", {
+    const second = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "clear-bbb",
+      CODERABBIT_STATE_DIR: dir,
+    })
+    assert.equal(second.status, 0, second.stderr)
+    const secondBody = JSON.parse(second.stdout)
+    assert.equal(secondBody.action, "route")
+    assert.equal(secondBody.fixRound, 2)
+
+    const leftover = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "clear-ccc",
       CODERABBIT_STATE_DIR: dir,
     })
     assert.equal(leftover.status, 0, leftover.stderr)
@@ -417,7 +461,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(JSON.parse(ack.stdout).action, "ack-push")
 
     const later = runBranchDiff("local-critical.jsonl", {
-      CODERABBIT_STUB_HEAD: "clear-ccc",
+      CODERABBIT_STUB_HEAD: "clear-ddd",
       CODERABBIT_STATE_DIR: dir,
     })
     assert.equal(later.status, 0, later.stderr)
@@ -455,7 +499,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     },
   )
 
-  test("route then new head is leftover after one fix round", () => {
+  test("route then new head leftovers after two fix rounds", () => {
     const first = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "round-base",
       CODERABBIT_STATE_DIR: join(TMP_STATE, "cycle"),
@@ -475,8 +519,51 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     )
     assert.equal(second.status, 0, second.stderr)
     const body = JSON.parse(second.stdout)
-    assert.equal(body.action, "push")
-    assert.equal(body.record, "leftover_after_fix_round")
+    assert.equal(body.action, "route")
+    assert.equal(body.record, "fix_round")
+    assert.equal(body.fixRound, 2)
+
+    const third = runBranchDiff(
+      "local-minor.jsonl",
+      {
+        CODERABBIT_STUB_HEAD: "round-capped",
+        CODERABBIT_STATE_DIR: isolated,
+      },
+      ["--fix-round", "2"],
+    )
+    assert.equal(third.status, 0, third.stderr)
+    const thirdBody = JSON.parse(third.stdout)
+    assert.equal(thirdBody.action, "push")
+    assert.equal(thirdBody.record, "leftover_after_fix_round")
+  })
+
+  test("pass 2 capture-only findings push without a third pass", () => {
+    const dir = join(tmpdir(), `cr-gate-minor-${process.pid}`)
+    mkdirSync(dir, { recursive: true })
+    const first = runBranchDiff("local-minor.jsonl", {
+      CODERABBIT_STUB_HEAD: "minor-base",
+      CODERABBIT_STATE_DIR: dir,
+    })
+    assert.equal(first.status, 0, first.stderr)
+    const firstBody = JSON.parse(first.stdout)
+    assert.equal(firstBody.action, "route")
+    assert.equal(firstBody.record, "fix_round")
+    assert.equal(firstBody.fixRound, 1)
+    assert.equal(firstBody.capture[0].command, "/capture")
+
+    const second = runBranchDiff(
+      "local-minor.jsonl",
+      {
+        CODERABBIT_STUB_HEAD: "minor-fixed",
+        CODERABBIT_STATE_DIR: dir,
+      },
+      ["--fix-round", "1"],
+    )
+    assert.equal(second.status, 0, second.stderr)
+    const secondBody = JSON.parse(second.stdout)
+    assert.equal(secondBody.action, "push")
+    assert.equal(secondBody.record, "capture_and_push")
+    assert.equal(secondBody.fixRound, 1)
   })
 
   test("branch-diff secret_path is advisory and .env.example is not a secret", () => {

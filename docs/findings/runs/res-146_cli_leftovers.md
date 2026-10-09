@@ -17,6 +17,7 @@ still has the helpers named below.
 ## tech-debt
 
 - [ ] Prerelease versions parse as the release pin · `.cursor/hooks/lib/coderabbit-review-policy.mjs` `reportedCliVersion` · `v?(\d+\.\d+\.\d+)` accepts `0.9.0-rc.1` as `0.9.0` · minor · (found: coderabbit/4d98d50/fp:cedf928bdc09c4cf6424d7203deb23cbe825a681146a64f378357bc2891d34db)
+- [ ] Checkout-root match is case- and prefix-sensitive · `.cursor/hooks/lib/tdd-guard-policy.mjs` `normalize` · on Windows, `join` and the hook input can differ in drive-letter case, so `startsWith` misses the checkout root and the path is not relativized (fail open). Non-canonical `//` and `./` forms are already on the security ledger · minor · (found: coderabbit/9194b52/fp:132d3678b9d4fb042b8b974109612f386229af953c675372eae4b83711996542)
 
 ## test-debt
 

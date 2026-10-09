@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export const PINNED_CLI_VERSION = "0.9.0"
+export const PUSH_CLI_FIX_ROUND_CAP = 2
 export const REQUIRED_REGION = "us"
 export const US_APP_ID = 347564
 export const US_BOT_LOGINS = Object.freeze([
@@ -657,7 +658,9 @@ export function resolvePushPriorRound(
   { branch, head, findingIds = [], fixRound, leftoverRecord } = {},
 ) {
   const explicit = Number(fixRound)
-  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  if (Number.isFinite(explicit) && explicit > 0) {
+    return Math.min(explicit, PUSH_CLI_FIX_ROUND_CAP)
+  }
   if (leftoverRecord && typeof leftoverRecord === "object") {
     const recorded = Number(
       leftoverRecord.round ??
@@ -665,19 +668,19 @@ export function resolvePushPriorRound(
         leftoverRecord.priorRound,
     )
     if (leftoverRecord.record === "leftover_after_fix_round") {
-      return Math.max(1, Number.isFinite(recorded) ? recorded : 1)
+      return PUSH_CLI_FIX_ROUND_CAP
     }
     if (
       leftoverRecord.record === "fix_round" &&
       Number.isFinite(recorded) &&
       recorded > 0
     ) {
-      return recorded
+      return Math.min(recorded, PUSH_CLI_FIX_ROUND_CAP)
     }
   }
   if (!prior || (branch && prior.branch && prior.branch !== branch)) return 0
   const savedRound = Number(prior.round) || 0
-  if (savedRound > 0) return savedRound
+  if (savedRound > 0) return Math.min(savedRound, PUSH_CLI_FIX_ROUND_CAP)
   if (head && prior.head && prior.head !== head) return 0
   const saved = new Set(prior.findingIds || [])
   if (

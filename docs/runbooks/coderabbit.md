@@ -16,7 +16,11 @@ review runs. `/push` posts no pull-request comment. A missing binary is
 auth. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
 `attemptStatus:` for that SHA. `/push` is the agent's only CodeRabbit gate:
 Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
-Trivial go to `/capture`, one fix round, then the PR is left a **draft**.
+Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
+CLI passes at most. Pass 1 routes every finding. Pass 2 routes only
+Critical, Major, and unknown findings; Minor and Trivial on that pass are
+captured and the branch pushes with no third pass. Pass 3 pushes anyway
+and lists leftovers. The PR is left a **draft**.
 Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do
 not run `gh pr ready`, do not post `@coderabbitai review`, and do not poll
 for a remote review. The QA bot posts as `ralfcam`, which holds the
@@ -354,15 +358,16 @@ and write an ignored audit receipt under `.cursor/hooks/state/`. The attempt
 records `attemptStatus` as `clean`, `findings`, or `unavailable` with a
 stable `reason`. Critical, Major, and unknown findings route to
 `/sdd-to-tdd`; Minor and Trivial route to `/capture` by severity, including
-in-scope Minor and Trivial, and push in the same pass. Only a nonempty
-`/sdd-to-tdd` list routes or stops. One fix round only, kept across its
-fix commit via `--fix-round` or the leftover record. On `route`, printed
-`fixRound` is the started round. After a successful `git push`,
-`--ack-push` clears the saved cycle. `runCr` uses an absolute deadline as
-well as inactivity and records `unavailable` / `timeout` on either
-expiry. Auth `--version` and `auth status --agent` use the same finite
-timeout. Then push anyway and
-list leftovers. A failed `git diff` for
+in-scope Minor and Trivial. `--fix-round` is a counter capped at 2.
+Pass 1 routes every finding. Pass 2 routes only when `/sdd-to-tdd`
+findings remain; Minor and Trivial on that pass capture-and-push with no
+third pass. Pass 3 pushes anyway and lists leftovers. The counter is kept
+across its fix commits via `--fix-round` or the leftover record. On
+`route`, printed `fixRound` is the started round. After a successful
+`git push`, `--ack-push` clears the saved cycle. `runCr` uses an absolute
+deadline as well as inactivity and records `unavailable` / `timeout` on
+either expiry. Auth `--version` and `auth status --agent` use the same
+finite timeout. A failed `git diff` for
 `--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
 `--branch-diff` `secret_path` and a non-zero gate exit still push.
 `.env.example` is not a secret. A successful empty diff stays `clean`.
