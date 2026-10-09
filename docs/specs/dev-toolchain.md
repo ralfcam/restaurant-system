@@ -626,11 +626,16 @@ latest-head` so `on.pull_request.types` includes `edited`.
     `.cursor/plans/`; each is `process: true` and routed `/capture`.
     Outdated threads are not findings. Review-body findings are one per
     `<!-- cr-comment:v1:<id> -->` in that latest US review, excluding the
-    Prompt-to-fix details block and walkthrough sections. Path comes from
-    the enclosing `<summary>path (n)</summary>`. Line is the start of the
-    first backtick line range in the block. Severity is read from a
-    `**…Critical|Major|Minor|Trivial…**` token, not only from
-    `| _Minor_ |`. A body finding on `.cursor/plans/**` is `process: true`
+    Prompt-to-fix details block and walkthrough sections. A quiet-mode
+    walkthrough marker and `Actionable comments posted: 0` do not discard
+    a tagged finding that remains outside the walkthrough section. Path
+    comes from the enclosing `<summary>path (n)</summary>`. Line is the
+    start of the first backtick line range in that finding's slice.
+    Severity is read from a `**…Critical|Major|Minor|Trivial…**` token in
+    that same slice, not only from `| _Minor_ |`. The slice starts after
+    the previous `cr-comment:v1` tag in the same file block, or at the
+    start of that block, and ends at this finding's own tag. A later
+    finding does not inherit the earlier severity or line. A body finding on `.cursor/plans/**` is `process: true`
     and `/capture`. Any other body finding uses
     `classifyFindingRouting(finding, { loop: true })`. Finding ids are
     deduped. If any collected finding routes to `/sdd-to-tdd`, the result

@@ -4,8 +4,10 @@
  * work-orders, outdated leftovers, or incremental-pause leftovers, no
  * rate-limit/billing/override markers, and deterministic severity routing
  * for active findings. A head with no formal US review is
- * `ready_no_coderabbit_review`. Quiet-mode walkthrough bodies are not
- * findings. A COMMENTED review body with actionable comments still blocks.
+ * `ready_no_coderabbit_review`. A quiet-mode walkthrough with no tagged
+ * finding outside the walkthrough is still not a finding. A tagged
+ * `cr-comment` outside the walkthrough section is still collected. A
+ * COMMENTED review body with actionable comments still blocks.
  */
 import {
   US_APP_ID,
@@ -462,6 +464,45 @@ function withoutPromptToFixDetails(body) {
   )
 }
 
+function withoutWalkthroughDetails(body) {
+  let text = String(body || "")
+  const re = /<summary\b[^>]*>([^<]*)<\/summary>/gi
+  let match
+  while ((match = re.exec(text))) {
+    const label = match[1].trim()
+    if (/\(\d+\)\s*$/.test(label) || !/walkthrough/i.test(label)) continue
+    const detailsOpen = text.lastIndexOf("<details", match.index)
+    if (detailsOpen < 0) continue
+    const end = match.index + detailsBlockFrom(text, match.index).length
+    text = text.slice(0, detailsOpen) + text.slice(end)
+    re.lastIndex = detailsOpen
+  }
+  return text
+}
+
+function withoutWalkthroughSections(body) {
+  return withoutWalkthroughDetails(
+    String(body || "").replace(
+      /<!--\s*walkthrough_start\s*-->[\s\S]*?<!--\s*walkthrough_end\s*-->/gi,
+      "",
+    ),
+  ).replace(
+    /^##[ \t]+Walkthrough\b[^\n]*(?:\n(?!<details\b|##[ \t]+)[^\n]*)*/gim,
+    "",
+  )
+}
+
+function findingSlice(block, tagIndex) {
+  const idRe = /<!--\s*cr-comment:v1:[^\s>]+\s*-->/gi
+  let start = 0
+  let match
+  while ((match = idRe.exec(block))) {
+    if (match.index >= tagIndex) break
+    start = match.index + match[0].length
+  }
+  return block.slice(start, tagIndex)
+}
+
 function enclosingFileSummary(body, index) {
   const before = body.slice(0, index)
   const re = /<summary\b[^>]*>([^<]*)<\/summary>/gi
@@ -512,9 +553,9 @@ function collectExemptPlanFindings(threads) {
 }
 
 function collectChangesRequestedBodyFindings(body) {
-  const text = String(body || "")
-  if (isQuietModeWalkthroughBody(text)) return []
-  const stripped = withoutPromptToFixDetails(text)
+  const stripped = withoutWalkthroughSections(
+    withoutPromptToFixDetails(String(body || "")),
+  )
   const findings = []
   const idRe = /<!--\s*cr-comment:v1:([^\s>]+)\s*-->/gi
   let match
@@ -522,13 +563,15 @@ function collectChangesRequestedBodyFindings(body) {
     const summary = enclosingFileSummary(stripped, match.index)
     const summaryText = summary ? summary[1].trim() : ""
     const path = summaryText.replace(/\s+\(\d+\)\s*$/, "")
+    const blockStart = summary ? summary.index : 0
     const block = summary ? detailsBlockFrom(stripped, summary.index) : stripped
-    const severity = parseLoopSeverity(block)
-    const line = parseBacktickLineStart(block)
+    const slice = findingSlice(block, match.index - blockStart)
+    const severity = parseLoopSeverity(slice)
+    const line = parseBacktickLineStart(slice)
     const base = {
       id: `cr-comment:v1:${match[1]}`,
       path,
-      title: parseCodeRabbitTitle(block),
+      title: parseCodeRabbitTitle(slice),
       ...(line != null ? { line } : {}),
     }
     if (path.startsWith(".cursor/plans/")) {
@@ -543,7 +586,7 @@ function collectChangesRequestedBodyFindings(body) {
     }
     findings.push({
       ...base,
-      ...classifyFindingRouting({ severity, body: block }, { loop: true }),
+      ...classifyFindingRouting({ severity, body: slice }, { loop: true }),
     })
   }
   return findings
@@ -733,7 +776,8 @@ function evaluateReadyPrCore(
     }
     if (
       reviewState(latest) === "CHANGES_REQUESTED" &&
-      isQuietModeWalkthroughBody(latest.body)
+      isQuietModeWalkthroughBody(latest.body) &&
+      collectChangesRequestedBodyFindings(latest.body).length === 0
     ) {
       return {
         ok: true,

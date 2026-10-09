@@ -545,4 +545,54 @@ describe("G-CR4 loop capture_only_findings and body findings", () => {
     assert.match(header, /\breadies\b/)
     assert.match(header, /\bmerges\b/)
   })
+
+  test("walkthrough plus mixed severities in one file block keeps each finding", () => {
+    const body = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+## Walkthrough
+Meta only.
+Actionable comments posted: 0
+
+<details>
+<summary>app/actions/guest-profiles.ts (2)</summary>
+<blockquote>
+
+\`10-10\`: **Stability** | **🟡 Minor** | **Quick win**
+
+**First finding.**
+
+<!-- cr-comment:v1:mixed-minor -->
+
+\`20-20\`: **Stability** | **🔴 Critical** | **Quick win**
+
+**Second finding.**
+
+<!-- cr-comment:v1:mixed-critical -->
+
+</blockquote></details>`
+    const snapshot = commentedBodySnapshot(body, {
+      state: "CHANGES_REQUESTED",
+    })
+    const looped = evaluateReadyPr(snapshot, { allowDraft: true, loop: true })
+    assert.equal(looped.reason, "changes_requested_body_findings")
+    assert.equal(looped.ok, false)
+    assert.equal(looped.findings.length, 2)
+    const minor = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:mixed-minor",
+    )
+    assert.equal(minor.path, "app/actions/guest-profiles.ts")
+    assert.equal(minor.line, 10)
+    assert.equal(minor.severity, "minor")
+    assert.equal(minor.command, "/capture")
+    const critical = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:mixed-critical",
+    )
+    assert.equal(critical.path, "app/actions/guest-profiles.ts")
+    assert.equal(critical.line, 20)
+    assert.equal(critical.severity, "critical")
+    assert.equal(critical.command, "/sdd-to-tdd")
+    assert.equal(
+      evaluateReadyPr(snapshot, { allowDraft: true }).reason,
+      "changes_requested",
+    )
+  })
 })
