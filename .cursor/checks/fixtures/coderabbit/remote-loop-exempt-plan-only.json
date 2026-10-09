@@ -1,0 +1,36 @@
+{
+  "isDraft": false,
+  "headSha": "f5c7e1d69addc046d9f89f6d890c5137041eb887",
+  "pull": {
+    "number": 193,
+    "isDraft": false,
+    "base": "staging",
+    "head": "cursor/res-145-1771",
+    "headSha": "f5c7e1d69addc046d9f89f6d890c5137041eb887"
+  },
+  "reviews": [
+    {
+      "user": { "login": "coderabbitai[bot]" },
+      "state": "CHANGES_REQUESTED",
+      "commit_id": "f5c7e1d69addc046d9f89f6d890c5137041eb887",
+      "body": ""
+    }
+  ],
+  "threads": [
+    {
+      "isResolved": false,
+      "isOutdated": false,
+      "path": ".cursor/plans/res-124_guest_pii_b839.plan.md",
+      "comments": [
+        {
+          "author": { "login": "coderabbitai[bot]" },
+          "path": ".cursor/plans/res-124_guest_pii_b839.plan.md",
+          "body": "**Data Integrity** | **🟠 Major** | **Quick win**\n\n<!-- cr-comment:v1:plan-only -->"
+        }
+      ]
+    }
+  ],
+  "issueComments": [],
+  "reviewComments": [],
+  "checkRuns": []
+}

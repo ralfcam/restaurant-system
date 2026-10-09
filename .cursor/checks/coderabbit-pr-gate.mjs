@@ -2,9 +2,10 @@
 /**
  * Read-only GitHub adapter for the US latest-head CodeRabbit gate.
  * The release command may opt into draft verification, but this adapter never
- * comments, writes Linear, readies, commits, pushes, or merges. A missing
- * formal US review is `ready_no_coderabbit_review` for the command to ready
- * and comment; this adapter still does not post that comment.
+ * comments, writes Linear, readies, commits, pushes, or merges. Under
+ * `--loop`, `capture_only_findings` is a clean verdict for that command.
+ * A missing formal US review is `ready_no_coderabbit_review` for the command
+ * to ready and comment; this adapter still does not post that comment.
  *
  * Usage:
  *   node .cursor/checks/coderabbit-pr-gate.mjs

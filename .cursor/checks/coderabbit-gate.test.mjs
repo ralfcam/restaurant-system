@@ -308,6 +308,27 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     )
     assert.equal(feature.status, 0, feature.stderr)
   })
+
+  test("loop snapshot of exempt plan plus body minor is capture_only_findings", () => {
+    const adapter = join(ROOT, ".cursor", "checks", "coderabbit-pr-gate.mjs")
+    const snapshot = join(FIX, "remote-loop-exempt-plan-body-minor.json")
+    const looped = spawnSync(
+      process.execPath,
+      [adapter, "--snapshot", snapshot, "--allow-draft", "--loop"],
+      { encoding: "utf8" },
+    )
+    assert.equal(looped.status, 0, looped.stderr)
+    const verdict = JSON.parse(looped.stdout)
+    assert.equal(verdict.ok, true)
+    assert.equal(verdict.reason, "capture_only_findings")
+    const plain = spawnSync(
+      process.execPath,
+      [adapter, "--snapshot", snapshot, "--allow-draft"],
+      { encoding: "utf8" },
+    )
+    assert.notEqual(plain.status, 0)
+    assert.equal(JSON.parse(plain.stderr).reason, "changes_requested")
+  })
 })
 
 const GIT_COMMIT = JSON.stringify({

@@ -165,11 +165,12 @@ export function collectOverrideTexts(snapshot) {
   return blobs.filter(Boolean)
 }
 
+const TABLE_SEVERITY =
+  /\|\s*_[^_\r\n]*?(Critical|Major|Minor|Trivial)[^_\r\n]*_/i
+
 export function parseCodeRabbitSeverity(body) {
   const header = String(body || "").split(/\r?\n/, 1)[0]
-  const match = header.match(
-    /\|\s*_[^_\r\n]*?(Critical|Major|Minor|Trivial)[^_\r\n]*_/i,
-  )
+  const match = header.match(TABLE_SEVERITY)
   return match ? match[1].toLowerCase() : null
 }
 
@@ -252,9 +253,7 @@ const QUIET_WALKTHROUGH_MARKERS = [
 ]
 
 export function actionableCommentsPosted(body) {
-  const match = String(body || "").match(
-    /Actionable comments posted:\s*(\d+)/i,
-  )
+  const match = String(body || "").match(/Actionable comments posted:\s*(\d+)/i)
   return match ? Number(match[1]) : null
 }
 
@@ -439,6 +438,128 @@ function withLoopMeta(result, snapshot, loop) {
   }
 }
 
+function parseLoopSeverity(text) {
+  const fromHeader = parseCodeRabbitSeverity(text)
+  if (fromHeader) return fromHeader
+  const source = String(text || "")
+  const bold = source.match(
+    /\*\*[^*\r\n]*?(Critical|Major|Minor|Trivial)[^*\r\n]*\*\*/i,
+  )
+  if (bold) return bold[1].toLowerCase()
+  const scored = source.match(TABLE_SEVERITY)
+  return scored ? scored[1].toLowerCase() : null
+}
+
+function parseBacktickLineStart(text) {
+  const match = String(text || "").match(/`(\d+)(?:\s*-\s*\d+)?`/)
+  return match ? Number(match[1]) : null
+}
+
+function withoutPromptToFixDetails(body) {
+  return String(body || "").replace(
+    /<details\b[^>]*>\s*<summary\b[^>]*>[^<]*Prompt to fix review comments[^<]*<\/summary>[\s\S]*?<\/details>/gi,
+    "",
+  )
+}
+
+function enclosingFileSummary(body, index) {
+  const before = body.slice(0, index)
+  const re = /<summary\b[^>]*>([^<]*)<\/summary>/gi
+  let found = null
+  let match
+  while ((match = re.exec(before))) {
+    if (/\(\d+\)\s*$/.test(match[1].trim())) found = match
+  }
+  return found
+}
+
+function detailsBlockFrom(body, summaryIndex) {
+  // Scan starts at <summary>, already inside one open <details>.
+  let depth = 1
+  const re = /<details\b[^>]*>|<\/details>/gi
+  re.lastIndex = summaryIndex
+  let match
+  while ((match = re.exec(body))) {
+    depth += match[0].toLowerCase().startsWith("</") ? -1 : 1
+    if (depth === 0) return body.slice(summaryIndex, re.lastIndex)
+  }
+  return body.slice(summaryIndex)
+}
+
+function collectExemptPlanFindings(threads) {
+  const findings = []
+  for (const thread of threads || []) {
+    if (thread?.isResolved === true || thread?.isOutdated === true) continue
+    if (!threadHasCodeRabbit(thread) || !isWorkOrderPlanThread(thread)) continue
+    for (const comment of threadComments(thread)) {
+      if (!isUsBotLogin(commentAuthorLogin(comment))) continue
+      const body = String(comment?.body || "")
+      const severity = parseLoopSeverity(body)
+      const line = parseBacktickLineStart(body)
+      findings.push({
+        id: codeRabbitFindingId(comment, thread),
+        path: comment?.path || thread?.path || "",
+        title: parseCodeRabbitTitle(body),
+        ...(line != null ? { line } : {}),
+        ...(severity ? { severity } : {}),
+        process: true,
+        route: "capture",
+        command: "/capture",
+      })
+    }
+  }
+  return findings
+}
+
+function collectChangesRequestedBodyFindings(body) {
+  const text = String(body || "")
+  if (isQuietModeWalkthroughBody(text)) return []
+  const stripped = withoutPromptToFixDetails(text)
+  const findings = []
+  const idRe = /<!--\s*cr-comment:v1:([^\s>]+)\s*-->/gi
+  let match
+  while ((match = idRe.exec(stripped))) {
+    const summary = enclosingFileSummary(stripped, match.index)
+    const summaryText = summary ? summary[1].trim() : ""
+    const path = summaryText.replace(/\s+\(\d+\)\s*$/, "")
+    const block = summary ? detailsBlockFrom(stripped, summary.index) : stripped
+    const severity = parseLoopSeverity(block)
+    const line = parseBacktickLineStart(block)
+    const base = {
+      id: `cr-comment:v1:${match[1]}`,
+      path,
+      title: parseCodeRabbitTitle(block),
+      ...(line != null ? { line } : {}),
+    }
+    if (path.startsWith(".cursor/plans/")) {
+      findings.push({
+        ...base,
+        ...(severity ? { severity } : {}),
+        process: true,
+        route: "capture",
+        command: "/capture",
+      })
+      continue
+    }
+    findings.push({
+      ...base,
+      ...classifyFindingRouting({ severity, body: block }, { loop: true }),
+    })
+  }
+  return findings
+}
+
+function collectLoopChangesRequestedFindings(latest, threads) {
+  const byId = new Map()
+  for (const finding of [
+    ...collectExemptPlanFindings(threads),
+    ...collectChangesRequestedBodyFindings(latest?.body),
+  ]) {
+    if (!byId.has(finding.id)) byId.set(finding.id, finding)
+  }
+  return [...byId.values()]
+}
+
 function evaluateReadyPrCore(
   snapshot,
   { allowDraft = false, loop = false } = {},
@@ -590,6 +711,24 @@ function evaluateReadyPrCore(
         ...readyMetadata(headSha, isDraft, {
           commitId: reviewCommitId(latest),
         }),
+      }
+    }
+    if (loop && reviewState(latest) === "CHANGES_REQUESTED") {
+      const findings = collectLoopChangesRequestedFindings(latest, threads)
+      if (findings.some((finding) => finding.command === "/sdd-to-tdd")) {
+        return {
+          ok: false,
+          reason: "changes_requested_body_findings",
+          findings,
+        }
+      }
+      if (findings.length > 0) {
+        return {
+          ok: true,
+          reason: "capture_only_findings",
+          findings,
+          ...readyMetadata(headSha, isDraft),
+        }
       }
     }
     if (

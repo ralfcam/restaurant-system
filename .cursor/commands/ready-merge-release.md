@@ -94,6 +94,15 @@ Emit a paste-ready `/capture` fence per finding, then treat Step 2 as clean
 and continue to ready. Do not route those leftovers to `/sdd-to-tdd` and do
 not stop.
 
+If the adapter returns `ok: true` with reason `capture_only_findings`, emit
+one paste-ready `/capture` fence per finding, then treat Step 2 as clean and
+continue to ready. Do not route those findings to `/sdd-to-tdd` and do not
+stop. This reason exists only for `--loop`.
+
+If the adapter returns `ok: false` with reason
+`changes_requested_body_findings`, route those findings to `/sdd-to-tdd` and
+stop. Do not ready the draft.
+
 If the adapter returns `ok: true` with reason `captured_threads_resolved`,
 Step 2 is clean. Continue to ready. This reason exists only for `--loop`.
 
@@ -146,7 +155,7 @@ still blocks readying. Do not ready while those threads are open.
 Under `--loop`, reason `captured_threads_resolved` means the current-HEAD US
 review is `CHANGES_REQUESTED`, no unresolved product thread remains, and at
 least one resolved non-outdated US product thread exists. Treat that reason
-as a clean preflight and continue to ready.   `/conduct` posts the ledger reply
+as a clean preflight and continue to ready. `/conduct` posts the ledger reply
 and calls `resolveReviewThread` before this re-run. This command still does
 not comment on that loop path. The only comment this command may post is the
 `ready_no_coderabbit_review` operator comment. Without `--loop`,
@@ -159,8 +168,10 @@ missing evidence, or API/auth failure, report that operational FAIL and
 stop. Do not disguise it as a product finding. `ready_no_coderabbit_review`
 is not an operational FAIL and is not a manual-review fallback: it means no
 formal CodeRabbit review ran on that head, so the human may trigger
-`@coderabbitai full review` or merge without one. `incremental_paused` and
-`changes_requested_meta_only` are not stale.
+`@coderabbitai full review` or merge without one. `incremental_paused`,
+`changes_requested_meta_only`, and `capture_only_findings` are not stale.
+`changes_requested_body_findings` is a `/sdd-to-tdd` route, not this
+operational FAIL.
 
 ### 3. Ready only a clean draft
 
@@ -241,8 +252,9 @@ Exactly these sections:
 
 1. **PR** — number, title, `<head> → <base>`, draft | ready | stopped, frozen HEAD.
 2. **US latest-head** — `green` | `incremental_paused` | `ready_no_coderabbit_review` |
-   `changes_requested_meta_only` | `pending` | `stale` | `wrong-bot` |
-   `changes_requested` | `commented_review_findings` | `FAIL: <reason>`.
+   `changes_requested_meta_only` | `capture_only_findings` | `pending` | `stale` |
+   `wrong-bot` | `changes_requested` | `changes_requested_body_findings` |
+   `commented_review_findings` | `FAIL: <reason>`.
 3. **Finding routes** — paste-ready `/sdd-to-tdd` or `/capture` with
    `<local-ref>`; inert severity, ID, path, title, and capture provenance;
    `none` when clean.
