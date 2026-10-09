@@ -144,7 +144,11 @@ Then run `/ready-merge-release <PR> --loop` (`roundsUsed`, `roundCap: 3`):
   For `ready_no_coderabbit_review` it tries the operator comment. A 403
   (`issues: write` missing) is non-fatal: the draft still readies and the
   note goes on the PR body or in the report. Stop.
-- **Critical or unknown, under 3 rounds:** run
+- **`capture_only_findings`:** a clean loop preflight. Run `/capture` for
+  each finding whose path is not already an open `docs/findings/` line. Do
+  not start another `/sdd-to-tdd` round for those findings, and do not
+  report this reason as an operational FAIL.
+- **Critical or unknown, or `changes_requested_body_findings`, under 3 rounds:** run
   `/sdd-to-tdd "bug: CodeRabbit finding <local-ref> on PR #<n>"` on the PR
   branch, then start the next round. That in-loop fix skips START and
   CLOSE-OUT.
@@ -168,7 +172,7 @@ Then run `/ready-merge-release <PR> --loop` (`roundsUsed`, `roundCap: 3`):
   that is not already an open ledger line.
 
 - **Round cap reached, a merge conflict, or an operational failure other than
-  pending or `ready_no_coderabbit_review`:** the PR stays open as a draft and
+  pending, `ready_no_coderabbit_review`, or `capture_only_findings`:** the PR stays open as a draft and
   keeps the lane. Report the reason so the next digest lists the PR under
   "needs your decision". Unresolved threads and COMMENTED review-body
   findings still block readying. Outdated threads and quiet-mode walkthrough

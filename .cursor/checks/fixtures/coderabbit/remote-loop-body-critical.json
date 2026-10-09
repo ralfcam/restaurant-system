@@ -1,0 +1,23 @@
+{
+  "isDraft": false,
+  "headSha": "f5c7e1d69addc046d9f89f6d890c5137041eb887",
+  "pull": {
+    "number": 193,
+    "isDraft": false,
+    "base": "staging",
+    "head": "cursor/res-145-1771",
+    "headSha": "f5c7e1d69addc046d9f89f6d890c5137041eb887"
+  },
+  "reviews": [
+    {
+      "user": { "login": "coderabbitai[bot]" },
+      "state": "CHANGES_REQUESTED",
+      "commit_id": "f5c7e1d69addc046d9f89f6d890c5137041eb887",
+      "body": "**Actionable comments posted: 1**\n\n<details>\n<summary>🟡 Other comments (1)</summary><blockquote>\n<details>\n<summary>app/actions/guest-profiles.ts (1)</summary><blockquote>\n\n`66-66`: **Stability** | **🔴 Critical** | **Quick win**\n\n**Reject a non-string before trim.**\n\n<!-- cr-comment:v1:body-critical -->\n\n</blockquote></details>\n</blockquote></details>\n"
+    }
+  ],
+  "threads": [],
+  "issueComments": [],
+  "reviewComments": [],
+  "checkRuns": []
+}

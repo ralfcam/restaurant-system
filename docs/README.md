@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-08
+**Last updated:** 2026-10-09
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -205,6 +205,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | FIX guest PII trim (`res-124_guest_pii_b839`)                                                     | 2026-10-08 | `specs/guest-profiles.md` (GP-10, already amended), `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                                            |
 | RES-98 staff path segment (`res-98_staff_path_segment_0d6a`)                                      | 2026-10-08 | `specs/staff-authorization.md` (SA-2 impl-trace; SA-2 already normative), `dev-journal.md`                                                                                                                                                                                                                                                                                                                      |
 | FIX ficha history select (`res-125_history_select_11d4`)                                          | 2026-10-08 | `specs/guest-profiles.md` (GP-5, GP-8, already amended), `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                                                                                                                                                                                                     |
+| RES-145 loop capture-only (`res-145_loop_capture_only_1771`)                                      | 2026-10-09 | `specs/dev-toolchain.md` (G-CR4 C1, already amended), `runbooks/coderabbit.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                              |
 
 ## Seed path
 

@@ -75,7 +75,15 @@ unresolved product thread and at least one resolved non-outdated US product
 thread is `ok: true` with reason `captured_threads_resolved`, and that
 verdict readies the draft. Without `--loop`, `CHANGES_REQUESTED` on the
 current HEAD still fails closed unless the review body is only a quiet-mode
-walkthrough (`changes_requested_meta_only`).
+walkthrough (`changes_requested_meta_only`). Under `--loop` only, after
+unresolved product threads and `captured_threads_resolved`, a current-head
+US `CHANGES_REQUESTED` review whose exempt plan threads and review-body
+findings all route to `/capture` is `ok: true` with reason
+`capture_only_findings`: one `/capture` fence per finding, then Step 2 is
+clean and the draft is readied. If any collected finding routes to
+`/sdd-to-tdd`, the reason is `changes_requested_body_findings` and that
+routes to `/sdd-to-tdd`. Without `--loop`, that snapshot stays
+`changes_requested`.
 
 When CodeRabbit has not posted a formal `APPROVED` or `CHANGES_REQUESTED`
 review on the latest head, the adapter returns `ok: true` with reason

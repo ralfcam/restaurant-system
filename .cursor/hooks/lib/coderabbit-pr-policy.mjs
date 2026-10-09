@@ -4,8 +4,10 @@
  * work-orders, outdated leftovers, or incremental-pause leftovers, no
  * rate-limit/billing/override markers, and deterministic severity routing
  * for active findings. A head with no formal US review is
- * `ready_no_coderabbit_review`. Quiet-mode walkthrough bodies are not
- * findings. A COMMENTED review body with actionable comments still blocks.
+ * `ready_no_coderabbit_review`. A quiet-mode walkthrough with no tagged
+ * finding outside the walkthrough is still not a finding. A tagged
+ * `cr-comment` outside the walkthrough section is still collected. A
+ * COMMENTED review body with actionable comments still blocks.
  */
 import {
   US_APP_ID,
@@ -165,11 +167,12 @@ export function collectOverrideTexts(snapshot) {
   return blobs.filter(Boolean)
 }
 
+const TABLE_SEVERITY =
+  /\|\s*_[^_\r\n]*?(Critical|Major|Minor|Trivial)[^_\r\n]*_/i
+
 export function parseCodeRabbitSeverity(body) {
   const header = String(body || "").split(/\r?\n/, 1)[0]
-  const match = header.match(
-    /\|\s*_[^_\r\n]*?(Critical|Major|Minor|Trivial)[^_\r\n]*_/i,
-  )
+  const match = header.match(TABLE_SEVERITY)
   return match ? match[1].toLowerCase() : null
 }
 
@@ -548,6 +551,169 @@ function withLoopMeta(result, snapshot, loop) {
   }
 }
 
+function parseLoopSeverity(text) {
+  const fromHeader = parseCodeRabbitSeverity(text)
+  if (fromHeader) return fromHeader
+  const source = String(text || "")
+  const bold = source.match(
+    /\*\*[^*\r\n]*?(Critical|Major|Minor|Trivial)[^*\r\n]*\*\*/i,
+  )
+  if (bold) return bold[1].toLowerCase()
+  const scored = source.match(TABLE_SEVERITY)
+  return scored ? scored[1].toLowerCase() : null
+}
+
+function parseBacktickLineStart(text) {
+  const match = String(text || "").match(/`(\d+)(?:\s*-\s*\d+)?`/)
+  return match ? Number(match[1]) : null
+}
+
+function withoutPromptToFixDetails(body) {
+  return String(body || "").replace(
+    /<details\b[^>]*>\s*<summary\b[^>]*>[^<]*Prompt to fix review comments[^<]*<\/summary>[\s\S]*?<\/details>/gi,
+    "",
+  )
+}
+
+function withoutWalkthroughDetails(body) {
+  let text = String(body || "")
+  const re = /<summary\b[^>]*>([^<]*)<\/summary>/gi
+  let match
+  while ((match = re.exec(text))) {
+    const label = match[1].trim()
+    if (/\(\d+\)\s*$/.test(label) || !/walkthrough/i.test(label)) continue
+    const detailsOpen = text.lastIndexOf("<details", match.index)
+    if (detailsOpen < 0) continue
+    const end = match.index + detailsBlockFrom(text, match.index).length
+    text = text.slice(0, detailsOpen) + text.slice(end)
+    re.lastIndex = detailsOpen
+  }
+  return text
+}
+
+function withoutWalkthroughSections(body) {
+  return withoutWalkthroughDetails(
+    String(body || "").replace(
+      /<!--\s*walkthrough_start\s*-->[\s\S]*?<!--\s*walkthrough_end\s*-->/gi,
+      "",
+    ),
+  ).replace(
+    /^##[ \t]+Walkthrough\b[^\n]*(?:\n(?!<details\b|##[ \t]+)[^\n]*)*/gim,
+    "",
+  )
+}
+
+function findingSlice(block, tagIndex) {
+  const idRe = /<!--\s*cr-comment:v1:[^\s>]+\s*-->/gi
+  let start = 0
+  let match
+  while ((match = idRe.exec(block))) {
+    if (match.index >= tagIndex) break
+    start = match.index + match[0].length
+  }
+  return block.slice(start, tagIndex)
+}
+
+function enclosingFileSummary(body, index) {
+  const before = body.slice(0, index)
+  const re = /<summary\b[^>]*>([^<]*)<\/summary>/gi
+  let found = null
+  let match
+  while ((match = re.exec(before))) {
+    if (/\(\d+\)\s*$/.test(match[1].trim())) found = match
+  }
+  return found
+}
+
+function detailsBlockFrom(body, summaryIndex) {
+  // Scan starts at <summary>, already inside one open <details>.
+  let depth = 1
+  const re = /<details\b[^>]*>|<\/details>/gi
+  re.lastIndex = summaryIndex
+  let match
+  while ((match = re.exec(body))) {
+    depth += match[0].toLowerCase().startsWith("</") ? -1 : 1
+    if (depth === 0) return body.slice(summaryIndex, re.lastIndex)
+  }
+  return body.slice(summaryIndex)
+}
+
+function collectExemptPlanFindings(threads) {
+  const findings = []
+  for (const thread of threads || []) {
+    if (thread?.isResolved === true || thread?.isOutdated === true) continue
+    if (!threadHasCodeRabbit(thread) || !isWorkOrderPlanThread(thread)) continue
+    for (const comment of threadComments(thread)) {
+      if (!isUsBotLogin(commentAuthorLogin(comment))) continue
+      const body = String(comment?.body || "")
+      const severity = parseLoopSeverity(body)
+      const line = parseBacktickLineStart(body)
+      findings.push({
+        id: codeRabbitFindingId(comment, thread),
+        path: comment?.path || thread?.path || "",
+        title: parseCodeRabbitTitle(body),
+        ...(line != null ? { line } : {}),
+        ...(severity ? { severity } : {}),
+        process: true,
+        route: "capture",
+        command: "/capture",
+      })
+    }
+  }
+  return findings
+}
+
+function collectChangesRequestedBodyFindings(body) {
+  const stripped = withoutWalkthroughSections(
+    withoutPromptToFixDetails(String(body || "")),
+  )
+  const findings = []
+  const idRe = /<!--\s*cr-comment:v1:([^\s>]+)\s*-->/gi
+  let match
+  while ((match = idRe.exec(stripped))) {
+    const summary = enclosingFileSummary(stripped, match.index)
+    const summaryText = summary ? summary[1].trim() : ""
+    const path = summaryText.replace(/\s+\(\d+\)\s*$/, "")
+    const blockStart = summary ? summary.index : 0
+    const block = summary ? detailsBlockFrom(stripped, summary.index) : stripped
+    const slice = findingSlice(block, match.index - blockStart)
+    const severity = parseLoopSeverity(slice)
+    const line = parseBacktickLineStart(slice)
+    const base = {
+      id: `cr-comment:v1:${match[1]}`,
+      path,
+      title: parseCodeRabbitTitle(slice),
+      ...(line != null ? { line } : {}),
+    }
+    if (path.startsWith(".cursor/plans/")) {
+      findings.push({
+        ...base,
+        ...(severity ? { severity } : {}),
+        process: true,
+        route: "capture",
+        command: "/capture",
+      })
+      continue
+    }
+    findings.push({
+      ...base,
+      ...classifyFindingRouting({ severity, body: slice }, { loop: true }),
+    })
+  }
+  return findings
+}
+
+function collectLoopChangesRequestedFindings(latest, threads) {
+  const byId = new Map()
+  for (const finding of [
+    ...collectExemptPlanFindings(threads),
+    ...collectChangesRequestedBodyFindings(latest?.body),
+  ]) {
+    if (!byId.has(finding.id)) byId.set(finding.id, finding)
+  }
+  return [...byId.values()]
+}
+
 function evaluateReadyPrCore(
   snapshot,
   { allowDraft = false, loop = false } = {},
@@ -708,9 +874,28 @@ function evaluateReadyPrCore(
         }),
       }
     }
+    if (loop && reviewState(latest) === "CHANGES_REQUESTED") {
+      const findings = collectLoopChangesRequestedFindings(latest, threads)
+      if (findings.some((finding) => finding.command === "/sdd-to-tdd")) {
+        return {
+          ok: false,
+          reason: "changes_requested_body_findings",
+          findings,
+        }
+      }
+      if (findings.length > 0) {
+        return {
+          ok: true,
+          reason: "capture_only_findings",
+          findings,
+          ...readyMetadata(headSha, isDraft),
+        }
+      }
+    }
     if (
       reviewState(latest) === "CHANGES_REQUESTED" &&
-      isQuietModeWalkthroughBody(latest.body)
+      isQuietModeWalkthroughBody(latest.body) &&
+      collectChangesRequestedBodyFindings(latest.body).length === 0
     ) {
       return {
         ok: true,

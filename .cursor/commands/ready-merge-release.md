@@ -95,6 +95,15 @@ Emit a paste-ready `/capture` fence per finding, then treat Step 2 as clean
 and continue to ready. Do not route those leftovers to `/sdd-to-tdd` and do
 not stop.
 
+If the adapter returns `ok: true` with reason `capture_only_findings`, emit
+one paste-ready `/capture` fence per finding, then treat Step 2 as clean and
+continue to ready. Do not route those findings to `/sdd-to-tdd` and do not
+stop. This reason exists only for `--loop`.
+
+If the adapter returns `ok: false` with reason
+`changes_requested_body_findings`, route those findings to `/sdd-to-tdd` and
+stop. Do not ready the draft.
+
 If the adapter returns `ok: true` with reason `captured_threads_resolved`,
 Step 2 is clean. Continue to ready. This reason exists only for `--loop`.
 
@@ -172,9 +181,10 @@ is not an operational FAIL and is not a manual-review fallback: it means no
 formal CodeRabbit review ran on that head, so the human may trigger
 `@coderabbitai full review` or merge without one. Do not insert a blind
 wait before that reason. Wait only when `review_in_progress` is true for
-this head SHA. `incremental_paused` and
-`changes_requested_meta_only` are not stale. Formal review gating that
-does exist is unchanged.
+this head SHA. `incremental_paused`,
+`changes_requested_meta_only`, and `capture_only_findings` are not stale.
+`changes_requested_body_findings` is a `/sdd-to-tdd` route, not this
+operational FAIL. Formal review gating that does exist is unchanged.
 
 ### 3. Ready only a clean draft
 
@@ -256,8 +266,10 @@ Exactly these sections:
 
 1. **PR** — number, title, `<head> → <base>`, draft | ready | stopped, frozen HEAD.
 2. **US latest-head** — `green` | `incremental_paused` | `ready_no_coderabbit_review` |
-   `review_in_progress` | `changes_requested_meta_only` | `pending` | `stale` | `wrong-bot` |
-   `changes_requested` | `commented_review_findings` | `FAIL: <reason>`.
+   `review_in_progress` | `changes_requested_meta_only` | `capture_only_findings` |
+   `pending` | `stale` | `wrong-bot` | `changes_requested` |
+   `changes_requested_body_findings` | `commented_review_findings` |
+   `FAIL: <reason>`.
 3. **Finding routes** — paste-ready `/sdd-to-tdd` or `/capture` with
    `<local-ref>`; inert severity, ID, path, title, and capture provenance;
    `none` when clean.
