@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-10-08
+**Last updated:** 2026-10-09
 
 ## Vercel
 
@@ -649,13 +649,16 @@ Use `--local` instead of `--linked` when testing against the local stack.
 corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
 ```
 
-The CodeRabbit CLI helper is paused and is not invoked. GitHub review stays
-required. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
+The CodeRabbit CLI helper is not on the Cloud snapshot `install`. GitHub review stays
+required. `/push` still runs the helper once on a missing or mismatched CLI. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
 and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 `unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`
 `pnpm.overrides` (pnpm 12 ignores that field). Spec: [../specs/dev-toolchain.md](../specs/dev-toolchain.md)
-G-O1 / G-CR1 / G-CR2 / G-CR3. The unused helper still pins `CODERABBIT_VERSION=0.7.6`, requires the Cursor
-Cloud secret `CODERABBIT_API_KEY`, and when resumed always runs:
+G-O1 / G-CR1 / G-CR2 / G-CR3. The helper pins `CODERABBIT_VERSION=0.9.0` (unsigned `0.7.6` 404s).
+`/push` `--branch-diff` runs it once when the binary is missing
+(`cli_missing`) or the reported version is not `0.9.0`
+(`version_mismatch`). It requires the Cursor
+Cloud secret `CODERABBIT_API_KEY`, and when appended to `install` always runs:
 
 ```sh
 coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"

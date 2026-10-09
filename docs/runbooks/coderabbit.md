@@ -14,10 +14,19 @@ review runs. `/push` posts no pull-request comment. A missing binary is
 `version_mismatch`; the branch-diff pass runs
 `.cursor/cloud-install-coderabbit.sh` once and then re-reads version and
 auth. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
-`attemptStatus:` for that SHA. `/ready-merge-release` does not post a
-review trigger. On 2026-10-09 the cursor GitHub App token received HTTP 403
-`Resource not accessible by integration` creating an issue comment on pull
-request 201, so the trigger never reached CodeRabbit and was dropped.
+`attemptStatus:` for that SHA. `/push` is the agent's only CodeRabbit gate:
+Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
+Trivial go to `/capture`, one fix round, then the PR is left a **draft**.
+Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do
+not run `gh pr ready`, do not post `@coderabbitai review`, and do not poll
+for a remote review. The QA bot posts as `ralfcam`, which holds the
+CodeRabbit seat: it posts `@coderabbitai review`, runs UAT, and marks the
+PR ready. `/ready-merge-release` is that operator/QA command. It does not
+post a review trigger. On 2026-10-09 the cursor GitHub App token received
+HTTP 403 `Resource not accessible by integration` creating an issue comment
+on pull request 201, so an agent trigger never reached CodeRabbit and was
+dropped. The verdicts in the rest of this section belong to that
+operator/QA command. Agents do not poll and do not wait on them.
 `/ready-merge-release` pauses for a second review only when
 an automated review is in progress on the draft's latest commit. When no
 review is running and there is no bot-skip notice, it goes straight to
@@ -381,7 +390,7 @@ process-meta; they do not fail as
 non-outdated US thread on any other path still fails closed. When current
 HEAD has no ranked US review, in-progress-on-head is checked before
 `incremental_paused` and before `stale_approval`. `--review-wait-expired` maps `review_in_progress` to
-`ready_no_coderabbit_review`. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. Under `--loop` only, exempt `.cursor/plans/` threads and review-body findings that all route to `/capture` are reason `capture_only_findings` (one `/capture` fence per finding, then Step 2 is clean and the draft is readied). A collected finding that routes to `/sdd-to-tdd` is reason `changes_requested_body_findings` and routes to `/sdd-to-tdd`. `/conduct` treats `capture_only_findings` as a clean loop preflight. `/conduct` posts one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and runs `/ready-merge-release <PR> --loop` again. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
+`ready_no_coderabbit_review`. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. Under `--loop` only, exempt `.cursor/plans/` threads and review-body findings that all route to `/capture` are reason `capture_only_findings` (one `/capture` fence per finding, then Step 2 is clean and the draft is readied). A collected finding that routes to `/sdd-to-tdd` is reason `changes_requested_body_findings` and routes to `/sdd-to-tdd`. A QA operator running `/ready-merge-release` treats `capture_only_findings` as a clean loop preflight. That operator may post one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and may run `/ready-merge-release <PR> --loop` again. `/conduct` does not. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
 `/ready-merge-release PR#`. Adapter `incremental_paused` leftovers (any
 severity) go to `/capture` and Step 2 is clean. Otherwise Critical/Major

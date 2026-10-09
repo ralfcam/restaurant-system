@@ -42,9 +42,15 @@ auth. `/push` posts no pull-request comment. It records
 `## CodeRabbit CLI evidence` with `Head:` and `attemptStatus:` for that
 SHA. If the CLI is unavailable (no key, error, timeout),
 or the gate exits non-zero / `secret_path`, push and record that. It must
-never block forever. `/ready-merge-release` does not post a review trigger:
-on 2026-10-09 the cursor GitHub App token got HTTP 403 creating an issue
-comment. A bot skip with no formal head review is
+never block forever. `/push` is the agent's only CodeRabbit gate. It
+opens or updates the PR as a draft and does not run `gh pr ready`.
+Agents, `/conduct`, and Cloud runs do not run `/ready-merge-release`, do
+not post `@coderabbitai review`, and do not poll for a remote review. The
+QA bot posts as `ralfcam` (the CodeRabbit seat): it posts
+`@coderabbitai review`, runs UAT, and marks the PR ready.
+`/ready-merge-release` is that operator/QA command. It does not post a
+review trigger: on 2026-10-09 the cursor GitHub App token got HTTP 403
+creating an issue comment. A bot skip with no formal head review is
 `coderabbit_review_skipped` unless that head's CLI evidence is `clean`
 (`ready_cli_evidence`). The same clean evidence covers `stale_approval`.
 

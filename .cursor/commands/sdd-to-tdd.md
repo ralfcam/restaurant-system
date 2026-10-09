@@ -965,7 +965,8 @@ After 4C/4B, the close-out format pass, and STEP 4G:
   [`.cursor/commands/commit.md`](.cursor/commands/commit.md) in this same
   turn (verification + closing-linked local commit only). On **PASS**,
   execute [`.cursor/commands/push.md`](.cursor/commands/push.md) (gates,
-  publication, draft PR create/update, review request). Stop on BLOCKED,
+  publication, draft PR create/update). Do not run `/ready-merge-release`.
+  Stop on BLOCKED,
   CHANGES-REQUESTED, FAIL, permission, verification, or any safety stop in
   those commands — do not continue past them. Never `gh pr ready`. Never
   `gh pr merge`. Never a Linear state write. `/commit` never pushes;

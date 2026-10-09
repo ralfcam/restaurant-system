@@ -5,23 +5,25 @@ You are the **publish step** after `/commit`. Your job is to get committed work
 visible to GitHub — and, whenever the resolved PR targets the default branch,
 correctly closing-linked — so Linear's own GitHub automations, not you, move
 the tracked issue(s) through **In Progress**, **In Review**, and **Done**.
-**In Progress** fires from the draft/open PR this command creates or
-updates; until that PR exists the issue may remain Todo. You never ready a
-PR and never merge; `/ready-merge-release <PR#>` readies only a clean PR and
-the operator merges in GitHub once that command approves the merge.
+**In Progress** fires from the draft PR this command creates or updates;
+until that PR exists the issue may remain Todo. `/push` is the agent's only
+CodeRabbit gate. You never mark a PR ready. The only readiness write is
+`gh pr ready --undo`, and only to return an already-ready PR to draft. You
+never run `/ready-merge-release`. You never merge. The QA bot `ralfcam` posts
+`@coderabbitai review`, runs UAT, and marks the PR ready.
 Communication style: direct, concise, precise.
 </persona>
 
 <context>
 **Invocation:** `/push [PR-URL|PR-number]` — one pipeline, no modes. The
 optional argument **pins** which PR you operate on; everything else (push,
-promotion-prep applicability, review request) is auto-derived from that PR's
+promotion-prep applicability, draft handoff) is auto-derived from that PR's
 own state. With no argument, you auto-discover the open PR for the current
 branch, or **create** a draft PR when none exists — base `staging` for a
 feature head, base the default branch when head is `staging`. Draft is
-deliberate: CodeRabbit reviews the draft HEAD, while `qa.yml` and
-`prettier.yml` skip jobs gated on `pull_request.draft == false` until
-`/ready-merge-release <n>` marks a clean PR ready. See
+deliberate: this command leaves the PR a draft. The QA bot `ralfcam` later
+posts `@coderabbitai review`, runs UAT, and may run `/ready-merge-release <n>`
+to mark a clean PR ready. See
 [.cursor/rules/staging-accumulator.mdc](.cursor/rules/staging-accumulator.mdc).
 Typically invoked right after a `/commit` PASS, and again later to prep a
 promotion PR once a batch is ready.
@@ -323,22 +325,17 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
      Preserve the existing body verbatim above this block. Re-fetch and
      confirm the edit landed before proceeding.
 
-### 5. Request review if none requested yet
+### 5. Leave the PR a draft
 
-- **If `isDraft` is true: skip this step entirely.** Do **not** request a
-  human review and do **not** run `gh pr ready <n>`. CodeRabbit reviews the
-  draft automatically; `/ready-merge-release <n>` owns the clean-pass
-  readiness transition and final check re-read.
-- If the PR is **not** a draft and `reviewRequests` is empty:
-  `gh pr edit <n> --add-reviewer <operator>` to fire Linear's
-  `PR review request → In Review` automation.
-- **Idempotent** — skip if a reviewer is already assigned; report "already
-  requested."
-- **Caveat:** GitHub rejects a review request naming the PR author. On this
-  single-operator repo, if no other account is available as a reviewer,
-  report that plainly instead of failing — In Review then comes from the
-  operator's own review activity on the PR, or from the close-out comment
-  automation.
+- Do **not** request a human review and do **not** run `gh pr ready <n>`.
+- If the resolved PR is not a draft, run `gh pr ready --undo` so it returns
+  to draft. That is the only readiness write this command may make.
+- Do not post `@coderabbitai review` and do not poll for a remote review.
+  `/push` posts no pull-request comment. Record `## CodeRabbit CLI evidence`
+  (`Head:` and `attemptStatus:`) for the finalized head in the PR body,
+  plus any leftover CLI findings after the one fix round.
+- Agents do not run `/ready-merge-release`. The QA bot `ralfcam` posts
+  `@coderabbitai review`, runs UAT, and marks the PR ready.
 
 ### 6. Report checks (advisory)
 
@@ -360,13 +357,9 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
 - Do **not** merge, ever. Present one summary: PR number/title, draft state,
   `<head> → <base>`, whether promotion prep ran, the aggregated issue IDs now
   linked (or "none"/"n/a"), review-request status, and checks status.
-- **When the PR is a draft**, the operator's next step is
-  **`/ready-merge-release <n>`** after CodeRabbit reviews the draft. That
-  command routes findings or readies and re-verifies a clean PR before
-  returning the operator-merge verdict.
-- When the PR is already ready, instruct the operator to run
-  **`/ready-merge-release <n>`** and merge in the GitHub UI only on
-  `APPROVED FOR OPERATOR MERGE`. The GitHub check
+- The PR must be a draft when this command stops. The next step belongs
+  to the QA bot `ralfcam`: post `@coderabbitai review`, run UAT, and mark
+  the PR ready. Agents do not run `/ready-merge-release`. The GitHub check
   `CodeRabbit US latest-head gate` is paused and not required. Remote review never
   substitutes for the mandatory advisory local CodeRabbit attempt on `/push`.
 
@@ -395,12 +388,13 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
    (unless head is the default branch), re-fetch, then continue.
 4. Run promotion prep only if the resolved PR's base is the default branch —
    aggregate closing trailers, inject the link if missing.
-5. Request review if none is requested yet (idempotent; single-operator
-   caveat) — but skip it entirely on a draft PR, and never `gh pr ready`.
-6. Report checks advisorily; CodeRabbit may run on drafts while other checks
-   wait for `/ready-merge-release`.
-7. Never merge, never ready a draft, never call Linear MCP, never force-push
-   without explicit ask.
+5. Leave the PR a draft. Do not request review. If it is not a draft, run
+   `gh pr ready --undo`. Do not post `@coderabbitai review` and do not poll.
+   Agents do not run `/ready-merge-release`.
+6. Report checks advisorily. Other jobs may stay gated until the QA bot
+   marks the PR ready.
+7. Never merge, never mark a PR ready, never call Linear MCP, never
+   force-push without explicit ask.
 
 </instructions>
 
@@ -409,8 +403,10 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
 - **No `gh pr merge`, ever.** Merging is the operator's job in the GitHub UI.
 - **No Linear MCP calls, ever.** Review requests go through `gh`
   (`gh pr edit --add-reviewer`), never `save_comment`/`save_issue`.
-- **No `gh pr ready`, ever.** Readiness belongs exclusively to
-  `/ready-merge-release <PR#>` after a clean CodeRabbit draft review.
+- **No `gh pr ready <n>`.** Do not mark a PR ready. The only readiness
+  write is `gh pr ready --undo`, to return an already-ready PR to draft.
+  Agents do not run `/ready-merge-release`. The QA bot `ralfcam` posts
+  `@coderabbitai review`, runs UAT, and marks the PR ready.
 - **DO NOT `git push`, `gh pr create`/`edit`, or instruct merge unless
   `pnpm lint; pnpm typecheck; pnpm test:unit` executed green this turn** (AC-1312-1).
 - **On lint + typecheck + test:unit red, classify-and-handoff only** (AC-1312-2). Do not run
@@ -426,8 +422,8 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   default branch, and Step 2 has published the remote head. Base is
   `staging` for any non-default, non-`staging` head; `staging` still bases
   to the default branch. Create **draft** PRs only — always `--draft`, so no
-  ready-gated Actions job runs until `/ready-merge-release` marks it ready;
-  CodeRabbit still reviews the draft. Never auto-create when a PR was pinned
+  ready-gated Actions job runs until the QA bot marks it ready. Agents do
+  not run `/ready-merge-release`. Never auto-create when a PR was pinned
   by URL/number. Never
   open a self-PR when head equals the default branch; stop and report
   instead. Draft-eligible CodeRabbit review runs before ready-gated Actions
@@ -439,8 +435,8 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   closing-linked. DO NOT fabricate issue IDs — only report what `gh` actually
   returned. Do not pre-inject `## Linear close-out` at create time; Step 4
   owns that.
-- **Review request is idempotent** — skip it if a reviewer is already
-  assigned; never re-request or spam `gh pr edit --add-reviewer`.
+- **Do not request review.** This command posts no pull-request comment
+  and does not run `gh pr edit --add-reviewer`.
 - **Promotion prep is conditional, not argument-gated** — run it whenever the
   resolved PR's base is the default branch, regardless of whether the PR was
   pinned by argument or auto-discovered; skip it (with a note) whenever the
@@ -460,10 +456,10 @@ Exactly these sections:
 2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (one fix round)" ; CLI: `clean` | `findings routed` | `leftover listed` | `unavailable recorded`.
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
-5. **Review request** — "deferred — PR is draft; CodeRabbit reviews now and `/ready-merge-release <n>` owns readiness" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the ready-for-merge event".
+5. **Draft** — "left a draft" | "returned to draft — `gh pr ready --undo`" | "n/a — no PR". Agents do not run `/ready-merge-release`.
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — wait for its CodeRabbit review, then run `/ready-merge-release <n>`; merge only on `APPROVED FOR OPERATOR MERGE`" | "PR open — run `/ready-merge-release <n>`" | "merge `<PR-URL>` in the GitHub UI only after `/ready-merge-release <n>` returns `APPROVED FOR OPERATOR MERGE` — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push`.
+8. **Operator next** — "draft PR open — QA bot `ralfcam` posts `@coderabbitai review`, runs UAT, and marks ready; agents do not run `/ready-merge-release`; merge only on `APPROVED FOR OPERATOR MERGE`" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push`.
    </output_format>
    </instructions>
    </output>

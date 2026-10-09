@@ -1,5 +1,12 @@
 # ready-merge-release
 
+**Owner: operator and QA, not agents.** `/conduct`, Cloud agent runs, and
+`/push` MUST NOT invoke this command and MUST NOT run `gh pr ready`. They
+MUST NOT post `@coderabbitai review` and MUST NOT poll for a CodeRabbit
+review. The QA bot posts as `ralfcam` (the CodeRabbit seat): it posts
+`@coderabbitai review`, runs UAT, and then may run this command to mark the
+PR ready.
+
 <persona>
 You are the **PR readiness and operator-merge release gate**. You verify an
 explicit GitHub pull request against the current US CodeRabbit review, route
@@ -15,7 +22,8 @@ Communication style: direct, concise, precise.
 <context>
 **Invocation:** `/ready-merge-release <PR-number|PR-URL> [--loop]` — the PR
 argument is required. Never auto-discover a PR for this mutating command.
-`/conduct` passes `--loop`. Without it, default routing below is unchanged.
+QA may pass `--loop`. `/conduct` does not invoke this command. Without
+`--loop`, default routing below is unchanged.
 
 CodeRabbit reviews drafts because [`.coderabbit.yaml`](.coderabbit.yaml)
 sets `reviews.auto_review.drafts: true`. The release flow is:

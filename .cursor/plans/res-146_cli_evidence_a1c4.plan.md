@@ -6,7 +6,8 @@ Verification: `node --test .cursor/checks/coderabbit-pr-policy.test.mjs .cursor/
 
 ## Acceptance Criteria → Tests
 
-| #   | Criterion                                            | Test file                                          |
-| --- | ---------------------------------------------------- | -------------------------------------------------- |
-| C1  | Missing CLI is `cli_missing`; signed pin 0.9.0       | `.cursor/checks/coderabbit-review-policy.test.mjs` |
-| C2  | Bot skip and stale approval follow head CLI evidence | `.cursor/checks/coderabbit-pr-policy.test.mjs`     |
+| #   | Criterion                                                                   | Test file                                                   |
+| --- | --------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| C1  | Missing CLI is `cli_missing`; signed pin 0.9.0                              | `.cursor/checks/coderabbit-review-policy.test.mjs`          |
+| C2  | Bot skip and stale approval follow head CLI evidence                        | `.cursor/checks/coderabbit-pr-policy.test.mjs`              |
+| C3  | `/push` is the only agent gate and leaves a draft; QA `ralfcam` marks ready | `tests/unit/dev-toolchain/coderabbit-res146-guards.test.ts` |

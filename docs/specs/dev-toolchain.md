@@ -190,6 +190,17 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    attemptStatus: clean|findings|unavailable
    ```
 
+   `/push` is the agent's only CodeRabbit gate. Critical, Major, and unknown
+   findings go to `/sdd-to-tdd`. Minor and Trivial go to `/capture`. Allow one fix
+   round, then push. Leftover findings from that round are committed on the
+   branch (`docs/findings/runs/`) and recorded in the PR body with the head
+   SHA and the CLI result. `/push` opens or updates the pull request as a
+   **draft**. Agents, `/conduct`, and Cloud runs MUST NOT call
+   `/ready-merge-release` and MUST NOT run `gh pr ready` to mark a PR ready.
+   `gh pr ready --undo` is allowed only to return an already-ready PR to
+   draft. They MUST NOT post `@coderabbitai review` and MUST NOT poll for a
+   remote CodeRabbit review.
+
    Test mode still exercises the parser.
    `critical`/`major`/`minor` findings and review unavailability
    (authentication or setup failure, rate limit, billing, timeout, skipped
@@ -357,8 +368,12 @@ auth token`) MUST pass a finite positive `timeout` (milliseconds) to
    skip notice stays `ready_no_coderabbit_review`. On 2026-10-09 the cursor
    GitHub App token received HTTP 403 `Resource not accessible by integration`
    when creating an issue comment on pull request 201, so a review trigger
-   never reached CodeRabbit. `/ready-merge-release` MUST NOT post a review
-   trigger. The gate's allowed writes stay the existing ready, undo,
+   never reached CodeRabbit. `/ready-merge-release` is operator/QA-owned.
+   Agents, `/conduct`, and Cloud runs MUST NOT invoke it and MUST NOT poll
+   for a review. The QA bot posts as `ralfcam` (the CodeRabbit seat): it
+   posts `@coderabbitai review`, runs UAT, and marks the PR ready.
+   `/ready-merge-release` MUST NOT be the agent's review trigger. The
+   gate's allowed writes stay the existing ready, undo,
    operator-comment, and body-note writes. When current HEAD has no ranked
    US review, `evaluateReadyPr` MUST check in-progress-on-head before
    `incremental_paused` and before `formalElsewhere` / `stale_approval`. `--review-wait-expired` MUST map
@@ -668,15 +683,18 @@ latest-head` so `on.pull_request.types` includes `edited`.
 
 20. **G-CON1 — `/conduct` is managed Cloud only** —
     `.cursor/commands/conduct.md` defines `morning` and `next`, resume-first,
-    the review loop, and the hard limits, including never asking the operator
-    a question. The lane is Linear status plus GitHub, with no labels. Todo
-    in the current cycle is the queue. A `Work started:` comment is the claim.
-    An open `cursor/res-<n>-<4 hex>` PR is in flight. A blocker before a PR
-    exists posts one CLARIFY comment. `morning` runs triage, Monday curate,
-    then dispatch, on its own `cursor/morning-` branch. When every `--loop`
-    finding is already an open ledger line, the conductor replies on each
-    product thread and resolves it with `resolveReviewThread`, then runs
-    `/ready-merge-release` again.
+    and the hard limits, including never asking the operator a question.
+    `/conduct` and Cloud runs MUST NOT call `/ready-merge-release` on an
+    issue PR and MUST NOT mark a PR ready. After `/push` the issue PR stays
+    a draft. The QA bot posts as `ralfcam`, which holds the CodeRabbit seat:
+    it posts `@coderabbitai review`, runs UAT, and marks the PR ready. The
+    operator command still documents `roundCap: 3`. `/conduct` does not run
+    it, does not poll CodeRabbit, and does not post a review trigger. The
+    lane is Linear status plus GitHub, with no labels. Todo in the current
+    cycle is the queue. A `Work started:` comment is the claim. An open
+    `cursor/res-<n>-<4 hex>` PR is in flight. A blocker before a PR exists
+    posts one CLARIFY comment. `morning` runs triage, Monday curate, then
+    dispatch, on its own `cursor/morning-` branch.
     - Regression guard: `tests/unit/dev-toolchain/conduct-command.test.ts`.
 
 21. **G-CR4 — `--loop` routes by severity only** —
@@ -688,14 +706,16 @@ latest-head` so `on.pull_request.types` includes `edited`.
     In-loop `/sdd-to-tdd` fixes stay on the PR branch and skip START and
     CLOSE-OUT. Managed STEP 4C keeps new-issue findings on the ledger and
     continues. The invocation is `/ready-merge-release <PR> [--loop]`, and
-    both adapter commands document `[--loop]`. When every active `--loop`
+    both adapter commands document `[--loop]`. `/conduct` does not invoke
+    that command. When a QA operator runs it and every active `--loop`
     finding is Major, Minor, or Trivial and each path already appears on an
-    open `docs/findings/` line, `/conduct` posts one review-thread reply per
-    product thread. The reply states that the finding is already on the open
-    findings ledger, names the ledger path and the open line, and does not
-    contain a `@coderabbitai` command. `/conduct` then resolves that thread
-    with GitHub `resolveReviewThread` and runs `/ready-merge-release <PR>
---loop` again. Under `--loop` only, `evaluateReadyPr` returns `ok: true`
+    open `docs/findings/` line, that operator command may post one
+    review-thread reply per product thread. The reply states that the
+    finding is already on the open findings ledger, names the ledger path
+    and the open line, and does not contain a `@coderabbitai` command. It
+    may then resolve that thread with GitHub `resolveReviewThread` and run
+    `/ready-merge-release <PR> --loop` again. `/conduct` does not. Under
+    `--loop` only, `evaluateReadyPr` returns `ok: true`
     with reason `captured_threads_resolved` when the current-HEAD US review
     is `CHANGES_REQUESTED`, no unresolved product thread remains, and at
     least one resolved non-outdated US product thread exists. That reason is
@@ -734,11 +754,13 @@ latest-head` so `on.pull_request.types` includes `edited`.
     adapter stays read-only. `/ready-merge-release` treats
     `capture_only_findings` like `incremental_paused`: it emits one
     `/capture` fence per finding, then Step 2 is clean and the draft is
-    readied. `/conduct` treats `capture_only_findings` as a clean loop
-    preflight, runs `/capture` for each finding whose path is not already
-    an open `docs/findings/` line, and does not report that reason as an
-    operational FAIL or start another `/sdd-to-tdd` round for it.
-    `changes_requested_body_findings` routes to `/sdd-to-tdd`.
+    readied. A QA operator running `/ready-merge-release` treats
+    `capture_only_findings` as a clean loop preflight and runs `/capture`
+    for each finding whose path is not already an open `docs/findings/`
+    line. `/conduct` does not invoke that command, does not treat the
+    reason as its own preflight, and does not start another round.
+    `changes_requested_body_findings` routes to `/sdd-to-tdd` when a QA
+    operator is running the command.
     - Regression guard: `.cursor/checks/coderabbit-pr-policy.test.mjs`.
 
 22. **G-ENV1 — Cloud test stack** —

@@ -760,10 +760,14 @@ describe("G-CR4 loop capture_only_findings and body findings", () => {
   test("commands document capture_only_findings and changes_requested_body_findings", () => {
     const docs = [
       ".cursor/commands/ready-merge-release.md",
-      ".cursor/commands/conduct.md",
       ".cursor/rules/coderabbit-integration.mdc",
       "docs/runbooks/coderabbit.md",
     ]
+    const conduct = readFileSync(
+      join(process.cwd(), ".cursor/commands/conduct.md"),
+      "utf8",
+    )
+    assert.equal(conduct.includes("/ready-merge-release <PR> --loop"), false)
     for (const rel of docs) {
       const text = readFileSync(join(process.cwd(), rel), "utf8")
       assert.equal(
