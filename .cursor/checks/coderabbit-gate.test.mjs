@@ -324,8 +324,9 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     const third = runBranchDiff("local-critical.jsonl")
     assert.equal(third.status, 0, third.stderr)
     const thirdBody = JSON.parse(third.stdout)
-    assert.equal(thirdBody.action, "push")
-    assert.equal(thirdBody.record, "leftover_after_fix_round")
+    assert.equal(thirdBody.action, "stop")
+    assert.equal(thirdBody.record, "blocked_major_findings")
+    assert.equal(thirdBody.leftover.length, 0)
 
     const missingBase = runBranchDiff("local-clean.jsonl", {
       CODERABBIT_STUB_MISSING_BASE: "1",
@@ -358,8 +359,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     })
     assert.equal(newHead.status, 0, newHead.stderr)
     const newHeadBody = JSON.parse(newHead.stdout)
-    assert.equal(newHeadBody.action, "push")
-    assert.equal(newHeadBody.record, "leftover_after_fix_round")
+    assert.equal(newHeadBody.action, "stop")
+    assert.equal(newHeadBody.record, "blocked_major_findings")
   })
 
   test("route prints started fixRound and isolated second run uses that output", () => {
@@ -401,8 +402,9 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     )
     assert.equal(third.status, 0, third.stderr)
     const thirdBody = JSON.parse(third.stdout)
-    assert.equal(thirdBody.action, "push")
-    assert.equal(thirdBody.record, "leftover_after_fix_round")
+    assert.equal(thirdBody.action, "stop")
+    assert.equal(thirdBody.record, "blocked_major_findings")
+    assert.equal(thirdBody.leftover.length, 0)
 
     const over = runBranchDiff(
       "local-critical.jsonl",
@@ -416,7 +418,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       ["--fix-round", "9"],
     )
     assert.equal(over.status, 0, over.stderr)
-    assert.equal(JSON.parse(over.stdout).record, "leftover_after_fix_round")
+    assert.equal(JSON.parse(over.stdout).record, "blocked_major_findings")
+    assert.equal(JSON.parse(over.stdout).action, "stop")
   })
 
   test("completed push clears the saved fix round for a later independent review", () => {
@@ -443,14 +446,15 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       CODERABBIT_STATE_DIR: dir,
     })
     assert.equal(leftover.status, 0, leftover.stderr)
-    assert.equal(JSON.parse(leftover.stdout).record, "leftover_after_fix_round")
+    assert.equal(JSON.parse(leftover.stdout).record, "blocked_major_findings")
+    assert.equal(JSON.parse(leftover.stdout).action, "stop")
 
     const retry = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "clear-retry",
       CODERABBIT_STATE_DIR: dir,
     })
     assert.equal(retry.status, 0, retry.stderr)
-    assert.equal(JSON.parse(retry.stdout).record, "leftover_after_fix_round")
+    assert.equal(JSON.parse(retry.stdout).record, "blocked_major_findings")
 
     const ack = spawnSync(
       process.execPath,
@@ -480,6 +484,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       "utf8",
     )
     assert.match(pushMd, /--ack-push/)
+    assert.match(pushMd, /blocked_major_findings/)
   })
 
   test(
@@ -534,7 +539,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(third.status, 0, third.stderr)
     const thirdBody = JSON.parse(third.stdout)
     assert.equal(thirdBody.action, "push")
-    assert.equal(thirdBody.record, "leftover_after_fix_round")
+    assert.equal(thirdBody.record, "capture_and_push")
+    assert.equal(thirdBody.sddToTdd.length, 0)
   })
 
   test("pass 2 capture-only findings push without a third pass", () => {

@@ -667,7 +667,10 @@ export function resolvePushPriorRound(
         leftoverRecord.fixRound ??
         leftoverRecord.priorRound,
     )
-    if (leftoverRecord.record === "leftover_after_fix_round") {
+    if (
+      leftoverRecord.record === "leftover_after_fix_round" ||
+      leftoverRecord.record === "blocked_major_findings"
+    ) {
       return PUSH_CLI_FIX_ROUND_CAP
     }
     if (

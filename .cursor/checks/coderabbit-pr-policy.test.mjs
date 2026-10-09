@@ -11,6 +11,7 @@ import {
   appendOperatorNoteToPrBody,
   classifyFindingRouting,
   commentLooksReviewInProgress,
+  commentMentionsHead,
   decidePushCliAction,
   evaluateReadyPr,
   hasCodeRabbitReviewInProgress,
@@ -59,7 +60,12 @@ test("bot skip with no CLI evidence is coderabbit_review_skipped", () => {
 })
 
 test("bot skip with clean CLI evidence on the head is ready_cli_evidence", () => {
-  const result = evaluateReadyPr(load("remote-skip-clean-cli.json"))
+  const forged = evaluateReadyPr(load("remote-skip-clean-cli.json"))
+  assert.equal(forged.ok, false)
+  assert.equal(forged.reason, "coderabbit_review_skipped")
+  const result = evaluateReadyPr(load("remote-skip-clean-cli.json"), {
+    cliReceipt: { head: "abc123", attemptStatus: "clean" },
+  })
   assert.equal(result.ok, true)
   assert.equal(result.reason, "ready_cli_evidence")
 })
@@ -71,16 +77,56 @@ test("bot skip with clean CLI evidence on an older SHA stays skipped", () => {
 })
 
 test("bot skip with findings or unavailable CLI evidence is ready_cli_evidence", () => {
-  const findings = evaluateReadyPr(load("remote-skip-findings-cli.json"))
-  assert.equal(findings.ok, true)
-  assert.equal(findings.reason, "ready_cli_evidence")
-  const unavailable = evaluateReadyPr(load("remote-skip-unavailable-cli.json"))
-  assert.equal(unavailable.ok, true)
-  assert.equal(unavailable.reason, "ready_cli_evidence")
+  const findings = evaluateReadyPr(load("remote-skip-findings-cli.json"), {
+    cliReceipt: { head: "abc123", attemptStatus: "findings" },
+  })
+  assert.equal(findings.ok, false)
+  assert.equal(findings.reason, "coderabbit_review_skipped")
+  const unavailable = evaluateReadyPr(
+    load("remote-skip-unavailable-cli.json"),
+    { cliReceipt: { head: "abc123", attemptStatus: "unavailable" } },
+  )
+  assert.equal(unavailable.ok, false)
+  assert.equal(unavailable.reason, "coderabbit_review_skipped")
+  const bodyOnly = evaluateReadyPr(load("remote-skip-findings-cli.json"))
+  assert.equal(bodyOnly.reason, "coderabbit_review_skipped")
+})
+
+test("a skip notice with no SHA matches no head", () => {
+  const head = "abc123def4567890abcd1234ef567890abcd1234"
+  assert.equal(
+    commentMentionsHead({ body: "Review skipped\n\nBot user detected." }, head),
+    false,
+  )
+  assert.equal(
+    commentMentionsHead(
+      { body: "Review skipped\n\nBot user detected.\nsee deadbeef" },
+      head,
+    ),
+    false,
+  )
+  assert.equal(
+    commentMentionsHead(
+      { body: `Review skipped\n\nBot user detected.\n${head}` },
+      head,
+    ),
+    true,
+  )
+  const snapshot = load("remote-skip-no-cli.json")
+  snapshot.headSha = head
+  snapshot.pull.headSha = head
+  snapshot.issueComments[0].body = "Review skipped\n\nBot user detected."
+  const result = evaluateReadyPr(snapshot)
+  assert.equal(result.reason, "ready_no_coderabbit_review")
 })
 
 test("stale approval with clean CLI evidence on the head is ready_cli_evidence", () => {
-  const withEvidence = evaluateReadyPr(load("remote-stale-clean-cli.json"))
+  const forged = evaluateReadyPr(load("remote-stale-clean-cli.json"))
+  assert.equal(forged.ok, false)
+  assert.equal(forged.reason, "stale_approval")
+  const withEvidence = evaluateReadyPr(load("remote-stale-clean-cli.json"), {
+    cliReceipt: { head: "abc123", attemptStatus: "clean" },
+  })
   assert.equal(withEvidence.ok, true)
   assert.equal(withEvidence.reason, "ready_cli_evidence")
   const without = evaluateReadyPr(load("remote-stale-approval.json"))
@@ -384,7 +430,7 @@ test("progress comment tied to a different commit is not the current head", () =
   assert.equal(result.reason, "ready_no_coderabbit_review")
 })
 
-test("push CLI action routes two fix rounds then leftover-pushes", () => {
+test("push CLI action routes two fix rounds then blocks majors", () => {
   const critical = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "critical", id: "c1" }],
@@ -454,14 +500,32 @@ test("push CLI action routes two fix rounds then leftover-pushes", () => {
   assert.equal(emptyRouted.action, "push")
   assert.equal(emptyRouted.sddToTdd.length, 0)
 
-  const leftover = decidePushCliAction({
+  const blocked = decidePushCliAction({
     attemptStatus: "findings",
-    findings: [{ severity: "critical", id: "c1" }],
+    findings: [
+      { severity: "critical", id: "c1" },
+      { severity: "major", id: "m9" },
+      { severity: "minor", id: "n9" },
+    ],
     priorRound: 2,
   })
-  assert.equal(leftover.action, "push")
-  assert.equal(leftover.record, "leftover_after_fix_round")
-  assert.equal(leftover.leftover.length, 1)
+  assert.equal(blocked.action, "stop")
+  assert.equal(blocked.record, "blocked_major_findings")
+  assert.equal(blocked.leftover.length, 0)
+  assert.equal(blocked.sddToTdd.length, 2)
+  assert.equal(
+    blocked.sddToTdd.every((finding) => finding.command === "/sdd-to-tdd"),
+    true,
+  )
+
+  const blockedUnknown = decidePushCliAction({
+    attemptStatus: "unavailable",
+    findings: [{ severity: "nope", id: "u2" }],
+    priorRound: 2,
+  })
+  assert.equal(blockedUnknown.action, "stop")
+  assert.equal(blockedUnknown.record, "blocked_major_findings")
+  assert.equal(blockedUnknown.leftover.length, 0)
 
   const overCap = decidePushCliAction({
     attemptStatus: "findings",
@@ -469,7 +533,9 @@ test("push CLI action routes two fix rounds then leftover-pushes", () => {
     priorRound: 9,
   })
   assert.equal(overCap.action, "push")
-  assert.equal(overCap.record, "leftover_after_fix_round")
+  assert.equal(overCap.record, "capture_and_push")
+  assert.equal(overCap.leftover.length, 1)
+  assert.equal(overCap.sddToTdd.length, 0)
 
   const unavailable = decidePushCliAction({
     attemptStatus: "unavailable",

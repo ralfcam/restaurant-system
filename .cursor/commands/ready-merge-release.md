@@ -136,11 +136,11 @@ continue — do not wait forever.
 
 If the adapter returns `ok: false` with reason
 `coderabbit_review_skipped`, stop. Do not ready the draft. This is a bot
-skip notice ("Review skipped" and "Bot user detected") on the head, and
-the PR body does not record `## CodeRabbit CLI evidence` for that same
-head SHA. Evidence for an older SHA only stays this reason. `clean`,
-`findings`, and `unavailable` on the current head are not this reason.
-Do not post a review trigger. On 2026-10-09 the cursor GitHub App token
+skip notice ("Review skipped" and "Bot user detected") that names the
+head SHA, and the ignored gate receipt does not record `attemptStatus:
+clean` for that same head. PR body text is not that receipt. `findings`
+and `unavailable` are not `ready_cli_evidence`. A notice with no SHA is
+not this reason. Do not post a review trigger. On 2026-10-09 the cursor GitHub App token
 received HTTP 403 `Resource not accessible by integration` creating an
 issue comment on pull request 201, so this command does not post one.
 The gate's allowed writes stay ready, undo, the
@@ -148,10 +148,10 @@ The gate's allowed writes stay ready, undo, the
 note.
 
 If the adapter returns `ok: true` with reason `ready_cli_evidence`, Step 2
-is clean. Continue to ready. Do not post the operator comment. On a bot
-skip this is any recorded `attemptStatus` (`clean`, `findings`, or
-`unavailable`) for the current head SHA. On a non-bot `stale_approval`
-it is still only `attemptStatus: clean` for that SHA. QA UAT is the other
+is clean. Continue to ready. Do not post the operator comment. This is
+only the ignored gate receipt with `head` equal to the current head SHA
+and `attemptStatus: clean`. PR body `clean`, `findings`, and
+`unavailable` lines do not authorize it. QA UAT is the other
 half of readiness and is already done before this command runs.
 
 If the adapter returns `ok: true` with reason `ready_no_coderabbit_review`,
@@ -218,8 +218,10 @@ stop. Do not disguise it as a product finding. `ready_no_coderabbit_review`
 is not an operational FAIL and is not a manual-review fallback: it means no
 formal CodeRabbit review ran on that head and there is no bot-skip notice.
 Mark the draft ready and record the operator note. Do not request a
-CodeRabbit review. Bot PRs are `ready_cli_evidence` or
-`coderabbit_review_skipped`, not this reason. Do not insert a blind
+CodeRabbit review. A bot skip that names the head SHA is
+`ready_cli_evidence` only when the gate receipt is `clean` for that SHA,
+and otherwise `coderabbit_review_skipped`. A SHA-less skip notice is not
+a bot skip for this head. Do not insert a blind
 wait before that reason. Wait only when `review_in_progress` is true for
 this head SHA. `incremental_paused`,
 `changes_requested_meta_only`, and `capture_only_findings` are not stale.

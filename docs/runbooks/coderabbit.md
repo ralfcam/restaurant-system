@@ -19,13 +19,16 @@ Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
 Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
 CLI passes at most. Pass 1 routes every finding. Pass 2 routes only
 Critical, Major, and unknown findings; Minor and Trivial on that pass are
-captured and the branch pushes with no third pass. Pass 3 pushes anyway
-and lists leftovers. The PR is left a **draft**, and that draft has already passed this CLI
+captured and the branch pushes with no third pass. Pass 3 does not push
+when a Critical, Major, or unknown finding is still open: it stops and
+reports `blocked_major_findings`. Those findings are not leftovers and
+are not ledgered. Only Minor and Trivial may be captured and pushed.
+The PR is left a **draft**, and that draft has already passed this CLI
 gate for the head that was pushed.
 Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do
 not run `gh pr ready`, do not post `@coderabbitai review`, and do not poll
-for a remote review. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the CLI
-evidence on the head plus that UAT. `/ready-merge-release` is that
+for a remote review. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is a clean gate
+receipt for that head plus that UAT. `/ready-merge-release` is that
 operator/QA command. It does not post a review trigger. On 2026-10-09 the
 cursor GitHub App token received HTTP 403 `Resource not accessible by
 integration` creating an issue comment on pull request 201, so an agent
@@ -38,12 +41,14 @@ When no review is running and there is no bot-skip notice, it goes
 straight to `ready_no_coderabbit_review` with no blind wait: it marks the
 draft ready and tries an operator comment that does not request a
 CodeRabbit review. A bot-skip notice ("Review skipped" and "Bot user
-detected") does not expect a formal review. Recorded CLI evidence for
-that same head (`clean`, `findings`, or `unavailable`) is
-`ready_cli_evidence`. Missing evidence, or evidence for an older SHA
-only, stays blocking `coderabbit_review_skipped`. That decision is made
-before `stale_approval`. Non-bot `stale_approval` still becomes
-`ready_cli_evidence` only when the current head's evidence is `clean`.
+detected") does not expect a formal review, and only when that notice
+names the head SHA. A notice with no SHA matches no head.
+`ready_cli_evidence` is the ignored gate receipt for that same head with
+`attemptStatus: clean`. PR body text, including `findings` and
+`unavailable`, is not that receipt. A matching bot skip without the
+clean receipt stays blocking `coderabbit_review_skipped`. That decision
+is made before `stale_approval`. Non-bot `stale_approval` still becomes
+`ready_cli_evidence` only when that same receipt is `clean`.
 An expired `review_in_progress` wait is carried as
 `ready_no_coderabbit_review` only when there is no bot-skip notice. With
 a skip notice it becomes `coderabbit_review_skipped` or
@@ -363,7 +368,9 @@ stable `reason`. Critical, Major, and unknown findings route to
 in-scope Minor and Trivial. `--fix-round` is a counter capped at 2.
 Pass 1 routes every finding. Pass 2 routes only when `/sdd-to-tdd`
 findings remain; Minor and Trivial on that pass capture-and-push with no
-third pass. Pass 3 pushes anyway and lists leftovers. The counter is kept
+third pass. Pass 3 stops with `blocked_major_findings` when a Critical,
+Major, or unknown finding is still open and does not push those. Only
+Minor and Trivial capture-and-push. The counter is kept
 across its fix commits via `--fix-round` or the leftover record. On
 `route`, printed `fixRound` is the started round. After a successful
 `git push`, `--ack-push` clears the saved cycle. `runCr` uses an absolute

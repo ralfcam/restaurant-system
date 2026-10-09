@@ -5,10 +5,11 @@
  * rate-limit/billing/override markers, and deterministic severity routing
  * for active findings. A head with no formal US review and no bot-skip
  * notice is `ready_no_coderabbit_review`. A bot-skip notice does not expect
- * a formal review. Any `## CodeRabbit CLI evidence` status for that same
- * head (`clean`, `findings`, or `unavailable`) is `ready_cli_evidence`;
- * missing evidence or another SHA stays `coderabbit_review_skipped`.
- * Non-bot `stale_approval` still requires `clean` evidence. A quiet-mode
+ * a formal review, and it counts only when it names the head SHA.
+ * `ready_cli_evidence` is the ignored gate receipt for that head with
+ * `attemptStatus: clean`. PR body text is not that receipt. A matching
+ * bot skip without it stays `coderabbit_review_skipped`. Non-bot
+ * `stale_approval` still requires that same clean receipt. A quiet-mode
  * walkthrough with no tagged
  * finding outside the walkthrough is still not a finding. A tagged
  * `cr-comment` outside the walkthrough section is still collected. A
@@ -239,19 +240,19 @@ export function statusLooksInProgress(status) {
   return context === REQUIRED_US_STATUS_CONTEXT || isCodeRabbitShaped(context)
 }
 
-function commentMentionsHead(comment, headSha) {
+export function commentMentionsHead(comment, headSha) {
   const body = String(comment?.body || "")
   const commentSha =
     comment?.commit_id || comment?.commitId || comment?.commit?.oid || ""
   if (commentSha) return Boolean(headSha && commentSha === headSha)
-  if (!headSha) return !/\b[0-9a-f]{7,40}\b/i.test(body)
-  const sha = String(headSha)
+  const sha = String(headSha || "")
+  if (!sha) return false
   if (body.toLowerCase().includes(sha.toLowerCase())) return true
   if (sha.length >= 7) {
     const short = sha.slice(0, 7).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
     if (new RegExp(`\\b${short}\\b`, "i").test(body)) return true
   }
-  return !/\b[0-9a-f]{7,40}\b/i.test(body)
+  return false
 }
 
 export function commentLooksReviewInProgress(comment, headSha) {
@@ -292,18 +293,7 @@ function boundedPushRound(priorRound) {
   return Math.min(round, PUSH_CLI_FIX_ROUND_CAP)
 }
 
-export function decidePushCliAction({
-  attemptStatus,
-  findings = [],
-  priorRound = 0,
-} = {}) {
-  if (attemptStatus === "unavailable" || attemptStatus === "clean") {
-    return {
-      action: "push",
-      leftover: attemptStatus === "clean" ? [] : findings,
-      record: attemptStatus,
-    }
-  }
+function routedPushFindings(findings) {
   const routed = (findings || []).map((finding) => ({
     ...finding,
     ...classifyFindingRouting({
@@ -311,19 +301,45 @@ export function decidePushCliAction({
       body: finding.body,
     }),
   }))
-  const sddToTdd = routed.filter((finding) => finding.route === "sdd-to-tdd")
-  const capture = routed.filter((finding) => finding.route === "capture")
-  const packet = { leftover: routed, sddToTdd, capture }
+  return {
+    sddToTdd: routed.filter((finding) => finding.route === "sdd-to-tdd"),
+    capture: routed.filter((finding) => finding.route === "capture"),
+  }
+}
+
+export function decidePushCliAction({
+  attemptStatus,
+  findings = [],
+  priorRound = 0,
+} = {}) {
   const round = boundedPushRound(priorRound)
-  if (round >= PUSH_CLI_FIX_ROUND_CAP) {
+  const { sddToTdd, capture } = routedPushFindings(
+    attemptStatus === "clean" ? [] : findings,
+  )
+  const packet = { leftover: capture, sddToTdd, capture }
+  if (sddToTdd.length > 0) {
+    if (round >= PUSH_CLI_FIX_ROUND_CAP) {
+      return {
+        action: "stop",
+        leftover: [],
+        sddToTdd,
+        capture,
+        record: "blocked_major_findings",
+      }
+    }
+    return { action: "route", ...packet, record: "fix_round" }
+  }
+  if (attemptStatus === "unavailable" || attemptStatus === "clean") {
     return {
       action: "push",
-      ...packet,
-      record: routed.length ? "leftover_after_fix_round" : "push",
+      leftover: attemptStatus === "clean" ? [] : capture,
+      sddToTdd: [],
+      capture,
+      record: attemptStatus,
     }
   }
-  // Pass 1 routes every finding. Pass 2 routes only Critical, Major, and unknown.
-  if (routed.length > 0 && (round < 1 || sddToTdd.length > 0)) {
+  // Pass 1 routes every finding. Later passes capture only Minor and Trivial.
+  if (capture.length > 0 && round < 1) {
     return { action: "route", ...packet, record: "fix_round" }
   }
   return {
@@ -345,6 +361,7 @@ export function renderCliEvidenceBlock({ head, attemptStatus, reason } = {}) {
   return `${lines.join("\n")}\n`
 }
 
+// Parses the human PR-body record. This is not authorization.
 export function cliEvidenceStatusForHead(body, headSha) {
   const want = String(headSha || "")
   const re =
@@ -357,8 +374,12 @@ export function cliEvidenceStatusForHead(body, headSha) {
   return status
 }
 
-export function hasCleanCliEvidence(body, headSha) {
-  return cliEvidenceStatusForHead(body, headSha) === "clean"
+export function hasCleanCliEvidence(receipt, headSha) {
+  if (!receipt || typeof receipt !== "object" || !headSha) return false
+  return (
+    String(receipt.head || "") === String(headSha) &&
+    receipt.attemptStatus === "clean"
+  )
 }
 
 export function isBotSkipNotice(body) {
@@ -794,7 +815,12 @@ function headHasBotSkipNotice(snapshot, headSha) {
 
 function evaluateReadyPrCore(
   snapshot,
-  { allowDraft = false, loop = false, reviewWaitExpired = false } = {},
+  {
+    allowDraft = false,
+    loop = false,
+    reviewWaitExpired = false,
+    cliReceipt = null,
+  } = {},
 ) {
   if (!snapshot || typeof snapshot !== "object") {
     return { ok: false, reason: "malformed_snapshot" }
@@ -923,12 +949,11 @@ function evaluateReadyPrCore(
         findings: commentedFindings,
       }
     }
-    const prBody = snapshot.body || snapshot.pull?.body || ""
-    const cliStatus = cliEvidenceStatusForHead(prBody, headSha)
-    // Bot PRs: the /push CLI record is the CodeRabbit check. A formal
-    // review is not required, and a stale one must not outrank that record.
+    const cleanReceipt = hasCleanCliEvidence(cliReceipt, headSha)
+    // Bot PRs: a formal review is not required. The gate receipt is the
+    // only clean-CLI proof. PR body text is not.
     if (headHasBotSkipNotice(snapshot, headSha)) {
-      if (cliStatus) {
+      if (cleanReceipt) {
         return {
           ok: true,
           reason: "ready_cli_evidence",
@@ -945,7 +970,7 @@ function evaluateReadyPrCore(
       ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
     )
     if (formalElsewhere) {
-      if (hasCleanCliEvidence(prBody, headSha)) {
+      if (cleanReceipt) {
         return {
           ok: true,
           reason: "ready_cli_evidence",

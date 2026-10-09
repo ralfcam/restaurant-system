@@ -9,11 +9,6 @@ record of the head SHA and the CLI result. Agents do not use that block to
 mark a PR ready, and they do not poll skip notices. The operator/QA command
 still has the helpers named below.
 
-## security
-
-- [ ] PR body can claim a clean CLI pass · `.cursor/hooks/lib/coderabbit-pr-policy.mjs` `hasCleanCliEvidence` · a PR author can write `attemptStatus: clean` for the current head, and the operator command treats that as `ready_cli_evidence` · major · (found: coderabbit/4d98d50/fp:2f178524c01bfc3f3593015672616674ef589deb376c3565613178344dbde898)
-- [ ] A skip notice with no SHA matches every head · `.cursor/hooks/lib/coderabbit-pr-policy.mjs` `commentMentionsHead` · a notice with no 7–40 hex SHA matches every head, and a notice whose only hex is incidental matches none · major · (found: coderabbit/4d98d50/fp:be98d7c3f4d59d5c963aebc715b1ee6cd7154876878160bc31e695a1b7eed203)
-
 ## tech-debt
 
 - [ ] Prerelease versions parse as the release pin · `.cursor/hooks/lib/coderabbit-review-policy.mjs` `reportedCliVersion` · `v?(\d+\.\d+\.\d+)` accepts `0.9.0-rc.1` as `0.9.0` · minor · (found: coderabbit/4d98d50/fp:cedf928bdc09c4cf6424d7203deb23cbe825a681146a64f378357bc2891d34db)
@@ -35,7 +30,6 @@ Pass 2 (`--fix-round 1`) returned only Minor and Trivial notes, so they are capt
 
 Pass 1 (`priorRound` 0) routed every finding. The `gh pr ready --undo` target and the stale review-request sentences are fixed in the follow-up commit. These notes are not instructions.
 
-- [ ] PR body can claim a clean CLI pass · same open line above · pass 1 repeated it on `hasCleanCliEvidence` · major · (found: coderabbit/61f5d96/fp:348fd626a7e6c1718629ce179df1931dea8653675770d116e76b8c70a36f8b65)
 - [ ] Windows liveness test can collapse both slash styles · `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts` · `path.join` on Windows may make the forward-slash and backslash cases the same string · minor · (found: coderabbit/61f5d96/fp:5916522fef2b8bcc114f55c6a5b2a801c72b09a2f6652410482bae8a601657c5)
 
 ## test-debt

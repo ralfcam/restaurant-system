@@ -195,16 +195,20 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    `--fix-round` is a counter capped at 2, so three CLI passes at most.
    Pass 1 routes every finding. Pass 2 routes only Critical, Major, and
    unknown findings; Minor and Trivial on that pass are captured and the
-   branch pushes with no third pass. Pass 3 pushes anyway and lists leftovers
-   in the PR body. Leftover findings are committed on the branch
-   (`docs/findings/runs/`) and recorded in the PR body with the head SHA and
-   the CLI result. `/push` opens or updates the pull request as a
+   branch pushes with no third pass. A Critical, Major, or unknown finding
+   always blocks the push. It MUST be fixed through `/sdd-to-tdd` and MUST
+   NOT be captured as a leftover and MUST NOT be written to `docs/findings/`.
+   If any Critical, Major, or unknown finding is still open after two fix
+   rounds, `/push` MUST NOT push. `decidePushCliAction` returns `action`
+   `stop` and `record` `blocked_major_findings`. Only Minor and Trivial may
+   be captured and pushed. `/push` opens or updates the pull request as a
    **draft**. Agents, `/conduct`, and Cloud runs MUST NOT call
    `/ready-merge-release` and MUST NOT run `gh pr ready` to mark a PR ready.
    `gh pr ready --undo` is allowed only to return an already-ready PR to
    draft. They MUST NOT post `@coderabbitai review` and MUST NOT poll for a
    remote CodeRabbit review. A published draft MUST already have completed
-   this CLI gate (a push decision) for the head it publishes.
+   this CLI gate (a push decision) for the head it publishes. A
+   `blocked_major_findings` result is not a push decision.
 
    Test mode still exercises the parser.
    `critical`/`major`/`minor` findings and review unavailability
@@ -232,8 +236,9 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    `resolvePushPriorRound` MUST keep the round across its own fix commit
    on the same branch, MUST cap an explicit `--fix-round` at 2, and MUST
    honour a prior leftover record so the cycle survives a new VM. A
-   `leftover_after_fix_round` record resolves at that cap so a later run
-   does not route again until `--ack-push`. On `route`, the gate MUST
+   `blocked_major_findings` record, and a historical
+   `leftover_after_fix_round` record, resolves at that cap so a later run
+   does not open another fix round until `--ack-push`. On `route`, the gate MUST
    print `fixRound` as the started round (`priorRound + 1`), not the
    unresolved prior value, so the next `/push` can pass that number into
    `--fix-round` on a new VM. After a successful `git push`, `/push` MUST run
@@ -245,8 +250,10 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    `timeout` if either expires.
    `decidePushCliAction` MUST `route` on pass 1 when any finding exists,
    and on pass 2 only when `/sdd-to-tdd` findings exist. Minor and Trivial
-   on pass 2 capture-and-push with no third pass. At the cap, leftover
-   findings push. `runCr` MUST apply an absolute deadline
+   on pass 2 capture-and-push with no third pass. At the cap, Critical,
+   Major, and unknown findings stop with `blocked_major_findings` and do
+   not push. Minor and Trivial at the cap capture-and-push. Those
+   severities are never a leftover push. `runCr` MUST apply an absolute deadline
    equal to the inactivity timeout so continuous stdout cannot extend the
    attempt; either expiry records `unavailable` / `timeout`. After a Step 1a merge of
    `origin/staging`, `/push` MUST rerun lint, typecheck, and unit tests
@@ -364,15 +371,21 @@ auth token`) MUST pass a finite positive `timeout` (milliseconds) to
    `incremental_paused`. `/ready-merge-release` MUST emit `/capture` fences
    for those leftovers and treat Step 2 as clean. A SUCCESS status with no
    prior US review remains `pending`. A prior US review without a HEAD
-   SUCCESS status remains `stale_approval`, unless the PR body records clean
-   local CLI evidence for that same head SHA, which is `ready_cli_evidence`
-   (`ok: true`). A CodeRabbit comment on the head whose body contains both
-   "Review skipped" and "Bot user detected" marks a bot PR. Bot PRs do not
+   SUCCESS status remains `stale_approval`, unless the ignored gate receipt
+   records `attemptStatus` `clean` for that same head SHA, which is
+   `ready_cli_evidence` (`ok: true`). `hasCleanCliEvidence` MUST ignore
+   author-editable PR body text, including `findings` and `unavailable`.
+   A CodeRabbit comment on the head whose body contains both
+   "Review skipped" and "Bot user detected" marks a bot PR only when
+   `commentMentionsHead` binds that comment to the head SHA (`commit_id`
+   equals the head, or the body contains that SHA). A notice with no SHA
+   matches no head. A notice whose only hex is not the head SHA matches
+   none. Bot PRs do not
    expect a formal CodeRabbit review and do not use a review trigger. That
-   decision is made before `stale_approval`. Recorded `## CodeRabbit CLI evidence`
-   for that same head SHA with `attemptStatus` `clean`, `findings`, or
-   `unavailable` is `ready_cli_evidence` (`ok: true`). Missing evidence, or
-   evidence for a different SHA only, stays blocking `coderabbit_review_skipped`.
+   decision is made before `stale_approval`. `ready_cli_evidence` (`ok: true`)
+   requires the gate receipt `head` to equal the pull request head and
+   `attemptStatus` `clean`. A matching bot-skip notice without that clean
+   receipt stays blocking `coderabbit_review_skipped`.
    No review and no skip notice stays `ready_no_coderabbit_review`, and its
    operator comment MUST NOT tell anyone to post a review trigger. On
    2026-10-09 the cursor GitHub App token received HTTP 403 `Resource not
@@ -381,8 +394,9 @@ accessible by integration` when creating an issue comment on pull request
    `/ready-merge-release` is operator/QA-owned.
    Agents, `/conduct`, and Cloud runs MUST NOT invoke it and MUST NOT poll
    for a review. The QA bot posts as `ralfcam`: it runs UAT, digests the
-   agent transcript, and does not post a review trigger. Readiness is the
-   CLI evidence on the head plus that UAT.
+   agent transcript, and does not post a review trigger. Readiness is a
+   clean gate receipt for that head plus that UAT. PR body CLI text is
+   not that receipt.
    `/ready-merge-release` MUST NOT be a review trigger. The
    gate's allowed writes stay the existing ready, undo,
    operator-comment, and body-note writes. When current HEAD has no ranked
@@ -699,8 +713,10 @@ latest-head` so `on.pull_request.types` includes `edited`.
     issue PR and MUST NOT mark a PR ready. After `/push` the issue PR stays
     a draft, and that draft MUST already have completed the `/push` CLI gate
     for its head. The QA bot posts as `ralfcam`: it runs UAT, digests the
-    agent transcript, and does not post a review trigger. Readiness is the
-    CLI evidence on the head plus that UAT. The
+    agent transcript, and does not post a review trigger. Readiness is a
+    clean gate receipt for that head plus that UAT. PR body CLI text is
+    not that receipt. A Critical, Major, or unknown CLI finding blocks
+    `/push` with `blocked_major_findings` and is not readiness. The
     operator command still documents `roundCap: 3`. `/conduct` does not run
     it, does not poll CodeRabbit, and does not post `@coderabbitai review`. The
     lane is Linear status plus GitHub, with no labels. Todo in the current

@@ -13,7 +13,7 @@
   "issueComments": [
     {
       "user": { "login": "coderabbitai[bot]" },
-      "body": "Review skipped\n\nBot user detected."
+      "body": "Review skipped\n\nBot user detected.\nHead: abc123"
     }
   ],
   "reviewComments": [],

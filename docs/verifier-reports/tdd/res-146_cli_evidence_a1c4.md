@@ -52,13 +52,14 @@ Run: 2026-10-09 · plan: res-146_cli_evidence_a1c4 · issue: RES-146
 | C1 | docs/specs/dev-toolchain.md G-CR2 | .cursor/checks/coderabbit-review-policy.test.mjs::pinned US auth rejects version and region mismatch | .cursor/hooks/lib/coderabbit-review-policy.mjs assertPinnedUsAuth | P1 | shipped |
 | C2 | docs/specs/dev-toolchain.md G-CR3 | .cursor/checks/coderabbit-pr-policy.test.mjs::bot skip with no CLI evidence is coderabbit_review_skipped | .cursor/hooks/lib/coderabbit-pr-policy.mjs evaluateReadyPr | P1 | shipped |
 | C3 | docs/specs/dev-toolchain.md G-CR2, G-CON1 | tests/unit/dev-toolchain/coderabbit-res146-guards.test.ts::G-CR2 makes /push the only agent CodeRabbit gate | .cursor/commands/conduct.md, .cursor/commands/push.md | P1 | shipped |
-| C4 | docs/specs/dev-toolchain.md G-CR2 | .cursor/checks/coderabbit-pr-policy.test.mjs::push CLI action routes two fix rounds then leftover-pushes | .cursor/hooks/lib/coderabbit-pr-policy.mjs decidePushCliAction | P1 | shipped |
+| C4 | docs/specs/dev-toolchain.md G-CR2 | .cursor/checks/coderabbit-pr-policy.test.mjs::push CLI action routes two fix rounds then blocks majors | .cursor/hooks/lib/coderabbit-pr-policy.mjs decidePushCliAction | P0 | shipped |
 | C5 | docs/specs/dev-toolchain.md G-CR3, G-CON1 | .cursor/checks/coderabbit-pr-policy.test.mjs::bot skip with findings or unavailable CLI evidence is ready_cli_evidence | .cursor/hooks/lib/coderabbit-pr-policy.mjs evaluateReadyPr | P1 | shipped |
+| C6 | docs/specs/dev-toolchain.md G-CR2, G-CR3 | .cursor/checks/coderabbit-pr-policy.test.mjs::a skip notice with no SHA matches no head | .cursor/hooks/lib/coderabbit-pr-policy.mjs commentMentionsHead, hasCleanCliEvidence | P0 | shipped |
 
 ## Run metrics
 
 Run: 2026-10-09 → 2026-10-09 · plan: res-146_cli_evidence_a1c4
-Criteria: 5 shipped · 0 manual-uat · 5 total
+Criteria: 6 shipped · 0 manual-uat · 6 total
 Phases delegated: 0 (harness node:test; tdd-red cannot write `.cursor/checks`)
 Back-loops: none
 BLOCKED events: 0

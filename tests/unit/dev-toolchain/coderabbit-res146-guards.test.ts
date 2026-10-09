@@ -31,6 +31,7 @@ describe("RES-146 CodeRabbit CLI evidence guards", () => {
     expect(gcr2).toContain("capped at 2")
     expect(gcr2).toContain("three CLI passes")
     expect(gcr2).toContain("two fix rounds")
+    expect(gcr2).toContain("blocked_major_findings")
     expect(gcr2).toContain("draft")
     expect(gcr2).toContain("MUST NOT call")
     expect(gcr2).toContain("`/ready-merge-release`")

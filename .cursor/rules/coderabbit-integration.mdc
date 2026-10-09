@@ -29,8 +29,9 @@ Minor and Trivial go to `/capture`. `--fix-round` is a counter capped at
 2 (three CLI passes at most), kept across its fix commits. Pass 1 routes
 every finding. Pass 2 routes only Critical, Major, and unknown findings;
 Minor and Trivial on that pass are captured and the branch pushes with no
-third pass. Pass 3 pushes anyway and lists leftover findings in the PR
-body. On `route`, printed `fixRound` is the started round. `--ack-push`
+third pass. Pass 3 stops with `blocked_major_findings` and does not push
+when a Critical, Major, or unknown finding is still open. Those findings
+are never leftovers. Only Minor and Trivial capture-and-push. On `route`, printed `fixRound` is the started round. `--ack-push`
 after a successful `git push` clears the saved cycle.
 `runCr` uses an absolute deadline as well as inactivity, and records
 `unavailable` / `timeout` on either expiry. Auth `--version` and
@@ -51,9 +52,14 @@ QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post
 a review trigger. Readiness is the CLI evidence on the head plus that UAT.
 `/ready-merge-release` is that operator/QA command. It does not post a
 review trigger: on 2026-10-09 the cursor GitHub App token got HTTP 403
-creating an issue comment. A bot skip is `coderabbit_review_skipped`
-unless that head's CLI evidence is `clean`, `findings`, or `unavailable`
-(`ready_cli_evidence`). Non-bot `stale_approval` still requires `clean`.
+creating an issue comment. A bot skip that names the head SHA is
+`coderabbit_review_skipped` unless the ignored gate receipt for that
+head is `clean` (`ready_cli_evidence`). PR body text is not that
+receipt. `findings` and `unavailable` do not authorize it. A SHA-less
+skip notice matches no head. Non-bot `stale_approval` still requires
+that clean receipt. Critical, Major, and unknown CLI findings block
+`/push` (`blocked_major_findings` after two fix rounds) and are never
+ledgered. Only Minor and Trivial may be captured and pushed.
 
 The dirty-tree work-order path stays for tests. Outside
 `CODERABBIT_GATE_TEST=1`, that work-order path still records `unavailable` /

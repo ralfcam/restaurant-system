@@ -175,8 +175,10 @@ body (`--leftover-record`). On `route`, `fixRound` is the started round
 HEAD and a new VM. After a successful `git push`, run
 `node .cursor/checks/coderabbit-gate.mjs --ack-push` so the saved cycle
 clears only once the publish landed. A failed push keeps the started
-round. The next attempt continues that counter and leftover-pushes only
-when the counter is already at 2.
+round. The next attempt continues that counter. When the counter is
+already at 2, Critical, Major, and unknown findings stop with
+`blocked_major_findings` and do not push. Only Minor and Trivial
+capture-and-push at that cap.
 
 `/commit` does not run the CLI. Do not run a dirty-tree work-order review
 here. Fetch `origin/staging` first when that ref is missing.
@@ -200,9 +202,12 @@ pass still has Critical, Major, or unknown findings.
   `/push` with `--fix-round 2`. If the pass has only Minor or Trivial
   findings, capture them and push in this same pass. Do not open a third
   CLI pass. `record` is `capture_and_push`.
-- **Pass 3** (`--fix-round 2`, or `record` is `leftover_after_fix_round`).
-  Push anyway and list the leftover findings in the PR body (create or
-  append-only edit). Do not open a fourth CLI pass.
+- **Pass 3** (`--fix-round 2`). If any Critical, Major, or unknown finding
+  is still open, STOP. Do not push, do not create or edit a PR, and do not
+  write those findings to `docs/findings/` or a leftovers file. Report
+  `blocked_major_findings`. They are not captured. If the pass has only
+  Minor or Trivial findings, capture them and push. Do not open a fourth
+  CLI pass.
 
 If the CLI is unavailable (no key, error, timeout, missing
 `origin/staging`, skipped review, malformed JSONL), `action` is `push`
@@ -291,13 +296,14 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
          and criterion IDs, fresh executed-test evidence from this turn's
          whole-suite gate, and optional audit-only CodeRabbit CLI
          `attemptStatus`/`reason` metadata when present. A missing receipt is
-         non-blocking. List leftover CLI findings after the capped fix rounds.
+         non-blocking. List captured Minor and Trivial CLI findings. Never list Critical, Major, or unknown findings as leftovers.
        - If `<current-branch>` is any other non-default head: `--base staging`;
          derive title and body from `git log origin/staging...HEAD` (never
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
          Include the same Linear URL, owning spec/criteria, executed-test
-         evidence, optional audit-only CLI attempt metadata, and leftover
-         CLI findings after the capped fix rounds.
+         evidence, optional audit-only CLI attempt metadata, and captured
+         Minor and Trivial CLI findings. Never list Critical, Major, or
+         unknown findings as leftovers.
        - **Duplicate issue PR.** When `<current-branch>` matches
          `cursor/res-<n>-<4 hex>`, list open PRs and **STOP** if another
          open PR's `headRefName` starts with `cursor/res-<n>-`. Do not open
@@ -393,8 +399,12 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
    against that finalized `HEAD`, passing `--fix-round` when this continues
    a capped cycle. Pass 1 routes every finding. Pass 2 routes only
    Critical/Major/unknown. Pass 2 Minor/Trivial capture-and-push with no
-   third pass. Pass 3 pushes anyway and lists leftovers. On `action: route`,
-   STOP, fix, `/commit`, then `/push`. Unavailable CLI: push and record.
+   third pass. Pass 3 stops with `blocked_major_findings` and does not push
+   when a Critical, Major, or unknown finding is still open. Only Minor
+   and Trivial capture-and-push. On `action: route`,
+   STOP, fix, `/commit`, then `/push`. On `blocked_major_findings`, STOP
+   and do not ledger those findings. Unavailable CLI with no Critical,
+   Major, or unknown finding: push and record.
    Never wait forever.
 2. Push the current branch if it has unpushed commits (skip with a note if
    nothing to push, or if a pinned PR's head differs).
@@ -472,13 +482,13 @@ Tone: professional and actionable. Length: concise.
 Exactly these sections:
 
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
-2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (fix round <n> of 2)" ; CLI: `clean` | `findings routed` | `leftover listed` | `unavailable recorded`.
+2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (fix round <n> of 2)" | "stopped — `blocked_major_findings`" ; CLI: `clean` | `findings routed` | `capture listed` | `unavailable recorded` | `blocked_major_findings`.
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Draft** — "left a draft" | "returned to draft — `gh pr ready --undo <n>`" | "n/a — no PR". Agents do not run `/ready-merge-release`.
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — the CLI gate already passed on this head; QA bot `ralfcam` runs UAT and digests the transcript; readiness is that CLI evidence plus the UAT; agents do not run `/ready-merge-release`; merge only on `APPROVED FOR OPERATOR MERGE`" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push`.
+8. **Operator next** — "draft PR open — the CLI gate already passed on this head; QA bot `ralfcam` runs UAT and digests the transcript; readiness is that CLI evidence plus the UAT; agents do not run `/ready-merge-release`; merge only on `APPROVED FOR OPERATOR MERGE`" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push` | on Step 1b `blocked_major_findings`: stop, do not push, and do not ledger the Critical, Major, or unknown findings.
    </output_format>
    </instructions>
    </output>
