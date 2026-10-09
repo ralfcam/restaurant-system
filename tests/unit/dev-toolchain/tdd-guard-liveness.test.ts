@@ -114,4 +114,55 @@ describe("G-TD1 TDD delegation-guard liveness", () => {
       restoreTddState()
     }
   })
+
+  it("absolute checkout path of a protected file is denied while armed in red", () => {
+    writeFileSync(
+      TDD_STATE,
+      JSON.stringify({ armed: true, depth: 1, phase: "red" }, null, 2),
+      "utf8",
+    )
+
+    const absolutePath = path.join(repoRoot, "lib/billing/foo.ts")
+
+    try {
+      const forwardSlash = runGuard(
+        "tdd-delegation-guard.mjs",
+        "\uFEFF" +
+          JSON.stringify({
+            tool_name: "Write",
+            tool_input: { path: absolutePath },
+          }),
+      )
+      const backslash = runGuard(
+        "tdd-delegation-guard.mjs",
+        "\uFEFF" +
+          JSON.stringify({
+            tool_name: "Write",
+            tool_input: { path: absolutePath.replaceAll("/", "\\") },
+          }),
+      )
+
+      expect({
+        forwardSlash: {
+          status: forwardSlash.status,
+          body: parseHookStdout(forwardSlash.stdout),
+        },
+        backslash: {
+          status: backslash.status,
+          body: parseHookStdout(backslash.stdout),
+        },
+      }).toEqual({
+        forwardSlash: {
+          status: 0,
+          body: expect.objectContaining({ permission: "deny" }),
+        },
+        backslash: {
+          status: 0,
+          body: expect.objectContaining({ permission: "deny" }),
+        },
+      })
+    } finally {
+      restoreTddState()
+    }
+  })
 })
