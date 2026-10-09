@@ -325,9 +325,11 @@ stable `reason`. Critical, Major, and unknown findings route to
 in-scope Minor and Trivial, and push in the same pass. Only a nonempty
 `/sdd-to-tdd` list routes or stops. One fix round only, kept across its
 fix commit via `--fix-round` or the leftover record. On `route`, printed
-`fixRound` is the started round. A completed `push` clears the saved
-cycle. `runCr` uses an absolute deadline as well as inactivity and
-records `unavailable` / `timeout` on either expiry. Then push anyway and
+`fixRound` is the started round. After a successful `git push`,
+`--ack-push` clears the saved cycle. `runCr` uses an absolute deadline as
+well as inactivity and records `unavailable` / `timeout` on either
+expiry. Auth `--version` and `auth status --agent` use the same finite
+timeout. Then push anyway and
 list leftovers. A failed `git diff` for
 `--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
 `--branch-diff` `secret_path` and a non-zero gate exit still push.

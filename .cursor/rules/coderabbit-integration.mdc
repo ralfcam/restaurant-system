@@ -29,9 +29,10 @@ Only a nonempty `/sdd-to-tdd` list routes or stops. Then `/commit`, then
 `/push` again. One fix round only, kept across its fix commit via
 `--fix-round` or the leftover record; after that, push anyway and list leftover
 findings in the PR body. On `route`, printed `fixRound` is the started
-round. A completed `push` clears the saved cycle. `runCr` uses an
-absolute deadline as well as inactivity, and records `unavailable` /
-`timeout` on either expiry. If the CLI is unavailable (no key, error, timeout),
+round. `--ack-push` after a successful `git push` clears the saved cycle.
+`runCr` uses an absolute deadline as well as inactivity, and records
+`unavailable` / `timeout` on either expiry. Auth `--version` and
+`auth status --agent` use the same finite timeout. If the CLI is unavailable (no key, error, timeout),
 or the gate exits non-zero / `secret_path`, push and record that. It must
 never block forever.
 

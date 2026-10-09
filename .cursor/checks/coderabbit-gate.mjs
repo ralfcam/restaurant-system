@@ -151,7 +151,15 @@ function isTestMode() {
   return process.env.CODERABBIT_GATE_TEST === "1"
 }
 
-function readPinnedAuth(cwd) {
+function spawnTimed(bin, args, { cwd, timeoutMs }) {
+  return spawnSync(bin, args, {
+    ...spawnOpts(bin, cwd),
+    encoding: "utf8",
+    timeout: timeoutMs,
+  })
+}
+
+function readPinnedAuth(cwd, { timeoutMs } = {}) {
   if (isTestMode()) {
     return {
       version: process.env.CODERABBIT_STUB_VERSION || PINNED_CLI_VERSION,
@@ -165,14 +173,20 @@ function readPinnedAuth(cwd) {
     }
   }
   const bin = resolveCrBinary()
-  const versionRun = spawnSync(bin, ["--version"], {
-    ...spawnOpts(bin, cwd),
-    encoding: "utf8",
+  const versionRun = spawnTimed(bin, ["--version"], { cwd, timeoutMs })
+  if (
+    versionRun.error?.code === "ETIMEDOUT" ||
+    versionRun.signal === "SIGTERM"
+  ) {
+    return { timedOut: true, bin }
+  }
+  const authRun = spawnTimed(bin, ["auth", "status", "--agent"], {
+    cwd,
+    timeoutMs,
   })
-  const authRun = spawnSync(bin, ["auth", "status", "--agent"], {
-    ...spawnOpts(bin, cwd),
-    encoding: "utf8",
-  })
+  if (authRun.error?.code === "ETIMEDOUT" || authRun.signal === "SIGTERM") {
+    return { timedOut: true, bin }
+  }
   return {
     version: (versionRun.stdout || "").trim(),
     auth: authRun.stdout || "",
@@ -248,6 +262,11 @@ function evaluateAdvisoryJsonl(jsonl, { reviewablePaths, base, waivers }) {
 }
 
 async function main() {
+  if (process.argv.includes("--ack-push")) {
+    clearPushRound(defaultStateDir())
+    console.log(JSON.stringify({ ok: true, action: "ack-push" }, null, 2))
+    return
+  }
   const cwd = process.cwd()
   const branchDiff = process.argv.includes("--branch-diff")
   const owningSpecArg = argValue("--owning-spec")
@@ -322,11 +341,16 @@ async function main() {
     }
   } else {
     try {
-      pinned = readPinnedAuth(cwd)
-      authCheck = assertPinnedUsAuth({
-        version: pinned.version,
-        auth: pinned.auth,
-      })
+      pinned = readPinnedAuth(cwd, { timeoutMs })
+      if (pinned.timedOut) {
+        evaluated = unavailable("timeout", [], waivers)
+      }
+      authCheck = pinned.timedOut
+        ? { ok: false, reason: "timeout" }
+        : assertPinnedUsAuth({
+            version: pinned.version,
+            auth: pinned.auth,
+          })
       if (!authCheck.ok) {
         evaluated = unavailable(authCheck.reason, [], waivers)
       } else {
@@ -424,8 +448,6 @@ async function main() {
       round: startedRound,
       findingIds: receipt.findingIds,
     })
-  } else if (decision?.action === "push") {
-    clearPushRound(defaultStateDir())
   }
   console.log(
     JSON.stringify(

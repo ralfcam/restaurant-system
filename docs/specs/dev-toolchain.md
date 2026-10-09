@@ -200,9 +200,13 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    a prior leftover record so the cycle survives a new VM. On `route`, the
    gate MUST print `fixRound` as the started round (`priorRound + 1`), not
    the unresolved prior value, so the next `/push` can pass that number
-   into `--fix-round` on a new VM. A completed `push` (clean, leftover,
-   capture-and-push, or unavailable) MUST clear the saved fix-round file
-   so a later independent review on the same branch starts at round 0.
+   into `--fix-round` on a new VM. After a successful `git push`, `/push` MUST run
+   `coderabbit-gate.mjs --ack-push` to clear the saved fix-round file so a
+   later independent review on the same branch starts at round 0. The gate
+   MUST NOT clear that file on a `push` decision, because `git push` has
+   not happened yet. `readPinnedAuth` MUST pass a finite timeout to
+   `--version` and `auth status --agent` and record `unavailable` /
+   `timeout` if either expires.
    After that
    round, leftover findings push. `runCr` MUST apply an absolute deadline
    equal to the inactivity timeout so continuous stdout cannot extend the

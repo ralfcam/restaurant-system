@@ -349,8 +349,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     })
     assert.equal(newHead.status, 0, newHead.stderr)
     const newHeadBody = JSON.parse(newHead.stdout)
-    assert.equal(newHeadBody.action, "route")
-    assert.equal(newHeadBody.fixRound, 1)
+    assert.equal(newHeadBody.action, "push")
+    assert.equal(newHeadBody.record, "leftover_after_fix_round")
   })
 
   test("route prints started fixRound and isolated second run uses that output", () => {
@@ -399,6 +399,21 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(leftover.status, 0, leftover.stderr)
     assert.equal(JSON.parse(leftover.stdout).record, "leftover_after_fix_round")
 
+    const retry = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "clear-retry",
+      CODERABBIT_STATE_DIR: dir,
+    })
+    assert.equal(retry.status, 0, retry.stderr)
+    assert.equal(JSON.parse(retry.stdout).record, "leftover_after_fix_round")
+
+    const ack = spawnSync(
+      process.execPath,
+      [join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"), "--ack-push"],
+      { encoding: "utf8", env: childEnv({ CODERABBIT_STATE_DIR: dir }) },
+    )
+    assert.equal(ack.status, 0, ack.stderr)
+    assert.equal(JSON.parse(ack.stdout).action, "ack-push")
+
     const later = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "clear-ccc",
       CODERABBIT_STATE_DIR: dir,
@@ -407,6 +422,18 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     const laterBody = JSON.parse(later.stdout)
     assert.equal(laterBody.action, "route")
     assert.equal(laterBody.fixRound, 1)
+
+    const gateSrc = readFileSync(
+      join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"),
+      "utf8",
+    )
+    assert.match(gateSrc, /timeout: timeoutMs/)
+    assert.match(gateSrc, /auth", "status", "--agent"/)
+    const pushMd = readFileSync(
+      join(ROOT, ".cursor", "commands", "push.md"),
+      "utf8",
+    )
+    assert.match(pushMd, /--ack-push/)
   })
 
   test(
