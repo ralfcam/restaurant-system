@@ -510,6 +510,8 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "one fix round",
     "mandatory advisory local CodeRabbit attempt",
     "cursor-head firewall",
+    "secret_path",
+    "--fix-round",
   ],
   ".cursor/commands/intake.md": [
     "/ready-merge-release",
@@ -531,6 +533,7 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "review_in_progress",
     "no blind wait",
     "expired-wait",
+    "--review-wait-expired",
   ],
   ".cursor/rules/coderabbit-integration.mdc": [
     "0.7.6",

@@ -349,8 +349,50 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     })
     assert.equal(newHead.status, 0, newHead.stderr)
     const newHeadBody = JSON.parse(newHead.stdout)
-    assert.equal(newHeadBody.action, "route")
-    assert.equal(newHeadBody.record, "fix_round")
+    assert.equal(newHeadBody.action, "push")
+    assert.equal(newHeadBody.record, "leftover_after_fix_round")
+  })
+
+  test("route then new head is leftover after one fix round", () => {
+    const first = runBranchDiff("local-critical.jsonl", {
+      CODERABBIT_STUB_HEAD: "round-base",
+      CODERABBIT_STATE_DIR: join(TMP_STATE, "cycle"),
+    })
+    assert.equal(first.status, 0, first.stderr)
+    assert.equal(JSON.parse(first.stdout).action, "route")
+
+    const isolated = join(tmpdir(), `cr-gate-cycle-${process.pid}`)
+    mkdirSync(isolated, { recursive: true })
+    const second = runBranchDiff(
+      "local-critical.jsonl",
+      {
+        CODERABBIT_STUB_HEAD: "round-fixed",
+        CODERABBIT_STATE_DIR: isolated,
+      },
+      ["--fix-round", "1"],
+    )
+    assert.equal(second.status, 0, second.stderr)
+    const body = JSON.parse(second.stdout)
+    assert.equal(body.action, "push")
+    assert.equal(body.record, "leftover_after_fix_round")
+  })
+
+  test("branch-diff secret_path is advisory and .env.example is not a secret", () => {
+    const secret = runBranchDiff("local-clean.jsonl", {
+      CODERABBIT_STUB_BRANCH_DIFF: ".env",
+    })
+    assert.equal(secret.status, 0, secret.stderr)
+    const secretBody = JSON.parse(secret.stdout)
+    assert.equal(secretBody.attemptStatus, "unavailable")
+    assert.equal(secretBody.reason, "secret_path")
+    assert.equal(secretBody.action, "push")
+
+    const example = runBranchDiff("local-clean.jsonl", {
+      CODERABBIT_STUB_BRANCH_DIFF: ".env.example",
+    })
+    assert.equal(example.status, 0, example.stderr)
+    const exampleBody = JSON.parse(example.stdout)
+    assert.notEqual(exampleBody.reason, "secret_path")
   })
 
   test("pr-gate snapshots: clean and no-formal-review pass; rate-limit fails", () => {

@@ -212,14 +212,24 @@ export function checkLooksInProgress(run) {
   return IN_PROGRESS_CHECK_STATES.has(String(run?.status || "").toLowerCase())
 }
 
+function isPausedLatestHeadGate(run) {
+  return String(run?.name || "") === US_LATEST_HEAD_CHECK_NAME
+}
+
 function isCodeRabbitCheck(run) {
+  if (isPausedLatestHeadGate(run)) return false
   const label = run?.name || run?.app?.name
-  return isCodeRabbitShaped(label) || isCodeRabbitShaped(checkAppSlug(run))
+  if (!isCodeRabbitShaped(label) && !isCodeRabbitShaped(checkAppSlug(run))) {
+    return false
+  }
+  return isUsApp(run)
 }
 
 export function statusLooksInProgress(status) {
   const state = String(status?.state || "").toLowerCase()
   if (!IN_PROGRESS_STATUS_STATES.has(state)) return false
+  const login = status?.creator?.login
+  if (login && !isUsBotLogin(login)) return false
   const context = status?.context || ""
   return context === REQUIRED_US_STATUS_CONTEXT || isCodeRabbitShaped(context)
 }
@@ -290,18 +300,31 @@ export function decidePushCliAction({
       body: finding.body,
     }),
   }))
+  const sddToTdd = routed.filter((finding) => finding.route === "sdd-to-tdd")
+  const capture = routed.filter((finding) => finding.route === "capture")
+  if (!sddToTdd.length) {
+    return {
+      action: "push",
+      leftover: routed,
+      sddToTdd,
+      capture,
+      record: capture.length ? "capture_and_push" : "push",
+    }
+  }
   if (priorRound >= PUSH_CLI_FIX_ROUND_CAP) {
     return {
       action: "push",
       leftover: routed,
+      sddToTdd,
+      capture,
       record: "leftover_after_fix_round",
     }
   }
   return {
     action: "route",
     leftover: routed,
-    sddToTdd: routed.filter((finding) => finding.route === "sdd-to-tdd"),
-    capture: routed.filter((finding) => finding.route === "capture"),
+    sddToTdd,
+    capture,
     record: "fix_round",
   }
 }
@@ -719,7 +742,7 @@ function collectLoopChangesRequestedFindings(latest, threads) {
 
 function evaluateReadyPrCore(
   snapshot,
-  { allowDraft = false, loop = false } = {},
+  { allowDraft = false, loop = false, reviewWaitExpired = false } = {},
 ) {
   if (!snapshot || typeof snapshot !== "object") {
     return { ok: false, reason: "malformed_snapshot" }
@@ -841,18 +864,18 @@ function evaluateReadyPrCore(
         findings: commentedFindings,
       }
     }
-    const formalElsewhere = usReviews.some((review) =>
-      ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
-    )
-    if (formalElsewhere) {
-      return { ok: false, reason: "stale_approval" }
-    }
-    if (hasCodeRabbitReviewInProgress(snapshot)) {
+    if (hasCodeRabbitReviewInProgress(snapshot) && !reviewWaitExpired) {
       return {
         ok: false,
         reason: "review_in_progress",
         ...readyMetadata(headSha, isDraft),
       }
+    }
+    const formalElsewhere = usReviews.some((review) =>
+      ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
+    )
+    if (formalElsewhere) {
+      return { ok: false, reason: "stale_approval" }
     }
     return {
       ok: true,

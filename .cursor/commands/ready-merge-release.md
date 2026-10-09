@@ -207,13 +207,13 @@ no mutation (already-ready), HEAD drift MUST STOP with no `--undo`.
 Run the adapter again without draft allowance:
 
 ```powershell
-node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop]
+node .cursor/checks/coderabbit-pr-gate.mjs --pr <n> [--loop] [--review-wait-expired]
 ```
 
 If Step 2 already expired the `review_in_progress` wait and treated it as
-`ready_no_coderabbit_review`, carry that decision here: do not start a
-second unbounded wait when the post-ready adapter still returns
-`review_in_progress`. Formal `APPROVED` / `CHANGES_REQUESTED` reviews,
+`ready_no_coderabbit_review`, pass `--review-wait-expired` so the adapter
+maps `review_in_progress` to `ready_no_coderabbit_review`. Do not start a
+second unbounded wait. Formal `APPROVED` / `CHANGES_REQUESTED` reviews,
 unresolved threads, HEAD identity, and required checks still apply. Bound
 any latest-head wait to the same interval and 10-minute cap.
 

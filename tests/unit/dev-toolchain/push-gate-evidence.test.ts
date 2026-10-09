@@ -50,6 +50,22 @@ function sentenceReplacesCursorGateEvidence(sentence: string): boolean {
 }
 
 describe("push gate evidence", () => {
+  it("reruns lint typecheck and unit after a firewall merge", () => {
+    const push = readFileSync(
+      path.join(repoRoot, ".cursor", "commands", "push.md"),
+      "utf8",
+    )
+    const firewall = push.slice(
+      push.indexOf("### 1a. Cursor-head firewall"),
+      push.indexOf("### 1b."),
+    )
+    expect(firewall).toContain("git merge origin/staging")
+    expect(firewall).toMatch(
+      /rerun[\s\S]*pnpm lint; pnpm typecheck; pnpm test:unit/,
+    )
+    expect(firewall).toMatch(/before writing gate evidence/)
+  })
+
   it("names ancestry commands, merge-on-drift, and the intake skip", () => {
     const push = readFileSync(
       path.join(repoRoot, ".cursor", "commands", "push.md"),
@@ -64,6 +80,9 @@ describe("push gate evidence", () => {
     expect(push).toContain("git merge-base --is-ancestor origin/main")
     expect(push).toContain("git merge origin/staging")
     expect(push).toMatch(/never rebase/i)
+    expect(push).toMatch(
+      /After that merge, rerun[\s\S]*pnpm lint; pnpm typecheck; pnpm test:unit/,
+    )
     expect(push).toContain("## Gate evidence")
     expect(push).toContain("gh pr edit <n> --body-file")
     expect(push).toContain("gate-evidence.mjs replace")

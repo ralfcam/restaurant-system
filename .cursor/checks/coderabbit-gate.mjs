@@ -54,6 +54,24 @@ function fail(reason, extra = {}) {
   process.exit(1)
 }
 
+function parseLeftoverRecord() {
+  const raw =
+    argValue("--leftover-record") || process.env.CODERABBIT_LEFTOVER_RECORD
+  if (!raw) return null
+  if (existsSync(raw)) {
+    try {
+      return JSON.parse(readFileSync(raw, "utf8"))
+    } catch {
+      return null
+    }
+  }
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
 function loadWorkOrder(path) {
   if (!path) fail("missing_work_order")
   if (!existsSync(path)) fail("missing_work_order", { path })
@@ -247,8 +265,17 @@ async function main() {
       scope = { ok: true, reviewablePaths: [] }
     } else {
       const secrets = diff.paths.filter(isSecretPath)
-      if (secrets.length) fail("secret_path", { paths: secrets })
-      scope = { ok: true, reviewablePaths: diff.paths }
+      if (secrets.length) {
+        branchDiffFailed = true
+        scope = {
+          ok: true,
+          reviewablePaths: [],
+          secretPaths: secrets,
+          secretPath: true,
+        }
+      } else {
+        scope = { ok: true, reviewablePaths: diff.paths }
+      }
     }
   } else {
     const workOrder = loadWorkOrder(argValue("--work-order"))
@@ -275,6 +302,8 @@ async function main() {
   let evaluated
   if (!isTestMode() && !branchDiff) {
     evaluated = unavailable("cli_paused", [], waivers)
+  } else if (branchDiff && scope.secretPath) {
+    evaluated = unavailable("secret_path", [], waivers)
   } else if (branchDiff && branchDiffFailed) {
     evaluated = unavailable("diff_failed", [], waivers)
   } else if (branchDiff && !branchDiffBaseExists(cwd, base)) {
@@ -366,10 +395,13 @@ async function main() {
   })
   saveReceipt(defaultStateDir(), receipt)
   const prior = loadPushRound(defaultStateDir())
+  const leftoverRecord = parseLeftoverRecord()
   const priorRound = resolvePushPriorRound(prior, {
     branch,
     head,
     findingIds: receipt.findingIds,
+    fixRound: argValue("--fix-round") || process.env.CODERABBIT_FIX_ROUND,
+    leftoverRecord,
   })
   const decision = branchDiff
     ? decidePushCliAction({

@@ -321,5 +321,11 @@ describe("G-CR2 empty reviewedFiles fallback", () => {
     expect(normalized).toContain("missing or malformed work order")
     expect(normalized).toContain("dirty bytes changing during review")
     expect(normalized).toContain("G-CR3 stays fail-closed and unchanged")
+    expect(normalized).toMatch(
+      /On the dirty-tree work-order path only[\s\S]*cli_paused/,
+    )
+    expect(normalized).not.toMatch(
+      /While the CLI pause is in effect, a run that is not/,
+    )
   })
 })

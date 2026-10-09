@@ -53,6 +53,7 @@ test("unrelatedDirtyPaths and secret paths fail the work-order", () => {
   )
   assert.equal(isSecretPath(".env"), true)
   assert.equal(isSecretPath(".env.local"), true)
+  assert.equal(isSecretPath(".env.example"), false)
   assert.equal(isSecretPath("id_rsa"), true)
   assert.equal(isSecretPath("tls.pem"), true)
   assert.equal(isSecretPath("lib/example.ts"), false)
@@ -238,12 +239,32 @@ test("review command is uncommitted+untracked with policy config and never --use
       { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
       { branch: "sdd/RES-1", head: "bbb", findingIds: ["c2"] },
     ),
-    0,
+    1,
   )
   assert.equal(
     resolvePushPriorRound(
       { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
       { branch: "sdd/RES-1", head: "aaa", findingIds: ["c1"] },
+    ),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(null, {
+      branch: "sdd/RES-1",
+      head: "bbb",
+      findingIds: ["c2"],
+      fixRound: 1,
+    }),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "other", head: "aaa", round: 0 },
+      {
+        branch: "sdd/RES-1",
+        head: "bbb",
+        leftoverRecord: { record: "fix_round", round: 1 },
+      },
     ),
     1,
   )

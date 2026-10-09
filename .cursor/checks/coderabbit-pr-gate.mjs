@@ -48,10 +48,14 @@ function assertBranchShape(snapshot, promotionOnly) {
 
 function emitReadyVerdict(
   snapshot,
-  { allowDraft, promotionOnly, loop = false },
+  { allowDraft, promotionOnly, loop = false, reviewWaitExpired = false },
 ) {
   assertBranchShape(snapshot, promotionOnly)
-  const result = evaluateReadyPr(snapshot, { allowDraft, loop })
+  const result = evaluateReadyPr(snapshot, {
+    allowDraft,
+    loop,
+    reviewWaitExpired,
+  })
   if (!result.ok) fail(result.reason, result)
   console.log(JSON.stringify({ ok: true, ...result }, null, 2))
 }
@@ -295,6 +299,7 @@ async function main() {
   const snapshotPath = argValue("--snapshot")
   const allowDraft = process.argv.includes("--allow-draft")
   const loop = process.argv.includes("--loop")
+  const reviewWaitExpired = process.argv.includes("--review-wait-expired")
   const promotionOnly =
     process.argv.includes("--promotion-only") ||
     process.env.CODERABBIT_PR_PROMOTION_ONLY === "1"
@@ -304,6 +309,7 @@ async function main() {
       allowDraft,
       promotionOnly,
       loop,
+      reviewWaitExpired,
     })
     return
   }
@@ -323,6 +329,7 @@ async function main() {
     allowDraft,
     promotionOnly,
     loop,
+    reviewWaitExpired,
   })
 }
 

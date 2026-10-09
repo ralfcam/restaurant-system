@@ -24,14 +24,17 @@ firewall has finalized `HEAD` and before `git push`:
 `node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging`
 
 Critical, Major, and unknown-severity findings go to `/sdd-to-tdd` as an
-immediate fix. Minor and Trivial go to `/capture`. Then `/commit`, then
-`/push` again. One fix round only; after that, push anyway and list leftover
+immediate fix. Minor and Trivial go to `/capture` and push in the same pass.
+Only a nonempty `/sdd-to-tdd` list routes or stops. Then `/commit`, then
+`/push` again. One fix round only, kept across its fix commit via
+`--fix-round` or the leftover record; after that, push anyway and list leftover
 findings in the PR body. If the CLI is unavailable (no key, error, timeout),
-push and record that. It must never block forever.
+or the gate exits non-zero / `secret_path`, push and record that. It must
+never block forever.
 
 The dirty-tree work-order path stays for tests. Outside
-`CODERABBIT_GATE_TEST=1`, that path still records `unavailable` / `cli_paused`
-and does not spawn `coderabbit` or `cr`. GitHub review stays fail-closed.
+`CODERABBIT_GATE_TEST=1`, that work-order path still records `unavailable` /
+`cli_paused` and does not spawn `coderabbit` or `cr`. GitHub review stays fail-closed.
 The `0.7.6` pin remains.
 
 The local attempt is advisory after deterministic preflight. Findings at every
@@ -42,7 +45,8 @@ exit zero. The ignored receipt under `.cursor/hooks/state/` is audit evidence
 only; missing or stale receipt data never blocks `/commit`, `git commit`, or
 `/push`.
 
-Secret paths and changed bytes remain hard failures on the reviewable set.
+Work-order secret paths and changed bytes remain hard failures. A
+`--branch-diff` secret path is advisory. `.env.example` is not a secret.
 Re-hash after every scoped attempt and stop if bytes changed. Do **not** write
 the receipt or fingerprint into `docs/verifier-reports/tdd/**` after review —
 that changes the surface. Remote G-CR3 enforcement below remains fail-closed and unchanged.

@@ -322,11 +322,14 @@ and write an ignored audit receipt under `.cursor/hooks/state/`. The attempt
 records `attemptStatus` as `clean`, `findings`, or `unavailable` with a
 stable `reason`. Critical, Major, and unknown findings route to
 `/sdd-to-tdd`; Minor and Trivial route to `/capture` by severity, including
-in-scope Minor and Trivial. One fix round only, scoped to the same branch,
-head, and finding IDs; a new head or a new finding set resets the round to 0. Then push anyway and list leftovers. A failed `git diff` for
+in-scope Minor and Trivial, and push in the same pass. Only a nonempty
+`/sdd-to-tdd` list routes or stops. One fix round only, kept across its
+fix commit via `--fix-round` or the leftover record. Then push anyway and
+list leftovers. A failed `git diff` for
 `--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
-successful empty diff stays `clean`. Unavailable CLI (no key, error,
-timeout) still pushes. File-list aliases
+`--branch-diff` `secret_path` and a non-zero gate exit still push.
+`.env.example` is not a secret. A successful empty diff stays `clean`.
+Unavailable CLI (no key, error, timeout) still pushes. File-list aliases
 (`reviewedFiles`, `files`, `filesToReview`) are still inspected independently
 so parsing failures remain visible in the receipt. `/sdd-to-tdd` STEP 4G
 and `/commit` do not run the CLI.

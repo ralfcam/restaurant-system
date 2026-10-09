@@ -131,7 +131,9 @@ When the current branch matches
 2. Descendant check: `git merge-base --is-ancestor origin/staging HEAD`.
    - Exit 0: continue.
    - Exit 1: drift. `git merge origin/staging`. Never rebase. Never
-     force-push. If the merge fails, STOP.
+     force-push. If the merge fails, STOP. After that merge, rerun
+     `pnpm lint; pnpm typecheck; pnpm test:unit` on the new HEAD
+     before writing gate evidence. STOP if that rerun fails.
    - Exit 128 / missing refs: STOP — `cannot verify` ancestry.
 3. Drag-in check: if
    `git rev-list --count origin/staging..origin/main` is greater than 0 and
@@ -157,8 +159,12 @@ local CodeRabbit attempt over the whole committed branch
 diff against `origin/staging`:
 
 ```powershell
-node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging
+node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging [--fix-round <n>]
 ```
+
+Pass `--fix-round <n>` from the prior gate output (`fixRound`) when this
+is the same remediation cycle, or pass the leftover record from the PR
+body (`--leftover-record`). That cycle survives a new HEAD and a new VM.
 
 `/commit` does not run the CLI. Do not run a dirty-tree work-order review
 here. Fetch `origin/staging` first when that ref is missing.
@@ -169,9 +175,11 @@ findings). Severity routing matches `/ready-merge-release` without `--loop`:
 - Critical / Major / unknown → `/sdd-to-tdd` as an immediate fix
 - Minor / Trivial → `/capture`
 
-**One fix round only.** If `action` is `route`, STOP. Do not push, do not
-create or edit a PR. Emit the paste-ready `/sdd-to-tdd` and/or `/capture`
-fences, then `/commit`, then `/push` again.
+**One fix round only.** If `action` is `route` and `sddToTdd` is nonempty,
+STOP. Do not push, do not create or edit a PR. Emit the paste-ready
+`/sdd-to-tdd` fences, then `/commit`, then `/push` again. Capture
+Minor/Trivial findings and push in the same pass. Only route or stop when
+there are `/sdd-to-tdd` findings.
 
 If this is already the second `/push` after that fix round (`action` is
 `push` with leftover findings, `record` is `leftover_after_fix_round`),
@@ -182,6 +190,9 @@ If the CLI is unavailable (no key, error, timeout, missing
 `origin/staging`, skipped review, malformed JSONL), `action` is `push`
 and `attemptStatus` is `unavailable`. Push and record that reason on the
 PR body and in this report. Never wait forever for the CLI.
+
+A non-zero gate exit and `secret_path` never block the push. Record the
+reason on the PR body and continue. `.env.example` is not a secret path.
 
 A missing receipt is non-blocking. Receipts never authorize `git push`.
 

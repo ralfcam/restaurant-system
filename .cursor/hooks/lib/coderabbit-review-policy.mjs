@@ -70,6 +70,7 @@ export function isSecretPath(relPath) {
   const p = posixPath(relPath)
   if (!p) return false
   if (p.startsWith(".cursor/hooks/state/")) return false
+  if (/(?:^|\/)\.env\.example$/.test(p)) return false
   return SECRET_PATH_RE.test(p)
 }
 
@@ -619,9 +620,30 @@ export function resolveBranchDiffPaths(
 
 export function resolvePushPriorRound(
   prior,
-  { branch, head, findingIds = [] } = {},
+  { branch, head, findingIds = [], fixRound, leftoverRecord } = {},
 ) {
-  if (!prior || prior.branch !== branch) return 0
+  const explicit = Number(fixRound)
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  if (leftoverRecord && typeof leftoverRecord === "object") {
+    const recorded = Number(
+      leftoverRecord.round ??
+        leftoverRecord.fixRound ??
+        leftoverRecord.priorRound,
+    )
+    if (leftoverRecord.record === "leftover_after_fix_round") {
+      return Math.max(1, Number.isFinite(recorded) ? recorded : 1)
+    }
+    if (
+      leftoverRecord.record === "fix_round" &&
+      Number.isFinite(recorded) &&
+      recorded > 0
+    ) {
+      return recorded
+    }
+  }
+  if (!prior || (branch && prior.branch && prior.branch !== branch)) return 0
+  const savedRound = Number(prior.round) || 0
+  if (savedRound > 0) return savedRound
   if (head && prior.head && prior.head !== head) return 0
   const saved = new Set(prior.findingIds || [])
   if (
@@ -632,7 +654,7 @@ export function resolvePushPriorRound(
   ) {
     return 0
   }
-  return Number(prior.round) || 0
+  return savedRound
 }
 
 export function branchDiffBaseExists(
