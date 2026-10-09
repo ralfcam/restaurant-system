@@ -1,11 +1,19 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-08
 
 This repository uses **one** CodeRabbit installation: **US Team**. The CLI
 spawn and the Cloud `install` helper are paused. Pull request reviews still
-come from **`coderabbitai`** (App ID `347564`) and stay required. CLI pin
+come from **`coderabbitai`** (App ID `347564`) when a formal review runs.
+`/ready-merge-release` does not block a latest head that has no formal
+CodeRabbit review (`ready_no_coderabbit_review`): it marks the draft ready
+and tries an operator comment so a human can trigger
+`@coderabbitai full review` or merge without one. A 403 on that comment
+(missing `issues: write`) is non-fatal; the note goes on the PR body or in
+the agent report. Actionable findings that do exist, including a
+`COMMENTED` review body with actionable comments, still block into
+`/capture`. Quiet-mode walkthrough bodies are not findings. CLI pin
 `0.7.6` remains in the unused helper. When the CLI runs again, it must
 authenticate against [app.coderabbit.ai](https://app.coderabbit.ai) with
 `"region":"us"`.
@@ -424,8 +432,10 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
    use that config change as the protected second promotion canary. The
    read-only adapter review remains: it fail-closes `wrong_bot` on non-US
    CodeRabbit-shaped identity, fails stale HEAD or unresolved US threads
-   (except `.cursor/plans/` work-orders or outdated leftovers), and passes
-   only on clean US approval of current HEAD. The Actions job
+   (except `.cursor/plans/` work-orders or outdated leftovers), treats a
+   missing formal review as `ready_no_coderabbit_review`, ignores quiet-mode
+   walkthrough bodies, and passes on clean US approval of current HEAD or on
+   `changes_requested_meta_only`. The Actions job
    `CodeRabbit US latest-head gate` is paused (`if: false`) and is not a
    required check. `/ready-merge-release` returns
    `APPROVED FOR OPERATOR MERGE` from that adapter review. The paused job

@@ -265,7 +265,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(existsSync(RECEIPT), false)
   })
 
-  test("pr-gate snapshots: clean passes, pending/rate-limit fail", () => {
+  test("pr-gate snapshots: clean and no-formal-review pass; rate-limit fails", () => {
     const adapter = join(ROOT, ".cursor", "checks", "coderabbit-pr-gate.mjs")
     const clean = spawnSync(
       process.execPath,
@@ -279,8 +279,10 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       [adapter, "--snapshot", join(FIX, "remote-pending.json")],
       { encoding: "utf8" },
     )
-    assert.notEqual(pending.status, 0)
-    assert.equal(JSON.parse(pending.stderr).reason, "pending")
+    assert.equal(pending.status, 0, pending.stderr)
+    const pendingVerdict = JSON.parse(pending.stdout)
+    assert.equal(pendingVerdict.ok, true)
+    assert.equal(pendingVerdict.reason, "ready_no_coderabbit_review")
     const limited = spawnSync(
       process.execPath,
       [adapter, "--snapshot", join(FIX, "remote-rate-limit.json")],
