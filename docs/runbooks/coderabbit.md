@@ -13,7 +13,10 @@ review runs. `/ready-merge-release` pauses for a second review only when
 an automated review is in progress on the draft's latest commit. When no
 review is running, it goes straight to `ready_no_coderabbit_review` with
 no blind wait: it marks the draft ready and tries an operator comment so
-a human can trigger `@coderabbitai full review` or merge without one. A 403 on that comment
+a human can trigger `@coderabbitai full review` or merge without one. An
+expired `review_in_progress` wait is carried as that same reason into Step
+4, which does not start a second unbounded wait. Formal reviews, threads,
+HEAD identity, and required checks still apply. A 403 on that comment
 (missing `issues: write`) is non-fatal; the note goes on the PR body or in
 the agent report. Actionable findings that do exist, including a
 `COMMENTED` review body with actionable comments, still block into
@@ -318,8 +321,11 @@ Do not infer these from YAML. Re-run the commands.
 and write an ignored audit receipt under `.cursor/hooks/state/`. The attempt
 records `attemptStatus` as `clean`, `findings`, or `unavailable` with a
 stable `reason`. Critical, Major, and unknown findings route to
-`/sdd-to-tdd`; Minor and Trivial route to `/capture`. One fix round only;
-then push anyway and list leftovers. Unavailable CLI (no key, error,
+`/sdd-to-tdd`; Minor and Trivial route to `/capture` by severity, including
+in-scope Minor and Trivial. One fix round only, scoped to the same branch,
+head, and finding IDs; a new head or a new finding set resets the round to 0. Then push anyway and list leftovers. A failed `git diff` for
+`--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
+successful empty diff stays `clean`. Unavailable CLI (no key, error,
 timeout) still pushes. File-list aliases
 (`reviewedFiles`, `files`, `filesToReview`) are still inspected independently
 so parsing failures remain visible in the receipt. `/sdd-to-tdd` STEP 4G
