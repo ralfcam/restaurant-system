@@ -9,7 +9,9 @@ import {
   US_LATEST_HEAD_CHECK_NAME,
   appendOperatorNoteToPrBody,
   classifyFindingRouting,
+  decidePushCliAction,
   evaluateReadyPr,
+  hasCodeRabbitReviewInProgress,
   isQuietModeWalkthroughBody,
   resolveOperatorNotePlacement,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
@@ -187,7 +189,10 @@ test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
   )
 })
 
-function commentedBodySnapshot(body, { state = "COMMENTED", sha = "abc123" } = {}) {
+function commentedBodySnapshot(
+  body,
+  { state = "COMMENTED", sha = "abc123" } = {},
+) {
   return {
     isDraft: false,
     headSha: sha,
@@ -212,6 +217,93 @@ function commentedBodySnapshot(body, { state = "COMMENTED", sha = "abc123" } = {
     checkRuns: [],
   }
 }
+
+test("in-progress CodeRabbit check, status, or comment is review_in_progress", () => {
+  for (const file of [
+    "remote-review-in-progress-check.json",
+    "remote-review-in-progress-status.json",
+    "remote-review-in-progress-comment.json",
+  ]) {
+    const snapshot = load(file)
+    assert.equal(hasCodeRabbitReviewInProgress(snapshot), true, file)
+    const result = evaluateReadyPr(snapshot, { allowDraft: true })
+    assert.equal(result.ok, false, file)
+    assert.equal(result.reason, "review_in_progress", file)
+  }
+
+  const none = evaluateReadyPr(load("remote-pending.json"), {
+    allowDraft: true,
+  })
+  assert.equal(
+    hasCodeRabbitReviewInProgress(load("remote-pending.json")),
+    false,
+  )
+  assert.equal(none.reason, "ready_no_coderabbit_review")
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /review_in_progress/)
+  assert.match(command, /no blind wait/)
+})
+
+test("push CLI action routes one fix round then leftover-pushes", () => {
+  const critical = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 0,
+  })
+  assert.equal(critical.action, "route")
+  assert.equal(critical.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const major = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "major", id: "m1" }],
+    priorRound: 0,
+  })
+  assert.equal(major.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const unknown = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "nope", id: "u1" }],
+    priorRound: 0,
+  })
+  assert.equal(unknown.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const minor = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n1" }],
+    priorRound: 0,
+  })
+  assert.equal(minor.action, "route")
+  assert.equal(minor.capture[0].command, "/capture")
+
+  const leftover = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 1,
+  })
+  assert.equal(leftover.action, "push")
+  assert.equal(leftover.record, "leftover_after_fix_round")
+  assert.equal(leftover.leftover.length, 1)
+
+  const unavailable = decidePushCliAction({
+    attemptStatus: "unavailable",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(unavailable.action, "push")
+  assert.equal(unavailable.record, "unavailable")
+
+  const clean = decidePushCliAction({
+    attemptStatus: "clean",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(clean.action, "push")
+  assert.deepEqual(clean.leftover, [])
+})
 
 test("no formal review on latest head is ready_no_coderabbit_review with operator comment", () => {
   const none = evaluateReadyPr(load("remote-pending.json"))
@@ -304,10 +396,7 @@ test("operator comment 403 is non-fatal and still readies", () => {
   )
   assert.match(body, new RegExp(NO_FORMAL_REVIEW_BODY_HEADING))
   assert.match(body, /No formal CodeRabbit review/)
-  assert.equal(
-    appendOperatorNoteToPrBody(body, ready.operatorComment),
-    body,
-  )
+  assert.equal(appendOperatorNoteToPrBody(body, ready.operatorComment), body)
 
   const command = readFileSync(
     join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),

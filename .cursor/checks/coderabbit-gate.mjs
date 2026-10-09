@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * Mandatory advisory local CodeRabbit final-surface attempt. Reviews the dirty
- * tree after a scoped work-order check and writes an ignored audit receipt. Never executes
- * codegenInstructions. Never stashes or resets.
+ * Mandatory advisory local CodeRabbit attempt. `/push` reviews the committed
+ * branch diff against `origin/staging` (`--branch-diff`). The dirty-tree
+ * work-order path stays for tests and stays paused outside test mode.
+ * Never executes codegenInstructions. Never stashes or resets.
  *
  * Usage:
+ *   node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging
  *   node .cursor/checks/coderabbit-gate.mjs --owning-spec docs/specs/foo.md --work-order <json>
  */
 import { spawn, spawnSync } from "node:child_process"
@@ -24,15 +26,21 @@ import {
   defaultStateDir,
   evaluateAgentStream,
   evaluateWorkOrder,
+  isSecretPath,
+  loadPushRound,
   loadWaivers,
   parseJsonl,
+  resolveBranchDiffPaths,
   resolveCrBinary,
   resolveDirtyPaths,
   resolveHead,
   resolveManifest,
   reviewCommandArgs,
+  savePushRound,
   saveReceipt,
+  branchDiffBaseExists,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
+import { decidePushCliAction } from "../hooks/lib/coderabbit-pr-policy.mjs"
 
 function argValue(name) {
   const idx = process.argv.indexOf(name)
@@ -217,24 +225,37 @@ function evaluateAdvisoryJsonl(jsonl, { reviewablePaths, base, waivers }) {
 
 async function main() {
   const cwd = process.cwd()
+  const branchDiff = process.argv.includes("--branch-diff")
   const owningSpecArg = argValue("--owning-spec")
-  const workOrder = loadWorkOrder(argValue("--work-order"))
-  const owningSpec = owningSpecArg || workOrder.owningSpec
-  if (!owningSpec) fail("missing_owning_spec")
   const timeoutMs = Number(
     argValue("--timeout-ms") ||
       process.env.CODERABBIT_REVIEW_TIMEOUT_MS ||
       DEFAULT_REVIEW_TIMEOUT_MS,
   )
-  const base =
-    argValue("--base") || workOrder.base || currentBranch(cwd) || "staging"
 
-  const dirty = dirtyPaths(cwd)
-  const scope = evaluateWorkOrder({
-    dirtyPaths: dirty,
-    expectedPaths: workOrder.expectedPaths,
-  })
-  if (!scope.ok) fail(scope.reason, { paths: scope.paths })
+  let owningSpec = owningSpecArg
+  let base
+  let scope
+  if (branchDiff) {
+    base = argValue("--base") || "origin/staging"
+    owningSpec = owningSpecArg || null
+    const paths = resolveBranchDiffPaths(cwd, base)
+    const secrets = paths.filter(isSecretPath)
+    if (secrets.length) fail("secret_path", { paths: secrets })
+    scope = { ok: true, reviewablePaths: paths }
+  } else {
+    const workOrder = loadWorkOrder(argValue("--work-order"))
+    owningSpec = owningSpecArg || workOrder.owningSpec
+    if (!owningSpec) fail("missing_owning_spec")
+    base =
+      argValue("--base") || workOrder.base || currentBranch(cwd) || "staging"
+    const dirty = dirtyPaths(cwd)
+    scope = evaluateWorkOrder({
+      dirtyPaths: dirty,
+      expectedPaths: workOrder.expectedPaths,
+    })
+    if (!scope.ok) fail(scope.reason, { paths: scope.paths })
+  }
 
   const beforeManifest = manifestFor(cwd, scope.reviewablePaths)
   const hashes = configHashes(cwd)
@@ -245,8 +266,17 @@ async function main() {
   let pinned = null
   let authCheck = null
   let evaluated
-  if (!isTestMode()) {
+  if (!isTestMode() && !branchDiff) {
     evaluated = unavailable("cli_paused", [], waivers)
+  } else if (branchDiff && !branchDiffBaseExists(cwd, base)) {
+    evaluated = unavailable("missing_base", [], waivers)
+  } else if (branchDiff && scope.reviewablePaths.length === 0) {
+    evaluated = {
+      attemptStatus: "clean",
+      reason: "clean",
+      findings: [],
+      reviewedFiles: [],
+    }
   } else {
     try {
       pinned = readPinnedAuth(cwd)
@@ -269,7 +299,11 @@ async function main() {
           }
         } else {
           const bin = pinned.bin || resolveCrBinary()
-          const args = reviewCommandArgs({ owningSpec, base })
+          const args = reviewCommandArgs({
+            owningSpec,
+            base,
+            branchDiff,
+          })
           const review = await runCr(bin, args, { timeoutMs, cwd })
           if (review.timedOut) {
             evaluated = unavailable("timeout", [], waivers)
@@ -322,6 +356,23 @@ async function main() {
     owningSpec,
   })
   saveReceipt(defaultStateDir(), receipt)
+  const prior = loadPushRound(defaultStateDir())
+  const priorRound = prior.branch === branch ? Number(prior.round) || 0 : 0
+  const decision = branchDiff
+    ? decidePushCliAction({
+        attemptStatus: receipt.attemptStatus,
+        findings: evaluated.findings,
+        priorRound,
+      })
+    : null
+  if (decision?.action === "route") {
+    savePushRound(defaultStateDir(), {
+      branch,
+      head,
+      round: priorRound + 1,
+      findingIds: receipt.findingIds,
+    })
+  }
   console.log(
     JSON.stringify(
       {
@@ -332,6 +383,16 @@ async function main() {
         findingIds: receipt.findingIds,
         yaml: YAML_REL,
         policy: POLICY_REL,
+        ...(decision
+          ? {
+              action: decision.action,
+              record: decision.record,
+              leftover: decision.leftover || [],
+              sddToTdd: decision.sddToTdd || [],
+              capture: decision.capture || [],
+              fixRound: priorRound,
+            }
+          : {}),
       },
       null,
       2,

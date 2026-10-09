@@ -487,15 +487,15 @@ export const CODERABBIT_REQUIRED_FILES = [
 export const CODERABBIT_MIRROR_NEEDLES = {
   ".cursor/commands/sdd-to-tdd.md": [
     "STEP 4G",
-    "coderabbit-gate.mjs",
+    "do not run coderabbit-gate.mjs",
     "Do **not** write the receipt",
-    "mandatory advisory local CodeRabbit attempt",
     "continue to STEP 4F",
   ],
   ".cursor/commands/commit.md": [
     "gate open",
     "CodeRabbit receipts are audit-only",
     "A missing receipt is non-blocking",
+    "does not run the CodeRabbit CLI",
     "--exempt docs-artifact",
     "--exempt gate-remediation",
     "--exempt design-spec",
@@ -505,10 +505,14 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "A missing receipt is",
     "non-blocking",
     "CodeRabbit US latest-head gate",
+    "coderabbit-gate.mjs",
+    "origin/staging",
+    "one fix round",
+    "mandatory advisory local CodeRabbit attempt",
   ],
   ".cursor/commands/intake.md": [
     "/ready-merge-release",
-    "audit-only CodeRabbit 4G",
+    "audit-only CodeRabbit",
   ],
   ".cursor/commands/capture.md": ["coderabbit/<local|PR>/<head>/<finding-id>"],
   ".cursor/commands/ready-merge-release.md": [
@@ -523,6 +527,8 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "APPROVED FOR OPERATOR MERGE",
     "`gh pr ready`",
     "`gh pr merge`",
+    "review_in_progress",
+    "no blind wait",
   ],
   ".cursor/rules/coderabbit-integration.mdc": [
     "0.7.6",

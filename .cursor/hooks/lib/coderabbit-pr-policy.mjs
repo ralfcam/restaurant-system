@@ -188,6 +188,117 @@ export function codeRabbitFindingId(comment, thread = {}) {
 }
 
 export const LOOP_ROUND_CAP = 3
+export const PUSH_CLI_FIX_ROUND_CAP = 1
+
+const IN_PROGRESS_CHECK_STATES = new Set([
+  "queued",
+  "in_progress",
+  "pending",
+  "waiting",
+  "requested",
+])
+
+const IN_PROGRESS_STATUS_STATES = new Set(["pending", "queued"])
+
+const IN_PROGRESS_COMMENT_RE =
+  /review\s+in\s+progress|currently\s+reviewing|\bis\s+reviewing\b|generating (?:your |a )?review|review is (?:being )?generated/i
+
+export function checkLooksInProgress(run) {
+  const conclusion = String(run?.conclusion || "").toLowerCase()
+  if (conclusion && conclusion !== "null") return false
+  return IN_PROGRESS_CHECK_STATES.has(String(run?.status || "").toLowerCase())
+}
+
+function isCodeRabbitCheck(run) {
+  const label = run?.name || run?.app?.name
+  return isCodeRabbitShaped(label) || isCodeRabbitShaped(checkAppSlug(run))
+}
+
+export function statusLooksInProgress(status) {
+  const state = String(status?.state || "").toLowerCase()
+  if (!IN_PROGRESS_STATUS_STATES.has(state)) return false
+  const context = status?.context || ""
+  return context === REQUIRED_US_STATUS_CONTEXT || isCodeRabbitShaped(context)
+}
+
+function commentMentionsHead(comment, headSha) {
+  const body = String(comment?.body || "")
+  const commentSha =
+    comment?.commit_id || comment?.commitId || comment?.commit?.oid || ""
+  if (commentSha && headSha && commentSha === headSha) return true
+  if (!headSha) return !/\b[0-9a-f]{7,40}\b/i.test(body)
+  const sha = String(headSha)
+  if (body.toLowerCase().includes(sha.toLowerCase())) return true
+  if (sha.length >= 7) {
+    const short = sha.slice(0, 7).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    if (new RegExp(`\\b${short}\\b`, "i").test(body)) return true
+  }
+  return !/\b[0-9a-f]{7,40}\b/i.test(body)
+}
+
+export function commentLooksReviewInProgress(comment, headSha) {
+  const login = commentAuthorLogin(comment)
+  if (!isUsBotLogin(login) && !isCodeRabbitShaped(login)) return false
+  if (!IN_PROGRESS_COMMENT_RE.test(String(comment?.body || ""))) return false
+  return commentMentionsHead(comment, headSha)
+}
+
+export function hasCodeRabbitReviewInProgress(snapshot) {
+  const headSha = String(
+    snapshot?.headSha ||
+      snapshot?.pull?.headSha ||
+      snapshot?.pull?.head?.sha ||
+      "",
+  )
+  const runs = [
+    ...(snapshot?.checkRuns || snapshot?.check_runs || []),
+    ...(snapshot?.checkSuites || snapshot?.check_suites || []),
+  ]
+  if (runs.some((run) => isCodeRabbitCheck(run) && checkLooksInProgress(run))) {
+    return true
+  }
+  const statuses = snapshot?.statuses || snapshot?.status?.statuses || []
+  if (statuses.some(statusLooksInProgress)) return true
+  const comments = [
+    ...(snapshot?.issueComments || []),
+    ...(snapshot?.reviewComments || []),
+  ]
+  return comments.some((comment) =>
+    commentLooksReviewInProgress(comment, headSha),
+  )
+}
+
+export function decidePushCliAction({
+  attemptStatus,
+  findings = [],
+  priorRound = 0,
+} = {}) {
+  if (attemptStatus === "unavailable" || attemptStatus === "clean") {
+    return {
+      action: "push",
+      leftover: attemptStatus === "clean" ? [] : findings,
+      record: attemptStatus,
+    }
+  }
+  const routed = (findings || []).map((finding) => ({
+    ...finding,
+    ...classifyFindingRouting(finding),
+  }))
+  if (priorRound >= PUSH_CLI_FIX_ROUND_CAP) {
+    return {
+      action: "push",
+      leftover: routed,
+      record: "leftover_after_fix_round",
+    }
+  }
+  return {
+    action: "route",
+    leftover: routed,
+    sddToTdd: routed.filter((finding) => finding.route === "sdd-to-tdd"),
+    capture: routed.filter((finding) => finding.route === "capture"),
+    record: "fix_round",
+  }
+}
 
 export const NO_FORMAL_REVIEW_OPERATOR_COMMENT =
   "No formal CodeRabbit review ran on this head. The draft is marked ready. Comment `@coderabbitai full review` if you want a review, or merge without one."
@@ -252,9 +363,7 @@ const QUIET_WALKTHROUGH_MARKERS = [
 ]
 
 export function actionableCommentsPosted(body) {
-  const match = String(body || "").match(
-    /Actionable comments posted:\s*(\d+)/i,
-  )
+  const match = String(body || "").match(/Actionable comments posted:\s*(\d+)/i)
   return match ? Number(match[1]) : null
 }
 
@@ -568,6 +677,13 @@ function evaluateReadyPrCore(
     )
     if (formalElsewhere) {
       return { ok: false, reason: "stale_approval" }
+    }
+    if (hasCodeRabbitReviewInProgress(snapshot)) {
+      return {
+        ok: false,
+        reason: "review_in_progress",
+        ...readyMetadata(headSha, isDraft),
+      }
     }
     return {
       ok: true,

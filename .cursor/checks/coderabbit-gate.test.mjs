@@ -64,6 +64,32 @@ function runGuard(scriptName, payload) {
   })
 }
 
+function runBranchDiff(jsonlName, extraEnv = {}, extraArgs = []) {
+  return spawnSync(
+    process.execPath,
+    [
+      join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"),
+      "--branch-diff",
+      "--base",
+      extraEnv.CODERABBIT_STUB_BASE || "staging",
+      ...extraArgs,
+    ],
+    {
+      cwd: ROOT,
+      encoding: "utf8",
+      env: childEnv({
+        CODERABBIT_GATE_TEST: "1",
+        CODERABBIT_STUB_BRANCH_DIFF: "lib/example.ts",
+        CODERABBIT_STUB_HEAD: "deadbeef",
+        CODERABBIT_STUB_BRANCH: "sdd/RES-1",
+        CODERABBIT_STUB_MANIFEST: JSON.stringify({ "lib/example.ts": "abc" }),
+        CODERABBIT_STUB_JSONL: join(FIX, jsonlName),
+        ...extraEnv,
+      }),
+    },
+  )
+}
+
 function runGate(jsonlName, extraEnv = {}) {
   writeFileSync(
     WORK_ORDER,
@@ -265,6 +291,51 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(existsSync(RECEIPT), false)
   })
 
+  test("branch-diff mode reviews origin/staging and routes one fix round", () => {
+    const gateSrc = readFileSync(
+      join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"),
+      "utf8",
+    )
+    assert.match(gateSrc, /--branch-diff/)
+    assert.match(gateSrc, /origin\/staging/)
+    const clean = runBranchDiff("local-clean.jsonl")
+    assert.equal(clean.status, 0, clean.stderr)
+    const cleanBody = JSON.parse(clean.stdout)
+    assert.equal(cleanBody.ok, true)
+    assert.equal(cleanBody.attemptStatus, "clean")
+    assert.equal(cleanBody.action, "push")
+
+    const critical = runBranchDiff("local-critical.jsonl")
+    assert.equal(critical.status, 0, critical.stderr)
+    const criticalBody = JSON.parse(critical.stdout)
+    assert.equal(criticalBody.attemptStatus, "findings")
+    assert.equal(criticalBody.action, "route")
+    assert.equal(criticalBody.sddToTdd[0].command, "/sdd-to-tdd")
+
+    const again = runBranchDiff("local-critical.jsonl")
+    assert.equal(again.status, 0, again.stderr)
+    const againBody = JSON.parse(again.stdout)
+    assert.equal(againBody.action, "push")
+    assert.equal(againBody.record, "leftover_after_fix_round")
+
+    const missingBase = runBranchDiff("local-clean.jsonl", {
+      CODERABBIT_STUB_MISSING_BASE: "1",
+    })
+    assert.equal(missingBase.status, 0, missingBase.stderr)
+    const missingBody = JSON.parse(missingBase.stdout)
+    assert.equal(missingBody.attemptStatus, "unavailable")
+    assert.equal(missingBody.reason, "missing_base")
+    assert.equal(missingBody.action, "push")
+
+    const empty = runBranchDiff("local-clean.jsonl", {
+      CODERABBIT_STUB_BRANCH_DIFF: "",
+    })
+    assert.equal(empty.status, 0, empty.stderr)
+    const emptyBody = JSON.parse(empty.stdout)
+    assert.equal(emptyBody.attemptStatus, "clean")
+    assert.equal(emptyBody.action, "push")
+  })
+
   test("pr-gate snapshots: clean and no-formal-review pass; rate-limit fails", () => {
     const adapter = join(ROOT, ".cursor", "checks", "coderabbit-pr-gate.mjs")
     const clean = spawnSync(
@@ -283,6 +354,18 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     const pendingVerdict = JSON.parse(pending.stdout)
     assert.equal(pendingVerdict.ok, true)
     assert.equal(pendingVerdict.reason, "ready_no_coderabbit_review")
+    const inProgress = spawnSync(
+      process.execPath,
+      [
+        adapter,
+        "--snapshot",
+        join(FIX, "remote-review-in-progress-check.json"),
+        "--allow-draft",
+      ],
+      { encoding: "utf8" },
+    )
+    assert.notEqual(inProgress.status, 0)
+    assert.equal(JSON.parse(inProgress.stderr).reason, "review_in_progress")
     const limited = spawnSync(
       process.execPath,
       [adapter, "--snapshot", join(FIX, "remote-rate-limit.json")],

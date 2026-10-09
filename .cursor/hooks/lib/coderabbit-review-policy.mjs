@@ -549,6 +549,65 @@ export function resolveDirtyPaths(cwd = process.cwd(), env = process.env) {
   return dirtyPathsFromGit(cwd)
 }
 
+export const PUSH_ROUND_FILENAME = "coderabbit-push-round.json"
+
+export function pushRoundPath(stateDir = defaultStateDir()) {
+  return join(stateDir, PUSH_ROUND_FILENAME)
+}
+
+export function loadPushRound(stateDir = defaultStateDir()) {
+  const path = pushRoundPath(stateDir)
+  if (!existsSync(path)) return { round: 0 }
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8"))
+    if (!raw || typeof raw !== "object") return { round: 0 }
+    const round = Number(raw.round)
+    return {
+      ...raw,
+      round: Number.isFinite(round) && round > 0 ? round : 0,
+    }
+  } catch {
+    return { round: 0 }
+  }
+}
+
+export function savePushRound(stateDir, record) {
+  mkdirSync(stateDir, { recursive: true })
+  writeFileSync(pushRoundPath(stateDir), JSON.stringify(record, null, 2))
+}
+
+export function resolveBranchDiffPaths(
+  cwd = process.cwd(),
+  base = "origin/staging",
+  env = process.env,
+) {
+  if (Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
+    return env.CODERABBIT_STUB_BRANCH_DIFF.split(",")
+      .map((s) => posixPath(s.trim()))
+      .filter(Boolean)
+  }
+  const text = gitCapture(["diff", "--name-only", `${base}...HEAD`], cwd)
+  return text
+    .split(/\r?\n/)
+    .map((s) => posixPath(s.trim()))
+    .filter(Boolean)
+}
+
+export function branchDiffBaseExists(
+  cwd = process.cwd(),
+  base = "origin/staging",
+  env = process.env,
+) {
+  if (env.CODERABBIT_STUB_MISSING_BASE === "1") return false
+  if (env.CODERABBIT_GATE_TEST === "1") return true
+  const result = spawnSync("git", ["rev-parse", "--verify", base], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  })
+  return result.status === 0
+}
+
 export function resolveHead(cwd = process.cwd(), env = process.env) {
   if (env.CODERABBIT_STUB_HEAD) return env.CODERABBIT_STUB_HEAD
   return currentHead(cwd)
@@ -585,9 +644,17 @@ export function resolveCrBinary(
   return "coderabbit"
 }
 
-export function reviewCommandArgs({ owningSpec, base, extraConfig = [] }) {
+export function reviewCommandArgs({
+  owningSpec,
+  base,
+  extraConfig = [],
+  branchDiff = false,
+} = {}) {
   const configs = [owningSpec, POLICY_REL, ...extraConfig].filter(Boolean)
-  const args = ["review", "--agent", "--uncommitted", "--include-untracked"]
+  const args = ["review", "--agent"]
+  if (!branchDiff) {
+    args.push("--uncommitted", "--include-untracked")
+  }
   for (const file of configs) {
     args.push("-c", file)
   }

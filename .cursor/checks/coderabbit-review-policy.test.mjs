@@ -14,6 +14,7 @@ import {
   parseGitPorcelain,
   parseJsonl,
   resolveCrBinary,
+  resolveBranchDiffPaths,
   reviewCommandArgs,
   unrelatedDirtyPaths,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
@@ -208,6 +209,21 @@ test("review command is uncommitted+untracked with policy config and never --use
   assert.ok(args.includes(".cursor/rules/coderabbit-integration.mdc"))
   assert.ok(args.includes("docs/specs/dev-toolchain.md"))
   assert.ok(!args.includes("--use-credits"))
+  const branch = reviewCommandArgs({
+    owningSpec: "docs/specs/dev-toolchain.md",
+    base: "origin/staging",
+    branchDiff: true,
+  })
+  assert.deepEqual(branch.slice(0, 2), ["review", "--agent"])
+  assert.ok(!branch.includes("--uncommitted"))
+  assert.ok(!branch.includes("--include-untracked"))
+  assert.ok(branch.includes("origin/staging"))
+  assert.deepEqual(
+    resolveBranchDiffPaths(process.cwd(), "origin/staging", {
+      CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts,app/b.ts",
+    }),
+    ["lib/a.ts", "app/b.ts"],
+  )
   const src = readFileSync(
     join(
       process.cwd(),
