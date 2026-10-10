@@ -42,8 +42,8 @@ verdicts in the rest of this section belong to that operator/QA command.
 Agents do not poll and do not wait on them.
 `/ready-merge-release` pauses for a second review only when
 an automated review is in progress on a non-bot draft's latest commit.
-When no review is running and there is no bot-skip notice, it goes
-straight to `ready_no_coderabbit_review` with no blind wait: it marks the
+When no review is running and there is no bot-skip notice, a non-bot PR
+goes straight to `ready_no_coderabbit_review` with no blind wait: it marks the
 draft ready and tries an operator comment that does not request a
 CodeRabbit review. A bot-skip notice ("Review skipped" and "Bot user
 detected") does not expect a formal review, and only when that notice
@@ -51,7 +51,9 @@ names the head SHA. A notice with no SHA matches no head.
 `ready_cli_evidence` is the ignored gate receipt for that same head with
 `attemptStatus: clean`. PR body text, including `findings` and
 `unavailable`, is not that receipt. A matching bot skip without the
-clean receipt stays blocking `coderabbit_review_skipped`. That decision
+clean receipt stays blocking `coderabbit_review_skipped`. A bot-authored
+PR (`Bot`, a `[bot]` login, or `app/cursor`) without a skip notice is the
+same block unless that clean receipt is present. That decision
 is made before `stale_approval`. Non-bot `stale_approval` still becomes
 `ready_cli_evidence` only when that same receipt is `clean`.
 An expired `review_in_progress` wait is carried as

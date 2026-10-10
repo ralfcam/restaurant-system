@@ -135,11 +135,12 @@ the ticks expire and the reason is still `review_in_progress`, treat Step
 continue — do not wait forever.
 
 If the adapter returns `ok: false` with reason
-`coderabbit_review_skipped`, stop. Do not ready the draft. This is a bot
-skip notice ("Review skipped" and "Bot user detected") that names the
-head SHA, and the ignored gate receipt does not record `attemptStatus:
-clean` for that same head. PR body text is not that receipt. `findings`
-and `unavailable` are not `ready_cli_evidence`. A notice with no SHA is
+`coderabbit_review_skipped`, stop. Do not ready the draft. This is either
+a bot skip notice ("Review skipped" and "Bot user detected") that names the
+head SHA, or a bot-authored PR (GitHub user type `Bot`, a `[bot]` login, or
+`app/cursor`) with no skip notice, and the ignored gate receipt does not
+record `attemptStatus: clean` for that same head. PR body text is not that
+receipt. `findings` and `unavailable` are not `ready_cli_evidence`. A notice with no SHA is
 not this reason. Do not post a review trigger. On 2026-10-09 the cursor GitHub App token
 received HTTP 403 `Resource not accessible by integration` creating an
 issue comment on pull request 201, so this command does not post one.

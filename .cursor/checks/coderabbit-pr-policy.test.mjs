@@ -92,6 +92,32 @@ test("bot skip with findings or unavailable CLI evidence is ready_cli_evidence",
   assert.equal(bodyOnly.reason, "coderabbit_review_skipped")
 })
 
+test("bot-authored PR without a skip notice requires a clean receipt", () => {
+  const base = load("remote-pending.json")
+  const bot = {
+    ...base,
+    pull: { ...base.pull, user: { login: "cursor[bot]", type: "Bot" } },
+  }
+  const skipped = evaluateReadyPr(bot)
+  assert.equal(skipped.ok, false)
+  assert.equal(skipped.reason, "coderabbit_review_skipped")
+  const ready = evaluateReadyPr(bot, {
+    cliReceipt: { head: "abc123", attemptStatus: "clean" },
+  })
+  assert.equal(ready.ok, true)
+  assert.equal(ready.reason, "ready_cli_evidence")
+  const human = {
+    ...base,
+    pull: { ...base.pull, user: { login: "ralfcam", type: "User" } },
+  }
+  assert.equal(evaluateReadyPr(human).reason, "ready_no_coderabbit_review")
+  const appCursor = {
+    ...base,
+    pull: { ...base.pull, user: { login: "app/cursor", type: "User" } },
+  }
+  assert.equal(evaluateReadyPr(appCursor).reason, "coderabbit_review_skipped")
+})
+
 test("a skip notice with no SHA matches no head", () => {
   const head = "abc123def4567890abcd1234ef567890abcd1234"
   assert.equal(
@@ -522,10 +548,12 @@ test("push CLI action routes two fix rounds then blocks majors", () => {
     attemptStatus: "unavailable",
     findings: [{ severity: "nope", id: "u2" }],
     priorRound: 2,
+    reason: "error",
   })
   assert.equal(blockedUnknown.action, "stop")
-  assert.equal(blockedUnknown.record, "blocked_major_findings")
+  assert.equal(blockedUnknown.record, "blocked_cli_unavailable")
   assert.equal(blockedUnknown.leftover.length, 0)
+  assert.equal(blockedUnknown.sddToTdd.length, 0)
 
   const overCap = decidePushCliAction({
     attemptStatus: "findings",
@@ -566,8 +594,9 @@ test("push CLI action routes two fix rounds then blocks majors", () => {
     priorRound: 0,
     reason: "error",
   })
-  assert.equal(unavailableMajor.action, "route")
-  assert.equal(unavailableMajor.record, "fix_round")
+  assert.equal(unavailableMajor.action, "stop")
+  assert.equal(unavailableMajor.record, "blocked_cli_unavailable")
+  assert.equal(unavailableMajor.sddToTdd.length, 0)
 
   for (const reason of ["secret_path", "diff_failed", "missing_base"]) {
     const preflight = decidePushCliAction({

@@ -219,8 +219,9 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    `shouldReinstallCli` is true, then re-reads version and auth and runs the
    review again. If the second attempt is still `unavailable`,
    `decidePushCliAction` returns `action` `stop` and `record`
-   `blocked_cli_unavailable`, and `/push` MUST NOT push and MUST NOT ledger
-   that stop. Preflight reasons `secret_path`, `diff_failed`, and
+   `blocked_cli_unavailable` before it routes any partial findings, and
+   `/push` MUST NOT push and MUST NOT ledger that stop. A failed review
+   MUST NOT start a fix round. Preflight reasons `secret_path`, `diff_failed`, and
    `missing_base` are not CLI results: they do not retry and they still
    push. `cli_paused` stays on the dirty-tree work-order path and is not a
    `--branch-diff` decision. A `blocked_cli_unavailable` result is not a
@@ -404,8 +405,12 @@ auth token`) MUST pass a finite positive `timeout` (milliseconds) to
    requires the gate receipt `head` to equal the pull request head and
    `attemptStatus` `clean`. A matching bot-skip notice without that clean
    receipt stays blocking `coderabbit_review_skipped`.
-   No review and no skip notice stays `ready_no_coderabbit_review`, and its
-   operator comment MUST NOT tell anyone to post a review trigger. On
+   A non-bot PR with no review and no skip notice stays
+   `ready_no_coderabbit_review`, and its operator comment MUST NOT tell
+   anyone to post a review trigger. A bot-authored PR (GitHub user type
+   `Bot`, a login ending in `[bot]`, or `app/cursor`) requires that same
+   clean receipt even when no skip notice was posted. Without the receipt
+   the result is blocking `coderabbit_review_skipped`. On
    2026-10-09 the cursor GitHub App token received HTTP 403 `Resource not
 accessible by integration` when creating an issue comment on pull request
    201, so a review trigger never reached CodeRabbit and is not used.

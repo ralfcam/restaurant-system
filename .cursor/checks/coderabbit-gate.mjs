@@ -179,11 +179,22 @@ function reinstallPinnedCli(cwd, timeoutMs) {
     }
     return { timedOut: false }
   }
-  const install = spawnTimed(
-    "sh",
-    [resolve(cwd, ".cursor/cloud-install-coderabbit.sh")],
-    { cwd, timeoutMs },
-  )
+  const install =
+    process.platform === "win32"
+      ? spawnTimed(
+          "powershell.exe",
+          [
+            "-NoProfile",
+            "-Command",
+            `$env:CODERABBIT_VERSION='${PINNED_CLI_VERSION}'; irm https://cli.coderabbit.ai/install.ps1 | iex`,
+          ],
+          { cwd, timeoutMs },
+        )
+      : spawnTimed(
+          "sh",
+          [resolve(cwd, ".cursor/cloud-install-coderabbit.sh")],
+          { cwd, timeoutMs },
+        )
   return {
     timedOut:
       install.error?.code === "ETIMEDOUT" || install.signal === "SIGTERM",

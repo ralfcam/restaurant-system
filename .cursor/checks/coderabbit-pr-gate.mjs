@@ -288,6 +288,14 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
       base: pull.base?.ref,
       head: pull.head?.ref,
       headSha,
+      ...(pull.user
+        ? {
+            user: {
+              login: pull.user.login || "",
+              type: pull.user.type || "",
+            },
+          }
+        : {}),
     },
     headSha,
     body: pull.body || "",

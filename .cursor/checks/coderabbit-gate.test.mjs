@@ -300,6 +300,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.match(gateSrc, /origin\/staging/)
     assert.match(gateSrc, /shouldReinstallCli/)
     assert.match(gateSrc, /cloud-install-coderabbit\.sh/)
+    assert.match(gateSrc, /process\.platform === "win32"/)
+    assert.match(gateSrc, /install\.ps1/)
     const clean = runBranchDiff("local-clean.jsonl")
     assert.equal(clean.status, 0, clean.stderr)
     const cleanBody = JSON.parse(clean.stdout)
@@ -488,6 +490,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.match(pushMd, /--ack-push/)
     assert.match(pushMd, /blocked_major_findings/)
     assert.match(pushMd, /blocked_cli_unavailable/)
+    assert.match(pushMd, /pinned PR head is not the reviewed branch/)
   })
 
   test(

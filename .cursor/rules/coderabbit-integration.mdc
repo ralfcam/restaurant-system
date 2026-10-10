@@ -123,9 +123,11 @@ routes to `/sdd-to-tdd`. Without `--loop`, that snapshot stays
 `changes_requested`.
 
 When CodeRabbit has not posted a formal `APPROVED` or `CHANGES_REQUESTED`
-review on the latest head, the adapter returns `ok: true` with reason
-`ready_no_coderabbit_review` unless an automated review is in progress on
-that head SHA (in-progress comment or status). `/ready-merge-release`
+review on the latest head, a non-bot PR makes the adapter return `ok: true`
+with reason `ready_no_coderabbit_review` unless an automated review is in
+progress on that head SHA (in-progress comment or status). A bot-authored
+PR (`Bot`, a `[bot]` login, or `app/cursor`) without a clean gate receipt
+is `coderabbit_review_skipped` even when no skip notice was posted. `/ready-merge-release`
 pauses for a second review only then, within the existing bounded ticks.
 When no review is running, it goes straight to
 `ready_no_coderabbit_review` with no blind wait. Formal review gating and

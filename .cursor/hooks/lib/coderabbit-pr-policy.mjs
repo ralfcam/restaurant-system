@@ -320,22 +320,6 @@ export function decidePushCliAction({
   reason = "",
 } = {}) {
   const round = boundedPushRound(priorRound)
-  const { sddToTdd, capture } = routedPushFindings(
-    attemptStatus === "clean" ? [] : findings,
-  )
-  const packet = { leftover: capture, sddToTdd, capture }
-  if (sddToTdd.length > 0) {
-    if (round >= PUSH_CLI_FIX_ROUND_CAP) {
-      return {
-        action: "stop",
-        leftover: [],
-        sddToTdd,
-        capture,
-        record: "blocked_major_findings",
-      }
-    }
-    return { action: "route", ...packet, record: "fix_round" }
-  }
   if (attemptStatus === "clean") {
     return {
       action: "push",
@@ -362,6 +346,20 @@ export function decidePushCliAction({
       capture: [],
       record: "blocked_cli_unavailable",
     }
+  }
+  const { sddToTdd, capture } = routedPushFindings(findings)
+  const packet = { leftover: capture, sddToTdd, capture }
+  if (sddToTdd.length > 0) {
+    if (round >= PUSH_CLI_FIX_ROUND_CAP) {
+      return {
+        action: "stop",
+        leftover: [],
+        sddToTdd,
+        capture,
+        record: "blocked_major_findings",
+      }
+    }
+    return { action: "route", ...packet, record: "fix_round" }
   }
   // Pass 1 routes every finding. Later passes capture only Minor and Trivial.
   if (capture.length > 0 && round < 1) {
@@ -823,6 +821,22 @@ function collectLoopChangesRequestedFindings(latest, threads) {
   return [...byId.values()]
 }
 
+function pullAuthorLogin(snapshot) {
+  return String(
+    snapshot?.pull?.user?.login || snapshot?.pull?.author?.login || "",
+  )
+}
+
+function isBotPullAuthor(snapshot) {
+  const login = pullAuthorLogin(snapshot)
+  const type = String(
+    snapshot?.pull?.user?.type || snapshot?.pull?.author?.type || "",
+  ).toLowerCase()
+  if (type === "bot") return true
+  if (/\[bot\]$/i.test(login)) return true
+  return login === "app/cursor"
+}
+
 function headHasBotSkipNotice(snapshot, headSha) {
   const comments = [
     ...(snapshot?.issueComments || []),
@@ -976,8 +990,9 @@ function evaluateReadyPrCore(
     }
     const cleanReceipt = hasCleanCliEvidence(cliReceipt, headSha)
     // Bot PRs: a formal review is not required. The gate receipt is the
-    // only clean-CLI proof. PR body text is not.
-    if (headHasBotSkipNotice(snapshot, headSha)) {
+    // only clean-CLI proof. PR body text is not. A bot author counts even
+    // when CodeRabbit never posted a skip notice.
+    if (headHasBotSkipNotice(snapshot, headSha) || isBotPullAuthor(snapshot)) {
       if (cleanReceipt) {
         return {
           ok: true,

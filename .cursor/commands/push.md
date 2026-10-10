@@ -260,8 +260,9 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   date") and continue — Steps 3–6 still run, since a PR may still need
   promotion prep or a review request even with nothing new to push.
 - If a PR argument was given whose head is a **different** branch than the
-  current one, also skip the push here (note why) — you push only the current
-  branch; the pinned PR's own commits are already on its head.
+  current one, **STOP**. Do not push, do not edit that PR, and do not record
+  `## CodeRabbit CLI evidence` on it. The CLI reviewed the current checkout,
+  not that PR's head. Report `stopped — pinned PR head is not the reviewed branch`.
 
 ### 3. Resolve the PR
 
@@ -496,7 +497,7 @@ Exactly these sections:
 
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
 2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (fix round <n> of 2)" | "stopped — `blocked_major_findings`" | "stopped — `blocked_cli_unavailable`" ; CLI: `clean` | `findings routed` | `capture listed` | `unavailable recorded` | `blocked_major_findings` | `blocked_cli_unavailable`.
-3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
+3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — pinned PR head is not the reviewed branch" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Draft** — "left a draft" | "returned to draft — `gh pr ready --undo <n>`" | "n/a — no PR". Agents do not run `/ready-merge-release`.
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
