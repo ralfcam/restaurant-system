@@ -383,7 +383,7 @@ export function checkTddWrite(relPath, { depth, phase }) {
  * chained invocations. Returns null when nothing matches. */
 export function detectBlanketGitStage(command) {
   if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
+  const segments = splitShellSegments(command)
   for (const rawSeg of segments) {
     const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
     const gitIdx = tokens.indexOf("git")
@@ -449,6 +449,10 @@ function skipFlagTokens(tokens, valueFlags) {
     out.push(t)
   }
   return out
+}
+
+function splitShellSegments(command) {
+  return String(command).split(/&&|\|\||;|\||(?<!&)&(?!&)|\r?\n/)
 }
 
 function firstPositionalIndex(tokens, valueFlags) {
@@ -541,7 +545,7 @@ function detectGhPrMergeSegment(segment) {
  * and curl to the pulls merge endpoint. */
 export function detectGhPrMerge(command) {
   if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
+  const segments = splitShellSegments(command)
   for (const rawSeg of segments) {
     const hit = detectGhPrMergeSegment(rawSeg.trim())
     if (hit) return hit
@@ -635,7 +639,7 @@ export function detectProtectedBranchPush(command, options = {}) {
   const currentBranch = Object.hasOwn(options, "currentBranch")
     ? options.currentBranch
     : resolveCurrentBranch(options.cwd)
-  const segments = command.split(/&&|\|\||;|\|/)
+  const segments = splitShellSegments(command)
   for (const rawSeg of segments) {
     const hit = detectProtectedPushSegment(rawSeg.trim(), currentBranch)
     if (hit) return hit
@@ -647,7 +651,7 @@ export function detectProtectedBranchPush(command, options = {}) {
  * so it also catches chained invocations. Returns null when nothing matches. */
 export function detectGitCommit(command) {
   if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
+  const segments = splitShellSegments(command)
   for (const rawSeg of segments) {
     const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
     const gitIdx = tokens.indexOf("git")

@@ -989,8 +989,10 @@ latest-head` so `on.pull_request.types` includes `edited`.
     6. `curl` to `api.github.com/.../pulls/.../merge`
     7. a GitHub MCP merge tool (`merge_pull_request`, `mergePullRequest`,
        `merge_pr`)
-       Literal `gh pr merge` stays denied. `gh pr create`, `gh pr view`,
-       `gh pr ready`, and `gh pr edit` stay allowed. A second `preToolUse`
+       Literal `gh pr merge` stays denied. Newline-separated and
+       single-`&` chains MUST be split the same way as `&&` / `;` / `|`.
+       `gh pr create`, `gh pr view`, `gh pr ready`, and `gh pr edit` stay
+       allowed. A second `preToolUse`
        registration of `git-stage-guard.mjs` with an MCP matcher is allowed;
        do not add a second `failClosed` Shell hook.
     - Regression guard:
@@ -1002,7 +1004,9 @@ latest-head` so `on.pull_request.types` includes `edited`.
     whose destination ref
     is `main` or `staging` (including `HEAD:main`, `HEAD:staging`,
     `refs/heads/main`, `refs/heads/staging`, a full-path `git` binary,
-    and `bash -c` / `sh -c` wrappers). A push with no refspec
+    and `bash -c` / `sh -c` wrappers). Newline-separated and single-`&`
+    chains MUST be split the same way as `&&` / `;` / `|`. A push with no
+    refspec
     (`git push`, `git push origin`) or dest `HEAD`
     (`git push origin HEAD`) MUST resolve against the current branch and
     deny when that branch is `main` or `staging`, or when the current

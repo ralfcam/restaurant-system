@@ -40,6 +40,8 @@ const BYPASSES: Array<[string, string]> = [
     "curl merge endpoint",
     "curl -X PUT https://api.github.com/repos/ralfcam/restaurant-system/pulls/12/merge",
   ],
+  ["newline merge", "gh pr view 1\ngh pr merge 12"],
+  ["background & merge", "gh pr view 1 & gh pr merge 12"],
 ]
 
 describe("G-MRG1 tolerant merge matching", () => {
