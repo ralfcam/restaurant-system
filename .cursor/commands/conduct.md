@@ -152,7 +152,7 @@ That comment is the claim. This command does not post one of its own.
 `design_first` stops after it takes the Design route (`/design`) on that first PR and does not run the Code route (`/sdd-to-tdd`) on it.
 
 `/conduct` identifies the owning spec and confirms it is listed in `## Permissions Requested` before amending; STOP without editing when either is unknown.
-`spec_amend` amends the owning spec before `/dispatch` writes the brief.
+Step 7 does not amend again. It treats the Step 6 `spec_amend` amend of the owning spec, and the `/dispatch` that writes the brief, as complete. No second amend.
 
 - Code route, for a pick that is not `design_first`: `/sdd-to-tdd RES-###`. Its one-shot already runs commit.md and
   push.md.
@@ -173,6 +173,7 @@ QA bots, including `ralfcam`, post the digest and wait for Jose instead of marki
 Readiness is the /push CLI evidence on the head plus that UAT.
 `/ready-merge-release` stays on disk for that QA step and still documents
 `roundCap: 3`. `/conduct` does not invoke it.
+`/ready-merge-release` must STOP when `qaMayReadyPr` is false because the PR has the `sensitive` label, and must not run `gh pr ready`.
 
 ### 9. Failure before a PR exists
 

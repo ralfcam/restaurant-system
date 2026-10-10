@@ -141,7 +141,8 @@ export function classifyConductEligibility(record) {
   if (
     record.briefComplete !== true &&
     record.priority != null &&
-    record.priority !== ""
+    record.priority !== "" &&
+    record.priority !== 0
   ) {
     return eligibleReason("auto_brief", sensitive)
   }

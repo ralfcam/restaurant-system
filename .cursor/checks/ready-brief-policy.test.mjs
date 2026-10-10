@@ -583,6 +583,26 @@ test("incomplete brief without priority is explicitly ineligible", async () => {
   }
 })
 
+test("Linear priority 0 is missing and does not auto-brief", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const excluded = { eligible: false, reason: "excluded_priority" }
+  const record = {
+    status: "Todo",
+    currentCycle: true,
+    unansweredClarification: false,
+    briefComplete: false,
+    priority: 0,
+  }
+  assert.deepEqual(classifyConductEligibility(record), excluded)
+  for (const ticketClass of ["security", "payment", "auth"]) {
+    assert.deepEqual(
+      classifyConductEligibility({ ...record, class: ticketClass }),
+      excluded,
+    )
+  }
+})
+
 test("conduct confirms the spec path before the step 7 amendment", () => {
   const conduct = readFileSync(
     join(process.cwd(), ".cursor/commands/conduct.md"),
@@ -674,5 +694,53 @@ test("pick dispatch is per reason so spec_amend can complete the brief", () => {
     observed,
     "skips-ineligible, auto-brief-write, not-only-auto_brief, scoped-dispatch, spec-amend-completes, ready-keeps, dispatch-after-amend",
     'Step 6 must skip /dispatch when eligible: false, write a brief for auto_brief, let /dispatch complete the brief for spec_amend after the permitted amend, and keep a ready pick\'s brief. "writes a brief only for auto_brief" and an unconditional "/conduct next runs /dispatch to write the brief" line are the failure.',
+  )
+})
+
+test("readiness stops gh pr ready on a sensitive PR", () => {
+  const release = readFileSync(
+    join(process.cwd(), ".cursor/commands/ready-merge-release.md"),
+    "utf8",
+  )
+  const readyStart = release.indexOf("### 3. Ready")
+  const afterReady = release.indexOf("### 4.", readyStart)
+  const step3 =
+    readyStart === -1 || afterReady <= readyStart
+      ? ""
+      : release.slice(readyStart, afterReady)
+  const mutationAt = step3.search(/run `gh pr ready(?! --undo)/)
+  const beforeReady = mutationAt === -1 ? "" : step3.slice(0, mutationAt)
+  const step3StopsBeforeGhPrReady =
+    /qaMayReadyPr[\s\S]{0,240}false[\s\S]{0,200}\bSTOP\b|\bSTOP\b[\s\S]{0,240}qaMayReadyPr[\s\S]{0,160}false|`sensitive`[\s\S]{0,240}\bSTOP\b|\bSTOP\b[\s\S]{0,240}`sensitive`|sensitive label[\s\S]{0,240}\bSTOP\b|\bSTOP\b[\s\S]{0,240}sensitive label/i.test(
+      beforeReady,
+    )
+  const beforeMutation =
+    readyStart === -1 || mutationAt === -1
+      ? ""
+      : release.slice(0, readyStart + mutationAt)
+  const fetchesLabels =
+    /gh pr view[\s\S]{0,500}--json[\s\S]{0,400}\blabels\b/.test(beforeMutation)
+
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const conductNamesThatStop =
+    /\/ready-merge-release[\s\S]{0,400}\bSTOP\b[\s\S]{0,250}(?:qaMayReadyPr|`sensitive`|sensitive label)[\s\S]{0,200}gh pr ready|\bSTOP\b[\s\S]{0,280}(?:qaMayReadyPr[\s\S]{0,80}false|`sensitive`|sensitive label)[\s\S]{0,250}gh pr ready|(?:qaMayReadyPr[\s\S]{0,80}false|`sensitive`|sensitive label)[\s\S]{0,280}\bSTOP\b[\s\S]{0,200}gh pr ready/.test(
+      conduct,
+    )
+
+  assert.deepEqual(
+    {
+      fetchesLabels,
+      step3StopsBeforeGhPrReady,
+      conductNamesThatStop,
+    },
+    {
+      fetchesLabels: true,
+      step3StopsBeforeGhPrReady: true,
+      conductNamesThatStop: true,
+    },
+    "Step 3 (`### 3. Ready`) runs `gh pr ready` with no STOP when qaMayReadyPr is false or the PR has the sensitive label; conduct.md must name that STOP",
   )
 })

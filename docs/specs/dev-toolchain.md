@@ -793,8 +793,10 @@ latest-head` so `on.pull_request.types` includes `edited`.
     regression test. The issue PR gets a GitHub `sensitive` label and one
     body line that names the sensitive class. QA bots, including
     `ralfcam`, MUST NOT mark a `sensitive` PR ready. They post the digest
-    and wait for Jose. A Todo issue in the current cycle that has a
-    priority and no unanswered `Clarification required` comment does not
+    and wait for Jose. `/ready-merge-release` fetches PR labels and STOPs
+    before `gh pr ready` when `qaMayReadyPr` is false. A Todo issue in
+    the current cycle that has an assigned Linear priority (not `0` / No
+    priority) and no unanswered `Clarification required` comment does not
     need a hand-written Ready brief. `/conduct next` writes a brief via
     `/dispatch` when the classifier returns `auto_brief`. After the
     complete-brief re-check and the lowest-`Queue:` pick, it starts that
@@ -809,9 +811,10 @@ latest-head` so `on.pull_request.types` includes `edited`.
     clarification → excluded; migration or RLS → excluded; not Todo or not
     current cycle → excluded from pick; new-scope or `/design` label →
     `design_first`; answered clarification with a missing brief `spec`
-    field → `spec_amend`; missing brief plus a priority → `auto_brief`;
-    complete brief → `ready`; missing or incomplete brief without a
-    priority → `excluded_priority`. `sensitive` overlays every eligible
+    field → `spec_amend`; missing brief plus an assigned Linear priority
+    (not `0` / No priority) → `auto_brief`; complete brief → `ready`;
+    missing or incomplete brief without an assigned priority, including
+    Linear `0`, → `excluded_priority`. `sensitive` overlays every eligible
     reason (`design_first`, `spec_amend`, `auto_brief`, `ready`).
     Migration/RLS and unanswered clarification always win. A
     `design_first` first PR stops after `/design` (spec + plan, no
