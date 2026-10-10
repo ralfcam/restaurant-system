@@ -207,11 +207,16 @@ modify existing test bodies. Do not edit G-TD1 (parallel RES-127).
   change → excluded (local only); not Todo or not current cycle → excluded
   from pick; new-scope or `/design` label → `design_first`; answered
   clarification with an incomplete brief `spec` field → `spec_amend`;
-  missing/incomplete brief plus a priority → `auto_brief`;
-  security/payment/auth → eligible `sensitive`; complete brief → `ready`.
-- `sensitive` may combine with `auto_brief` or `ready`. Migration/RLS and
-  unanswered clarification always win. Design-first wins over a code route
-  on the first PR.
+  missing/incomplete brief plus a priority → `auto_brief`; complete brief
+  → `ready`; missing or incomplete brief without a priority →
+  `excluded_priority`.
+- `sensitive` overlays every eligible reason (`design_first`,
+  `spec_amend`, `auto_brief`, `ready`). Migration/RLS and unanswered
+  clarification always win. A `design_first` first PR stops after
+  `/design` and does not run `/sdd-to-tdd`. `spec_amend` amends before
+  the complete-brief re-read. Pick dispatches only `auto_brief`.
+  `/conduct` confirms the spec path is in Permissions Requested before
+  amending.
 - Pre-mortem: a missing exclusion ships a Cloud migration or a guessed
   unanswered clarification. A missing sensitive gate lets a QA bot ready a
   money/auth PR. Inversion: a comment that merely mentions "sensitive"
@@ -234,6 +239,11 @@ modify existing test bodies. Do not edit G-TD1 (parallel RES-127).
 | C10 | Step 7 routes `design_first` to `/design` before the code route       | P1   | unit  | same                                         | add test        | `step 7 routes design-first to design before the code route`                        | conduct.md Step 7 names `design_first` and requires `/design` before `/sdd-to-tdd`                                                                                                                     | same                                                     | C5         |
 | C11 | Step 7 amends the spec before `/dispatch` writes the brief            | P1   | unit  | same                                         | add test        | `step 7 amends the owning spec before dispatch writes the brief`                    | conduct.md Step 7 amends then dispatch; sdd-to-tdd.md requires that spec path in Permissions Requested or STOPs                                                                                        | same                                                     | C6         |
 | C12 | Pick calls the classifier and dispatches before ranking `Queue:`      | P1   | unit  | same                                         | add test        | `pick classifies then dispatches before ranking Queue`                              | conduct.md names `classifyConductEligibility` at pick; `/dispatch` runs before lowest-`Queue:` ranking                                                                                                 | same                                                     | C4, C7     |
+| C13 | Design-first first PR stops after the design route                    | P1   | unit  | same                                         | add test        | `design-first first PR stops after the design route`                                | Step 7 `design_first` stops after `/design` and does not run `/sdd-to-tdd` on that first PR                                                                                                            | same                                                     | C10        |
+| C14 | Spec-amend runs before the complete-brief re-read                     | P1   | unit  | same                                         | add test        | `spec-amend runs before the complete-brief re-read`                                 | Step 6 amends on `spec_amend` before requiring a complete brief, then `/dispatch` and re-check                                                                                                         | same                                                     | C11, C12   |
+| C15 | Pick dispatches only an auto-brief eligible issue                     | P1   | unit  | same                                         | add test        | `pick dispatches only an auto-brief eligible issue`                                 | Step 6 skips `/dispatch` when `eligible: false` and writes a brief only for `auto_brief`                                                                                                               | same                                                     | C12        |
+| C16 | Incomplete brief without priority is explicitly ineligible            | P0   | unit  | same                                         | add test        | `incomplete brief without priority is explicitly ineligible`                        | `{ eligible: false, reason: "excluded_priority" }` when the brief is incomplete and priority is missing, including sensitive classes                                                                   | same                                                     | C9         |
+| C17 | Conduct confirms the spec path before the Step 7 amendment            | P1   | unit  | same                                         | add test        | `conduct confirms the spec path before the step 7 amendment`                        | `/conduct` identifies the owning spec and confirms it is listed in Permissions Requested before amending; STOP without editing when either is unknown                                                  | same                                                     | C11        |
 
 ## Traceability Matrix
 
@@ -340,6 +350,94 @@ Allowed source (Green/Refactor, from the Ready brief):
 - **Green** → Invoke `tdd-green` to return `spec_amend` and update
   conduct.md + sdd-to-tdd.md.
 - **Refactor** → Invoke `tdd-refactor` to clean C6. Same exit gates.
+
+### Criterion C7 — Status and cycle pick gates (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `classifyConductEligibility excludes not-Todo and not-current-cycle`.
+- **Green** → Invoke `tdd-green` to return `excluded_status` / `excluded_cycle`
+  after RLS and before `design_first`.
+- **Refactor** → Invoke `tdd-refactor` to clean C7. Same exit gates.
+
+### Criterion C8 — Ready plus sensitive overlay (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `complete briefs are ready and sensitive rides every eligible reason`.
+- **Green** → Invoke `tdd-green` to return `ready` and attach `sensitive: true`
+  on every eligible reason when the class is security, payment, or auth.
+- **Refactor** → Invoke `tdd-refactor` to clean C8. Same exit gates.
+
+### Criterion C9 — Omitted briefComplete (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `omitted briefComplete with priority auto-briefs`.
+- **Green** → Invoke `tdd-green` to treat `briefComplete !== true` as incomplete.
+- **Refactor** → Invoke `tdd-refactor` to clean C9. Same exit gates.
+
+### Criterion C10 — Step 7 design-first (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `step 7 routes design-first to design before the code route`.
+- **Green** → Invoke `tdd-green` to name `design_first` before `/sdd-to-tdd`.
+- **Refactor** → Invoke `tdd-refactor` to clean C10. Same exit gates.
+
+### Criterion C11 — Step 7 spec-amend (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `step 7 amends the owning spec before dispatch writes the brief`.
+- **Green** → Invoke `tdd-green` to add the Step 7 sentence and the
+  Permissions Requested STOP.
+- **Refactor** → Invoke `tdd-refactor` to clean C11. Same exit gates.
+
+### Criterion C12 — Pick classifier then dispatch (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `pick classifies then dispatches before ranking Queue`.
+- **Green** → Invoke `tdd-green` to name `classifyConductEligibility` and
+  run `/dispatch` before `Queue:`.
+- **Refactor** → Invoke `tdd-refactor` to clean C12. Same exit gates.
+
+### Criterion C13 — Design-first first PR is design-only (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `design-first first PR stops after the design route`.
+- **Green** → Invoke `tdd-green` so Step 7 stops after `/design` publishes
+  that first PR and does not run `/sdd-to-tdd` on it.
+- **Refactor** → Invoke `tdd-refactor` to clean C13. Same exit gates.
+
+### Criterion C14 — Spec-amend before the complete-brief gate (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `spec-amend runs before the complete-brief re-read`.
+- **Green** → Invoke `tdd-green` so Step 6 amends on `spec_amend` before
+  requiring a complete brief, then `/dispatch` and re-check.
+- **Refactor** → Invoke `tdd-refactor` to clean C14. Same exit gates.
+
+### Criterion C15 — Dispatch only auto-brief eligibles (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `pick dispatches only an auto-brief eligible issue`.
+- **Green** → Invoke `tdd-green` so Step 6 skips `/dispatch` when
+  `eligible: false` and writes a brief only for `auto_brief`.
+- **Refactor** → Invoke `tdd-refactor` to clean C15. Same exit gates.
+
+### Criterion C16 — Explicit result without auto-brief prerequisites (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `incomplete brief without priority is explicitly ineligible`.
+- **Green** → Invoke `tdd-green` to return
+  `{ eligible: false, reason: "excluded_priority" }` when the brief is
+  incomplete and priority is missing, including sensitive classes.
+- **Refactor** → Invoke `tdd-refactor` to clean C16. Same exit gates.
+
+### Criterion C17 — Conduct confirms spec permission before amending (layer: unit)
+
+- **Red** → Invoke `tdd-red` to add
+  `conduct confirms the spec path before the step 7 amendment`.
+- **Green** → Invoke `tdd-green` so `/conduct` identifies the owning spec
+  and confirms it is listed in Permissions Requested before amending;
+  STOP without editing when either is unknown.
+- **Refactor** → Invoke `tdd-refactor` to clean C17. Same exit gates.
 
 ## Manual-UAT (deferred, not automated)
 

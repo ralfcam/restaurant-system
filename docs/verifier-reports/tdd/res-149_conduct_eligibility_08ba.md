@@ -108,11 +108,52 @@ Suggested review order:
   - `.cursor/commands/conduct.md:136` lowest numeric `Queue:`
 Reusable pattern: Keep `` `/conduct next` runs `/dispatch` to write the brief, then starts. `` on its own single-space line inside `### 6. Pick`.
 
+### C13
+
+Suggested review order: design-first stop — [public-api] `.cursor/commands/conduct.md:147` `design_first` stops after `/design` and does not run `/sdd-to-tdd` on that first PR; code-route gate — [public-api] `.cursor/commands/conduct.md:151` `/sdd-to-tdd` only when the pick is not `design_first`
+Reusable pattern: Keep the Step 7 `design_first` stop on one line, with `first PR` between `/design` and `does not run`, so C13’s third alternative and C10’s 80-character `/design`→`code route` window still match the same sentence.
+
+### C14
+
+Suggested review order:
+- Spec-amend before the brief gate [public-api]
+  - `.cursor/commands/conduct.md:134` amend the owning spec before requiring a complete brief
+  - `.cursor/commands/conduct.md:135` `/dispatch` writes the brief
+  - `.cursor/commands/conduct.md:136` the re-check re-reads the issue and requires a complete brief
+- Second amend on the execute step
+  - `.cursor/commands/conduct.md:150` Step 7 still amends before `/dispatch` writes the brief
+Reusable pattern: Keep `re-check` on the existing brief re-read (within 160 characters of the brief-writing `/dispatch`) instead of adding a second `/dispatch` in the `spec_amend` sentence; these policy tests pin token order, not sentence boundaries.
+
+### C15
+
+Suggested review order:
+- Dispatch eligibility gate: `.cursor/commands/conduct.md:137` [security] — skip `/dispatch` when `eligible: false`; write a brief only for `auto_brief`
+- Sentences that gate must not precede: `.cursor/commands/conduct.md:133` classifier call; `.cursor/commands/conduct.md:134` `spec_amend` before the complete-brief requirement; `.cursor/commands/conduct.md:135` [public-api] unconditional `/dispatch` then start; `.cursor/commands/conduct.md:136` re-check
+Reusable pattern: Keep a new Step 6 `/dispatch` guard after the `re-check` sentence — inserting `skips /dispatch` between `spec_amend` and `re-check` uses 155 of the C14 160-character window.
+
+### C16
+
+Suggested review order:
+- Missing priority stays ineligible [security] — `.cursor/hooks/lib/ready-brief-policy.mjs:151` incomplete brief with no priority returns `{ eligible: false, reason: "excluded_priority" }`, including security, payment, and auth, and does not set `sensitive`
+- Priority gate that must fail first [public-api] — `.cursor/hooks/lib/ready-brief-policy.mjs:141` `auto_brief` only when the brief is incomplete and `priority` is not null and not `""`
+- Complete brief still wins — `.cursor/hooks/lib/ready-brief-policy.mjs:148` `briefComplete === true` returns `ready` before that fallthrough
+Reusable pattern: Leave `excluded_priority` as the final return after `auto_brief` (incomplete and priority present) and `ready` (`briefComplete === true`), so every other completeness/priority pair fails closed without a third predicate that can drift from those two.
+
+### C17
+
+Suggested review order: permission gate before the Step 7 amendment — `.cursor/commands/conduct.md:151` [security]
+Reusable pattern: When a command criterion is an ordered proximity match, keep the sentence spec-verbatim; splitting or reordering `identifies the owning spec` … `before amending` … `STOP without editing when either is unknown` fails the window even if Prettier is clean.
+
 ## Suggested Review Order (collated)
 
-- QA must not ready a sensitive PR [security] → `.cursor/hooks/lib/ready-brief-policy.mjs:157` (`qaMayReadyPr`); `.cursor/commands/conduct.md` (wait for Jose)
+- Missing priority stays ineligible [security] → `.cursor/hooks/lib/ready-brief-policy.mjs:151` `excluded_priority`
+- Permission gate before the Step 7 amendment [security] → `.cursor/commands/conduct.md:151`
+- QA must not ready a sensitive PR [security] → `.cursor/hooks/lib/ready-brief-policy.mjs` `qaMayReadyPr`; `.cursor/commands/conduct.md` (wait for Jose)
 - Sensitive flag on every eligible reason [security] → `.cursor/hooks/lib/ready-brief-policy.mjs` `eligibleReason`
 - Pick gates before any eligible reason [auth] → `.cursor/hooks/lib/ready-brief-policy.mjs` clarification, migration, RLS, status, cycle
+- Dispatch only `auto_brief`; skip `eligible: false` [security] → `.cursor/commands/conduct.md:137`
+- Design-first first PR stops after `/design` [public-api] → `.cursor/commands/conduct.md:149`
+- Spec-amend before the complete-brief re-read [public-api] → `.cursor/commands/conduct.md:134`
 - Spec-amend + unknown-path STOP [public-api] → `.cursor/commands/conduct.md` Step 7; `.cursor/commands/sdd-to-tdd.md`
 - Auto-brief + design-first + pick classifier [public-api] → `.cursor/hooks/lib/ready-brief-policy.mjs`; `.cursor/commands/conduct.md` Step 6–7
 - Dispatch no longer claims there is no priority/`security` gate [security] → `.cursor/commands/dispatch.md:348`
@@ -136,13 +177,18 @@ Run: 2026-10-10 · plan: res-149_conduct_eligibility_08ba · issue: RES-149
 | C10 | G-CON1 | ready-brief-policy.test.mjs::step 7 routes design-first to design before the code route | conduct.md | P1 | shipped |
 | C11 | G-CON1 | ready-brief-policy.test.mjs::step 7 amends the owning spec before dispatch writes the brief | conduct.md, sdd-to-tdd.md | P1 | shipped |
 | C12 | G-CON1 | ready-brief-policy.test.mjs::pick classifies then dispatches before ranking Queue | conduct.md | P1 | shipped |
+| C13 | G-CON1 | ready-brief-policy.test.mjs::design-first first PR stops after the design route | conduct.md | P1 | shipped |
+| C14 | G-CON1 | ready-brief-policy.test.mjs::spec-amend runs before the complete-brief re-read | conduct.md | P1 | shipped |
+| C15 | G-CON1 | ready-brief-policy.test.mjs::pick dispatches only an auto-brief eligible issue | conduct.md | P1 | shipped |
+| C16 | G-CON1 | ready-brief-policy.test.mjs::incomplete brief without priority is explicitly ineligible | ready-brief-policy.mjs | P0 | shipped |
+| C17 | G-CON1 | ready-brief-policy.test.mjs::conduct confirms the spec path before the step 7 amendment | conduct.md | P1 | shipped |
 
 ## Run metrics
 
 Run: 2026-10-10 → 2026-10-10 · plan: res-149_conduct_eligibility_08ba
-Criteria: 12 shipped · 0 manual-uat · 12 total
-Phases delegated: 36 (12 red, 12 green, 12 refactor)
-Back-loops: CLI Pass 1 majors → C7–C12
+Criteria: 17 shipped · 0 manual-uat · 17 total
+Phases delegated: 51 (17 red, 17 green, 17 refactor)
+Back-loops: CLI Pass 1 majors → C7–C12; CLI Pass 2 majors → C13–C17
 BLOCKED events: 0 — none
-Issues: 0 filed · 0 attached-to-existing · 18 left on ledger (15 below floor + 3 attach-only no match) plus C7–C12 run-file residuals — cap 3/run
+Issues: 0 filed · 0 attached-to-existing · 27 left on ledger (25 below floor + 2 at-floor attach-only no match) — cap 3/run
 

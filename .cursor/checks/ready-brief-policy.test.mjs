@@ -507,3 +507,94 @@ test("pick classifies then dispatches before ranking Queue", () => {
   assert.match(pick, /\/dispatch[\s\S]*Queue:/)
   assert.match(pick, /\/dispatch[\s\S]*re-reads the issue[\s\S]*complete brief/)
 })
+
+test("design-first first PR stops after the design route", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const step7 =
+    conduct.match(/### 7\. Branch and execute[\s\S]*?(?=### 8\.)/)?.[0] ?? ""
+  assert.match(
+    step7,
+    /design_first[\s\S]{0,300}stops after[\s\S]{0,120}\/design[\s\S]{0,200}does not run[\s\S]{0,80}\/sdd-to-tdd[\s\S]{0,80}first PR|design_first[\s\S]{0,120}first PR[\s\S]{0,80}stops after[\s\S]{0,120}\/design[\s\S]{0,200}does not run[\s\S]{0,80}\/sdd-to-tdd|design_first[\s\S]{0,200}stops after[\s\S]{0,80}\/design[\s\S]{0,80}first PR[\s\S]{0,120}does not run[\s\S]{0,80}\/sdd-to-tdd/i,
+  )
+})
+
+test("spec-amend runs before the complete-brief re-read", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  const ordered =
+    /spec_amend[\s\S]{0,160}amend[\s\S]{0,80}owning spec[\s\S]{0,160}complete[- ]brief[\s\S]{0,120}\/dispatch[\s\S]{0,160}re-check/.exec(
+      pick,
+    )
+  const firstDispatch = pick.search(/\/dispatch/)
+  const amendAt = ordered?.index ?? -1
+  assert.ok(
+    ordered && firstDispatch !== -1 && amendAt < firstDispatch,
+    "Step 6 must amend on spec_amend before requiring a complete brief, then /dispatch and re-check",
+  )
+})
+
+test("pick dispatches only an auto-brief eligible issue", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  const conductNextDispatch =
+    pick.match(/`?\/conduct next`?[^\n]*\/dispatch[^\n]*/)?.[0]?.trim() ?? ""
+  const briefOnlyForAutoBrief =
+    /\/conduct next[\s\S]{0,220}\/dispatch[\s\S]{0,180}only[\s\S]{0,80}auto_brief|\/conduct next[\s\S]{0,220}\/dispatch[\s\S]{0,80}auto_brief[\s\S]{0,80}only/.test(
+      pick,
+    )
+  const skipsIneligible =
+    /skip(?:s)? [\s\S]{0,40}\/dispatch[\s\S]{0,80}eligible:\s*false|eligible:\s*false[\s\S]{0,80}skip(?:s)? [\s\S]{0,40}\/dispatch/.test(
+      pick,
+    )
+  assert.ok(
+    briefOnlyForAutoBrief && skipsIneligible,
+    `Step 6 still tells /conduct next to run /dispatch for every pick (${conductNextDispatch}); it must skip /dispatch when eligible: false and write a brief only for auto_brief`,
+  )
+})
+
+test("incomplete brief without priority is explicitly ineligible", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const excluded = { eligible: false, reason: "excluded_priority" }
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    unansweredClarification: false,
+  }
+  for (const brief of [{ briefComplete: false }, {}]) {
+    for (const priority of [undefined, null, ""]) {
+      const record = { ...base, ...brief }
+      if (priority !== undefined) record.priority = priority
+      assert.deepEqual(classifyConductEligibility(record), excluded)
+      for (const ticketClass of ["security", "payment", "auth"]) {
+        assert.deepEqual(
+          classifyConductEligibility({ ...record, class: ticketClass }),
+          excluded,
+        )
+      }
+    }
+  }
+})
+
+test("conduct confirms the spec path before the step 7 amendment", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const step7 =
+    conduct.match(/### 7\. Branch and execute[\s\S]*?(?=### 8\.)/)?.[0] ?? ""
+  assert.match(
+    step7,
+    /identifies the owning spec[\s\S]{0,160}listed in `## Permissions Requested`[\s\S]{0,80}before amending[\s\S]{0,160}STOP without editing when either is unknown/,
+    "conduct.md Step 7 must identify the owning spec and confirm it is listed in ## Permissions Requested before amending, and STOP without editing when either is unknown",
+  )
+})

@@ -148,9 +148,7 @@ export function classifyConductEligibility(record) {
   if (record.briefComplete === true) {
     return eligibleReason("ready", sensitive)
   }
-  if (sensitive) {
-    return { eligible: true, sensitive: true }
-  }
+  return { eligible: false, reason: "excluded_priority" }
 }
 
 export function qaMayReadyPr({ labels }) {

@@ -131,8 +131,10 @@ picking it, then continue with the rest of the queue.
 ### 6. Pick
 
 Pick calls `classifyConductEligibility`.
+On `spec_amend`, amend the owning spec before requiring a complete brief.
 `/conduct next` runs `/dispatch` to write the brief, then starts.
-After `/dispatch` it re-reads the issue and requires a complete brief.
+After `/dispatch` the re-check re-reads the issue and requires a complete brief.
+`/conduct next` skips `/dispatch` when `eligible: false` and writes a brief only for `auto_brief`.
 Take the lowest numeric `Queue:` among queued issues. Ties go to the lowest
 RES number. That pick is the issue that starts. If none qualifies, run the
 `/dispatch` one-shot once and re-pick. If still none, stop.
@@ -144,11 +146,12 @@ number and the 4 hex characters are lowercase. Linear links the PR through
 that branch name. The route posts `Work started:` right after its work-order.
 That comment is the claim. This command does not post one of its own.
 
-`design_first` takes the Design route (`/design`) before the Code route (`/sdd-to-tdd`).
+`design_first` stops after it takes the Design route (`/design`) on that first PR and does not run the Code route (`/sdd-to-tdd`) on it.
 
+`/conduct` identifies the owning spec and confirms it is listed in `## Permissions Requested` before amending; STOP without editing when either is unknown.
 `spec_amend` amends the owning spec before `/dispatch` writes the brief.
 
-- Code route: `/sdd-to-tdd RES-###`. Its one-shot already runs commit.md and
+- Code route, for a pick that is not `design_first`: `/sdd-to-tdd RES-###`. Its one-shot already runs commit.md and
   push.md.
 - Design route: `/design RES-###`, then the commit.md design-spec lane, then
   push.md. `/design` does not run commit or push.

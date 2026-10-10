@@ -767,10 +767,18 @@ latest-head` so `on.pull_request.types` includes `edited`.
     current cycle → excluded from pick; new-scope or `/design` label →
     `design_first`; answered clarification with a missing brief `spec`
     field → `spec_amend`; missing brief plus a priority → `auto_brief`;
-    security/payment/auth → eligible `sensitive`; complete brief →
-    `ready`. `sensitive` may combine with `auto_brief` or `ready`.
-    Migration/RLS and unanswered clarification always win. Design-first
-    wins over a code route on the first PR. A `Work started:` comment is
+    complete brief → `ready`; missing or incomplete brief without a
+    priority → `excluded_priority`. `sensitive` overlays every eligible
+    reason (`design_first`, `spec_amend`, `auto_brief`, `ready`).
+    Migration/RLS and unanswered clarification always win. A
+    `design_first` first PR stops after `/design` (spec + plan, no
+    application code) and does not run `/sdd-to-tdd`. `spec_amend`
+    amends the owning spec before the complete-brief re-read, then
+    `/dispatch` writes the brief. `/conduct` identifies the owning spec
+    and confirms it is listed in `## Permissions Requested` before
+    amending; STOP without editing when either is unknown. Pick
+    dispatches only `auto_brief` eligibles and skips `eligible: false`.
+    A `Work started:` comment is
     the claim. An open `cursor/res-<n>-<4 hex>` PR is in flight. A blocker
     before a PR exists posts one CLARIFY comment. `morning` runs triage,
     Monday curate, then dispatch, on its own `cursor/morning-` branch.
