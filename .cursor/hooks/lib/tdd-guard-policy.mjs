@@ -455,6 +455,16 @@ function splitShellSegments(command) {
   return String(command).split(/&&|\|\||;|\||(?<!&)&(?!&)|\r?\n/)
 }
 
+function expandCommandSegments(command) {
+  const top = unwrapShellWrappers(String(command).trim())
+  return splitShellSegments(top).flatMap((s) => {
+    const trimmed = s.trim()
+    if (!trimmed) return []
+    const inner = unwrapShellWrappers(trimmed)
+    return inner !== trimmed ? splitShellSegments(inner) : [trimmed]
+  })
+}
+
 function firstPositionalIndex(tokens, valueFlags) {
   for (let i = 0; i < tokens.length; i++) {
     const t = tokens[i]
@@ -545,7 +555,7 @@ function detectGhPrMergeSegment(segment) {
  * and curl to the pulls merge endpoint. */
 export function detectGhPrMerge(command) {
   if (typeof command !== "string" || !command.trim()) return null
-  const segments = splitShellSegments(command)
+  const segments = expandCommandSegments(command)
   for (const rawSeg of segments) {
     const hit = detectGhPrMergeSegment(rawSeg.trim())
     if (hit) return hit
@@ -587,10 +597,12 @@ function resolveCurrentBranch(cwd = process.cwd()) {
 
 function destFromRefspec(refspec, currentBranch) {
   const dest = String(refspec)
+    .replace(/^['"]+|['"]+$/g, "")
     .replace(/^\+/, "")
     .split(":")
     .pop()
     .replace(/^refs\/heads\//, "")
+    .replace(/^['"]+|['"]+$/g, "")
   if (dest === "HEAD" || dest === "@") return currentBranch
   return dest
 }
@@ -639,7 +651,7 @@ export function detectProtectedBranchPush(command, options = {}) {
   const currentBranch = Object.hasOwn(options, "currentBranch")
     ? options.currentBranch
     : resolveCurrentBranch(options.cwd)
-  const segments = splitShellSegments(command)
+  const segments = expandCommandSegments(command)
   for (const rawSeg of segments) {
     const hit = detectProtectedPushSegment(rawSeg.trim(), currentBranch)
     if (hit) return hit

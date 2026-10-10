@@ -42,6 +42,7 @@ const BYPASSES: Array<[string, string]> = [
   ],
   ["newline merge", "gh pr view 1\ngh pr merge 12"],
   ["background & merge", "gh pr view 1 & gh pr merge 12"],
+  ["bash -c chained merge", "bash -c 'gh pr view 1; gh pr merge 12'"],
 ]
 
 describe("G-MRG1 tolerant merge matching", () => {
