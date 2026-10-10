@@ -57,6 +57,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
     expect(pre?.matcher).toMatch(/MCP:save_issue/)
     expect(pre?.matcher).toMatch(/save_comment/)
     expect(pre?.matcher).toMatch(/save_status_update/)
+    expect(pre?.matcher).toMatch(/CallDynamicTool/)
 
     setAllowed(false)
 
@@ -104,6 +105,80 @@ describe("G-LG1 Cloud Linear write lock", () => {
     )
     expect(parseHookStdout(linearDenied.stdout).permission).toBe("deny")
 
+    // Observed Cloud preToolUse: CallDynamicTool + namespace Linear.
+    const cloudCallDynamic = runGuard(
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "CallDynamicTool",
+          tool_input: {
+            namespace: "Linear",
+            toolName: "save_issue",
+            arguments: { title: "probe" },
+          },
+          hook_event_name: "preToolUse",
+        }),
+    )
+    expect(parseHookStdout(cloudCallDynamic.stdout).permission).toBe("deny")
+
+    const cloudCallDynamicComment = runGuard(
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "CallDynamicTool",
+          tool_input: JSON.stringify({
+            namespace: "Linear",
+            toolName: "save_comment",
+            arguments: { issueId: "RES-151", body: "probe" },
+          }),
+          hook_event_name: "preToolUse",
+        }),
+    )
+    expect(parseHookStdout(cloudCallDynamicComment.stdout).permission).toBe(
+      "deny",
+    )
+
+    const cloudCallDynamicStatus = runGuard(
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "CallDynamicTool",
+          tool_input: {
+            namespace: "Linear",
+            toolName: "save_status_update",
+            arguments: { type: "project", body: "probe" },
+          },
+          hook_event_name: "preToolUse",
+        }),
+    )
+    expect(parseHookStdout(cloudCallDynamicStatus.stdout).permission).toBe(
+      "deny",
+    )
+
+    const cloudCallDynamicUnknown = runGuard(
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "CallDynamicTool",
+          tool_input: {
+            toolName: "save_issue",
+            arguments: { title: "probe" },
+          },
+          hook_event_name: "preToolUse",
+        }),
+    )
+    expect(parseHookStdout(cloudCallDynamicUnknown.stdout).permission).toBe(
+      "deny",
+    )
+
+    // hook-authoring observed MCP shape, delivered on Cloud preToolUse.
+    const beforeShapeOnPre = runGuard(
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "save_issue",
+          tool_input: JSON.stringify({ title: "probe" }),
+          mcp_server_name: "plugin-linear-linear",
+          hook_event_name: "preToolUse",
+        }),
+    )
+    expect(parseHookStdout(beforeShapeOnPre.stdout).permission).toBe("deny")
+
     const listAllowed = runGuard(
       "\uFEFF" +
         JSON.stringify({
@@ -114,6 +189,21 @@ describe("G-LG1 Cloud Linear write lock", () => {
     )
     expect(listAllowed.status).toBe(0)
     expect(parseHookStdout(listAllowed.stdout)).toEqual({})
+
+    const cloudListAllowed = runGuard(
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "CallDynamicTool",
+          tool_input: {
+            namespace: "Linear",
+            toolName: "list_issues",
+            arguments: { limit: 1 },
+          },
+          hook_event_name: "preToolUse",
+        }),
+    )
+    expect(cloudListAllowed.status).toBe(0)
+    expect(parseHookStdout(cloudListAllowed.stdout)).toEqual({})
 
     expect(
       checkLinearWrite(undefined, "save_issue", false, {

@@ -14,7 +14,7 @@
       },
       {
         "command": "node .cursor/hooks/linear-write-guard.mjs",
-        "matcher": "MCP:save_issue|save_comment|save_status_update",
+        "matcher": "MCP:save_issue|save_comment|save_status_update|CallDynamicTool",
         "failClosed": false
       },
       {

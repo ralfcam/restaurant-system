@@ -5,8 +5,9 @@
  *
  * Reads (list_*, get_*) stay unrestricted. Residual: a concurrent parent
  * write while linear-resolver is in flight also passes. Cloud agents run
- * preToolUse (MCP: matcher), not beforeMCPExecution. On that path,
- * denyUnknownServer rejects guarded write names when the server is missing.
+ * preToolUse (MCP: / CallDynamicTool matcher), not beforeMCPExecution. On
+ * that path, denyUnknownServer rejects guarded write names when the server
+ * is missing.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"

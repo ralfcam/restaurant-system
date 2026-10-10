@@ -72,6 +72,10 @@
   `tests/unit/dev-toolchain/baseline-forward-migration.test.ts`; G-AUD1
   Next pin in `tests/unit/dev-toolchain/next-advisory.test.ts`; G-AUD2
   brace-expansion pins in `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`;
+  G-LG1 Cloud Linear write lock in
+  `tests/unit/dev-toolchain/linear-write-cloud-path.test.ts` and
+  `tests/unit/dev-toolchain/linear-guard-placement.test.ts` (`MCP:save_*`
+  and Cloud `CallDynamicTool`; live Cloud denial pending);
   G-MRG1 merge bypasses in
   `tests/unit/dev-toolchain/merge-bypass-guard.test.ts`; G-PUSH1
   protected-branch push, including quoted `bash -c` inner `;` chains, in

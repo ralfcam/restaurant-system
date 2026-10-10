@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * beforeMCPExecution and Cloud preToolUse (MCP:save_*): deny parent Linear
- * save_issue / save_comment / save_status_update unless linear-writer.json
- * is { "allowed": true }. On the Cloud preToolUse path, unknown server +
- * a guarded write name is also deny.
+ * beforeMCPExecution and Cloud preToolUse (MCP:save_* / CallDynamicTool):
+ * deny parent Linear save_issue / save_comment / save_status_update unless
+ * linear-writer.json is { "allowed": true }. On the Cloud preToolUse path,
+ * unknown server + a guarded write name is also deny.
  *
  * subagentStart (matcher linear-resolver): set the allow flag.
  *   node .cursor/hooks/linear-write-guard.mjs start
