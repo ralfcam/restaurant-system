@@ -14,19 +14,20 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 - Your **only direct writes** are: (1) the **approved spec edit** under
   `docs/specs/**` (local: after operator yes; managed Cloud: the exact path
   listed in `## Permissions Requested`), (2) the findings revision pass on
-  `docs/findings/runs/<plan-slug>.md` after every phase (and, at close-out, the
-  merge of its open lines into `docs/findings/<category>.md` + prune to
-  `archive.md`), (3) appending Refactor close-out sections to
+  `docs/findings/runs/<plan-slug>.md` after every phase, (3) appending
+  Refactor close-out sections to
   `docs/verifier-reports/tdd/<plan-slug>.md` after each `tdd-refactor` phase,
   and (4) at close-out, **`## Suggested Review Order (collated)`** (Step 4D),
   **`## Traceability (final)`**, and **`## Run metrics`** (Step 4E) in the same
-  tdd log. **Managed Cloud only, before execution:** also write the work-order
+  tdd log. Category-file merges and archive pruning are delegated to
+  `docs-updater` ledger-apply (G-LED1) — the orchestrator never writes
+  `docs/findings/{security,tech-debt,test-debt,product-gaps,archive}.md`.
+  **Managed Cloud only, before execution:** also write the work-order
   to `.cursor/plans/<plan-slug>.plan.md` (repository work-order, not a
-  silently accepted native Cursor Plan). After a spec or living-findings
-  (`docs/findings/<category>.md`) write, `pnpm exec prettier --write` **that
-  file** (never `prettier --write .`). Snapshot trees (`docs/eval`,
-  `docs/verifier-reports`, `docs/findings/runs`) are prettierignored.
-  Everything else is delegated.
+  silently accepted native Cursor Plan). After a spec write, `pnpm exec
+prettier --write` **that file** (never `prettier --write .`). Snapshot
+  trees (`docs/eval`, `docs/verifier-reports`, `docs/findings/runs`) are
+  prettierignored. Everything else is delegated.
 - **Every test change** comes from a `tdd-red` Task call. **Every source change**
   from `tdd-green`. **Every cleanup / re-verify** from `tdd-refactor`. Run them
   sequentially, one **phase** at a time (not one criterion at a time), honoring
@@ -227,6 +228,12 @@ modify existing test bodies. Do not edit G-TD1 (parallel RES-127).
 | C4  | `/conduct next` auto-briefs a prioritized current-cycle Todo          | P1   | unit  | same                                         | add test        | `missing brief with priority auto-briefs via dispatch`                              | missing brief + Todo + current cycle + priority + no unanswered clarif → `auto_brief`; conduct.md pick runs `/dispatch` then starts; dispatch.md no longer claims there is no priority/`security` gate | same                                                     | C1         |
 | C5  | New-scope or `/design`-labelled tickets are design-first              | P1   | unit  | same                                         | add test        | `new-scope and design-labelled tickets are design-first`                            | `design_first`; first PR is spec + plan, no application code                                                                                                                                           | same                                                     | C1         |
 | C6  | Answered clarification amends the spec first then completes the brief | P1   | unit  | same                                         | add test        | `answered clarification amends spec then completes the brief`                       | `spec_amend` when a clarification is answered and `spec` is missing; sdd-to-tdd.md and conduct.md allow that FIX-style spec edit as the first step                                                     | same                                                     | C4         |
+| C7  | Not-Todo and not-current-cycle records are excluded from pick         | P0   | unit  | same                                         | add test        | `classifyConductEligibility excludes not-Todo and not-current-cycle`                | `eligible: false` with `excluded_status` / `excluded_cycle` before any eligible reason                                                                                                                 | same                                                     | C1         |
+| C8  | Complete brief is `ready`; `sensitive` rides every eligible reason    | P0   | unit  | same                                         | add test        | `complete briefs are ready and sensitive rides every eligible reason`               | `briefComplete: true` → `{ eligible: true, reason: "ready" }`; security + design_first/spec_amend/ready include `sensitive: true`                                                                      | same                                                     | C5, C6     |
+| C9  | Omitted `briefComplete` with a priority is `auto_brief`               | P1   | unit  | same                                         | add test        | `omitted briefComplete with priority auto-briefs`                                   | a prioritized Todo with no `briefComplete` field returns `auto_brief`                                                                                                                                  | same                                                     | C4         |
+| C10 | Step 7 routes `design_first` to `/design` before the code route       | P1   | unit  | same                                         | add test        | `step 7 routes design-first to design before the code route`                        | conduct.md Step 7 names `design_first` and requires `/design` before `/sdd-to-tdd`                                                                                                                     | same                                                     | C5         |
+| C11 | Step 7 amends the spec before `/dispatch` writes the brief            | P1   | unit  | same                                         | add test        | `step 7 amends the owning spec before dispatch writes the brief`                    | conduct.md Step 7 amends then dispatch; sdd-to-tdd.md requires that spec path in Permissions Requested or STOPs                                                                                        | same                                                     | C6         |
+| C12 | Pick calls the classifier and dispatches before ranking `Queue:`      | P1   | unit  | same                                         | add test        | `pick classifies then dispatches before ranking Queue`                              | conduct.md names `classifyConductEligibility` at pick; `/dispatch` runs before lowest-`Queue:` ranking                                                                                                 | same                                                     | C4, C7     |
 
 ## Traceability Matrix
 

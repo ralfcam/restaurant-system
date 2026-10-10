@@ -55,12 +55,66 @@ Suggested review order:
   - `.cursor/commands/sdd-to-tdd.md:197` same permission after the complete-brief rule
 Reusable pattern: Keep the sdd-to-tdd allow-sentence on one physical line (the policy test matches it literally) and put conduct’s trigger before `first step`, with `then write the brief` inside the 240-character window.
 
+### C7
+
+Suggested review order:
+- Pick gates before any eligible reason [public-api]
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:116` not Todo returns `excluded_status`
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:119` not current cycle returns `excluded_cycle`
+- Hard exclusions still win [security]
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:113` RLS (clarification and migration above it) returns before those gates
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:123` `design_first` runs only after both gates
+Reusable pattern: Fail closed on a one-value pick gate with `!==` (`status !== "Todo"`, `currentCycle !== true`) so a missing field is an exclusion, and keep those returns after RLS and before `design_first`.
+
+### C8
+
+Suggested review order:
+- Sensitive flag on every eligible reason [security]
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:106` `eligibleReason` adds `sensitive: true` only when the class flag is set
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:148` a complete brief returns `ready`, with the flag when sensitive
+- Eligible-reason order [public-api]
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:132` `design_first`
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:139` `spec_amend`
+  - `.cursor/hooks/lib/ready-brief-policy.mjs:146` `auto_brief`
+Reusable pattern: One `eligibleReason(reason, sensitive)` builds `{ eligible: true, reason }` and sets `sensitive: true` only when the flag is set, so the four eligible returns cannot drift apart.
+
+### C9
+
+Suggested review order:
+- Omitted completeness flag is an incomplete brief (`auto_brief`): `.cursor/hooks/lib/ready-brief-policy.mjs:142` [public-api]
+- Explicit complete brief still returns `ready`: `.cursor/hooks/lib/ready-brief-policy.mjs:148`
+- `sensitive` still rides that `auto_brief`: `.cursor/hooks/lib/ready-brief-policy.mjs:146`
+Reusable pattern: Treat an omitted boolean completeness flag as incomplete with `flag !== true`, and the complete branch with `flag === true`, so a missing field cannot fall through past the incomplete branch.
+
+### C10
+
+Suggested review order: Step 7 route choice — [public-api] `.cursor/commands/conduct.md:146` `design_first` takes the Design route before the Code route
+Reusable pattern: Keep the Step 7 `design_first` sentence on one line so `design route`, `/design`, `code route`, and `/sdd-to-tdd` stay inside the policy test’s 160/40/80/40 windows.
+
+### C11
+
+Suggested review order:
+- Unknown spec path stops the amendment [security] — `.cursor/commands/sdd-to-tdd.md:199`
+- Amend before the brief is written [public-api] — `.cursor/commands/conduct.md:148`
+Reusable pattern: Keep the Step 7 `spec_amend` sentence on one line, and keep `exact spec path` within 40 characters of `` `## Permissions Requested` ``, so the ready-brief policy windows still match.
+
+### C12
+
+Suggested review order:
+- Pick sequence [public-api]
+  - `.cursor/commands/conduct.md:133` `classifyConductEligibility`
+  - `.cursor/commands/conduct.md:134` `/dispatch` writes the brief before ranking
+  - `.cursor/commands/conduct.md:135` re-read requires a complete brief
+  - `.cursor/commands/conduct.md:136` lowest numeric `Queue:`
+Reusable pattern: Keep `` `/conduct next` runs `/dispatch` to write the brief, then starts. `` on its own single-space line inside `### 6. Pick`.
+
 ## Suggested Review Order (collated)
 
-- QA must not ready a sensitive PR [security] → `.cursor/hooks/lib/ready-brief-policy.mjs:117` (`qaMayReadyPr`); `.cursor/commands/conduct.md:154` (wait for Jose)
-- Sensitive class vs exclusions [auth] → `.cursor/hooks/lib/ready-brief-policy.mjs:99` clarification, then migration, then RLS, then class
-- Spec-amend after answered clarification [public-api] → `.cursor/hooks/lib/ready-brief-policy.mjs:120`; `.cursor/commands/sdd-to-tdd.md:197`
-- Auto-brief + design-first order [public-api] → `.cursor/hooks/lib/ready-brief-policy.mjs:117` `design_first` before `auto_brief`; `.cursor/commands/conduct.md:24`
+- QA must not ready a sensitive PR [security] → `.cursor/hooks/lib/ready-brief-policy.mjs:157` (`qaMayReadyPr`); `.cursor/commands/conduct.md` (wait for Jose)
+- Sensitive flag on every eligible reason [security] → `.cursor/hooks/lib/ready-brief-policy.mjs` `eligibleReason`
+- Pick gates before any eligible reason [auth] → `.cursor/hooks/lib/ready-brief-policy.mjs` clarification, migration, RLS, status, cycle
+- Spec-amend + unknown-path STOP [public-api] → `.cursor/commands/conduct.md` Step 7; `.cursor/commands/sdd-to-tdd.md`
+- Auto-brief + design-first + pick classifier [public-api] → `.cursor/hooks/lib/ready-brief-policy.mjs`; `.cursor/commands/conduct.md` Step 6–7
 - Dispatch no longer claims there is no priority/`security` gate [security] → `.cursor/commands/dispatch.md:348`
 - G-CON1-only spec edit vs G-TD1 [schema] → `docs/specs/dev-toolchain.md` item 20
 
@@ -76,13 +130,19 @@ Run: 2026-10-10 · plan: res-149_conduct_eligibility_08ba · issue: RES-149
 | C4 | G-CON1 | ready-brief-policy.test.mjs::missing brief with priority auto-briefs via dispatch | ready-brief-policy.mjs, conduct.md, dispatch.md | P1 | shipped |
 | C5 | G-CON1 | ready-brief-policy.test.mjs::new-scope and design-labelled tickets are design-first | ready-brief-policy.mjs, conduct.md, dispatch.md | P1 | shipped |
 | C6 | G-CON1 | ready-brief-policy.test.mjs::answered clarification amends spec then completes the brief | ready-brief-policy.mjs, conduct.md, sdd-to-tdd.md | P1 | shipped |
+| C7 | G-CON1 | ready-brief-policy.test.mjs::classifyConductEligibility excludes not-Todo and not-current-cycle | ready-brief-policy.mjs | P0 | shipped |
+| C8 | G-CON1 | ready-brief-policy.test.mjs::complete briefs are ready and sensitive rides every eligible reason | ready-brief-policy.mjs | P0 | shipped |
+| C9 | G-CON1 | ready-brief-policy.test.mjs::omitted briefComplete with priority auto-briefs | ready-brief-policy.mjs | P1 | shipped |
+| C10 | G-CON1 | ready-brief-policy.test.mjs::step 7 routes design-first to design before the code route | conduct.md | P1 | shipped |
+| C11 | G-CON1 | ready-brief-policy.test.mjs::step 7 amends the owning spec before dispatch writes the brief | conduct.md, sdd-to-tdd.md | P1 | shipped |
+| C12 | G-CON1 | ready-brief-policy.test.mjs::pick classifies then dispatches before ranking Queue | conduct.md | P1 | shipped |
 
 ## Run metrics
 
 Run: 2026-10-10 → 2026-10-10 · plan: res-149_conduct_eligibility_08ba
-Criteria: 6 shipped · 0 manual-uat · 6 total
-Phases delegated: 18 (6 red, 6 green, 6 refactor)
-Back-loops: none
+Criteria: 12 shipped · 0 manual-uat · 12 total
+Phases delegated: 36 (12 red, 12 green, 12 refactor)
+Back-loops: CLI Pass 1 majors → C7–C12
 BLOCKED events: 0 — none
-Issues: 0 filed · 0 attached-to-existing · 18 left on ledger (15 below floor + 3 attach-only no match) — cap 3/run
+Issues: 0 filed · 0 attached-to-existing · 18 left on ledger (15 below floor + 3 attach-only no match) plus C7–C12 run-file residuals — cap 3/run
 

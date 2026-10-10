@@ -196,6 +196,7 @@ and `Verification:` sets the phase commands.
 
 When a clarification has been answered and the brief is missing `spec`,
 /conduct may apply an answered clarification to the owning spec first (FIX-mode order) so the brief `spec` field can be completed.
+The exact spec path must be listed in `## Permissions Requested` before the amendment; STOP when that path is unknown.
 
 **In-loop fix.** An invocation
 `bug: CodeRabbit finding <local-ref> on PR #<n>` from `/conduct` stays on the

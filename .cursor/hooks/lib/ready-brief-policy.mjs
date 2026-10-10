@@ -103,6 +103,14 @@ function isSensitiveClass(ticketClass) {
   )
 }
 
+function eligibleReason(reason, sensitive) {
+  const result = { eligible: true, reason }
+  if (sensitive) {
+    result.sensitive = true
+  }
+  return result
+}
+
 export function classifyConductEligibility(record) {
   if (record.unansweredClarification) {
     return { eligible: false, reason: "excluded_clarification" }
@@ -113,25 +121,32 @@ export function classifyConductEligibility(record) {
   if (record.scope === "rls") {
     return { eligible: false, reason: "excluded_rls" }
   }
+  if (record.status !== "Todo") {
+    return { eligible: false, reason: "excluded_status" }
+  }
+  if (record.currentCycle !== true) {
+    return { eligible: false, reason: "excluded_cycle" }
+  }
+  const sensitive = isSensitiveClass(record.class)
   const labels = Array.isArray(record.labels) ? record.labels : []
   if (record.scope === "new-scope" || labels.includes("/design")) {
-    return { eligible: true, reason: "design_first" }
+    return eligibleReason("design_first", sensitive)
   }
   if (
     record.answeredClarification === true &&
     record.briefMissingSpec === true
   ) {
-    return { eligible: true, reason: "spec_amend" }
+    return eligibleReason("spec_amend", sensitive)
   }
-  const sensitive = isSensitiveClass(record.class)
   if (
-    record.briefComplete === false &&
+    record.briefComplete !== true &&
     record.priority != null &&
     record.priority !== ""
   ) {
-    return sensitive
-      ? { eligible: true, reason: "auto_brief", sensitive: true }
-      : { eligible: true, reason: "auto_brief" }
+    return eligibleReason("auto_brief", sensitive)
+  }
+  if (record.briefComplete === true) {
+    return eligibleReason("ready", sensitive)
   }
   if (sensitive) {
     return { eligible: true, sensitive: true }

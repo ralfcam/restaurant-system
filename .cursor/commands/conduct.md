@@ -130,11 +130,12 @@ picking it, then continue with the rest of the queue.
 
 ### 6. Pick
 
-Take the lowest numeric `Queue:` among queued issues. Ties go to the lowest
-RES number. If none qualifies, run the `/dispatch` one-shot once and re-pick.
-If still none, stop.
-
+Pick calls `classifyConductEligibility`.
 `/conduct next` runs `/dispatch` to write the brief, then starts.
+After `/dispatch` it re-reads the issue and requires a complete brief.
+Take the lowest numeric `Queue:` among queued issues. Ties go to the lowest
+RES number. That pick is the issue that starts. If none qualifies, run the
+`/dispatch` one-shot once and re-pick. If still none, stop.
 
 ### 7. Branch and execute
 
@@ -142,6 +143,10 @@ If still none, stop.
 number and the 4 hex characters are lowercase. Linear links the PR through
 that branch name. The route posts `Work started:` right after its work-order.
 That comment is the claim. This command does not post one of its own.
+
+`design_first` takes the Design route (`/design`) before the Code route (`/sdd-to-tdd`).
+
+`spec_amend` amends the owning spec before `/dispatch` writes the brief.
 
 - Code route: `/sdd-to-tdd RES-###`. Its one-shot already runs commit.md and
   push.md.

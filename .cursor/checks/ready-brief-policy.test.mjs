@@ -359,3 +359,151 @@ test("answered clarification amends spec then completes the brief", async () => 
     /\/conduct may apply an answered clarification to the owning spec first \(FIX-mode order\) so the brief `spec` field can be completed/,
   )
 })
+
+test("classifyConductEligibility excludes not-Todo and not-current-cycle", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const base = {
+    priority: 2,
+    unansweredClarification: false,
+    briefComplete: false,
+  }
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      status: "Backlog",
+      currentCycle: true,
+      scope: "new-scope",
+    }),
+    { eligible: false, reason: "excluded_status" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      status: "Todo",
+      currentCycle: false,
+      scope: "new-scope",
+    }),
+    { eligible: false, reason: "excluded_cycle" },
+  )
+  const kept = classifyConductEligibility({
+    ...base,
+    status: "Todo",
+    currentCycle: true,
+  })
+  assert.equal(kept.eligible, true)
+  assert.equal(typeof kept.reason, "string")
+  assert.equal(kept.reason.startsWith("excluded_"), false)
+})
+
+test("complete briefs are ready and sensitive rides every eligible reason", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+  }
+  assert.deepEqual(
+    classifyConductEligibility({ ...base, briefComplete: true }),
+    { eligible: true, reason: "ready" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      briefComplete: true,
+      class: "security",
+    }),
+    { eligible: true, reason: "ready", sensitive: true },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      scope: "new-scope",
+      class: "security",
+    }),
+    { eligible: true, reason: "design_first", sensitive: true },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      answeredClarification: true,
+      briefMissingSpec: true,
+      class: "auth",
+    }),
+    { eligible: true, reason: "spec_amend", sensitive: true },
+  )
+})
+
+test("omitted briefComplete with priority auto-briefs", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const record = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+  }
+  assert.deepEqual(classifyConductEligibility(record), {
+    eligible: true,
+    reason: "auto_brief",
+  })
+  assert.deepEqual(
+    classifyConductEligibility({ ...record, class: "payment" }),
+    {
+      eligible: true,
+      reason: "auto_brief",
+      sensitive: true,
+    },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({ ...record, briefComplete: true }),
+    { eligible: true, reason: "ready" },
+  )
+})
+
+test("step 7 routes design-first to design before the code route", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const step7 =
+    conduct.match(/### 7\. Branch and execute[\s\S]*?(?=### 8\.)/)?.[0] ?? ""
+  assert.match(
+    step7,
+    /design_first[\s\S]{0,160}design route[\s\S]{0,40}\/design[\s\S]{0,80}code route[\s\S]{0,40}\/sdd-to-tdd/i,
+  )
+})
+
+test("step 7 amends the owning spec before dispatch writes the brief", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const step7 =
+    conduct.match(/### 7\. Branch and execute[\s\S]*?(?=### 8\.)/)?.[0] ?? ""
+  assert.match(
+    step7,
+    /spec_amend[\s\S]{0,240}amend[\s\S]{0,80}owning spec[\s\S]{0,120}\/dispatch[\s\S]{0,80}writes the brief/,
+  )
+  const sdd = readFileSync(
+    join(process.cwd(), ".cursor/commands/sdd-to-tdd.md"),
+    "utf8",
+  )
+  assert.match(
+    sdd,
+    /exact spec path[\s\S]{0,40}`## Permissions Requested`[\s\S]{0,80}before the amendment[\s\S]{0,120}STOP[\s\S]{0,40}path is unknown/,
+  )
+})
+
+test("pick classifies then dispatches before ranking Queue", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  assert.match(pick, /classifyConductEligibility/)
+  assert.match(pick, /\/dispatch[\s\S]*Queue:/)
+  assert.match(pick, /\/dispatch[\s\S]*re-reads the issue[\s\S]*complete brief/)
+})
