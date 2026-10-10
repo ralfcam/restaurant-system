@@ -26,7 +26,8 @@ Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
 Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
 CLI passes at most. Pass 1 routes every unresolved finding. A Critical or
 Major with `captured`, or `waived` plus a nonempty reason, is accounted
-and may push; `fixed` counts only when that `stableFindingKey` is absent
+and may push. Accounted Critical and Major findings are not leftover or
+capture. `fixed` counts only when that `stableFindingKey` is absent
 from the current findings. When every Critical and Major is accounted, or
 the disposition map is nonempty and every entry is `fixed` with no current
 finding left, leftover Minor and Trivial do not start a fix round. Pass 2

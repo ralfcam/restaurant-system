@@ -203,7 +203,10 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    human block. Golden vectors live in
    `.cursor/checks/fixtures/coderabbit-evidence/`.
 
-   The canonical findings digest sorts findings by file, then start line.
+   The canonical findings digest sorts findings by file, then a finite
+   start line (a missing or non-finite start line sorts after every finite
+   line), then the key material
+   `file|startLine-endLine|normalised title`.
    Each line is `severity|file|startLine-endLine|normalised title`.
    Normalised title is lowercase with collapsed whitespace. The hash MUST
    change when the digest changes. `stableFindingKey` is the first 16 hex
@@ -232,7 +235,10 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    human block lists each member PR number and that member's final head
    SHA. The hash binds the sorted member digest
    `<number>\t<head>\t<memberHash>`. A batch PR without that member-head
-   list is not covered.
+   list is not covered. When `batch_covered` is requested with an empty
+   member list, or any member whose head is blank,
+   `renderCliEvidenceBlock` records `attemptStatus` `unavailable` and
+   `reason` `batch_uncovered` (a caller-supplied reason wins).
 
    `/push` is the agent's only CodeRabbit gate. Critical, Major, and unknown
    findings go to `/sdd-to-tdd`. Minor and Trivial go to `/capture`.
@@ -351,9 +357,11 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
      `tests/unit/dev-toolchain/coderabbit-gcr3-mustfixes.test.ts` keeps the
      remote G-CR3 contract fail-closed.
      `tests/unit/dev-toolchain/coderabbit-cli-evidence-integrity.test.ts`
-     pins the HTML evidence marker, digest-bound hash, same-head
-     anti-downgrade, stable finding keys, Gate-evidence preservation, and
-     `batch_covered` member heads.
+     pins the HTML evidence marker, digest-bound hash, total-order digest
+     sort, same-head anti-downgrade (including a dropped blocking key),
+     stable finding keys, Gate-evidence preservation, `batch_covered`
+     member heads, refusal of `batch_covered` without member heads, and
+     accounted Critical/Major kept out of leftover and capture.
 
 9. **G-CR3 — US latest-head release gate** —
    `.coderabbit.yaml` MUST enable draft review. The explicit
