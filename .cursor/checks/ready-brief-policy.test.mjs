@@ -269,7 +269,7 @@ test("missing brief with priority auto-briefs via dispatch", async () => {
   const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
   assert.match(
     pick,
-    /`?\/conduct next`? runs `?\/dispatch`? to write the brief, then starts/,
+    /`?\/conduct next`? runs `?\/dispatch`? to write the brief/,
   )
 
   const dispatch = readFileSync(
@@ -547,17 +547,15 @@ test("pick dispatches only an auto-brief eligible issue", () => {
   const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
   const conductNextDispatch =
     pick.match(/`?\/conduct next`?[^\n]*\/dispatch[^\n]*/)?.[0]?.trim() ?? ""
-  const briefOnlyForAutoBrief =
-    /\/conduct next[\s\S]{0,220}\/dispatch[\s\S]{0,180}only[\s\S]{0,80}auto_brief|\/conduct next[\s\S]{0,220}\/dispatch[\s\S]{0,80}auto_brief[\s\S]{0,80}only/.test(
-      pick,
-    )
+  const writesBriefForAutoBrief =
+    /writes? a brief[\s\S]{0,40}`?auto_brief`?/.test(pick)
   const skipsIneligible =
     /skip(?:s)? [\s\S]{0,40}\/dispatch[\s\S]{0,80}eligible:\s*false|eligible:\s*false[\s\S]{0,80}skip(?:s)? [\s\S]{0,40}\/dispatch/.test(
       pick,
     )
   assert.ok(
-    briefOnlyForAutoBrief && skipsIneligible,
-    `Step 6 still tells /conduct next to run /dispatch for every pick (${conductNextDispatch}); it must skip /dispatch when eligible: false and write a brief only for auto_brief`,
+    writesBriefForAutoBrief && skipsIneligible,
+    `Step 6 must skip /dispatch when eligible: false and write a brief for auto_brief (${conductNextDispatch})`,
   )
 })
 
@@ -596,5 +594,85 @@ test("conduct confirms the spec path before the step 7 amendment", () => {
     step7,
     /identifies the owning spec[\s\S]{0,160}listed in `## Permissions Requested`[\s\S]{0,80}before amending[\s\S]{0,160}STOP without editing when either is unknown/,
     "conduct.md Step 7 must identify the owning spec and confirm it is listed in ## Permissions Requested before amending, and STOP without editing when either is unknown",
+  )
+})
+
+test("pick confirms Permissions Requested before spec-amend", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  const permissionAt = pick.search(
+    /identifies the owning spec[\s\S]{0,160}listed in `## Permissions Requested`[\s\S]{0,80}before amending[\s\S]{0,160}STOP without editing when either is unknown/,
+  )
+  const amendAt = pick.search(/On `spec_amend`, amend the owning spec/)
+  assert.ok(
+    permissionAt !== -1 && amendAt !== -1 && permissionAt < amendAt,
+    `Step 6 must confirm the owning spec is listed in ## Permissions Requested and STOP without editing before the spec_amend amend (permission at ${permissionAt}, amend at ${amendAt})`,
+  )
+})
+
+test("pick starts only after brief re-check and Queue", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  const recheckAt = pick.search(
+    /re-check[\s\S]{0,160}complete brief|complete[- ]brief re-check/,
+  )
+  const queueAt = pick.search(/Queue:/)
+  const startAt = pick.search(/\bstarts?\b/i)
+  assert.ok(
+    recheckAt !== -1 &&
+      queueAt !== -1 &&
+      startAt > recheckAt &&
+      startAt > queueAt,
+    `Step 6 must start only after the complete-brief re-check and Queue: pick (start ${startAt}, re-check ${recheckAt}, Queue: ${queueAt}); \`/dispatch\` to write the brief, then starts is too early`,
+  )
+})
+
+test("pick dispatch is per reason so spec_amend can complete the brief", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  const amendAt = pick.search(/On `spec_amend`, amend the owning spec/)
+  const afterAmend = amendAt === -1 ? "" : pick.slice(amendAt)
+  const firstDispatch = pick.search(/\/dispatch/)
+  const skipsIneligible =
+    /skip(?:s)? [\s\S]{0,40}\/dispatch[\s\S]{0,80}eligible:\s*false|eligible:\s*false[\s\S]{0,80}skip(?:s)? [\s\S]{0,40}\/dispatch/.test(
+      pick,
+    )
+  const writesBriefForAutoBrief = /writes? a brief for `auto_brief`/.test(pick)
+  const specAmendCompletes =
+    /\/dispatch completes the brief for `spec_amend`/.test(afterAmend)
+  const dispatchAfterAmend = amendAt !== -1 && firstDispatch > amendAt
+  const readyKeeps = /`ready` pick keeps its existing brief/.test(pick)
+  const onlyForAutoBrief = /writes a brief only for `?auto_brief`?/.test(pick)
+  const unconditionalDispatch = pick
+    .split("\n")
+    .some(
+      (line) =>
+        /\/conduct next/.test(line) &&
+        /\/dispatch/.test(line) &&
+        /write the brief/.test(line) &&
+        !/auto_brief/.test(line),
+    )
+  const observed = [
+    skipsIneligible ? "skips-ineligible" : "missing-skip",
+    writesBriefForAutoBrief ? "auto-brief-write" : "missing-auto-brief-write",
+    onlyForAutoBrief ? "only-for-auto_brief" : "not-only-auto_brief",
+    unconditionalDispatch ? "unconditional-dispatch" : "scoped-dispatch",
+    specAmendCompletes ? "spec-amend-completes" : "missing-spec-amend-complete",
+    readyKeeps ? "ready-keeps" : "missing-ready-keeps",
+    dispatchAfterAmend ? "dispatch-after-amend" : "dispatch-before-amend",
+  ].join(", ")
+  assert.equal(
+    observed,
+    "skips-ineligible, auto-brief-write, not-only-auto_brief, scoped-dispatch, spec-amend-completes, ready-keeps, dispatch-after-amend",
+    'Step 6 must skip /dispatch when eligible: false, write a brief for auto_brief, let /dispatch complete the brief for spec_amend after the permitted amend, and keep a ready pick\'s brief. "writes a brief only for auto_brief" and an unconditional "/conduct next runs /dispatch to write the brief" line are the failure.',
   )
 })

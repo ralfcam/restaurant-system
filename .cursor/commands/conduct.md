@@ -131,13 +131,16 @@ picking it, then continue with the rest of the queue.
 ### 6. Pick
 
 Pick calls `classifyConductEligibility`.
+`/conduct` identifies the owning spec and confirms it is listed in `## Permissions Requested` before amending; STOP without editing when either is unknown.
 On `spec_amend`, amend the owning spec before requiring a complete brief.
-`/conduct next` runs `/dispatch` to write the brief, then starts.
+After the permitted edit, /dispatch completes the brief for `spec_amend`.
 After `/dispatch` the re-check re-reads the issue and requires a complete brief.
-`/conduct next` skips `/dispatch` when `eligible: false` and writes a brief only for `auto_brief`.
+`/conduct next` runs `/dispatch` to write the brief for `auto_brief`, skips `/dispatch` when `eligible: false`, and writes a brief for `auto_brief`.
+A `ready` pick keeps its existing brief.
 Take the lowest numeric `Queue:` among queued issues. Ties go to the lowest
-RES number. That pick is the issue that starts. If none qualifies, run the
-`/dispatch` one-shot once and re-pick. If still none, stop.
+RES number. That pick starts only after that re-check and this Queue pick.
+If none qualifies, run the `/dispatch` one-shot once and re-pick. If still
+none, stop.
 
 ### 7. Branch and execute
 

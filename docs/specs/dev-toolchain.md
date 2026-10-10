@@ -754,8 +754,10 @@ latest-head` so `on.pull_request.types` includes `edited`.
     `ralfcam`, MUST NOT mark a `sensitive` PR ready. They post the digest
     and wait for Jose. A Todo issue in the current cycle that has a
     priority and no unanswered `Clarification required` comment does not
-    need a hand-written Ready brief. `/conduct next` runs `/dispatch` to
-    write the brief, then starts. A new-scope or `/design`-labelled ticket
+    need a hand-written Ready brief. `/conduct next` writes a brief via
+    `/dispatch` when the classifier returns `auto_brief`. After the
+    complete-brief re-check and the lowest-`Queue:` pick, it starts that
+    issue. A new-scope or `/design`-labelled ticket
     gets a design-only PR first (spec + plan, no application code). Still
     excluded, and local only: database migrations and RLS policy changes.
     Still excluded: any issue with an unanswered clarification. When a
@@ -776,8 +778,12 @@ latest-head` so `on.pull_request.types` includes `edited`.
     amends the owning spec before the complete-brief re-read, then
     `/dispatch` writes the brief. `/conduct` identifies the owning spec
     and confirms it is listed in `## Permissions Requested` before
-    amending; STOP without editing when either is unknown. Pick
-    dispatches only `auto_brief` eligibles and skips `eligible: false`.
+    amending, including the Pick `spec_amend` edit; STOP without editing
+    when either is unknown. Pick dispatch is per reason: skip when
+    `eligible: false`; write a brief for `auto_brief`; after the
+    permitted spec edit, `/dispatch` completes the brief for
+    `spec_amend`; a `ready` pick keeps its existing brief. Start only
+    after the complete-brief re-check and the Queue pick succeed.
     A `Work started:` comment is
     the claim. An open `cursor/res-<n>-<4 hex>` PR is in flight. A blocker
     before a PR exists posts one CLARIFY comment. `morning` runs triage,
