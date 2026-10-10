@@ -1,0 +1,52 @@
+{
+  "findings": [
+    {
+      "severity": "critical",
+      "file": "lib/a.ts",
+      "startLine": 4,
+      "endLine": 4,
+      "title": "Missing AUTH check",
+      "key": "850fd55afd7c9b1e"
+    },
+    {
+      "severity": "major",
+      "file": "lib/a.ts",
+      "startLine": 10,
+      "endLine": 12,
+      "title": "Logic  Bug",
+      "key": "ac1c3c33960fd4fa"
+    }
+  ],
+  "cases": [
+    {
+      "name": "missing-disposition-blocks",
+      "dispositions": {},
+      "expect": { "action": "route", "record": "fix_round" }
+    },
+    {
+      "name": "waived-without-reason-blocks",
+      "dispositions": {
+        "850fd55afd7c9b1e": { "status": "waived", "reason": "" },
+        "ac1c3c33960fd4fa": { "status": "captured" }
+      },
+      "expect": { "action": "route", "record": "fix_round" }
+    },
+    {
+      "name": "captured-and-waived-may-push",
+      "dispositions": {
+        "850fd55afd7c9b1e": { "status": "waived", "reason": "accepted risk" },
+        "ac1c3c33960fd4fa": { "status": "captured" }
+      },
+      "expect": { "action": "push", "record": "capture_and_push" }
+    },
+    {
+      "name": "fixed-only-when-absent",
+      "findings": [],
+      "dispositions": {
+        "850fd55afd7c9b1e": { "status": "fixed" },
+        "ac1c3c33960fd4fa": { "status": "fixed" }
+      },
+      "expect": { "action": "push", "record": "clean" }
+    }
+  ]
+}

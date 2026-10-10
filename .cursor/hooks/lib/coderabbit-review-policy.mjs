@@ -147,6 +147,53 @@ export function findingId(finding) {
   return `fp:${findingFingerprint(finding)}`
 }
 
+function normalisedFindingTitle(finding) {
+  const titled = String(finding.title ?? "")
+  const raw = titled.trim()
+    ? titled
+    : String(finding.comment || finding.body || "").split(/\r?\n/, 1)[0]
+  return raw.toLowerCase().replace(/\s+/g, " ").trim()
+}
+
+function findingKeyMaterial(finding) {
+  return `${findingRelPath(finding)}|${finding.startLine}-${finding.endLine}|${normalisedFindingTitle(finding)}`
+}
+
+export function stableFindingKey(finding) {
+  return sha256Hex(findingKeyMaterial(finding)).slice(0, 16)
+}
+
+export function canonicalFindingsDigest(findings) {
+  return [...(findings || [])]
+    .sort((a, b) => {
+      const fileA = findingRelPath(a)
+      const fileB = findingRelPath(b)
+      if (fileA < fileB) return -1
+      if (fileA > fileB) return 1
+      return a.startLine - b.startLine
+    })
+    .map((finding) => `${finding.severity}|${findingKeyMaterial(finding)}`)
+    .join("\n")
+}
+
+export function sortedBatchMembers(members) {
+  return [...(members || [])].sort((a, b) => a.number - b.number)
+}
+
+function canonicalMemberHeadDigest(members) {
+  return sortedBatchMembers(members)
+    .map((member) => `${member.number}\t${member.head}\t${member.evidenceHash}`)
+    .join("\n")
+}
+
+export function cliEvidenceHash({ head, status, findings, members } = {}) {
+  const digest =
+    status === "batch_covered"
+      ? canonicalMemberHeadDigest(members)
+      : canonicalFindingsDigest(findings)
+  return sha256Hex(`${head}\n${status}\n${digest}`)
+}
+
 export function parseAuthStatus(raw) {
   let obj
   try {

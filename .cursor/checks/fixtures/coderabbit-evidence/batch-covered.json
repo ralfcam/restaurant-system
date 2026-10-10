@@ -1,0 +1,19 @@
+{
+  "head": "dddddddddddddddddddddddddddddddddddddddd",
+  "status": "batch_covered",
+  "members": [
+    {
+      "number": 201,
+      "head": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "evidenceHash": "h1"
+    },
+    {
+      "number": 203,
+      "head": "cccccccccccccccccccccccccccccccccccccccc",
+      "evidenceHash": "h2"
+    }
+  ],
+  "digest": "201\tbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\th1\n203\tcccccccccccccccccccccccccccccccccccccccc\th2",
+  "hash": "464a44794c0d19fb3b0b9109aefad0591caa46c988c5c857e5ac420b7976a277",
+  "marker": "<!-- coderabbit-cli-evidence:dddddddddddddddddddddddddddddddddddddddd:batch_covered:464a44794c0d19fb3b0b9109aefad0591caa46c988c5c857e5ac420b7976a277 -->"
+}

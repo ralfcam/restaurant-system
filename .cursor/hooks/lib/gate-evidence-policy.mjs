@@ -39,5 +39,18 @@ export function replaceGateEvidence(body, block) {
   const next = rest.search(/\n## [^#]/)
   const end =
     next === -1 ? text.length : start + GATE_EVIDENCE_HEADING.length + next
-  return `${text.slice(0, start)}${rendered}${text.slice(end).replace(/^\n/, "")}`
+  const kept = cliEvidenceKeptFromSpan(text.slice(start, end))
+  return `${text.slice(0, start)}${rendered}${kept}${text.slice(end).replace(/^\n/, "")}`
+}
+
+function cliEvidenceKeptFromSpan(span) {
+  const heading = "## CodeRabbit CLI evidence"
+  const sectionAt = span.indexOf(heading)
+  const before = sectionAt === -1 ? span : span.slice(0, sectionAt)
+  const markers = before.match(/<!-- coderabbit-cli-evidence:[^>]*-->/g) || []
+  const section = sectionAt === -1 ? "" : span.slice(sectionAt).trimEnd()
+  const chunks = []
+  if (markers.length > 0) chunks.push(markers.join("\n"))
+  if (section) chunks.push(section)
+  return chunks.length === 0 ? "" : `${chunks.join("\n")}\n`
 }

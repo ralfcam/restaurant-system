@@ -18,16 +18,24 @@ review runs. `/push` posts no pull-request comment. A missing binary is
 auth. An unavailable CLI result retries once, and that retry runs the
 helper again when the reason is still `cli_missing` or `version_mismatch`.
 If it is still unavailable, `/push` stops with `blocked_cli_unavailable`
-and does not push. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
-`attemptStatus:` for that SHA. `/push` is the agent's only CodeRabbit gate:
+and does not push. The PR body records `## CodeRabbit CLI evidence` with `Head:`,
+`attemptStatus:`, and an HTML marker
+`<!-- coderabbit-cli-evidence:<sha>:<status>:<hash> -->` for that SHA.
+`<hash>` is SHA-256 of `<sha>\n<status>\n<digest>`. `/push` is the agent's only CodeRabbit gate:
 Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
 Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
-CLI passes at most. Pass 1 routes every finding. Pass 2 routes only
-Critical, Major, and unknown findings; Minor and Trivial on that pass are
-captured and the branch pushes with no third pass. Pass 3 does not push
-when a Critical, Major, or unknown finding is still open: it stops and
-reports `blocked_major_findings`. Those findings are not leftovers and
-are not ledgered. Only Minor and Trivial may be captured and pushed.
+CLI passes at most. Pass 1 routes every unresolved finding. A Critical or
+Major with `captured`, or `waived` plus a nonempty reason, is accounted
+and may push; `fixed` counts only when that `stableFindingKey` is absent
+from the current findings. When every Critical and Major is accounted, or
+the disposition map is nonempty and every entry is `fixed` with no current
+finding left, leftover Minor and Trivial do not start a fix round. Pass 2
+routes only Critical, Major, and unknown findings; Minor and Trivial on
+that pass are captured and the branch pushes with no third pass. Pass 3
+does not push when a Critical, Major, or unknown finding is still open: it
+stops and reports `blocked_major_findings`. Those findings are not leftovers
+and are not ledgered. Only Minor and Trivial may be captured and pushed
+without an explicit Critical/Major disposition.
 The PR is left a **draft**, and that draft has already passed this CLI
 gate for the head that was pushed.
 Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do

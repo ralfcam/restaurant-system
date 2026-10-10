@@ -1,0 +1,53 @@
+{
+  "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "findings",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "lib/z.ts",
+      "startLine": 1,
+      "endLine": 2,
+      "title": "Unused  Import"
+    },
+    {
+      "severity": "major",
+      "file": "lib/a.ts",
+      "startLine": 10,
+      "endLine": 12,
+      "title": "Logic  Bug"
+    },
+    {
+      "severity": "major",
+      "file": "lib/a.ts",
+      "startLine": 4,
+      "endLine": 4,
+      "title": "Missing AUTH check"
+    }
+  ],
+  "digest": "major|lib/a.ts|4-4|missing auth check\nmajor|lib/a.ts|10-12|logic bug\nminor|lib/z.ts|1-2|unused import",
+  "hash": "4467357279ca290b23962b8224a0031c29b8e27d7735c51bcd3e9704a4222cf7",
+  "marker": "<!-- coderabbit-cli-evidence:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:findings:4467357279ca290b23962b8224a0031c29b8e27d7735c51bcd3e9704a4222cf7 -->",
+  "keys": [
+    {
+      "file": "lib/a.ts",
+      "startLine": 4,
+      "endLine": 4,
+      "title": "Missing AUTH check",
+      "key": "850fd55afd7c9b1e"
+    },
+    {
+      "file": "lib/a.ts",
+      "startLine": 10,
+      "endLine": 12,
+      "title": "Logic  Bug",
+      "key": "ac1c3c33960fd4fa"
+    },
+    {
+      "file": "lib/z.ts",
+      "startLine": 1,
+      "endLine": 2,
+      "title": "Unused  Import",
+      "key": "38e1110a68ff402b"
+    }
+  ]
+}

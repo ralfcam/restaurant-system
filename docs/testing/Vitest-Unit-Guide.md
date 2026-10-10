@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 
 ## Layout
 
@@ -56,6 +56,10 @@
   RES-146 `cli_missing`, one branch-diff reinstall, `/push` as the only
   agent CodeRabbit gate, and QA `ralfcam` readiness in
   `tests/unit/dev-toolchain/coderabbit-res146-guards.test.ts`;
+  RES-150 HTML evidence marker, digest hash, anti-downgrade,
+  `stableFindingKey`, Gate-evidence preservation, `batch_covered` members,
+  and Critical/Major dispositions in
+  `tests/unit/dev-toolchain/coderabbit-cli-evidence-integrity.test.ts`;
   spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`
   (armed-red deny of the absolute checkout path of `lib/billing/foo.ts`,
   forward slashes and backslashes);

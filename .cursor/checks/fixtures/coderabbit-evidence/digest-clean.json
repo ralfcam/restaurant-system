@@ -1,0 +1,10 @@
+{
+  "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "clean",
+  "findings": [],
+  "digest": "",
+  "hash": "bec7ad1423d0e721bd0fac113ab7f8dca86155d455f95c3e8dd68d5166c3b580",
+  "marker": "<!-- coderabbit-cli-evidence:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:clean:bec7ad1423d0e721bd0fac113ab7f8dca86155d455f95c3e8dd68d5166c3b580 -->",
+  "unavailableHash": "c1fa00df7112a72e07d94092d4014d5580417c245cefd2bc8588ddc7b957c037",
+  "cliPin": "0.9.0"
+}

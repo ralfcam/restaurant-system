@@ -1,0 +1,31 @@
+{
+  "head": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "status": "findings",
+  "findings": [
+    {
+      "severity": "minor",
+      "file": "lib/z.ts",
+      "startLine": 1,
+      "endLine": 2,
+      "title": "Unused  Import"
+    },
+    {
+      "severity": "minor",
+      "file": "lib/a.ts",
+      "startLine": 10,
+      "endLine": 12,
+      "title": "Logic  Bug"
+    },
+    {
+      "severity": "minor",
+      "file": "lib/a.ts",
+      "startLine": 4,
+      "endLine": 4,
+      "title": "Missing AUTH check"
+    }
+  ],
+  "digest": "minor|lib/a.ts|4-4|missing auth check\nminor|lib/a.ts|10-12|logic bug\nminor|lib/z.ts|1-2|unused import",
+  "hash": "8e4d973936a93fbd09e6f316458775a2cb15d09712af562a3b3e321470bc46d0",
+  "sameKeysAs": "digest-findings.json",
+  "note": "Same head and titles as digest-findings.json; Majors reclassified to Minor. Hash MUST differ. Keys MUST match."
+}

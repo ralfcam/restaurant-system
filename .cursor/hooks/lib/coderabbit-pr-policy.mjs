@@ -21,7 +21,10 @@ import {
   containsOverrideMarker,
   eventLooksBilling,
   eventLooksRateLimited,
+  cliEvidenceHash,
   isUsBotLogin,
+  sortedBatchMembers,
+  stableFindingKey,
 } from "./coderabbit-review-policy.mjs"
 
 export { US_APP_ID, PUSH_CLI_FIX_ROUND_CAP }
@@ -313,11 +316,64 @@ const PUSH_CLI_PREFLIGHT_REASONS = new Set([
   "missing_base",
 ])
 
+const CRITICAL_MAJOR_SEVERITIES = new Set(["critical", "major"])
+
+function nonemptyDispositionReason(reason) {
+  return typeof reason === "string" && reason.trim() !== ""
+}
+
+// `fixed` never accounts for a key that is still in the current findings.
+function criticalMajorDispositionAccounted(disposition) {
+  if (!disposition || typeof disposition !== "object") return false
+  if (disposition.status === "captured") return true
+  if (disposition.status === "waived") {
+    return nonemptyDispositionReason(disposition.reason)
+  }
+  return false
+}
+
+function everyDispositionFixed(dispositions) {
+  const entries = Object.values(dispositions)
+  return (
+    entries.length > 0 &&
+    entries.every((entry) => entry && entry.status === "fixed")
+  )
+}
+
+function applyCriticalMajorDispositions(sddToTdd, dispositions) {
+  const open = []
+  const accounted = []
+  for (const finding of sddToTdd) {
+    const severity = String(finding.severity || "").toLowerCase()
+    if (!CRITICAL_MAJOR_SEVERITIES.has(severity)) {
+      open.push(finding)
+      continue
+    }
+    const disposition = dispositions[stableFindingKey(finding)]
+    if (criticalMajorDispositionAccounted(disposition)) {
+      accounted.push(finding)
+    } else {
+      open.push(finding)
+    }
+  }
+  return { open, accounted }
+}
+
+/**
+ * @param {{
+ *   attemptStatus?: string,
+ *   findings?: Array<Record<string, unknown>>,
+ *   priorRound?: number,
+ *   reason?: string,
+ *   dispositions?: Record<string, { status?: string, reason?: string }> | null,
+ * }} [input]
+ */
 export function decidePushCliAction({
   attemptStatus,
   findings = [],
   priorRound = 0,
   reason = "",
+  dispositions = null,
 } = {}) {
   const round = boundedPushRound(priorRound)
   if (attemptStatus === "clean") {
@@ -347,41 +403,83 @@ export function decidePushCliAction({
       record: "blocked_cli_unavailable",
     }
   }
-  const { sddToTdd, capture } = routedPushFindings(findings)
-  const packet = { leftover: capture, sddToTdd, capture }
-  if (sddToTdd.length > 0) {
+  const routed = routedPushFindings(findings)
+  let blocking = routed.sddToTdd
+  let captureFindings = routed.capture
+  let skipPassOneRoute = false
+  if (dispositions != null) {
+    const split = applyCriticalMajorDispositions(blocking, dispositions)
+    const allFixed = everyDispositionFixed(dispositions)
+    blocking = split.open
+    captureFindings = [...routed.capture, ...split.accounted]
+    skipPassOneRoute =
+      split.open.length === 0 && (split.accounted.length > 0 || allFixed)
+    if (findings.length === 0 && allFixed) {
+      return {
+        action: "push",
+        leftover: [],
+        sddToTdd: [],
+        capture: [],
+        record: "clean",
+      }
+    }
+  }
+  const packet = {
+    leftover: captureFindings,
+    sddToTdd: blocking,
+    capture: captureFindings,
+  }
+  if (blocking.length > 0) {
     if (round >= PUSH_CLI_FIX_ROUND_CAP) {
       return {
         action: "stop",
         leftover: [],
-        sddToTdd,
-        capture,
+        sddToTdd: blocking,
+        capture: captureFindings,
         record: "blocked_major_findings",
       }
     }
     return { action: "route", ...packet, record: "fix_round" }
   }
-  // Pass 1 routes every finding. Later passes capture only Minor and Trivial.
-  if (capture.length > 0 && round < 1) {
+  // Pass 1 routes every unresolved finding. Accounted Critical/Major may push.
+  if (captureFindings.length > 0 && round < 1 && !skipPassOneRoute) {
     return { action: "route", ...packet, record: "fix_round" }
   }
   return {
     action: "push",
     ...packet,
-    record: capture.length ? "capture_and_push" : "push",
+    record: captureFindings.length ? "capture_and_push" : "push",
   }
 }
 
 export const CLI_EVIDENCE_HEADING = "## CodeRabbit CLI evidence"
 
-export function renderCliEvidenceBlock({ head, attemptStatus, reason } = {}) {
+export function renderCliEvidenceBlock({
+  head,
+  attemptStatus,
+  reason,
+  findings,
+  members,
+} = {}) {
   const lines = [
     CLI_EVIDENCE_HEADING,
     `Head: ${head}`,
     `attemptStatus: ${attemptStatus}`,
   ]
   if (reason) lines.push(`reason: ${reason}`)
-  return `${lines.join("\n")}\n`
+  if (attemptStatus === "batch_covered") {
+    for (const member of sortedBatchMembers(members)) {
+      lines.push(`${member.number}: ${member.head}`)
+    }
+  }
+  const hash = cliEvidenceHash({
+    head,
+    status: attemptStatus,
+    findings,
+    members,
+  })
+  const marker = `<!-- coderabbit-cli-evidence:${head}:${attemptStatus}:${hash} -->`
+  return `${lines.join("\n")}\n${marker}\n`
 }
 
 // Parses the human PR-body record. This is not authorization.
@@ -403,6 +501,67 @@ export function hasCleanCliEvidence(receipt, headSha) {
     String(receipt.head || "") === String(headSha) &&
     receipt.attemptStatus === "clean"
   )
+}
+
+const CLI_EVIDENCE_SEVERITY_RANK = Object.freeze({
+  critical: 4,
+  major: 3,
+  unknown: 3,
+  minor: 2,
+  trivial: 1,
+})
+
+function cliEvidenceSeverityRank(severity) {
+  const key = String(severity || "unknown").toLowerCase()
+  return CLI_EVIDENCE_SEVERITY_RANK[key] ?? CLI_EVIDENCE_SEVERITY_RANK.unknown
+}
+
+function cliEvidenceResultRank(record) {
+  const status = record?.status
+  if (status === "clean") return -1
+  if (status === "unavailable") return 0
+  if (status !== "findings") return null
+  let best = null
+  for (const finding of record.findings || []) {
+    const rank = cliEvidenceSeverityRank(finding?.severity)
+    if (best == null || rank > best) best = rank
+  }
+  return best
+}
+
+function cliEvidenceSeverityDropped(prior, next) {
+  const nextIsLow = new Map()
+  for (const finding of next?.findings || []) {
+    nextIsLow.set(
+      stableFindingKey(finding),
+      cliEvidenceSeverityRank(finding?.severity) <=
+        CLI_EVIDENCE_SEVERITY_RANK.minor,
+    )
+  }
+  for (const finding of prior?.findings || []) {
+    if (
+      nextIsLow.get(stableFindingKey(finding)) === true &&
+      cliEvidenceSeverityRank(finding?.severity) >=
+        CLI_EVIDENCE_SEVERITY_RANK.major
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+export function chooseCliEvidence({ prior, next, sameHead, noDiff } = {}) {
+  if (!sameHead || !noDiff) return next
+  const priorRank = cliEvidenceResultRank(prior)
+  const nextRank = cliEvidenceResultRank(next)
+  const lowerRank =
+    priorRank != null && nextRank != null && nextRank < priorRank
+  const severityDrop =
+    prior?.status === "findings" &&
+    next?.status === "findings" &&
+    cliEvidenceSeverityDropped(prior, next)
+  if (lowerRank || severityDrop) return prior
+  return next
 }
 
 export function isBotSkipNotice(body) {
