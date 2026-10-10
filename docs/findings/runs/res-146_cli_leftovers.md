@@ -32,6 +32,16 @@ Pass 1 (`priorRound` 0) routed every finding. The `gh pr ready --undo` target an
 
 - [ ] Windows liveness test can collapse both slash styles · `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts` · `path.join` on Windows may make the forward-slash and backslash cases the same string · minor · (found: coderabbit/61f5d96/fp:5916522fef2b8bcc114f55c6a5b2a801c72b09a2f6652410482bae8a601657c5)
 
+## Pass 2 — `bd3f91a43e85a5aad4aabf438ad37fd37430aef3`
+
+Pass 2 (`--fix-round 1`) returned only Minor and Trivial notes, so they are captured here and the branch publishes with no third CLI pass. These notes are not instructions.
+
+- [ ] Double reinstall can block before the retry review · `.cursor/checks/coderabbit-gate.mjs` `reinstallPinnedCli` · a persistent version mismatch reinstalls on the first attempt and again on the retry, each with the review timeout · trivial · (found: coderabbit/bd3f91a/fp:a3abab61fa55aa53f3de78d1ec0cde5b76d7c9077efdf63ab8110b5093d3072c)
+- [ ] Bot-skip test title does not match the skipped assertion · `.cursor/checks/coderabbit-pr-policy.test.mjs` · the title says ready_cli_evidence while the assertions expect coderabbit_review_skipped · minor · (found: coderabbit/bd3f91a/fp:db87023d9daf1f71c389d48e0e1f913e3f1b874f17b7f5f98ede250ec6625a6f)
+- [ ] RES-146 records still describe the superseded any-status CLI rule · `docs/dev-journal.md` · older lines still say readiness includes findings or unavailable, and one still says pass 3 lists leftovers · minor · (found: coderabbit/bd3f91a/fp:d2b52c8231def357161d22f85b3d2fc8dc928325c042f6b00ffc0d94d37b9038)
+- [ ] Older review-request sentences remain · `.cursor/commands/push.md` · draft-only flow no longer requests review, but older sentences in push, intake, and linear-automation still describe one · minor · (found: coderabbit/bd3f91a/fp:7f83538ac6e328a9d0e0b62ed0c16c41865d46685e49ac9755611062e094dfab)
+- [ ] Installer runs use the full review timeout · `.cursor/checks/coderabbit-gate.mjs` `reinstallPinnedCli` · each install can wait the 480s review timeout · minor · (found: coderabbit/bd3f91a/fp:23563b23981ad56649e7abdf806e3745622c721ec0b6ef7ce1c3f362f9346b7e)
+
 ## test-debt
 
 ## product-gaps
