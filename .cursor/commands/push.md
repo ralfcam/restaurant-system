@@ -37,9 +37,9 @@ accumulator flow, the periodic promotion PR's head **is** `staging` — the same
 branch `/commit` commits land on. So a plain `/push` (no argument) run from
 `staging` resolves that promotion PR (or creates it against the default
 branch if none is open) and preps it; the `<PR-URL>` argument exists only to
-**pin** a specific PR when auto-discovery would be ambiguous (e.g. multiple
-open PRs share a head, or you're pinning a PR whose head isn't your current
-branch).
+**pin** a specific PR whose head isn't your current branch. More than one
+open PR for the current head is not ambiguous: the no-argument path **STOP**s
+and exits non-zero with reason `duplicate_open_prs`. Do not use the first PR.
 
 **Ground truth — Linear↔GitHub automation:** see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc) for
@@ -284,11 +284,16 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   feature-PR-on-default STOP above. When the head is `cursor/`, run
   `gh pr edit <n> --body-file` after every push to replace the gate-evidence
   body, using the body the gate-evidence CLI printed.
-- **No argument:** `gh pr list --head <current-branch> --json number,title,state,isDraft,baseRefName,reviewRequests,url`.
-  - **Found:** apply the feature-PR-on-default STOP above; otherwise proceed.
+- **No argument:** `gh pr list --head <current-branch> --state open --json number,title,state,isDraft,baseRefName,reviewRequests,url`.
+  If that list has more than one open PR, **STOP** and exit non-zero with reason `duplicate_open_prs`. Do not use the first PR.
+  - **Found (exactly one):** apply the feature-PR-on-default STOP above; otherwise proceed, strip the `[WIP]` title prefix, and remove the `agent-running` label.
     When the head matches the cursor-head pattern, run
     `gh pr edit <n> --body-file` after every push, using the body the
     gate-evidence CLI printed.
+    `gh pr edit <n> --title` keeps every character after a leading `[WIP]`
+    prefix and one following space when present; if that prefix is absent,
+    do not edit the title. `gh pr edit <n> --remove-label agent-running`;
+    if that label is absent, do not fail the push.
   - **None found — auto-create a draft PR:**
     1. Step 2 must already have published the remote head (branch exists on
        origin). If the branch was never pushed, push first, then continue.
@@ -423,9 +428,15 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
 2. Push the current branch if it has unpushed commits (skip with a note if
    nothing to push, or if a pinned PR's head differs).
 3. Resolve the PR — pinned via the argument, or auto-discovered by current
-   branch. STOP if `origin/staging` is absent. STOP if an existing or pinned
-   PR has `base=default` and `head != staging` (feature PR aimed at `main`).
-   No PR found (no argument case) → create a **draft** PR against `staging`
+   branch with `gh pr list --head <current-branch> --state open`. If that
+   list has more than one open PR, STOP and exit non-zero with reason
+   `duplicate_open_prs`. Do not use the first PR. STOP if `origin/staging`
+   is absent. STOP if an existing or pinned PR has `base=default` and
+   `head != staging` (feature PR aimed at `main`). On the no-argument path,
+   exactly one open PR that passes those STOPs is reused: strip the `[WIP]`
+   title prefix and remove the `agent-running` label. An absent prefix or
+   label does not fail the push. No PR found (no argument
+   case) → create a **draft** PR against `staging`
    for a feature head, or against the default branch when head is `staging`
    (unless head is the default branch), re-fetch, then continue.
 4. Run promotion prep only if the resolved PR's base is the default branch —
@@ -460,7 +471,10 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   argument; `/capture …`; `/audit` as the default for a gate red.
 - DO NOT force-push unless the operator explicitly asks.
 - **Auto-create is narrow:** create a PR only on the no-argument path when
-  `gh pr list --head <current-branch>` returns none, `origin/staging` exists
+  `gh pr list --head <current-branch> --state open` returns none. If that
+  list has more than one open PR, STOP and exit non-zero with reason
+  `duplicate_open_prs`; do not use the first PR and do not create. Also
+  require `origin/staging` exists
   (`git ls-remote --exit-code --heads origin staging`), head is not the
   default branch, and Step 2 has published the remote head. Base is
   `staging` for any non-default, non-`staging` head; `staging` still bases
@@ -475,9 +489,11 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   `base=default` and `head != staging`.
 - DO NOT operate on a PR that is not OPEN. DO NOT overwrite the PR's existing
   title or body — append-only, and only when the aggregated IDs aren't already
-  closing-linked. DO NOT fabricate issue IDs — only report what `gh` actually
-  returned. Do not pre-inject `## Linear close-out` at create time; Step 4
-  owns that.
+  closing-linked. The no-argument **Found (exactly one):** step is the
+  exception: it may strip a leading `[WIP]` title prefix and remove the
+  `agent-running` label. Do not rewrite any other title text. DO NOT
+  fabricate issue IDs — only report what `gh` actually returned. Do not
+  pre-inject `## Linear close-out` at create time; Step 4 owns that.
 - **Do not request review.** This command posts no pull-request comment
   and does not run `gh pr edit --add-reviewer`.
 - **Promotion prep is conditional, not argument-gated** — run it whenever the
@@ -497,12 +513,12 @@ Exactly these sections:
 
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
 2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (fix round <n> of 2)" | "stopped — `blocked_major_findings`" | "stopped — `blocked_cli_unavailable`" ; CLI: `clean` | `findings routed` | `capture listed` | `unavailable recorded` | `blocked_major_findings` | `blocked_cli_unavailable`.
-3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — pinned PR head is not the reviewed branch" | "stopped — `gh pr create` failed: <error>".
+3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — pinned PR head is not the reviewed branch" | "stopped — `duplicate_open_prs`" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Draft** — "left a draft" | "returned to draft — `gh pr ready --undo <n>`" | "n/a — no PR". Agents do not run `/ready-merge-release`.
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — the CLI gate already passed on this head; QA bot `ralfcam` runs UAT and digests the transcript; readiness is that CLI evidence plus the UAT; agents do not run `/ready-merge-release`; merge only on `APPROVED FOR OPERATOR MERGE`" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push` | on Step 1b `blocked_major_findings`: stop, do not push, and do not ledger the Critical, Major, or unknown findings. | on Step 1b `blocked_cli_unavailable`: stop, do not push, and do not ledger the unavailable CLI result.
+8. **Operator next** — "draft PR open — the CLI gate already passed on this head; QA bot `ralfcam` runs UAT and digests the transcript; readiness is that CLI evidence plus the UAT; agents do not run `/ready-merge-release`; merge only on `APPROVED FOR OPERATOR MERGE`" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging` / close every extra open PR for this head (`duplicate_open_prs`), then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push` | on Step 1b `blocked_major_findings`: stop, do not push, and do not ledger the Critical, Major, or unknown findings. | on Step 1b `blocked_cli_unavailable`: stop, do not push, and do not ledger the unavailable CLI result.
    </output_format>
    </instructions>
    </output>

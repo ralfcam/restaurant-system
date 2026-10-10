@@ -97,6 +97,11 @@ finding to invent for `/capture` or `/sdd-to-tdd`.
 
 ### 2. Verify the draft or ready HEAD
 
+A draft whose `## CodeRabbit CLI evidence` body section has no protected
+marker for the current head is `missing_head_evidence`. Ignore that draft.
+Do not ready it. This check does not change `ready_no_coderabbit_review`.
+A 403 on a cursor-bot PR comment leaves the body section authoritative.
+
 Run the adapter this turn:
 
 ```powershell

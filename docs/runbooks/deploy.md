@@ -57,7 +57,10 @@ npx vercel curl / --deployment <production-url>
 ## Scheduled jobs
 
 **Precedent:** consider a Supabase Edge Function plus `pg_cron` (`pg_net`)
-**first**. Do not default to `vercel.json` `crons`. Hobby rejects more-than-daily
+**first**. Do not default to `vercel.json` `crons`. `vercel.json` may set
+`ignoreCommand` to `node .cursor/hooks/lib/ignore-wip-build.mjs` so a `[WIP]`
+title or `wip(<KEY>): start run` commit exits 0 and cancels the build
+(G-WIP4); that file still must not register `crons`. Hobby rejects more-than-daily
 Vercel schedules (failed the RES-45 preview); Vercel Cron also ticks Production
 only. Doctrine: [../../.cursor/rules/scheduled-jobs.mdc](../../.cursor/rules/scheduled-jobs.mdc).
 Shipped example: `review-email` (PV-15).

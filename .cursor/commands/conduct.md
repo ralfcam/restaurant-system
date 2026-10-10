@@ -18,14 +18,17 @@ A docs PR is an open PR whose head matches `cursor/morning-<YYYY-MM-DD>-<4 hex>`
 complete; pass the issue description on stdin. Linear writes go only through
 `linear-resolver`.
 
-The lane reads Linear and GitHub. It does not use labels.
+The lane reads Linear and GitHub. The only GitHub label it applies is
+`agent-running` on the `[WIP]` draft opened when this head has no open PR.
+Morning and spec-only PRs do not receive that label. Other labels stay unused.
 
 - **Queue:** Todo in the current cycle, a complete brief, no unanswered
   `Clarification required` comment, no open blocker, and not claimed.
 - **Claimed:** still Todo, its newest `Work started:` comment is under 6
   hours old and newer than its newest `Clarification required` comment, and
   it has no PR yet.
-- **In flight:** an open issue PR. Linear's GitHub automations move that
+- **In flight:** an open issue PR. The cap counts `agent-running` drafts
+  with `countAgentRunningDrafts`. Linear's GitHub automations move that
   issue to In Progress when the draft opens, then to In Review on review
   activity, then to Done on merge.
 
@@ -130,10 +133,23 @@ number and the 4 hex characters are lowercase. Linear links the PR through
 that branch name. The route posts `Work started:` right after its work-order.
 That comment is the claim. This command does not post one of its own.
 
+When this head has no open PR, the first step — before the first code change
+— is `git commit --allow-empty -m "wip(<KEY>): start run <link>"`, push, then
+`gh pr create --draft --base staging`. The title is prefixed `[WIP]`. The body
+contains `Closes <KEY>` and the run link. The PR receives the GitHub label
+`agent-running`.
+
 - Code route: `/sdd-to-tdd RES-###`. Its one-shot already runs commit.md and
   push.md.
 - Design route: `/design RES-###`, then the commit.md design-spec lane, then
   push.md. `/design` does not run commit or push.
+
+A no-op run closes the WIP draft when the head is still the empty
+`wip(<KEY>): start run` commit and no further tracked change shipped.
+Close it with `gh pr close <n> --comment` and a reason.
+There is no Linear state write.
+Do not write In Progress, In Review, or Done.
+The TPM bot owns any status revert.
 
 ### 8. Hand off — do not ready
 

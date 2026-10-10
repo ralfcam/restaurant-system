@@ -27,6 +27,34 @@ export function gateEvidenceHead(body) {
   return match ? match[1] : null
 }
 
+export function selectOpenHeadPr(prs) {
+  if (prs.length === 0) return { ok: false, reason: "none" }
+  if (prs.length === 1) return { ok: true, pr: prs[0] }
+  return { ok: false, reason: "duplicate_open_prs" }
+}
+
+const WIP_START_COMMIT = /^wip\([^)]+\): start run\b/
+
+export function shouldIgnoreWipBuild({ title, commitMessage }) {
+  return title.startsWith("[WIP]") || WIP_START_COMMIT.test(commitMessage)
+}
+
+export function formatWipStart({ key, runUrl }) {
+  return {
+    commitMessage: `wip(${key}): start run ${runUrl}`,
+    title: `[WIP] ${key}`,
+    body: `Closes ${key}\n${runUrl}`,
+    label: "agent-running",
+  }
+}
+
+export function shouldCloseNoopWip({ commits, furtherTrackedChange }) {
+  if (furtherTrackedChange) return false
+  if (commits.length !== 1) return false
+  const commit = commits[0]
+  return commit.empty === true && WIP_START_COMMIT.test(commit.message)
+}
+
 export function replaceGateEvidence(body, block) {
   const text = String(body || "")
   const rendered = `${block.trim()}\n`

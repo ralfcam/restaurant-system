@@ -133,6 +133,12 @@ delegation, scope violation, or failed write; never broaden the approved plan.
 
 ## STEP 0C — BRIEFED DESIGN ONE-SHOT
 
+When this head has no open PR, the first step — before the first code change
+— is `git commit --allow-empty -m "wip(<KEY>): start run <link>"`, push, then
+`gh pr create --draft --base staging`. The title is prefixed `[WIP]`. The body
+contains `Closes <KEY>` and the run link. The PR receives the GitHub label
+`agent-running`. That empty commit and draft are the start of the run only.
+
 Entry is managed Cloud, a complete design brief, and no open clarification.
 Write `.cursor/plans/<plan-slug>.plan.md` first; the brief is the approval.
 Then delegate `linear-resolver` START in the background and do not wait:
@@ -145,7 +151,7 @@ scope). Keep the hub walk and the hub-owner stop, the milestone route, and
 contradiction handling (CLARIFY, then stop).
 
 Write only the one new spec and any product-gaps deferrals. Do not ask
-questions. The operator's spec-PR merge replaces `Go ahead`. The conductor, not `/design`, runs commit and push. STEP 0B (interactive) is unchanged.
+questions. The operator's spec-PR merge replaces `Go ahead`. The conductor, not `/design`, runs commit and push for close-out. STEP 0B (interactive) is unchanged.
 
 ## STEP 1 — HUB WALK (does this already have an owner?)
 
