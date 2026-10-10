@@ -1,12 +1,14 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 
 This repository uses **one** CodeRabbit installation: **US Team**. The
-Cloud `install` helper stays paused. `/push` runs one local CLI pass over
+Cloud `install` helper stays paused. `/push` runs the local CLI over
 the committed branch diff against `origin/staging` after the cursor-head
-firewall has finalized `HEAD` and before `git push`.
+firewall has finalized `HEAD` and before `git push`. An unavailable CLI
+result retries once.
+
 `/commit` and `/sdd-to-tdd` STEP 4G do not spawn the CLI. Pull request
 reviews still come from **`coderabbitai`** (App ID `347564`) when a formal
 review runs. `/push` posts no pull-request comment. A missing binary is
@@ -64,8 +66,9 @@ the agent report. Actionable findings that do exist, including a
 `/capture`. Quiet-mode walkthrough bodies are not findings. CLI pin
 `0.9.0` stays in `.cursor/cloud-install-coderabbit.sh`. Release `0.7.6`
 has no `SHA256SUMS.sig`. `/push` runs that
-helper once when the branch-diff pass sees `cli_missing` or
-`version_mismatch`. The Cloud `environment.json` install still does not
+helper when the branch-diff pass sees `cli_missing` or
+`version_mismatch`, and again on the one unavailable retry when that
+reason remains. The Cloud `environment.json` install still does not
 call the helper. When the CLI runs, it must
 authenticate against [app.coderabbit.ai](https://app.coderabbit.ai) with
 `"region":"us"`.
