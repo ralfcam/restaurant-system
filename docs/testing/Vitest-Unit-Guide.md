@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 
 ## Layout
 
@@ -71,7 +71,11 @@
   path-list pin in
   `tests/unit/dev-toolchain/baseline-forward-migration.test.ts`; G-AUD1
   Next pin in `tests/unit/dev-toolchain/next-advisory.test.ts`; G-AUD2
-  brace-expansion pins in `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`)
+  brace-expansion pins in `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`;
+  G-MRG1 merge bypasses in
+  `tests/unit/dev-toolchain/merge-bypass-guard.test.ts`; G-PUSH1
+  protected-branch push, including quoted `bash -c` inner `;` chains, in
+  `tests/unit/dev-toolchain/protected-branch-push-guard.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
