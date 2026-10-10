@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -212,6 +212,8 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-146 unavailable CLI stop (`res-146_cli_unavailable_stop`)                                     | 2026-10-10 | `specs/dev-toolchain.md` (G-CR2 `blocked_cli_unavailable`, already amended), `runbooks/coderabbit.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                 |
 | RES-149 conduct eligibility (`res-149_conduct_eligibility_08ba`)                                  | 2026-10-10 | `specs/dev-toolchain.md` (G-CON1, already amended; G-TD1 untouched), `runbooks/coderabbit.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                               |
 | RES-149 step-6 pick (`res-149_step6_pick_08ba`)                                                   | 2026-10-10 | `specs/dev-toolchain.md` (G-CON1 C18–C20, already amended), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                                  |
+| RES-127 guard scripts (`res-127_guard_scripts_d2be`)                                              | 2026-10-10 | `specs/dev-toolchain.md` (G-TD1 item 4, already amended), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                                    |
+| RES-127 path collapse (`res-127_cr_canonicalize_d2be`)                                            | 2026-10-10 | `specs/dev-toolchain.md` (G-TD1, already amended), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                                           |
 
 ## Seed path
 
