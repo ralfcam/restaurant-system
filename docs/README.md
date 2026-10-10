@@ -1,7 +1,7 @@
 # Documentation — restaurant-system
 
 **Status:** Reference  
-**Last updated:** 2026-10-09
+**Last updated:** 2026-10-10
 
 Hub for specs, architecture, testing guides, and runbooks. The `.cursor` TDD/audit
 workflow treats **`docs/specs/`** as the sole acceptance authority.
@@ -210,6 +210,7 @@ workflow treats **`docs/specs/`** as the sole acceptance authority.
 | RES-146 CLI evidence (`res-146_cli_evidence_a1c4`)                                                | 2026-10-09 | `specs/dev-toolchain.md` (G-CR1 pin `0.9.0`, G-CR2 `/push` is the only agent gate, allows two fix rounds, and leaves a draft, G-CR3 operator/QA `ralfcam` marks ready, already amended), `runbooks/coderabbit.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `testing/Vitest-Unit-Guide.md`, `dev-journal.md`                                                                                     |
 | RES-146 blocked majors (`res-146_blocked_majors_7c11`)                                            | 2026-10-09 | `specs/dev-toolchain.md` (G-CR2/G-CR3 `blocked_major_findings`, already amended), `runbooks/coderabbit.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                  |
 | RES-146 unavailable CLI stop (`res-146_cli_unavailable_stop`)                                     | 2026-10-10 | `specs/dev-toolchain.md` (G-CR2 `blocked_cli_unavailable`, already amended), `runbooks/coderabbit.md`, `runbooks/deploy.md`, `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                 |
+| RES-127 guard scripts (`res-127_guard_scripts_d2be`)                                              | 2026-10-10 | `specs/dev-toolchain.md` (G-TD1 item 4, already amended), `testing/Design-And-Patterns.md`, `dev-journal.md`                                                                                                                                                                                                                                                                                                    |
 
 ## Seed path
 

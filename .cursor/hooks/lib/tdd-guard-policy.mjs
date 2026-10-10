@@ -27,6 +27,7 @@ export const PROTECTED_PREFIXES = [
   "hooks/",
   "src/",
   "supabase/",
+  ".cursor/hooks/",
 ]
 
 /**
@@ -355,6 +356,8 @@ export function checkTddWrite(relPath, { depth, phase }) {
   if (isSpecPath(relPath) && VALID_PHASES.includes(phase)) {
     return { deny: true, kind: "spec" }
   }
+  // Named disarm file only — not the rest of .cursor/hooks/state/.
+  if (normalize(relPath) === ".cursor/hooks/state/tdd-guard.json") return null
   if (!isProtected(relPath)) return null
   if (depth > 0) {
     if (phase === "red" && !isTestsPath(relPath))
