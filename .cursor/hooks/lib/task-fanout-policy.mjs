@@ -145,9 +145,10 @@ export function withFanoutLock(fn) {
       } finally {
         closeSync(fd)
         try {
-          unlinkSync(LOCK_PATH)
+          const holder = readFileSync(LOCK_PATH, "utf8").trim()
+          if (holder === String(process.pid)) unlinkSync(LOCK_PATH)
         } catch {
-          // lock already released
+          // lock already released or stolen
         }
       }
     } catch (err) {

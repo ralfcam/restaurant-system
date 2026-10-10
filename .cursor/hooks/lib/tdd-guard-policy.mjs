@@ -451,6 +451,23 @@ function skipFlagTokens(tokens, valueFlags) {
   return out
 }
 
+function firstPositionalIndex(tokens, valueFlags) {
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (!t.startsWith("-")) return i
+    const flag = t.split("=")[0]
+    if (
+      !t.includes("=") &&
+      valueFlags.has(flag) &&
+      tokens[i + 1] &&
+      !tokens[i + 1].startsWith("-")
+    ) {
+      i += 1
+    }
+  }
+  return -1
+}
+
 const GH_VALUE_FLAGS = new Set([
   "-R",
   "--repo",
@@ -463,6 +480,15 @@ const GH_VALUE_FLAGS = new Set([
   "--input",
   "-t",
   "--hostname",
+])
+
+const GIT_GLOBAL_VALUE_FLAGS = new Set([
+  "-C",
+  "-c",
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--config-env",
 ])
 
 const GIT_PUSH_VALUE_FLAGS = new Set([
@@ -543,44 +569,79 @@ export function detectGithubMcpMerge(input) {
   return null
 }
 
-function refspecTargetsProtected(refspec) {
+function isProtectedBranch(name) {
+  return name === "main" || name === "staging"
+}
+
+function resolveCurrentBranch(cwd = process.cwd()) {
+  const result = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  })
+  if (result.status !== 0) return null
+  const name = (result.stdout || "").trim()
+  if (!name || name === "HEAD") return null
+  return name
+}
+
+function destFromRefspec(refspec, currentBranch) {
   const dest = String(refspec)
     .replace(/^\+/, "")
     .split(":")
     .pop()
     .replace(/^refs\/heads\//, "")
-  return dest === "main" || dest === "staging"
+  if (dest === "HEAD" || dest === "@") return currentBranch
+  return dest
 }
 
-function detectProtectedPushSegment(segment) {
+function implicitDestDenied(currentBranch) {
+  if (currentBranch == null || currentBranch === "") return true
+  return isProtectedBranch(currentBranch)
+}
+
+function detectProtectedPushSegment(segment, currentBranch) {
   const raw = unwrapShellWrappers(segment)
   if (!raw) return null
   const tokens = raw.replace(/\\/g, "/").split(/\s+/).filter(Boolean)
   for (let i = 0; i < tokens.length; i++) {
     if (basenameToken(tokens[i]) !== "git") continue
-    const afterGit = tokens.slice(i + 1)
-    const pushIdx = afterGit.findIndex((t) => t === "push")
-    if (pushIdx === -1) continue
-    const positionals = skipFlagTokens(
-      afterGit.slice(pushIdx + 1),
-      GIT_PUSH_VALUE_FLAGS,
-    )
-    if (positionals.length === 0) return null
-    const refspecs =
-      positionals.length === 1 ? positionals : positionals.slice(1)
-    if (refspecs.some(refspecTargetsProtected)) {
+    const afterGitTokens = tokens.slice(i + 1)
+    const subIdx = firstPositionalIndex(afterGitTokens, GIT_GLOBAL_VALUE_FLAGS)
+    if (subIdx === -1 || afterGitTokens[subIdx] !== "push") return null
+    const afterPush = afterGitTokens.slice(subIdx + 1)
+    if (afterPush.some((t) => t === "--all" || t === "--mirror")) {
       return { kind: "protected-push", segment: raw }
+    }
+    const positionals = skipFlagTokens(afterPush, GIT_PUSH_VALUE_FLAGS)
+    const hit = { kind: "protected-push", segment: raw }
+    if (positionals.length <= 1) {
+      return implicitDestDenied(currentBranch) ? hit : null
+    }
+    const refspecs = positionals.slice(1)
+    if (
+      refspecs.some((r) => {
+        const dest = destFromRefspec(r, currentBranch)
+        if (dest == null || dest === "")
+          return implicitDestDenied(currentBranch)
+        return isProtectedBranch(dest)
+      })
+    ) {
+      return hit
     }
   }
   return null
 }
 
 /** Detect `git push` whose destination ref is main or staging. */
-export function detectProtectedBranchPush(command) {
+export function detectProtectedBranchPush(command, options = {}) {
   if (typeof command !== "string" || !command.trim()) return null
+  const currentBranch = Object.hasOwn(options, "currentBranch")
+    ? options.currentBranch
+    : resolveCurrentBranch(options.cwd)
   const segments = command.split(/&&|\|\||;|\|/)
   for (const rawSeg of segments) {
-    const hit = detectProtectedPushSegment(rawSeg.trim())
+    const hit = detectProtectedPushSegment(rawSeg.trim(), currentBranch)
     if (hit) return hit
   }
   return null
