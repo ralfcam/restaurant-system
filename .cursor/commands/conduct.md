@@ -18,10 +18,21 @@ A docs PR is an open PR whose head matches `cursor/morning-<YYYY-MM-DD>-<4 hex>`
 complete; pass the issue description on stdin. Linear writes go only through
 `linear-resolver`.
 
-The lane reads Linear and GitHub. It does not use labels.
+The lane is Linear status plus GitHub. Linear labels are not the queue.
+GitHub `sensitive` is an output on the issue PR.
 
-- **Queue:** Todo in the current cycle, a complete brief, no unanswered
+- **Queue:** Todo in the current cycle, no unanswered
   `Clarification required` comment, no open blocker, and not claimed.
+  A complete brief is not required when `/conduct next` will run `/dispatch`
+  to write it. Database migrations and RLS policy changes are still excluded,
+  and local only. An unanswered clarification is still excluded. For security,
+  payment, and auth tickets the agent adds a regression test, the issue PR
+  gets a GitHub `sensitive` label, and the PR description includes a body line
+  naming that class. A new-scope or `/design`-labelled ticket gets a
+  design-only first PR (spec + plan, no application code). When a
+  clarification has been answered and the brief `spec` field is missing,
+  /conduct may amend the owning spec with the decided behaviour as the first step,
+  then write the brief.
 - **Claimed:** still Todo, its newest `Work started:` comment is under 6
   hours old and newer than its newest `Clarification required` comment, and
   it has no PR yet.
@@ -123,6 +134,8 @@ Take the lowest numeric `Queue:` among queued issues. Ties go to the lowest
 RES number. If none qualifies, run the `/dispatch` one-shot once and re-pick.
 If still none, stop.
 
+`/conduct next` runs `/dispatch` to write the brief, then starts.
+
 ### 7. Branch and execute
 
 `git switch -c cursor/res-<n>-<4 hex> origin/staging`, where `<n>` is the RES
@@ -144,8 +157,9 @@ passes), then pushes and leaves the PR a draft. That draft has already
 passed the CLI gate for the head that was pushed. `/conduct` does not wait on CodeRabbit, does not
 poll, and does not post `@coderabbitai review`.
 
-Stop on the draft. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the /push
-CLI evidence on the head plus that UAT.
+Stop on the draft. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger.
+QA bots, including `ralfcam`, post the digest and wait for Jose instead of marking a `sensitive` PR ready.
+Readiness is the /push CLI evidence on the head plus that UAT.
 `/ready-merge-release` stays on disk for that QA step and still documents
 `roundCap: 3`. `/conduct` does not invoke it.
 
@@ -177,7 +191,8 @@ Restated because Cloud runs do not execute `beforeMCPExecution` hooks:
 
 <constraints>
 - One conductor run at a time. Finish the open issue PR before new work.
-- Do not launch work that is not queued with a complete brief.
+- Do not launch work that is not queued. A complete brief is not required
+  when `/conduct next` will run `/dispatch` to write it.
 - Held Cancel, Duplicate, umbrella, keep-or-drop, and new-issue decisions stay
   in the dispatch digest. Do not perform them here.
 </constraints>

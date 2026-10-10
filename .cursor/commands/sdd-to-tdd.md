@@ -194,6 +194,9 @@ Never `gh pr ready`. Never `gh pr merge`.
 STEP 1A clarifications, `Allowed edits:` pre-grant `## Permissions Requested`,
 and `Verification:` sets the phase commands.
 
+When a clarification has been answered and the brief is missing `spec`,
+/conduct may apply an answered clarification to the owning spec first (FIX-mode order) so the brief `spec` field can be completed.
+
 **In-loop fix.** An invocation
 `bug: CodeRabbit finding <local-ref> on PR #<n>` from `/conduct` stays on the
 PR branch and skips START and CLOSE-OUT.

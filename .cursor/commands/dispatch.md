@@ -345,10 +345,11 @@ After plan approval and after leaving Plan Mode:
 
 ### Cloud lane: Ready briefs
 
-Every issue is cloud-runnable. There is no priority, estimate, `security`, or
-P0-surface gate. `/dispatch` writes the `## Ready brief` and re-checks it
+`/dispatch` writes the `## Ready brief` and re-checks it
 through `linear-resolver` READY. It does not add, remove, or clear labels.
-The conductor reads Todo, the brief, and GitHub at pick time.
+The conductor reads Todo, the brief, and GitHub at pick time. A new-scope or
+`/design`-labelled ticket gets a design-only first PR (spec + plan, no
+application code).
 
 A complete brief has the route, either the spec with its criteria (`/sdd-to-tdd`)
 or all five design answers (`/design`: purpose and users, MVP, domain placement,

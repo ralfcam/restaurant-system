@@ -1,5 +1,7 @@
 import assert from "node:assert/strict"
 import { spawnSync } from "node:child_process"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { test } from "node:test"
 import {
   isCompleteBrief,
@@ -134,4 +136,226 @@ test("stdin CLI reads a complete brief", () => {
   const parsed = JSON.parse(result.stdout)
   assert.equal(parsed.complete, true)
   assert.equal(parsed.route, "/sdd-to-tdd")
+})
+
+test("classifyConductEligibility excludes migration, RLS, and unanswered clarifications", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  assert.equal(
+    typeof classifyConductEligibility,
+    "function",
+    "classifyConductEligibility must be exported from ready-brief-policy.mjs",
+  )
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+  }
+  assert.deepEqual(
+    classifyConductEligibility({ ...base, scope: "migration" }),
+    { eligible: false, reason: "excluded_migration" },
+  )
+  assert.deepEqual(classifyConductEligibility({ ...base, scope: "rls" }), {
+    eligible: false,
+    reason: "excluded_rls",
+  })
+  assert.deepEqual(
+    classifyConductEligibility({ ...base, unansweredClarification: true }),
+    { eligible: false, reason: "excluded_clarification" },
+  )
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  assert.match(
+    conduct,
+    /still excluded[\s\S]{0,160}database migrations|database migrations[\s\S]{0,160}still excluded/i,
+  )
+  assert.match(
+    conduct,
+    /still excluded[\s\S]{0,160}RLS policy changes|RLS policy changes[\s\S]{0,160}still excluded/,
+  )
+  assert.match(
+    conduct,
+    /still excluded[\s\S]{0,160}unanswered clarification|unanswered clarification[\s\S]{0,160}still excluded/i,
+  )
+})
+
+test("security payment and auth tickets are sensitive-eligible", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+  }
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      scope: "migration",
+      class: "security",
+    }),
+    { eligible: false, reason: "excluded_migration" },
+  )
+  for (const ticketClass of ["security", "payment", "auth"]) {
+    const result = classifyConductEligibility({ ...base, class: ticketClass })
+    assert.equal(result?.eligible, true, ticketClass)
+    assert.equal(result?.sensitive, true, ticketClass)
+  }
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  assert.match(
+    conduct,
+    /security,\s+payment,\s+and\s+auth[\s\S]{0,500}regression test|regression test[\s\S]{0,500}security,\s+payment,\s+and\s+auth/i,
+  )
+  assert.match(
+    conduct,
+    /security,\s+payment,\s+and\s+auth[\s\S]{0,500}GitHub `sensitive` label|GitHub `sensitive` label[\s\S]{0,500}security,\s+payment,\s+and\s+auth/,
+  )
+  assert.match(
+    conduct,
+    /security,\s+payment,\s+and\s+auth[\s\S]{0,500}body line|body line[\s\S]{0,500}security,\s+payment,\s+and\s+auth/i,
+  )
+})
+
+test("qaMayReadyPr is false for a sensitive PR", async () => {
+  const { qaMayReadyPr } = await import("../hooks/lib/ready-brief-policy.mjs")
+  assert.equal(
+    typeof qaMayReadyPr,
+    "function",
+    "qaMayReadyPr must be exported from ready-brief-policy.mjs",
+  )
+  assert.equal(qaMayReadyPr({ labels: ["sensitive"] }), false)
+  assert.equal(qaMayReadyPr({ labels: [] }), true)
+  assert.equal(qaMayReadyPr({ labels: ["docs"] }), true)
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  assert.match(conduct, /wait for Jose/)
+  assert.match(
+    conduct,
+    /(?:\bQA\b|ralfcam|sensitive)[\s\S]{0,800}\bdigest\b|\bdigest\b[\s\S]{0,800}(?:\bQA\b|ralfcam|sensitive)/,
+  )
+})
+
+test("missing brief with priority auto-briefs via dispatch", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+    briefComplete: false,
+  }
+  const result = classifyConductEligibility(base)
+  assert.equal(result?.reason, "auto_brief")
+  assert.equal(result?.eligible, true)
+
+  const sensitive = classifyConductEligibility({ ...base, class: "security" })
+  assert.equal(sensitive?.reason, "auto_brief")
+  assert.equal(sensitive?.eligible, true)
+  assert.equal(sensitive?.sensitive, true)
+
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  assert.match(
+    pick,
+    /`?\/conduct next`? runs `?\/dispatch`? to write the brief, then starts/,
+  )
+
+  const dispatch = readFileSync(
+    join(process.cwd(), ".cursor/commands/dispatch.md"),
+    "utf8",
+  )
+  assert.doesNotMatch(
+    dispatch.replace(/\s+/g, " "),
+    /There is no priority, estimate, `security`, or P0-surface gate\./,
+  )
+  assert.match(dispatch, /writes the `## Ready brief`/)
+})
+
+test("new-scope and design-labelled tickets are design-first", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+  }
+  assert.deepEqual(
+    classifyConductEligibility({ ...base, scope: "new-scope" }),
+    { eligible: true, reason: "design_first" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({ ...base, labels: ["/design"] }),
+    { eligible: true, reason: "design_first" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      scope: "migration",
+      labels: ["/design"],
+    }),
+    { eligible: false, reason: "excluded_migration" },
+  )
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  assert.match(conduct, /design-only|spec \+ plan/)
+  assert.match(conduct, /no application code/)
+})
+
+test("answered clarification amends spec then completes the brief", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+  }
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      answeredClarification: true,
+      briefMissingSpec: true,
+    }),
+    { eligible: true, reason: "spec_amend" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      answeredClarification: true,
+      briefMissingSpec: true,
+      unansweredClarification: true,
+    }),
+    { eligible: false, reason: "excluded_clarification" },
+  )
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  assert.match(
+    conduct,
+    /\/conduct may amend the owning spec with the decided behaviour as the first step[\s\S]{0,240}then write the brief/,
+  )
+  const sdd = readFileSync(
+    join(process.cwd(), ".cursor/commands/sdd-to-tdd.md"),
+    "utf8",
+  )
+  assert.match(
+    sdd,
+    /\/conduct may apply an answered clarification to the owning spec first \(FIX-mode order\) so the brief `spec` field can be completed/,
+  )
 })

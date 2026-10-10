@@ -1,6 +1,7 @@
 /**
  * Pure Ready-brief parser shared by /dispatch and /conduct.
- * Live Linear I/O stays in the commands. Completeness is this module.
+ * Live Linear I/O stays in the commands. Completeness and conductor
+ * eligibility are this module.
  */
 
 export const DESIGN_ANSWER_KEYS = [
@@ -92,4 +93,51 @@ export function isCompleteBrief(markdown) {
   const brief =
     typeof markdown === "string" ? parseReadyBrief(markdown) : markdown
   return missingBriefParts(brief).length === 0
+}
+
+function isSensitiveClass(ticketClass) {
+  return (
+    ticketClass === "security" ||
+    ticketClass === "payment" ||
+    ticketClass === "auth"
+  )
+}
+
+export function classifyConductEligibility(record) {
+  if (record.unansweredClarification) {
+    return { eligible: false, reason: "excluded_clarification" }
+  }
+  if (record.scope === "migration") {
+    return { eligible: false, reason: "excluded_migration" }
+  }
+  if (record.scope === "rls") {
+    return { eligible: false, reason: "excluded_rls" }
+  }
+  const labels = Array.isArray(record.labels) ? record.labels : []
+  if (record.scope === "new-scope" || labels.includes("/design")) {
+    return { eligible: true, reason: "design_first" }
+  }
+  if (
+    record.answeredClarification === true &&
+    record.briefMissingSpec === true
+  ) {
+    return { eligible: true, reason: "spec_amend" }
+  }
+  const sensitive = isSensitiveClass(record.class)
+  if (
+    record.briefComplete === false &&
+    record.priority != null &&
+    record.priority !== ""
+  ) {
+    return sensitive
+      ? { eligible: true, reason: "auto_brief", sensitive: true }
+      : { eligible: true, reason: "auto_brief" }
+  }
+  if (sensitive) {
+    return { eligible: true, sensitive: true }
+  }
+}
+
+export function qaMayReadyPr({ labels }) {
+  return !labels.some((label) => String(label).toLowerCase() === "sensitive")
 }

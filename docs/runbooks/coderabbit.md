@@ -32,7 +32,7 @@ The PR is left a **draft**, and that draft has already passed this CLI
 gate for the head that was pushed.
 Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do
 not run `gh pr ready`, do not post `@coderabbitai review`, and do not poll
-for a remote review. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is a clean gate
+for a remote review. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. On a GitHub `sensitive` pull request, QA bots, including `ralfcam`, post the digest and wait for Jose instead of marking it ready. Readiness is a clean gate
 receipt for that head plus that UAT. `/ready-merge-release` is that
 operator/QA command. It does not post a review trigger. On 2026-10-09 the
 cursor GitHub App token received HTTP 403 `Resource not accessible by
