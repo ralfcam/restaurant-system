@@ -228,4 +228,61 @@ describe("G-TD1 TDD delegation-guard liveness", () => {
       restoreTddState()
     }
   })
+
+  it("armed depth 0 denies a Write that reaches the guard script through ..", () => {
+    writeFileSync(
+      TDD_STATE,
+      JSON.stringify({ armed: true, depth: 0, phase: null }, null, 2),
+      "utf8",
+    )
+
+    try {
+      const guardScriptWrite = runGuard(
+        "tdd-delegation-guard.mjs",
+        "\uFEFF" +
+          JSON.stringify({
+            tool_name: "Write",
+            tool_input: {
+              path: ".cursor/plans/../hooks/tdd-delegation-guard.mjs",
+            },
+          }),
+      )
+
+      expect({
+        status: guardScriptWrite.status,
+        permission: parseHookStdout(guardScriptWrite.stdout).permission,
+      }).toEqual({ status: 0, permission: "deny" })
+
+      const depth0Null = { depth: 0, phase: null }
+      expect(
+        checkTddWrite(
+          ".cursor/plans/../hooks/tdd-delegation-guard.mjs",
+          depth0Null,
+        ),
+      ).toEqual({ deny: true, kind: "delegation" })
+      expect(
+        checkTddWrite(
+          ".cursor/plans/../hooks/lib/tdd-guard-policy.mjs",
+          depth0Null,
+        ),
+      ).toEqual({ deny: true, kind: "delegation" })
+      expect(
+        checkTddWrite(
+          ".cursor/plans/../hooks/state/tdd-guard.json",
+          depth0Null,
+        ),
+      ).toBeNull()
+      expect(
+        checkTddWrite("lib/../docs/specs/dev-toolchain.md", depth0Null),
+      ).toBeNull()
+      expect(
+        checkTddWrite(repoRoot + "//lib/billing/foo.ts", depth0Null),
+      ).toEqual({ deny: true, kind: "delegation" })
+      expect(
+        checkTddWrite(repoRoot + "/./lib/billing/foo.ts", depth0Null),
+      ).toEqual({ deny: true, kind: "delegation" })
+    } finally {
+      restoreTddState()
+    }
+  })
 })

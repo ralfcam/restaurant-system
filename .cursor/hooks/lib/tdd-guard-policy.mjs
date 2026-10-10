@@ -12,7 +12,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { dirname, join } from "node:path"
+import { dirname, join, posix as pathPosix } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -316,10 +316,17 @@ export function extractPath(toolInput) {
 
 function normalize(p) {
   // Relativize a path inside this checkout (root from this module, same join
-  // pattern as STATE_PATH), then match on forward slashes.
+  // pattern as STATE_PATH), then collapse . / .. on forward slashes.
   let s = String(p).replace(/\\/g, "/")
   const root = join(__dirname, "..", "..", "..").replace(/\\/g, "/")
-  if (s === root || s.startsWith(`${root}/`)) s = s.slice(root.length)
+  if (s === root || s.startsWith(`${root}/`)) {
+    s = s.slice(root.length).replace(/^\/+/, "")
+  } else {
+    s = s.replace(/^\.?\//, "")
+  }
+  s = pathPosix.normalize(s)
+  if (s === ".") return ""
+  if (s === ".." || s.startsWith("../")) return s
   return s.replace(/^\.?\//, "")
 }
 
@@ -353,16 +360,17 @@ export function isTestsPath(relPath) {
  * edit. Depth-only deny treated that parent write as a subagent edit.
  */
 export function checkTddWrite(relPath, { depth, phase }) {
-  if (isSpecPath(relPath) && VALID_PHASES.includes(phase)) {
+  const path = normalize(relPath)
+  if (isSpecPath(path) && VALID_PHASES.includes(phase)) {
     return { deny: true, kind: "spec" }
   }
   // Named disarm file only — not the rest of .cursor/hooks/state/.
-  if (normalize(relPath) === ".cursor/hooks/state/tdd-guard.json") return null
-  if (!isProtected(relPath)) return null
+  if (path === ".cursor/hooks/state/tdd-guard.json") return null
+  if (!isProtected(path)) return null
   if (depth > 0) {
-    if (phase === "red" && !isTestsPath(relPath))
+    if (phase === "red" && !isTestsPath(path))
       return { deny: true, kind: "phase-red" }
-    if ((phase === "green" || phase === "refactor") && isTestsPath(relPath)) {
+    if ((phase === "green" || phase === "refactor") && isTestsPath(path)) {
       return { deny: true, kind: "phase-tests" }
     }
     return null
