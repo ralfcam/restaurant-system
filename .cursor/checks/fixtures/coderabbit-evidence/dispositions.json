@@ -37,7 +37,7 @@
         "850fd55afd7c9b1e": { "status": "waived", "reason": "accepted risk" },
         "ac1c3c33960fd4fa": { "status": "captured" }
       },
-      "expect": { "action": "push", "record": "capture_and_push" }
+      "expect": { "action": "push", "record": "push" }
     },
     {
       "name": "fixed-only-when-absent",

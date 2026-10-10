@@ -214,8 +214,9 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    At the same head, a rerun with no diff MUST NOT replace recorded
    evidence with a weaker result. `chooseCliEvidence` keeps `prior` when
    `sameHead` and `noDiff` are true and `next` is weaker. Weaker means a
-   lower result rank, or the same `findings` status with any stable key
-   dropping from Critical, Major, or unknown to Minor or Trivial.
+   lower result rank, the same `findings` status with any stable key
+   dropping from Critical, Major, or unknown to Minor or Trivial, or a
+   prior Critical, Major, or unknown key missing from `next`.
    Result rank: `findings` (tie-break by highest severity:
    critical=4, major=3, unknown=3, minor=2, trivial=1) >
    `unavailable` (0) > `clean` (-1). `batch_covered` is not ranked
@@ -251,7 +252,8 @@ unregistered until a managed VM records an `MCP:` `preToolUse` fire.
    `blocked_major_findings`. Only Minor and Trivial may be captured without
    an explicit Critical/Major disposition. An explicit `captured` or
    `waived` (with reason) disposition on a Critical or Major is
-   accounted-for and may push. `fixed` is valid only when that key is
+   accounted-for and may push. Accounted Critical and Major findings
+   MUST NOT be copied into `leftover` or `capture`. `fixed` is valid only when that key is
    absent from the current findings. `/push` opens or updates the pull request as a
    **draft**. Agents, `/conduct`, and Cloud runs MUST NOT call
    `/ready-merge-release` and MUST NOT run `gh pr ready` to mark a PR ready.

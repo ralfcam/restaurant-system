@@ -163,6 +163,11 @@ export function stableFindingKey(finding) {
   return sha256Hex(findingKeyMaterial(finding)).slice(0, 16)
 }
 
+function findingStartLine(finding) {
+  const line = Number(finding?.startLine)
+  return Number.isFinite(line) ? line : Number.POSITIVE_INFINITY
+}
+
 export function canonicalFindingsDigest(findings) {
   return [...(findings || [])]
     .sort((a, b) => {
@@ -170,7 +175,14 @@ export function canonicalFindingsDigest(findings) {
       const fileB = findingRelPath(b)
       if (fileA < fileB) return -1
       if (fileA > fileB) return 1
-      return a.startLine - b.startLine
+      const lineA = findingStartLine(a)
+      const lineB = findingStartLine(b)
+      if (lineA !== lineB) return lineA - lineB
+      const keyA = findingKeyMaterial(a)
+      const keyB = findingKeyMaterial(b)
+      if (keyA < keyB) return -1
+      if (keyA > keyB) return 1
+      return 0
     })
     .map((finding) => `${finding.severity}|${findingKeyMaterial(finding)}`)
     .join("\n")

@@ -216,6 +216,43 @@ describe("G-CR2 same-head anti-downgrade", () => {
       }),
     ).toBe(prior)
   })
+
+  it("same-head rerun keeps prior when a blocking key disappears", () => {
+    const head = "c".repeat(40)
+    const kept = {
+      severity: "major",
+      file: "lib/a.ts",
+      startLine: 10,
+      endLine: 12,
+      title: "Logic  Bug",
+    }
+    const dropped = {
+      severity: "major",
+      file: "lib/b.ts",
+      startLine: 1,
+      endLine: 1,
+      title: "Missing AUTH check",
+    }
+    const prior = {
+      head,
+      status: "findings",
+      findings: [kept, dropped],
+    }
+    const next = {
+      head,
+      status: "findings",
+      findings: [kept],
+    }
+
+    expect(
+      chooseCliEvidence({
+        prior,
+        next,
+        sameHead: true,
+        noDiff: true,
+      }),
+    ).toBe(prior)
+  })
 })
 
 describe("G-CR2 replace preserves CLI evidence", () => {
@@ -319,6 +356,27 @@ describe("G-CR2 batch covered member heads", () => {
     })
     expect(batchEvidenceHash(changed)).not.toBe(batchEvidenceHash(rendered))
   })
+
+  it("does not record batch_covered without member heads", () => {
+    const head = "d".repeat(40)
+    const empty = renderCliEvidenceBlock({
+      head,
+      attemptStatus: "batch_covered",
+      members: [],
+    })
+    const missingHead = renderCliEvidenceBlock({
+      head,
+      attemptStatus: "batch_covered",
+      members: [{ number: 12, head: "", evidenceHash: "aa" }],
+    })
+
+    expect(empty).not.toMatch(/attemptStatus: batch_covered/)
+    expect(missingHead).not.toMatch(/attemptStatus: batch_covered/)
+    expect(batchEvidenceMarker(empty)).toBeUndefined()
+    expect(batchEvidenceMarker(missingHead)).toBeUndefined()
+    expect(empty).toMatch(evidenceMarker(head, "unavailable"))
+    expect(missingHead).toMatch(evidenceMarker(head, "unavailable"))
+  })
 })
 
 type CliDisposition = {
@@ -381,5 +439,28 @@ describe("G-CR2 critical and major dispositions", () => {
         record: testCase.expect.record,
       })
     }
+
+    const accounted = decidePushCliAction({
+      attemptStatus: "findings",
+      findings: vector.findings,
+      dispositions: {
+        "850fd55afd7c9b1e": { status: "waived", reason: "accepted risk" },
+        ac1c3c33960fd4fa: { status: "captured" },
+      },
+    })
+    expect(accounted.leftover).toEqual([])
+    expect(accounted.capture).toEqual([])
+  })
+})
+
+describe("G-CR2 digest total order", () => {
+  it("sorts same-file findings without startLine in a total order", () => {
+    const alpha = { severity: "minor", file: "lib/a.ts", title: "alpha" }
+    const beta = { severity: "major", file: "lib/a.ts", title: "beta" }
+
+    expect(canonicalFindingsDigest([alpha, beta])).toBe(
+      canonicalFindingsDigest([beta, alpha]),
+    )
+    expect(canonicalFindingsDigest([alpha, beta])).not.toMatch(/NaN/)
   })
 })

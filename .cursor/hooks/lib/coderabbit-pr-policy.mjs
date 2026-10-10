@@ -411,7 +411,7 @@ export function decidePushCliAction({
     const split = applyCriticalMajorDispositions(blocking, dispositions)
     const allFixed = everyDispositionFixed(dispositions)
     blocking = split.open
-    captureFindings = [...routed.capture, ...split.accounted]
+    captureFindings = routed.capture
     skipPassOneRoute =
       split.open.length === 0 && (split.accounted.length > 0 || allFixed)
     if (findings.length === 0 && allFixed) {
@@ -454,6 +454,13 @@ export function decidePushCliAction({
 
 export const CLI_EVIDENCE_HEADING = "## CodeRabbit CLI evidence"
 
+function coveredBatchMembers(members) {
+  if (!Array.isArray(members) || members.length === 0) return null
+  const listed = sortedBatchMembers(members)
+  if (listed.some((member) => !String(member?.head || "").trim())) return null
+  return listed
+}
+
 export function renderCliEvidenceBlock({
   head,
   attemptStatus,
@@ -461,24 +468,34 @@ export function renderCliEvidenceBlock({
   findings,
   members,
 } = {}) {
+  const covered =
+    attemptStatus === "batch_covered" ? coveredBatchMembers(members) : null
+  const status =
+    attemptStatus === "batch_covered" && !covered
+      ? "unavailable"
+      : attemptStatus
+  const statusReason =
+    attemptStatus === "batch_covered" && !covered
+      ? reason || "batch_uncovered"
+      : reason
   const lines = [
     CLI_EVIDENCE_HEADING,
     `Head: ${head}`,
-    `attemptStatus: ${attemptStatus}`,
+    `attemptStatus: ${status}`,
   ]
-  if (reason) lines.push(`reason: ${reason}`)
-  if (attemptStatus === "batch_covered") {
-    for (const member of sortedBatchMembers(members)) {
+  if (statusReason) lines.push(`reason: ${statusReason}`)
+  if (status === "batch_covered" && covered) {
+    for (const member of covered) {
       lines.push(`${member.number}: ${member.head}`)
     }
   }
   const hash = cliEvidenceHash({
     head,
-    status: attemptStatus,
-    findings,
-    members,
+    status,
+    findings: status === "batch_covered" ? undefined : findings,
+    members: covered || undefined,
   })
-  const marker = `<!-- coderabbit-cli-evidence:${head}:${attemptStatus}:${hash} -->`
+  const marker = `<!-- coderabbit-cli-evidence:${head}:${status}:${hash} -->`
   return `${lines.join("\n")}\n${marker}\n`
 }
 
@@ -550,6 +567,21 @@ function cliEvidenceSeverityDropped(prior, next) {
   return false
 }
 
+function cliEvidenceBlockingKeyDropped(prior, next) {
+  if (prior?.status !== "findings" || next?.status !== "findings") return false
+  const nextKeys = new Set((next.findings || []).map(stableFindingKey))
+  for (const finding of prior.findings || []) {
+    if (
+      cliEvidenceSeverityRank(finding?.severity) >=
+        CLI_EVIDENCE_SEVERITY_RANK.major &&
+      !nextKeys.has(stableFindingKey(finding))
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 export function chooseCliEvidence({ prior, next, sameHead, noDiff } = {}) {
   if (!sameHead || !noDiff) return next
   const priorRank = cliEvidenceResultRank(prior)
@@ -560,7 +592,8 @@ export function chooseCliEvidence({ prior, next, sameHead, noDiff } = {}) {
     prior?.status === "findings" &&
     next?.status === "findings" &&
     cliEvidenceSeverityDropped(prior, next)
-  if (lowerRank || severityDrop) return prior
+  const blockingDrop = cliEvidenceBlockingKeyDropped(prior, next)
+  if (lowerRank || severityDrop || blockingDrop) return prior
   return next
 }
 

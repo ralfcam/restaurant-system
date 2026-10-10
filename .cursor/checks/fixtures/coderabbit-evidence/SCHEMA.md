@@ -43,7 +43,8 @@ Vendor CLI `id` is not the stable key.
 
 At the same HEAD, a rerun with no diff keeps the more severe result.
 Rank: `findings` (highest severity critical=4, major=3, unknown=3,
-minor=2, trivial=1) > `unavailable` (0) > `clean` (-1).
+minor=2, trivial=1) > `unavailable` (0) > `clean` (-1). Missing a prior
+Critical, Major, or unknown key is weaker even when max rank is unchanged.
 
 ## Batch PRs
 
@@ -56,6 +57,7 @@ covered.
 Every Critical or Major must have `fixed` | `captured` | `waived` before
 push. `waived` requires a nonempty reason. Keys are `stableFindingKey`.
 `fixed` is valid only when the key is absent from the current findings.
+Accounted Critical and Major findings are not leftover or capture.
 
 ## CLI pin
 
