@@ -41,6 +41,8 @@ phase — no behavior change.
 
 ## Mechanical backstop
 
-A fail-open `preToolUse` hook (`task-fanout-guard.mjs`, matcher `Task`) denies
-a `Task` call when reservations are at the cap and tells the agent to wave
-and wait for in-flight to drop. A hook crash must not brick TDD `Task` calls.
+A fail-closed `preToolUse` hook (`task-fanout-guard.mjs`, matcher `Task`)
+denies a `Task` call when reservations are at the cap and tells the agent
+to wave and wait for in-flight to drop. Reservations are atomic (exclusive
+file lock). A hook crash or malformed stdin exits non-zero so the cap
+cannot fail open.

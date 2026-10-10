@@ -31,17 +31,31 @@ export function parseToolInput(raw) {
   }
 }
 
-/** CallMcpTool, preToolUse MCP:<name>, and beforeMCPExecution payloads. */
+/** CallMcpTool, Cloud CallDynamicTool, preToolUse MCP:<name>, and beforeMCPExecution. */
 export function extractMcpCall(input) {
   const rawName = typeof input.tool_name === "string" ? input.tool_name : ""
   const ti = parseToolInput(input.tool_input)
   if (rawName === "CallMcpTool") {
     return { server: ti.server, toolName: ti.toolName, args: ti.arguments }
   }
+  if (rawName === "CallDynamicTool") {
+    const toolName = typeof ti.toolName === "string" ? ti.toolName : ""
+    if (!toolName) return null
+    return {
+      server: ti.namespace ?? ti.server,
+      toolName,
+      args: ti.arguments ?? ti,
+    }
+  }
   const toolName = rawName.startsWith("MCP:") ? rawName.slice(4) : rawName
   if (!toolName) return null
   return {
-    server: input.mcp_server_name ?? input.command ?? input.url ?? ti.server,
+    server:
+      input.mcp_server_name ??
+      input.command ??
+      input.url ??
+      ti.server ??
+      ti.namespace,
     toolName,
     args: ti.arguments ?? ti,
   }
