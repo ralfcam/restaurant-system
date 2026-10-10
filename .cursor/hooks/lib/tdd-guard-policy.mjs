@@ -409,18 +409,179 @@ export function detectBlanketGitStage(command) {
   return null
 }
 
-/** Detect `gh pr merge` in a shell command string. Segments on &&/;/|/||
- * so it also catches chained invocations. Returns null when nothing matches. */
+function basenameToken(token) {
+  return token
+    .replace(/\\/g, "/")
+    .split("/")
+    .pop()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\.exe$/i, "")
+}
+
+export function unwrapShellWrappers(command) {
+  let current = String(command).trim()
+  for (let i = 0; i < 5; i++) {
+    const m = current.match(
+      /^(?:(?:\S*\/)?(?:ba)?sh(?:\.exe)?)\s+-c\s+(?:(['"])([\s\S]*)\1|(\S+))$/i,
+    )
+    if (!m) break
+    current = (m[2] ?? m[3] ?? "").trim()
+  }
+  return current
+}
+
+function skipFlagTokens(tokens, valueFlags) {
+  const out = []
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (t.startsWith("-")) {
+      const flag = t.split("=")[0]
+      if (
+        !t.includes("=") &&
+        valueFlags.has(flag) &&
+        tokens[i + 1] &&
+        !tokens[i + 1].startsWith("-")
+      ) {
+        i += 1
+      }
+      continue
+    }
+    out.push(t)
+  }
+  return out
+}
+
+const GH_VALUE_FLAGS = new Set([
+  "-R",
+  "--repo",
+  "-X",
+  "--method",
+  "-f",
+  "-F",
+  "-H",
+  "--header",
+  "--input",
+  "-t",
+  "--hostname",
+])
+
+const GIT_PUSH_VALUE_FLAGS = new Set([
+  "-u",
+  "--set-upstream",
+  "-o",
+  "--push-option",
+  "--repo",
+  "--exec",
+  "--receive-pack",
+  "-C",
+  "-c",
+])
+
+const GITHUB_MCP_MERGE_TOOLS = new Set([
+  "merge_pull_request",
+  "mergePullRequest",
+  "merge_pr",
+])
+
+function detectGhPrMergeSegment(segment) {
+  const raw = unwrapShellWrappers(segment)
+  if (!raw) return null
+  const haystack = raw.replace(/\\/g, "/")
+  if (/\bmergePullRequest\b/.test(haystack)) {
+    return { kind: "pr-merge", segment: raw }
+  }
+  if (
+    /(?:^|[\s;|&])(?:\S*\/)?curl(?:\.exe)?\b[\s\S]*https?:\/\/api\.github\.com\/repos\/[^/\s]+\/[^/\s]+\/pulls\/\d+\/merge\b/i.test(
+      haystack,
+    )
+  ) {
+    return { kind: "pr-merge", segment: raw }
+  }
+  const tokens = haystack.split(/\s+/).filter(Boolean)
+  for (let i = 0; i < tokens.length; i++) {
+    if (basenameToken(tokens[i]) !== "gh") continue
+    const pos = skipFlagTokens(tokens.slice(i + 1), GH_VALUE_FLAGS)
+    if (pos[0] === "pr" && pos[1] === "merge") {
+      return { kind: "pr-merge", segment: raw }
+    }
+    if (
+      pos[0] === "api" &&
+      pos.some((t) => /\/pulls\/\d+\/merge(?:\b|$|\?)/.test(t))
+    ) {
+      return { kind: "pr-merge", segment: raw }
+    }
+  }
+  return null
+}
+
+/** Detect a GitHub PR merge in a shell command. Tolerant of bash -c,
+ * full-path `gh`, `gh -R`, `gh api …/merge`, GraphQL mergePullRequest,
+ * and curl to the pulls merge endpoint. */
 export function detectGhPrMerge(command) {
   if (typeof command !== "string" || !command.trim()) return null
   const segments = command.split(/&&|\|\||;|\|/)
   for (const rawSeg of segments) {
-    const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
-    const ghIdx = tokens.indexOf("gh")
-    if (ghIdx === -1) continue
-    if (tokens[ghIdx + 1] === "pr" && tokens[ghIdx + 2] === "merge") {
-      return { kind: "pr-merge", segment: rawSeg.trim() }
+    const hit = detectGhPrMergeSegment(rawSeg.trim())
+    if (hit) return hit
+  }
+  return null
+}
+
+export function detectGithubMcpMerge(input) {
+  if (!input || typeof input !== "object") return null
+  const raw = typeof input.tool_name === "string" ? input.tool_name : ""
+  const name = raw.startsWith("MCP:") ? raw.slice(4) : raw
+  if (GITHUB_MCP_MERGE_TOOLS.has(name)) {
+    return { kind: "pr-merge", segment: raw }
+  }
+  const ti = input.tool_input
+  const nested =
+    ti && typeof ti === "object" ? ti.toolName || ti.tool_name : null
+  if (raw === "CallMcpTool" && GITHUB_MCP_MERGE_TOOLS.has(nested)) {
+    return { kind: "pr-merge", segment: String(nested) }
+  }
+  return null
+}
+
+function refspecTargetsProtected(refspec) {
+  const dest = String(refspec)
+    .replace(/^\+/, "")
+    .split(":")
+    .pop()
+    .replace(/^refs\/heads\//, "")
+  return dest === "main" || dest === "staging"
+}
+
+function detectProtectedPushSegment(segment) {
+  const raw = unwrapShellWrappers(segment)
+  if (!raw) return null
+  const tokens = raw.replace(/\\/g, "/").split(/\s+/).filter(Boolean)
+  for (let i = 0; i < tokens.length; i++) {
+    if (basenameToken(tokens[i]) !== "git") continue
+    const afterGit = tokens.slice(i + 1)
+    const pushIdx = afterGit.findIndex((t) => t === "push")
+    if (pushIdx === -1) continue
+    const positionals = skipFlagTokens(
+      afterGit.slice(pushIdx + 1),
+      GIT_PUSH_VALUE_FLAGS,
+    )
+    if (positionals.length === 0) return null
+    const refspecs =
+      positionals.length === 1 ? positionals : positionals.slice(1)
+    if (refspecs.some(refspecTargetsProtected)) {
+      return { kind: "protected-push", segment: raw }
     }
+  }
+  return null
+}
+
+/** Detect `git push` whose destination ref is main or staging. */
+export function detectProtectedBranchPush(command) {
+  if (typeof command !== "string" || !command.trim()) return null
+  const segments = command.split(/&&|\|\||;|\|/)
+  for (const rawSeg of segments) {
+    const hit = detectProtectedPushSegment(rawSeg.trim())
+    if (hit) return hit
   }
   return null
 }

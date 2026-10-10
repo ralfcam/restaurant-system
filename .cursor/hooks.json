@@ -8,6 +8,16 @@
         "failClosed": true
       },
       {
+        "command": "node .cursor/hooks/git-stage-guard.mjs",
+        "matcher": "MCP:merge_pull_request|MCP:mergePullRequest|MCP:merge_pr",
+        "failClosed": true
+      },
+      {
+        "command": "node .cursor/hooks/linear-write-guard.mjs",
+        "matcher": "MCP:save_issue|save_comment|save_status_update",
+        "failClosed": false
+      },
+      {
         "command": "node .cursor/hooks/tdd-delegation-guard.mjs",
         "failClosed": false
       },
@@ -19,7 +29,7 @@
       {
         "command": "node .cursor/hooks/task-fanout-guard.mjs",
         "matcher": "Task",
-        "failClosed": false
+        "failClosed": true
       },
       {
         "command": "node .cursor/hooks/task-delegation-guard.mjs",

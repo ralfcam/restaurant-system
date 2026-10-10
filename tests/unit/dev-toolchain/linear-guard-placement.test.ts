@@ -9,7 +9,7 @@ const LINEAR_GUARDS = [
 ]
 
 describe("G-LG1 linear guard placement", () => {
-  it("keeps Linear guards on beforeMCPExecution and off preToolUse", () => {
+  it("wires Linear write lock to preToolUse MCP writers and keeps spawn/size off", () => {
     const hooks = JSON.parse(
       readFileSync(path.join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
     ) as {
@@ -18,17 +18,27 @@ describe("G-LG1 linear guard placement", () => {
         beforeMCPExecution: { command: string }[]
       }
     }
-    const pre = hooks.hooks.preToolUse.map((hook) => hook.command).join("\n")
+    const pre = hooks.hooks.preToolUse
     const before = hooks.hooks.beforeMCPExecution
       .map((hook) => hook.command)
       .join("\n")
     for (const guard of LINEAR_GUARDS) {
-      expect(pre).not.toContain(guard)
       expect(before).toContain(guard)
     }
-    expect(pre).not.toContain("MCP:")
+    const writePre = pre.find((hook) =>
+      hook.command.includes("linear-write-guard.mjs"),
+    )
+    expect(writePre?.matcher).toMatch(/MCP:save_issue/)
+    expect(writePre?.matcher).toMatch(/save_comment/)
+    expect(writePre?.matcher).toMatch(/save_status_update/)
     expect(
-      hooks.hooks.preToolUse.some((hook) => hook.matcher === "Shell"),
-    ).toBe(true)
+      pre.some((hook) => hook.command.includes("linear-spawn-guard.mjs")),
+    ).toBe(false)
+    expect(
+      pre.some((hook) =>
+        hook.command.includes("linear-comment-size-guard.mjs"),
+      ),
+    ).toBe(false)
+    expect(pre.some((hook) => hook.matcher === "Shell")).toBe(true)
   })
 })

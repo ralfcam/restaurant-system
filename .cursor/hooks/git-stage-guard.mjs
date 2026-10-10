@@ -2,10 +2,10 @@
 /**
  * preToolUse: always-on Shell guard (blanket git-stage + gh pr merge + commit gate).
  *
- * Blocks `git add -A|--all|.`, `git commit -a|--all`, and `gh pr merge` in any
- * Shell command — /commit staging plus the "operator merges in GitHub" rule,
- * enforced deterministically instead of by prose discipline. After a TDD loop
- * sets loopRan, also blocks any `git commit` until /commit opens the gate.
+ * Blocks `git add -A|--all|.`, `git commit -a|--all`, tolerant GitHub merge
+ * paths (including MCP merge tools), and `git push` to main/staging. After a
+ * TDD loop sets loopRan, also blocks any `git commit` until /commit opens
+ * the gate.
  *
  * failClosed: true in hooks.json — a crash or timeout of this script must not
  * fail-open into a blanket stage or a merge. Matcher is Shell-only so a crash
@@ -20,7 +20,9 @@ import {
   writeStdoutJson,
   detectBlanketGitStage,
   detectGhPrMerge,
+  detectGithubMcpMerge,
   detectGitCommit,
+  detectProtectedBranchPush,
   addedPathsFromGit,
   evaluateGitCommitPermission,
   getCommitExempt,
@@ -31,6 +33,19 @@ import {
 function main() {
   try {
     const input = readStdinJson()
+    const mcpMerge = detectGithubMcpMerge(input)
+    if (mcpMerge) {
+      writeStdoutJson({
+        permission: "deny",
+        user_message:
+          "Blocked a GitHub MCP merge — merging is the operator's job in the GitHub UI.",
+        agent_message:
+          `git-stage guard: "${mcpMerge.segment}" is a GitHub merge tool, which is blocked ` +
+          "repo-wide. Merge in the GitHub UI after /push; never merge from the agent. See " +
+          ".cursor/rules/staging-accumulator.mdc and .cursor/commands/push.md.",
+      })
+      return
+    }
     if (input.tool_name !== "Shell") {
       writeStdoutJson({})
       return
@@ -41,11 +56,24 @@ function main() {
       writeStdoutJson({
         permission: "deny",
         user_message:
-          "Blocked `gh pr merge` — merging is the operator's job in the GitHub UI.",
+          "Blocked a GitHub merge — merging is the operator's job in the GitHub UI.",
         agent_message:
-          `git-stage guard: "${mergeHit.segment}" matches \`gh pr merge\`, which is blocked ` +
+          `git-stage guard: "${mergeHit.segment}" matches a GitHub merge, which is blocked ` +
           "repo-wide. Merge in the GitHub UI after /push; never merge from the agent. See " +
           ".cursor/rules/staging-accumulator.mdc and .cursor/commands/push.md.",
+      })
+      return
+    }
+    const pushHit = detectProtectedBranchPush(command)
+    if (pushHit) {
+      writeStdoutJson({
+        permission: "deny",
+        user_message:
+          "Blocked `git push` to main or staging — publish a feature branch only.",
+        agent_message:
+          `git-stage guard: "${pushHit.segment}" pushes to main or staging, which is blocked ` +
+          "repo-wide. Push the feature branch and open a draft PR into staging. See " +
+          ".cursor/rules/staging-accumulator.mdc.",
       })
       return
     }

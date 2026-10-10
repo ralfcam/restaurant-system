@@ -4,8 +4,9 @@
  * in flight.
  *
  * Reads (list_*, get_*) stay unrestricted. Residual: a concurrent parent
- * write while linear-resolver is in flight also passes. Cloud agents do
- * not run beforeMCPExecution hooks.
+ * write while linear-resolver is in flight also passes. Cloud agents run
+ * preToolUse (MCP: matcher), not beforeMCPExecution. On that path,
+ * denyUnknownServer rejects guarded write names when the server is missing.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -48,10 +49,24 @@ export function setAllowed(allowed) {
   saveState({ allowed: Boolean(allowed) })
 }
 
+function isUnknownServer(server) {
+  return typeof server !== "string" || !server.trim()
+}
+
 /** `{ deny: true }` when a guarded Linear writer runs with the flag off. */
-export function checkLinearWrite(server, toolName, allowed = isAllowed()) {
-  if (!isLinearServer(server)) return null
+export function checkLinearWrite(
+  server,
+  toolName,
+  allowed = isAllowed(),
+  options = {},
+) {
   if (!isLinearWriteTool(toolName)) return null
-  if (allowed) return null
-  return { deny: true }
+  if (isLinearServer(server)) {
+    if (allowed) return null
+    return { deny: true }
+  }
+  if (options.denyUnknownServer && isUnknownServer(server)) {
+    return { deny: true }
+  }
+  return null
 }
