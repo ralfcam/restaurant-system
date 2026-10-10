@@ -14,9 +14,26 @@ export const DESIGN_ANSWER_KEYS = [
 
 const BRIEF_HEADING = "## Ready brief"
 
+function linesUntilNextField(lines) {
+  const kept = []
+  for (const line of lines) {
+    if (/^[A-Z][A-Za-z]*(?: [A-Za-z]+)*:/.test(line)) break
+    const trimmed = line.trim()
+    if (trimmed) kept.push(trimmed)
+  }
+  return kept
+}
+
 function field(section, label) {
   const match = section.match(new RegExp(`^${label}:[ \\t]*(.*)$`, "im"))
-  return match ? match[1].trim() : ""
+  if (!match) return ""
+  const rest = section
+    .slice(match.index + match[0].length)
+    .split("\n")
+    .slice(1)
+  return [match[1].trim(), ...linesUntilNextField(rest)]
+    .filter(Boolean)
+    .join("\n")
 }
 
 function briefSection(markdown) {
@@ -129,7 +146,10 @@ export function classifyConductEligibility(record) {
   }
   const sensitive = isSensitiveClass(record.class)
   const labels = Array.isArray(record.labels) ? record.labels : []
-  if (record.scope === "new-scope" || labels.includes("/design")) {
+  if (
+    (record.scope === "new-scope" || labels.includes("/design")) &&
+    record.designComplete !== true
+  ) {
     return eligibleReason("design_first", sensitive)
   }
   if (

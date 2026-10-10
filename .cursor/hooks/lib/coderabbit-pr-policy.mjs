@@ -348,17 +348,25 @@ export function decidePushCliAction({
     }
   }
   const { sddToTdd, capture } = routedPushFindings(findings)
+  if (sddToTdd.length > 0 && round >= PUSH_CLI_FIX_ROUND_CAP) {
+    const captured = [
+      ...sddToTdd.map((finding) => ({
+        ...finding,
+        route: "capture",
+        command: "/capture",
+      })),
+      ...capture,
+    ]
+    return {
+      action: "push",
+      leftover: captured,
+      sddToTdd: [],
+      capture: captured,
+      record: "capture_and_push",
+    }
+  }
   const packet = { leftover: capture, sddToTdd, capture }
   if (sddToTdd.length > 0) {
-    if (round >= PUSH_CLI_FIX_ROUND_CAP) {
-      return {
-        action: "stop",
-        leftover: [],
-        sddToTdd,
-        capture,
-        record: "blocked_major_findings",
-      }
-    }
     return { action: "route", ...packet, record: "fix_round" }
   }
   // Pass 1 routes every finding. Later passes capture only Minor and Trivial.
@@ -381,6 +389,17 @@ export function renderCliEvidenceBlock({ head, attemptStatus, reason } = {}) {
     `attemptStatus: ${attemptStatus}`,
   ]
   if (reason) lines.push(`reason: ${reason}`)
+  return `${lines.join("\n")}\n`
+}
+
+export const CAPTURED_BLOCKING_FINDINGS_HEADING =
+  "## Captured blocking findings (Jose review)"
+
+export function renderCapturedBlockingFindings(findings = []) {
+  const lines = [CAPTURED_BLOCKING_FINDINGS_HEADING]
+  for (const finding of findings) {
+    lines.push(`- ${finding.severity} ${finding.id}`)
+  }
   return `${lines.join("\n")}\n`
 }
 

@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { describe, test } from "node:test"
+import * as prPolicy from "../hooks/lib/coderabbit-pr-policy.mjs"
 import {
   NO_FORMAL_REVIEW_BODY_HEADING,
   NO_FORMAL_REVIEW_OPERATOR_COMMENT,
@@ -535,14 +536,45 @@ test("push CLI action routes two fix rounds then blocks majors", () => {
     ],
     priorRound: 2,
   })
-  assert.equal(blocked.action, "stop")
-  assert.equal(blocked.record, "blocked_major_findings")
-  assert.equal(blocked.leftover.length, 0)
-  assert.equal(blocked.sddToTdd.length, 2)
+  assert.equal(blocked.action, "push")
+  assert.equal(blocked.record, "capture_and_push")
+  assert.equal(blocked.sddToTdd.length, 0)
+  assert.deepEqual(blocked.capture.map((finding) => finding.id).sort(), [
+    "c1",
+    "m9",
+    "n9",
+  ])
   assert.equal(
-    blocked.sddToTdd.every((finding) => finding.command === "/sdd-to-tdd"),
+    blocked.capture.every((finding) => finding.command === "/capture"),
     true,
   )
+  assert.deepEqual(blocked.leftover.map((finding) => finding.id).sort(), [
+    "c1",
+    "m9",
+    "n9",
+  ])
+
+  const policySrc = readFileSync(
+    join(process.cwd(), ".cursor", "hooks", "lib", "coderabbit-pr-policy.mjs"),
+    "utf8",
+  )
+  const joseHeading = "## Captured blocking findings (Jose review)"
+  assert.match(policySrc, /export function renderCapturedBlockingFindings\b/)
+  assert.match(policySrc, /## Captured blocking findings \(Jose review\)/)
+  const render = prPolicy.renderCapturedBlockingFindings
+  assert.equal(typeof render, "function")
+  const rendered = String(
+    render([
+      { severity: "critical", id: "c1" },
+      { severity: "major", id: "m9" },
+      { severity: "unknown", id: "u9" },
+    ]),
+  )
+  assert.equal(rendered.startsWith(joseHeading), true)
+  const underHeading = rendered.slice(joseHeading.length)
+  assert.match(underHeading, /\bc1\b/)
+  assert.match(underHeading, /\bm9\b/)
+  assert.match(underHeading, /\bu9\b/)
 
   const blockedUnknown = decidePushCliAction({
     attemptStatus: "unavailable",

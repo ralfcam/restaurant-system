@@ -176,15 +176,19 @@ HEAD and a new VM. After a successful `git push`, run
 `node .cursor/checks/coderabbit-gate.mjs --ack-push` so the saved cycle
 clears only once the publish landed. A failed push keeps the started
 round. The next attempt continues that counter. When the counter is
-already at 2, Critical, Major, and unknown findings stop with
-`blocked_major_findings` and do not push. Only Minor and Trivial
-capture-and-push at that cap.
+already at 2, remaining Critical, Major, and unknown findings are
+captured with `/capture` and the branch pushes. `action` is `push` and
+`record` is `capture_and_push`. A historical leftover record of
+`blocked_major_findings` still resolves at that cap so a later run does
+not open another fix round until `--ack-push`. It is not a live stop.
+Minor and Trivial also capture-and-push at that cap.
 
 `/commit` does not run the CLI. Do not run a dirty-tree work-order review
 here. Fetch `origin/staging` first when that ref is missing.
 
 Read the JSON stdout (`attemptStatus`, `reason`, `action`, leftover
-findings). Severity routing matches `/ready-merge-release` without `--loop`:
+findings). On pass 1 and pass 2, severity routing matches
+`/ready-merge-release` without `--loop`:
 
 - Critical / Major / unknown → `/sdd-to-tdd` as an immediate fix
 - Minor / Trivial → `/capture`
@@ -202,12 +206,14 @@ pass still has Critical, Major, or unknown findings.
   `/push` with `--fix-round 2`. If the pass has only Minor or Trivial
   findings, capture them and push in this same pass. Do not open a third
   CLI pass. `record` is `capture_and_push`.
-- **Pass 3** (`--fix-round 2`). If any Critical, Major, or unknown finding
-  is still open, STOP. Do not push, do not create or edit a PR, and do not
-  write those findings to `docs/findings/` or a leftovers file. Report
-  `blocked_major_findings`. They are not captured. If the pass has only
-  Minor or Trivial findings, capture them and push. Do not open a fourth
-  CLI pass.
+- **Pass 3** (`--fix-round 2`). Remaining Critical, Major, and unknown
+  findings are captured with `/capture` and the branch pushes. Do not
+  STOP. `action` is `push` and `record` is `capture_and_push`. Those
+  findings leave `sddToTdd` and join `capture`. List them at the **top**
+  of the PR body under `## Captured blocking findings (Jose review)`.
+  Minor and Trivial findings on this pass are captured the same way. Do
+  not open a fourth CLI pass. A historical leftover record named
+  `blocked_major_findings` is not a live stop.
 
 If the CLI result is `unavailable` for any CLI reason (`error`,
 `version_mismatch`, `timeout`, and the same class: `cli_missing`,
@@ -307,14 +313,16 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
          and criterion IDs, fresh executed-test evidence from this turn's
          whole-suite gate, and optional audit-only CodeRabbit CLI
          `attemptStatus`/`reason` metadata when present. A missing receipt is
-         non-blocking. List captured Minor and Trivial CLI findings. Never list Critical, Major, or unknown findings as leftovers.
+         non-blocking. List captured Critical, Major, and unknown CLI findings at the top of the PR body under `## Captured blocking findings (Jose review)`. Also list captured Minor and Trivial CLI findings.
        - If `<current-branch>` is any other non-default head: `--base staging`;
          derive title and body from `git log origin/staging...HEAD` (never
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
          Include the same Linear URL, owning spec/criteria, executed-test
          evidence, optional audit-only CLI attempt metadata, and captured
-         Minor and Trivial CLI findings. Never list Critical, Major, or
-         unknown findings as leftovers.
+         CLI findings. List captured Critical, Major, and unknown findings
+         at the top of the PR body under
+         `## Captured blocking findings (Jose review)`. Also list captured
+         Minor and Trivial CLI findings.
        - **Duplicate issue PR.** When `<current-branch>` matches
          `cursor/res-<n>-<4 hex>`, list open PRs and **STOP** if another
          open PR's `headRefName` starts with `cursor/res-<n>-`. Do not open
@@ -362,8 +370,9 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   readiness write this command may make.
 - Do not post `@coderabbitai review` and do not poll for a remote review.
   `/push` posts no pull-request comment. Record `## CodeRabbit CLI evidence`
-  (`Head:` and `attemptStatus:`) for the finalized head in the PR body,
-  plus any leftover CLI findings after the capped fix rounds.
+  (`Head:` and `attemptStatus:`) for the finalized head in the PR body.
+  After two fix rounds, list captured blocking findings at the **top** of
+  the PR body under `## Captured blocking findings (Jose review)`.
 - Agents do not run `/ready-merge-release`. The QA bot `ralfcam` runs
   UAT, digests the agent transcript, and does not post a review trigger.
   Readiness is the CLI evidence on the head plus that UAT.
@@ -410,11 +419,13 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
    against that finalized `HEAD`, passing `--fix-round` when this continues
    a capped cycle. Pass 1 routes every finding. Pass 2 routes only
    Critical/Major/unknown. Pass 2 Minor/Trivial capture-and-push with no
-   third pass. Pass 3 stops with `blocked_major_findings` and does not push
-   when a Critical, Major, or unknown finding is still open. Only Minor
-   and Trivial capture-and-push. On `action: route`,
-   STOP, fix, `/commit`, then `/push`. On `blocked_major_findings`, STOP
-   and do not ledger those findings. The gate retries one unavailable CLI
+   third pass. Pass 3 captures remaining Critical, Major, and unknown
+   findings with `/capture` and pushes. `record` is `capture_and_push`.
+   List those captured blocking findings at the top of the PR body under
+   `## Captured blocking findings (Jose review)`. Do not STOP as
+   `blocked_major_findings` — that name is only a historical leftover
+   record. On `action: route`,
+   STOP, fix, `/commit`, then `/push`. The gate retries one unavailable CLI
    result, reinstalling pinned `0.9.0` when the reason is `cli_missing` or
    `version_mismatch`. On `blocked_cli_unavailable`, STOP and do not push,
    and do not ledger that stop. Preflight `secret_path`, `diff_failed`,
@@ -496,13 +507,13 @@ Tone: professional and actionable. Length: concise.
 Exactly these sections:
 
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
-2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (fix round <n> of 2)" | "stopped — `blocked_major_findings`" | "stopped — `blocked_cli_unavailable`" ; CLI: `clean` | `findings routed` | `capture listed` | `unavailable recorded` | `blocked_major_findings` | `blocked_cli_unavailable`.
+2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (fix round <n> of 2)" | "stopped — `blocked_cli_unavailable`" ; CLI: `clean` | `findings routed` | `capture listed` | `unavailable recorded` | `capture_and_push` | `blocked_cli_unavailable`.
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — pinned PR head is not the reviewed branch" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Draft** — "left a draft" | "returned to draft — `gh pr ready --undo <n>`" | "n/a — no PR". Agents do not run `/ready-merge-release`.
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — the CLI gate already passed on this head; QA bot `ralfcam` runs UAT and digests the transcript; readiness is that CLI evidence plus the UAT; agents do not run `/ready-merge-release`; merge only on `APPROVED FOR OPERATOR MERGE`" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push` | on Step 1b `blocked_major_findings`: stop, do not push, and do not ledger the Critical, Major, or unknown findings. | on Step 1b `blocked_cli_unavailable`: stop, do not push, and do not ledger the unavailable CLI result.
+8. **Operator next** — "draft PR open — the CLI gate already passed on this head; QA bot `ralfcam` runs UAT and digests the transcript; readiness is that CLI evidence plus the UAT; agents do not run `/ready-merge-release`; merge only on `APPROVED FOR OPERATOR MERGE`" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push` | on Step 1b `capture_and_push`: `/capture` remaining Critical, Major, and unknown findings, push, and list them at the top of the PR body under `## Captured blocking findings (Jose review)`. | on Step 1b `blocked_cli_unavailable`: stop, do not push, and do not ledger the unavailable CLI result.
    </output_format>
    </instructions>
    </output>

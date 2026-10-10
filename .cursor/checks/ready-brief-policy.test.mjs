@@ -126,6 +126,26 @@ Verification: pnpm test:unit tests/unit/dev-toolchain/push-gate-evidence.test.ts
   assert.equal(isCompleteBrief(plural), false)
 })
 
+test("ready-brief fields keep continuation lines until the next label", () => {
+  const brief = `## Ready brief
+Route: /sdd-to-tdd
+Spec: docs/specs/dev-toolchain.md: G-RDY1
+Allowed edits: .cursor/commands/conduct.md
+.cursor/hooks/lib/ready-brief-policy.mjs
+Verification: pnpm test:unit
+Out of scope: labels
+`
+  const parsed = parseReadyBrief(brief)
+  assert.match(parsed.allowedEdits, /\.cursor\/commands\/conduct\.md/)
+  assert.match(
+    parsed.allowedEdits,
+    /\.cursor\/hooks\/lib\/ready-brief-policy\.mjs/,
+  )
+  assert.equal(parsed.verification, "pnpm test:unit")
+  assert.equal(parsed.outOfScope, "labels")
+  assert.equal(isCompleteBrief(brief), true)
+})
+
 test("stdin CLI reads a complete brief", () => {
   const result = spawnSync(
     process.execPath,
@@ -623,13 +643,42 @@ test("pick confirms Permissions Requested before spec-amend", () => {
     "utf8",
   )
   const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
-  const permissionAt = pick.search(
-    /identifies the owning spec[\s\S]{0,160}listed in `## Permissions Requested`[\s\S]{0,80}before amending[\s\S]{0,160}STOP without editing when either is unknown/,
+  const identifyStopAt = pick.search(
+    /identifies the owning spec[\s\S]{0,240}STOP without editing when[\s\S]{0,60}(?:the spec path|that path|either) is unknown/,
   )
   const amendAt = pick.search(/On `spec_amend`, amend the owning spec/)
   assert.ok(
-    permissionAt !== -1 && amendAt !== -1 && permissionAt < amendAt,
-    `Step 6 must confirm the owning spec is listed in ## Permissions Requested and STOP without editing before the spec_amend amend (permission at ${permissionAt}, amend at ${amendAt})`,
+    identifyStopAt !== -1 && amendAt !== -1 && identifyStopAt < amendAt,
+    `Step 6 must identify the owning spec and STOP without editing when the spec path is unknown before the spec_amend amend (identify/STOP at ${identifyStopAt}, amend at ${amendAt})`,
+  )
+})
+
+test("pick identifies the spec before spec-amend without a work-order listing", () => {
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const pick = conduct.match(/### 6\. Pick[\s\S]*?(?=### 7\.)/)?.[0] ?? ""
+  const identifyStopAt = pick.search(
+    /identifies the owning spec[\s\S]{0,240}STOP without editing when[\s\S]{0,60}(?:the spec path|that path|either) is unknown/,
+  )
+  const amendAt = pick.search(/On `spec_amend`, amend the owning spec/)
+  assert.ok(
+    identifyStopAt !== -1 && amendAt !== -1 && identifyStopAt < amendAt,
+    `Step 6 must identify the owning spec and STOP without editing when the spec path is unknown before spec_amend (identify/STOP at ${identifyStopAt}, amend at ${amendAt})`,
+  )
+  const sdd = readFileSync(
+    join(process.cwd(), ".cursor/commands/sdd-to-tdd.md"),
+    "utf8",
+  )
+  assert.match(
+    sdd,
+    /exact spec path[\s\S]{0,40}`## Permissions Requested`[\s\S]{0,80}before the amendment[\s\S]{0,120}STOP[\s\S]{0,40}path is unknown/,
+  )
+  assert.doesNotMatch(
+    pick,
+    /## Permissions Requested/,
+    "Step 6 must not require a work-order ## Permissions Requested listing",
   )
 })
 
@@ -742,5 +791,70 @@ test("readiness stops gh pr ready on a sensitive PR", () => {
       conductNamesThatStop: true,
     },
     "Step 3 (`### 3. Ready`) runs `gh pr ready` with no STOP when qaMayReadyPr is false or the PR has the sensitive label; conduct.md must name that STOP",
+  )
+})
+
+test("completed design leaves design_first and takes the code route", async () => {
+  const { classifyConductEligibility } =
+    await import("../hooks/lib/ready-brief-policy.mjs")
+  const base = {
+    status: "Todo",
+    currentCycle: true,
+    priority: 2,
+    unansweredClarification: false,
+  }
+  assert.deepEqual(
+    classifyConductEligibility({ ...base, scope: "new-scope" }),
+    { eligible: true, reason: "design_first" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({ ...base, labels: ["/design"] }),
+    { eligible: true, reason: "design_first" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      scope: "new-scope",
+      designComplete: true,
+    }),
+    { eligible: true, reason: "auto_brief" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      scope: "new-scope",
+      designComplete: true,
+      briefComplete: true,
+    }),
+    { eligible: true, reason: "ready" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      scope: "new-scope",
+      designComplete: true,
+      answeredClarification: true,
+      briefMissingSpec: true,
+    }),
+    { eligible: true, reason: "spec_amend" },
+  )
+  assert.deepEqual(
+    classifyConductEligibility({
+      ...base,
+      labels: ["/design"],
+      designComplete: true,
+      briefComplete: true,
+    }),
+    { eligible: true, reason: "ready" },
+  )
+  const conduct = readFileSync(
+    join(process.cwd(), ".cursor/commands/conduct.md"),
+    "utf8",
+  )
+  const step7 =
+    conduct.match(/### 7\. Branch and execute[\s\S]*?(?=### 8\.)/)?.[0] ?? ""
+  assert.match(
+    step7,
+    /later picks?[\s\S]{0,240}designComplete[\s\S]{0,240}code route[\s\S]{0,80}\/sdd-to-tdd|designComplete[\s\S]{0,240}later picks?[\s\S]{0,240}code route[\s\S]{0,80}\/sdd-to-tdd/i,
   )
 })

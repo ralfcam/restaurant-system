@@ -131,7 +131,7 @@ picking it, then continue with the rest of the queue.
 ### 6. Pick
 
 Pick calls `classifyConductEligibility`.
-`/conduct` identifies the owning spec and confirms it is listed in `## Permissions Requested` before amending; STOP without editing when either is unknown.
+`/conduct` identifies the owning spec and must STOP without editing when that path is unknown.
 On `spec_amend`, amend the owning spec before requiring a complete brief.
 After the permitted edit, /dispatch completes the brief for `spec_amend`.
 After `/dispatch` the re-check re-reads the issue and requires a complete brief.
@@ -150,6 +150,7 @@ that branch name. The route posts `Work started:` right after its work-order.
 That comment is the claim. This command does not post one of its own.
 
 `design_first` stops after it takes the Design route (`/design`) on that first PR and does not run the Code route (`/sdd-to-tdd`) on it.
+A later pick with `designComplete` takes the code route (`/sdd-to-tdd`).
 
 `/conduct` identifies the owning spec and confirms it is listed in `## Permissions Requested` before amending; STOP without editing when either is unknown.
 Step 7 does not amend again. It treats the Step 6 `spec_amend` amend of the owning spec, and the `/dispatch` that writes the brief, as complete. No second amend.

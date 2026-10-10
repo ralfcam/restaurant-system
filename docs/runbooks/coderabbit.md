@@ -20,14 +20,19 @@ helper again when the reason is still `cli_missing` or `version_mismatch`.
 If it is still unavailable, `/push` stops with `blocked_cli_unavailable`
 and does not push. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
 `attemptStatus:` for that SHA. `/push` is the agent's only CodeRabbit gate:
-Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
-Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
-CLI passes at most. Pass 1 routes every finding. Pass 2 routes only
-Critical, Major, and unknown findings; Minor and Trivial on that pass are
-captured and the branch pushes with no third pass. Pass 3 does not push
-when a Critical, Major, or unknown finding is still open: it stops and
-reports `blocked_major_findings`. Those findings are not leftovers and
-are not ledgered. Only Minor and Trivial may be captured and pushed.
+Critical, Major, and unknown findings go to `/sdd-to-tdd` on pass 1 and
+pass 2; Minor and Trivial go to `/capture`. `--fix-round` is a counter
+capped at 2, so three CLI passes at most. Pass 1 routes every finding.
+Pass 2 routes only Critical, Major, and unknown findings; Minor and
+Trivial on that pass are captured and the branch pushes with no third
+pass. After two fix rounds, remaining Critical, Major, and unknown
+findings are captured and the branch pushes (`action` `push`, `record`
+`capture_and_push`). `/push` lists those captured blocking findings at
+the top of the PR body under
+`## Captured blocking findings (Jose review)`. A historical leftover
+record of `blocked_major_findings` still resolves at that cap; it is not
+a live stop. An `unavailable` result still stops as
+`blocked_cli_unavailable`.
 The PR is left a **draft**, and that draft has already passed this CLI
 gate for the head that was pushed.
 Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do
@@ -379,9 +384,12 @@ stable `reason`. Critical, Major, and unknown findings route to
 in-scope Minor and Trivial. `--fix-round` is a counter capped at 2.
 Pass 1 routes every finding. Pass 2 routes only when `/sdd-to-tdd`
 findings remain; Minor and Trivial on that pass capture-and-push with no
-third pass. Pass 3 stops with `blocked_major_findings` when a Critical,
-Major, or unknown finding is still open and does not push those. Only
-Minor and Trivial capture-and-push. The counter is kept
+third pass. After two fix rounds, remaining Critical, Major, and unknown
+findings capture-and-push (`action` `push`, `record` `capture_and_push`).
+`/push` lists those captured blocking findings at the top of the PR body
+under `## Captured blocking findings (Jose review)`. A historical leftover
+record of `blocked_major_findings` still resolves at that cap; it is not
+a live stop. The counter is kept
 across its fix commits via `--fix-round` or the leftover record. On
 `route`, printed `fixRound` is the started round. After a successful
 `git push`, `--ack-push` clears the saved cycle. `runCr` uses an absolute
@@ -394,7 +402,10 @@ finite timeout. A failed `git diff` for
 An unavailable CLI result (`error`, `version_mismatch`, `timeout`, and the
 same class) retries once, reinstalling pinned `0.9.0` when the reason is
 `cli_missing` or `version_mismatch`. If it is still unavailable, `/push`
-stops with `blocked_cli_unavailable` and does not push. File-list aliases
+stops with `blocked_cli_unavailable` and does not push. `eventLooksBilling`
+matches `type`/`status` `billing` or billing/quota text in `message`,
+`error`, `reason`, or `code` only — never billing-named file paths.
+File-list aliases
 (`reviewedFiles`, `files`, `filesToReview`) are still inspected independently
 so parsing failures remain visible in the receipt. `/sdd-to-tdd` STEP 4G
 and `/commit` do not run the CLI.

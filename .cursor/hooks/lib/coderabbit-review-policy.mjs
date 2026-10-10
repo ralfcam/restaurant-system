@@ -57,7 +57,7 @@ const SECRET_PATH_RE =
 
 const RATE_LIMIT_RE = /rate[\s_-]*limit/i
 const BILLING_RE =
-  /billing|usage[-\s]?credit|confirm(?:ation)?[^\n]{0,40}usage/i
+  /billing|quota|usage[-\s]?credit|confirm(?:ation)?[^\n]{0,40}usage/i
 const OVERRIDE_RE =
   /@coderabbitai\s+(?:approve|resolve)\b|ignore pre-merge checks/i
 
@@ -226,9 +226,15 @@ export function eventLooksRateLimited(event) {
 
 export function eventLooksBilling(event) {
   if (!event || typeof event !== "object") return false
-  if (event.type === "billing") return true
-  const blob = JSON.stringify(event)
-  return BILLING_RE.test(blob)
+  if (event.type === "billing" || event.status === "billing") return true
+  const errorText =
+    event.error && typeof event.error === "object"
+      ? event.error.message
+      : event.error
+  const text = [event.message, errorText, event.reason, event.code]
+    .filter((part) => typeof part === "string" && part)
+    .join("\n")
+  return BILLING_RE.test(text)
 }
 
 export function eventLooksSkipped(event) {
