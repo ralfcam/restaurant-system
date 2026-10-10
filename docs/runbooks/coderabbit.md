@@ -12,8 +12,11 @@ reviews still come from **`coderabbitai`** (App ID `347564`) when a formal
 review runs. `/push` posts no pull-request comment. A missing binary is
 `cli_missing` and a reported version other than the pin is
 `version_mismatch`; the branch-diff pass runs
-`.cursor/cloud-install-coderabbit.sh` once and then re-reads version and
-auth. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
+`.cursor/cloud-install-coderabbit.sh` and then re-reads version and
+auth. An unavailable CLI result retries once, and that retry runs the
+helper again when the reason is still `cli_missing` or `version_mismatch`.
+If it is still unavailable, `/push` stops with `blocked_cli_unavailable`
+and does not push. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
 `attemptStatus:` for that SHA. `/push` is the agent's only CodeRabbit gate:
 Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
 Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
@@ -152,7 +155,8 @@ Exit `0` is schema-valid. Exit `1` is missing, unreadable, or invalid YAML.
 Cloud `install` does not run the helper. The dirty-tree work-order path
 still records `cli_paused` without spawning `coderabbit`. `/push`
 `--branch-diff` actually runs the CLI when a key is present; if the CLI
-is unavailable it records that and continues. The notes below are the
+is still unavailable after one retry, `/push` stops with
+`blocked_cli_unavailable` and does not push. The notes below are the
 auth and resume path.
 
 Browser OAuth does not persist into Cursor Cloud. Provision an **Agentic**
@@ -287,15 +291,17 @@ creator when present) or an `isUsApp` check-run or check-suite on HEAD
 (CodeRabbit label `name` or `app.name`) without a new
 review is `incremental_paused`: leftover threads go to `/capture` and
 `/ready-merge-release` may PASS. If CodeRabbit reports a rate limit, wait for the reset time
-before relying on another review. The `/push` CLI pass records `unavailable` and
-continues; G-CR3 remains blocked. Do **not** substitute a manual review, and
+before relying on another review. The `/push` CLI pass retries once and,
+if still unavailable, stops with `blocked_cli_unavailable` and does not
+push; G-CR3 remains blocked. Do **not** substitute a manual review, and
 do **not** treat a passing **Review rate limited** GitHub check as approval.
 
 ### Billing confirmation
 
 If the CLI or GitHub check asks for a billing/usage confirmation, resolve
-billing in the US dashboard, then re-run. The `/push` CLI pass records `unavailable` and
-continues; G-CR3 remains blocked. Do not report billing as a clean review.
+billing in the US dashboard, then re-run. The `/push` CLI pass retries once and,
+if still unavailable, stops with `blocked_cli_unavailable` and does not
+push; G-CR3 remains blocked. Do not report billing as a clean review.
 
 ### Missing `cr` on Windows
 
@@ -380,7 +386,10 @@ finite timeout. A failed `git diff` for
 `--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
 `--branch-diff` `secret_path` and a non-zero gate exit still push.
 `.env.example` is not a secret. A successful empty diff stays `clean`.
-Unavailable CLI (no key, error, timeout) still pushes. File-list aliases
+An unavailable CLI result (`error`, `version_mismatch`, `timeout`, and the
+same class) retries once, reinstalling pinned `0.9.0` when the reason is
+`cli_missing` or `version_mismatch`. If it is still unavailable, `/push`
+stops with `blocked_cli_unavailable` and does not push. File-list aliases
 (`reviewedFiles`, `files`, `filesToReview`) are still inspected independently
 so parsing failures remain visible in the receipt. `/sdd-to-tdd` STEP 4G
 and `/commit` do not run the CLI.

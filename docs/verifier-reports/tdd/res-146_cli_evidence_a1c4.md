@@ -55,11 +55,12 @@ Run: 2026-10-09 · plan: res-146_cli_evidence_a1c4 · issue: RES-146
 | C4 | docs/specs/dev-toolchain.md G-CR2 | .cursor/checks/coderabbit-pr-policy.test.mjs::push CLI action routes two fix rounds then blocks majors | .cursor/hooks/lib/coderabbit-pr-policy.mjs decidePushCliAction | P0 | shipped |
 | C5 | docs/specs/dev-toolchain.md G-CR3, G-CON1 | .cursor/checks/coderabbit-pr-policy.test.mjs::bot skip with findings or unavailable CLI evidence is ready_cli_evidence | .cursor/hooks/lib/coderabbit-pr-policy.mjs evaluateReadyPr | P1 | shipped |
 | C6 | docs/specs/dev-toolchain.md G-CR2, G-CR3 | .cursor/checks/coderabbit-pr-policy.test.mjs::a skip notice with no SHA matches no head | .cursor/hooks/lib/coderabbit-pr-policy.mjs commentMentionsHead, hasCleanCliEvidence | P0 | shipped |
+| C7 | docs/specs/dev-toolchain.md G-CR2 | .cursor/checks/coderabbit-gate.test.mjs::unavailable CLI retries once then stops as blocked_cli_unavailable | .cursor/checks/coderabbit-gate.mjs, .cursor/hooks/lib/coderabbit-pr-policy.mjs decidePushCliAction | P0 | shipped |
 
 ## Run metrics
 
-Run: 2026-10-09 → 2026-10-09 · plan: res-146_cli_evidence_a1c4
-Criteria: 6 shipped · 0 manual-uat · 6 total
+Run: 2026-10-09 → 2026-10-10 · plan: res-146_cli_evidence_a1c4
+Criteria: 7 shipped · 0 manual-uat · 7 total
 Phases delegated: 0 (harness node:test; tdd-red cannot write `.cursor/checks`)
 Back-loops: none
 BLOCKED events: 0

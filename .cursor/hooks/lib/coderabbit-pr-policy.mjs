@@ -307,10 +307,17 @@ function routedPushFindings(findings) {
   }
 }
 
+const PUSH_CLI_PREFLIGHT_REASONS = new Set([
+  "secret_path",
+  "diff_failed",
+  "missing_base",
+])
+
 export function decidePushCliAction({
   attemptStatus,
   findings = [],
   priorRound = 0,
+  reason = "",
 } = {}) {
   const round = boundedPushRound(priorRound)
   const { sddToTdd, capture } = routedPushFindings(
@@ -329,13 +336,31 @@ export function decidePushCliAction({
     }
     return { action: "route", ...packet, record: "fix_round" }
   }
-  if (attemptStatus === "unavailable" || attemptStatus === "clean") {
+  if (attemptStatus === "clean") {
     return {
       action: "push",
-      leftover: attemptStatus === "clean" ? [] : capture,
+      leftover: [],
       sddToTdd: [],
-      capture,
-      record: attemptStatus,
+      capture: [],
+      record: "clean",
+    }
+  }
+  if (attemptStatus === "unavailable") {
+    if (PUSH_CLI_PREFLIGHT_REASONS.has(reason)) {
+      return {
+        action: "push",
+        leftover: [],
+        sddToTdd: [],
+        capture: [],
+        record: "unavailable",
+      }
+    }
+    return {
+      action: "stop",
+      leftover: [],
+      sddToTdd: [],
+      capture: [],
+      record: "blocked_cli_unavailable",
     }
   }
   // Pass 1 routes every finding. Later passes capture only Minor and Trivial.

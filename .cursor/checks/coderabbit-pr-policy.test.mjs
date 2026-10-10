@@ -537,13 +537,48 @@ test("push CLI action routes two fix rounds then blocks majors", () => {
   assert.equal(overCap.leftover.length, 1)
   assert.equal(overCap.sddToTdd.length, 0)
 
-  const unavailable = decidePushCliAction({
+  for (const reason of ["error", "version_mismatch", "timeout"]) {
+    const unavailable = decidePushCliAction({
+      attemptStatus: "unavailable",
+      findings: [],
+      priorRound: 0,
+      reason,
+    })
+    assert.equal(unavailable.action, "stop")
+    assert.equal(unavailable.record, "blocked_cli_unavailable")
+    assert.equal(unavailable.leftover.length, 0)
+    assert.equal(unavailable.sddToTdd.length, 0)
+  }
+
+  const unavailableMinor = decidePushCliAction({
     attemptStatus: "unavailable",
-    findings: [],
+    findings: [{ severity: "minor", id: "n1" }],
     priorRound: 0,
+    reason: "error",
   })
-  assert.equal(unavailable.action, "push")
-  assert.equal(unavailable.record, "unavailable")
+  assert.equal(unavailableMinor.action, "stop")
+  assert.equal(unavailableMinor.record, "blocked_cli_unavailable")
+  assert.equal(unavailableMinor.leftover.length, 0)
+
+  const unavailableMajor = decidePushCliAction({
+    attemptStatus: "unavailable",
+    findings: [{ severity: "major", id: "m1" }],
+    priorRound: 0,
+    reason: "error",
+  })
+  assert.equal(unavailableMajor.action, "route")
+  assert.equal(unavailableMajor.record, "fix_round")
+
+  for (const reason of ["secret_path", "diff_failed", "missing_base"]) {
+    const preflight = decidePushCliAction({
+      attemptStatus: "unavailable",
+      findings: [],
+      priorRound: 0,
+      reason,
+    })
+    assert.equal(preflight.action, "push")
+    assert.equal(preflight.record, "unavailable")
+  }
 
   const clean = decidePushCliAction({
     attemptStatus: "clean",

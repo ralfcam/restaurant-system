@@ -39,12 +39,14 @@ after a successful `git push` clears the saved cycle.
 `cli_missing`. A reported version other than `0.9.0` is `version_mismatch`.
 The previous pin `0.7.6` is that mismatch.
 Either one, on the branch-diff pass, runs
-`.cursor/cloud-install-coderabbit.sh` once and then re-reads version and
-auth. `/push` posts no pull-request comment. It records
+`.cursor/cloud-install-coderabbit.sh` and then re-reads version and
+auth. The one unavailable retry runs that helper again when the reason is
+still `cli_missing` or `version_mismatch`. `/push` posts no pull-request comment. It records
 `## CodeRabbit CLI evidence` with `Head:` and `attemptStatus:` for that
-SHA. If the CLI is unavailable (no key, error, timeout),
-or the gate exits non-zero / `secret_path`, push and record that. It must
-never block forever. `/push` is the agent's only CodeRabbit gate. It
+SHA. If the CLI is still unavailable after that retry (`error`,
+`version_mismatch`, `timeout`, and the same class), `/push` stops with
+`blocked_cli_unavailable` and does not push. A non-zero gate exit or
+`secret_path` still pushes. It must never block forever. `/push` is the agent's only CodeRabbit gate. It
 opens or updates the PR as a draft and does not run `gh pr ready`.
 Agents, `/conduct`, and Cloud runs do not run `/ready-merge-release`, do
 not post `@coderabbitai review`, and do not poll for a remote review. The
@@ -70,7 +72,8 @@ The local attempt is advisory after deterministic preflight. Findings at every
 severity and authentication/setup failure, rate limit, billing, timeout,
 skipped review, malformed/partial JSONL, unknown terminal events, and reviewed
 file/scope mismatch are recorded as `clean`, `findings`, or `unavailable` and
-exit zero. The ignored receipt under `.cursor/hooks/state/` is audit evidence
+exit zero. Exit zero is not a push when `record` is `blocked_cli_unavailable`
+or `blocked_major_findings`. The ignored receipt under `.cursor/hooks/state/` is audit evidence
 only; missing or stale receipt data never blocks `/commit`, `git commit`, or
 `/push`.
 
