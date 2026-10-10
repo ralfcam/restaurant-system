@@ -90,17 +90,20 @@ infer the trigger from `HEAD`, and do not require `HEAD` to descend from
 
 ### 2. Docs PRs
 
-For each open docs PR, run `/ready-merge-release <PR>` with default routing.
-Never fix one. A docs PR does not hold the lane.
+Do not run `/ready-merge-release` and do not mark a docs PR ready. Never
+fix one. A docs PR does not hold the lane. Leave it as a draft for the QA
+bot.
 
 ### 3. Issue PR
 
-While an issue PR is open, resume only that PR. Never start new work.
+While an issue PR is open, resume only that PR. Never start new work. Do
+not run `/ready-merge-release`. Do not run `gh pr ready`. Do not poll
+CodeRabbit and do not post `@coderabbitai review`.
 
-- Waiting on the operator after a ready PR: stop with "waiting on you".
-- Otherwise `git switch -C <headRefName> origin/<headRefName>` and run the
-  review loop below. A draft whose head has no formal CodeRabbit review is
-  not a wait: `/ready-merge-release` readies that case.
+- If `/push` has already published the head, stop. The PR stays a draft.
+  The QA bot `ralfcam` owns the next step.
+- Do not treat a missing formal CodeRabbit review as a reason to ready the
+  PR.
 
 ### 4. Fresh claim
 
@@ -132,51 +135,19 @@ That comment is the claim. This command does not post one of its own.
 - Design route: `/design RES-###`, then the commit.md design-spec lane, then
   push.md. `/design` does not run commit or push.
 
-### 8. Review loop
+### 8. Hand off — do not ready
 
-Wait for CodeRabbit on HEAD. Use `/loop` timers when they exist (10-minute
-ticks, 60-minute cap per round). If `/loop` timers are missing, use one
-bounded shell wait of 10 minutes or less per tick, up to the 60-minute cap.
-Then run `/ready-merge-release <PR> --loop` (`roundsUsed`, `roundCap: 3`):
+`/push` is this command's only CodeRabbit gate. It runs the local CLI,
+routes Critical, Major, and unknown findings to `/sdd-to-tdd` and Minor and
+Trivial findings to `/capture`, allows up to two fix rounds (three CLI
+passes), then pushes and leaves the PR a draft. That draft has already
+passed the CLI gate for the head that was pushed. `/conduct` does not wait on CodeRabbit, does not
+poll, and does not post `@coderabbitai review`.
 
-- **Clean, `ready_no_coderabbit_review`, or `changes_requested_meta_only`:**
-  the release command readies the PR and returns APPROVED FOR OPERATOR MERGE.
-  For `ready_no_coderabbit_review` it tries the operator comment. A 403
-  (`issues: write` missing) is non-fatal: the draft still readies and the
-  note goes on the PR body or in the report. Stop.
-- **`capture_only_findings`:** a clean loop preflight. Run `/capture` for
-  each finding whose path is not already an open `docs/findings/` line. Do
-  not start another `/sdd-to-tdd` round for those findings, and do not
-  report this reason as an operational FAIL.
-- **Critical or unknown, or `changes_requested_body_findings`, under 3 rounds:** run
-  `/sdd-to-tdd "bug: CodeRabbit finding <local-ref> on PR #<n>"` on the PR
-  branch, then start the next round. That in-loop fix skips START and
-  CLOSE-OUT.
-- **Only Major, Minor, or Trivial:** run `/capture` with only the local refs
-  that are not already in the ledger for `PR #<n>`. A finding is already in
-  the ledger when its path appears on an open `- [ ]` line under
-  `docs/findings/`. If any finding is new, capture those, commit through the
-  docs-artifact lane, push, then stop and list the open threads. If none are
-  new, post one reply on each open product thread and resolve it, then run
-  `/ready-merge-release <PR> --loop` again. The reply body is:
-
-  ```
-  Already recorded on the open findings ledger. Resolving this thread so the draft can be readied.
-
-  <ledger-path> — <open line title>
-  ```
-
-  Post it with `addPullRequestReviewThreadReply`, then resolve that thread
-  with `resolveReviewThread`. Do not post a `@coderabbitai` command. A clean
-  `captured_threads_resolved` verdict readies the PR. Do not resolve a thread
-  that is not already an open ledger line.
-
-- **Round cap reached, a merge conflict, or an operational failure other than
-  pending, `ready_no_coderabbit_review`, or `capture_only_findings`:** the PR stays open as a draft and
-  keeps the lane. Report the reason so the next digest lists the PR under
-  "needs your decision". Unresolved threads and COMMENTED review-body
-  findings still block readying. Outdated threads and quiet-mode walkthrough
-  bodies stay exempt.
+Stop on the draft. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the /push
+CLI evidence on the head plus that UAT.
+`/ready-merge-release` stays on disk for that QA step and still documents
+`roundCap: 3`. `/conduct` does not invoke it.
 
 ### 9. Failure before a PR exists
 

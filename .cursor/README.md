@@ -60,7 +60,7 @@ There is no GitHub QA workflow in this repo. Local gates are
 
 `docs/findings + Linear Triage` → `/triage` → `Backlog` → `/curate` → `/dispatch` →
 `Todo/current cycle` → (`/sdd-to-tdd` → `/commit` → `/push`)×N →
-`/ready-merge-release PR#` → you merge
+draft PR → QA bot `ralfcam` runs `/ready-merge-release PR#` → you merge
 
 `/audit` remains spec-first and writes findings to the ledger, then publishes
 one idempotent project-health digest through `linear-resolver`. Linear is
@@ -96,33 +96,34 @@ flowchart TD
   Sdd --> Commit["/commit"]
   Sdd2 --> Commit
   Commit --> Push["/push"]
-  Push --> CR["CodeRabbit reviews draft"]
-  CR --> Release["/ready-merge-release PR#"]
+  Push --> Draft["draft PR"]
+  Draft --> QA["QA bot ralfcam"]
+  QA --> Release["/ready-merge-release PR#"]
   Release --> Merge["You merge in GitHub"]
   CloudPR["cursor/slug-abcd PR"] --> Intake["/intake"]
-  Intake --> Release
+  Intake --> Draft
 ```
 
 ---
 
 ## Command map
 
-| Command                                                   | Job                                                                                        | Typical next                               |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`/audit`](commands/audit.md)                             | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update           | `/triage`                                  |
-| [`/triage`](commands/triage.md)                           | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current       | `/dispatch`                                |
-| [`/curate`](commands/curate.md)                           | Weekly keep-or-drop for Backlog, Todo, and below-floor ledger lines; link what stays       | `/dispatch`                                |
-| [`/dispatch`](commands/dispatch.md)                       | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; Ready briefs         | `/design RES-###` or `/sdd-to-tdd RES-###` |
-| [`/conduct`](commands/conduct.md)                         | Managed Cloud morning groom and next-issue conductor                                       | operator merge                             |
-| [`/design`](commands/design.md)                           | Greenfield spec — hub walk, grill, one new spec file                                       | `/sdd-to-tdd @<file>` FEATURE              |
-| [`/sdd-to-tdd`](commands/sdd-to-tdd.md)                   | Plan Mode, START, then Red → Green → Refactor                                              | `/commit`                                  |
-| [`/commit`](commands/commit.md)                           | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes                   | `/push`                                    |
-| [`/push`](commands/push.md)                               | Human heads (`sdd/RES-###` or `staging` promotion). Never merges                           | `/ready-merge-release PR#` then you merge  |
-| [`/intake`](commands/intake.md)                           | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                            | `/ready-merge-release PR#` then you merge  |
-| [`/ready-merge-release`](commands/ready-merge-release.md) | Severity-routes CodeRabbit findings; readies and re-verifies only a clean PR. Never merges | You merge                                  |
-| [`/capture`](commands/capture.md)                         | Observation → ledger (Plan Mode default; managed Cloud one-shot)                           | `/triage`                                  |
-| [`/tldr`](commands/tldr.md)                               | Recap a plan, chat, or `RES-###` (Ask Mode)                                                | —                                          |
-| [`/reflect`](commands/reflect.md)                         | Re-check a thread’s claims against the tree                                                | —                                          |
+| Command                                                   | Job                                                                                  | Typical next                               |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| [`/audit`](commands/audit.md)                             | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update     | `/triage`                                  |
+| [`/triage`](commands/triage.md)                           | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current | `/dispatch`                                |
+| [`/curate`](commands/curate.md)                           | Weekly keep-or-drop for Backlog, Todo, and below-floor ledger lines; link what stays | `/dispatch`                                |
+| [`/dispatch`](commands/dispatch.md)                       | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; Ready briefs   | `/design RES-###` or `/sdd-to-tdd RES-###` |
+| [`/conduct`](commands/conduct.md)                         | Managed Cloud morning groom and next-issue conductor. Stops on the draft             | QA bot `ralfcam`                           |
+| [`/design`](commands/design.md)                           | Greenfield spec — hub walk, grill, one new spec file                                 | `/sdd-to-tdd @<file>` FEATURE              |
+| [`/sdd-to-tdd`](commands/sdd-to-tdd.md)                   | Plan Mode, START, then Red → Green → Refactor                                        | `/commit`                                  |
+| [`/commit`](commands/commit.md)                           | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes             | `/push`                                    |
+| [`/push`](commands/push.md)                               | Human heads (`sdd/RES-###` or `staging` promotion). Leaves a draft. Never merges     | QA bot `ralfcam`, then you merge           |
+| [`/intake`](commands/intake.md)                           | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                      | QA bot `ralfcam`, then you merge           |
+| [`/ready-merge-release`](commands/ready-merge-release.md) | Operator/QA-owned. Agents do not invoke it. Readies a clean PR. Never merges         | You merge                                  |
+| [`/capture`](commands/capture.md)                         | Observation → ledger (Plan Mode default; managed Cloud one-shot)                     | `/triage`                                  |
+| [`/tldr`](commands/tldr.md)                               | Recap a plan, chat, or `RES-###` (Ask Mode)                                          | —                                          |
+| [`/reflect`](commands/reflect.md)                         | Re-check a thread’s claims against the tree                                          | —                                          |
 
 Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
 

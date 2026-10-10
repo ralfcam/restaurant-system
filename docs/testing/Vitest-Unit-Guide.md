@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-08
+**Last updated:** 2026-10-09
 
 ## Layout
 
@@ -53,7 +53,12 @@
   `unresolved_threads`; incremental-pause SUCCESS is exact
   `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks, with CodeRabbit label
   `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
-  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
+  RES-146 `cli_missing`, one branch-diff reinstall, `/push` as the only
+  agent CodeRabbit gate, and QA `ralfcam` readiness in
+  `tests/unit/dev-toolchain/coderabbit-res146-guards.test.ts`;
+  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`
+  (armed-red deny of the absolute checkout path of `lib/billing/foo.ts`,
+  forward slashes and backslashes);
   G-CAP1 PHASE 5 heading-range chrome-scan and Execution Protocol
   list-item chrome-scan in
   `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`; G-DES1 PowerShell

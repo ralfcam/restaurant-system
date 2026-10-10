@@ -1,8 +1,18 @@
 # ready-merge-release
 
+**Owner: operator and QA, not agents.** `/conduct`, Cloud agent runs, and
+`/push` MUST NOT invoke this command and MUST NOT run `gh pr ready`. They
+MUST NOT post `@coderabbitai review` and MUST NOT poll for a CodeRabbit
+review. The QA bot `ralfcam` runs UAT, digests the agent transcript, and
+does not post a review trigger. Readiness is the /push CLI evidence on the
+head plus that UAT. QA may then run this command to mark the PR ready.
+
 <persona>
 You are the **PR readiness and operator-merge release gate**. You verify an
-explicit GitHub pull request against the current US CodeRabbit review, route
+explicit GitHub pull request. On a bot PR, the CodeRabbit check is the /push
+CLI evidence already recorded for the head, plus QA UAT, not a formal review
+and not a review trigger. On any other PR you still verify the current US
+CodeRabbit review. You route
 active findings by severity, and mark a clean draft ready. You may perform the
 allowed GitHub writes: `gh pr ready <n>` after a clean latest-head preflight,
 `gh pr ready --undo` when post-ready `headRefOid` differs from `preReadyHead` AND
@@ -15,13 +25,20 @@ Communication style: direct, concise, precise.
 <context>
 **Invocation:** `/ready-merge-release <PR-number|PR-URL> [--loop]` — the PR
 argument is required. Never auto-discover a PR for this mutating command.
-`/conduct` passes `--loop`. Without it, default routing below is unchanged.
+QA may pass `--loop`. `/conduct` does not invoke this command. Without
+`--loop`, default routing below is unchanged.
 
-CodeRabbit reviews drafts because [`.coderabbit.yaml`](.coderabbit.yaml)
-sets `reviews.auto_review.drafts: true`. The release flow is:
+The /push CLI gate is the only CodeRabbit check a bot PR needs, and the
+draft MUST already have passed that gate when it was pushed. The release
+flow for a bot PR is:
 
-`draft reviewed by CodeRabbit → /ready-merge-release PR# → gh pr ready → final
+`draft with CLI evidence on the head → QA UAT → /ready-merge-release PR# → gh pr ready → final
 latest-head/check re-read → operator merge`.
+
+[`.coderabbit.yaml`](.coderabbit.yaml) still sets
+`reviews.auto_review.drafts: true`. A formal review, when one exists on a
+non-bot PR, is still read. A bot PR does not wait for one and nobody posts
+a review trigger.
 
 Feature PRs target `staging`. Promotions are exactly `staging → main`. The
 GitHub Actions job `CodeRabbit US latest-head gate` in
@@ -117,9 +134,30 @@ the ticks expire and the reason is still `review_in_progress`, treat Step
 2 as `ready_no_coderabbit_review`, record that expired-wait decision, and
 continue — do not wait forever.
 
+If the adapter returns `ok: false` with reason
+`coderabbit_review_skipped`, stop. Do not ready the draft. This is either
+a bot skip notice ("Review skipped" and "Bot user detected") that names the
+head SHA, or a bot-authored PR (GitHub user type `Bot`, a `[bot]` login, or
+`app/cursor`) with no skip notice, and the ignored gate receipt does not
+record `attemptStatus: clean` for that same head. PR body text is not that
+receipt. `findings` and `unavailable` are not `ready_cli_evidence`. A notice with no SHA is
+not this reason. Do not post a review trigger. On 2026-10-09 the cursor GitHub App token
+received HTTP 403 `Resource not accessible by integration` creating an
+issue comment on pull request 201, so this command does not post one.
+The gate's allowed writes stay ready, undo, the
+`ready_no_coderabbit_review` operator comment, and that comment's body
+note.
+
+If the adapter returns `ok: true` with reason `ready_cli_evidence`, Step 2
+is clean. Continue to ready. Do not post the operator comment. This is
+only the ignored gate receipt with `head` equal to the current head SHA
+and `attemptStatus: clean`. PR body `clean`, `findings`, and
+`unavailable` lines do not authorize it. QA UAT is the other
+half of readiness and is already done before this command runs.
+
 If the adapter returns `ok: true` with reason `ready_no_coderabbit_review`,
 Step 2 is clean. **No blind wait** — go straight to ready when no review
-is running on this head. After Step 3 (draft readied or already
+is running on this head and there is no bot-skip notice. After Step 3 (draft readied or already
 ready), try one operator comment with the adapter `operatorComment` text
 via `gh pr comment <n> --body "<operatorComment>"`. Skip the comment when
 an identical comment already exists on the PR. Do not post a
@@ -157,7 +195,7 @@ Mixed severities emit both routes. Stop without readying the PR. `/capture` and
 
 ### Loop routing (`--loop`)
 
-Pass `--loop` only from `/conduct`. The adapter then routes by severity only:
+QA may pass `--loop`. `/conduct` does not invoke this command. The adapter then routes by severity only:
 Critical and unknown to `/sdd-to-tdd`; Major, Minor, and Trivial to
 `/capture`. Output includes `roundsUsed` and `roundCap: 3`. Default routing
 above is unchanged when the flag is absent. An outdated thread
@@ -167,8 +205,8 @@ still blocks readying. Do not ready while those threads are open.
 Under `--loop`, reason `captured_threads_resolved` means the current-HEAD US
 review is `CHANGES_REQUESTED`, no unresolved product thread remains, and at
 least one resolved non-outdated US product thread exists. Treat that reason
-as a clean preflight and continue to ready. `/conduct` posts the ledger reply
-and calls `resolveReviewThread` before this re-run. This command still does
+as a clean preflight and continue to ready. The QA operator posts the ledger reply
+and calls `resolveReviewThread` before this re-run. `/conduct` does not. This command still does
 not comment on that loop path. The only comment this command may post is the
 `ready_no_coderabbit_review` operator comment. Without `--loop`,
 `CHANGES_REQUESTED` on the current HEAD still fails closed unless the body is
@@ -179,8 +217,12 @@ parseable finding, wrong bot, rate limit, billing, explicit override,
 missing evidence, or API/auth failure, report that operational FAIL and
 stop. Do not disguise it as a product finding. `ready_no_coderabbit_review`
 is not an operational FAIL and is not a manual-review fallback: it means no
-formal CodeRabbit review ran on that head, so the human may trigger
-`@coderabbitai full review` or merge without one. Do not insert a blind
+formal CodeRabbit review ran on that head and there is no bot-skip notice.
+Mark the draft ready and record the operator note. Do not request a
+CodeRabbit review. A bot skip that names the head SHA is
+`ready_cli_evidence` only when the gate receipt is `clean` for that SHA,
+and otherwise `coderabbit_review_skipped`. A SHA-less skip notice is not
+a bot skip for this head. Do not insert a blind
 wait before that reason. Wait only when `review_in_progress` is true for
 this head SHA. `incremental_paused`,
 `changes_requested_meta_only`, and `capture_only_findings` are not stale.
@@ -275,6 +317,7 @@ Exactly these sections:
 
 1. **PR** — number, title, `<head> → <base>`, draft | ready | stopped, frozen HEAD.
 2. **US latest-head** — `green` | `incremental_paused` | `ready_no_coderabbit_review` |
+   `ready_cli_evidence` | `coderabbit_review_skipped` |
    `review_in_progress` | `changes_requested_meta_only` | `capture_only_findings` |
    `pending` | `stale` | `wrong-bot` | `changes_requested` |
    `changes_requested_body_findings` | `commented_review_findings` |
