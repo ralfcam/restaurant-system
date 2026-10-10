@@ -6,7 +6,8 @@ alwaysApply: true
 # CodeRabbit integration (US Team)
 
 This repository uses **one** CodeRabbit installation: **US Team**. CLI pin is
-`0.7.6` (no leading `v`). `cr auth status --agent` must report
+`0.9.0` (no leading `v`). Release `0.7.6` has no `SHA256SUMS.sig`, so the
+authenticated Linux installer 404s on it. `cr auth status --agent` must report
 `"region":"us"`. GitHub reviews come from `coderabbitai` (App ID `347564`).
 
 CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
@@ -23,29 +24,56 @@ firewall has finalized `HEAD` and before `git push`:
 
 `node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging`
 
-Critical, Major, and unknown-severity findings go to `/sdd-to-tdd` as an
-immediate fix. Minor and Trivial go to `/capture` and push in the same pass.
-Only a nonempty `/sdd-to-tdd` list routes or stops. Then `/commit`, then
-`/push` again. One fix round only, kept across its fix commit via
-`--fix-round` or the leftover record; after that, push anyway and list leftover
-findings in the PR body. On `route`, printed `fixRound` is the started
-round. `--ack-push` after a successful `git push` clears the saved cycle.
+Critical, Major, and unknown-severity findings go to `/sdd-to-tdd`.
+Minor and Trivial go to `/capture`. `--fix-round` is a counter capped at
+2 (three CLI passes at most), kept across its fix commits. Pass 1 routes
+every finding. Pass 2 routes only Critical, Major, and unknown findings;
+Minor and Trivial on that pass are captured and the branch pushes with no
+third pass. Pass 3 stops with `blocked_major_findings` and does not push
+when a Critical, Major, or unknown finding is still open. Those findings
+are never leftovers. Only Minor and Trivial capture-and-push. On `route`, printed `fixRound` is the started round. `--ack-push`
+after a successful `git push` clears the saved cycle.
 `runCr` uses an absolute deadline as well as inactivity, and records
 `unavailable` / `timeout` on either expiry. Auth `--version` and
-`auth status --agent` use the same finite timeout. If the CLI is unavailable (no key, error, timeout),
-or the gate exits non-zero / `secret_path`, push and record that. It must
-never block forever.
+`auth status --agent` use the same finite timeout. A missing binary is
+`cli_missing`. A reported version other than `0.9.0` is `version_mismatch`.
+The previous pin `0.7.6` is that mismatch.
+Either one, on the branch-diff pass, runs
+`.cursor/cloud-install-coderabbit.sh` and then re-reads version and
+auth. The one unavailable retry runs that helper again when the reason is
+still `cli_missing` or `version_mismatch`. `/push` posts no pull-request comment. It records
+`## CodeRabbit CLI evidence` with `Head:` and `attemptStatus:` for that
+SHA. If the CLI is still unavailable after that retry (`error`,
+`version_mismatch`, `timeout`, and the same class), `/push` stops with
+`blocked_cli_unavailable` and does not push. A non-zero gate exit or
+`secret_path` still pushes. It must never block forever. `/push` is the agent's only CodeRabbit gate. It
+opens or updates the PR as a draft and does not run `gh pr ready`.
+Agents, `/conduct`, and Cloud runs do not run `/ready-merge-release`, do
+not post `@coderabbitai review`, and do not poll for a remote review. The
+QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post
+a review trigger. Readiness is the CLI evidence on the head plus that UAT.
+`/ready-merge-release` is that operator/QA command. It does not post a
+review trigger: on 2026-10-09 the cursor GitHub App token got HTTP 403
+creating an issue comment. A bot skip that names the head SHA is
+`coderabbit_review_skipped` unless the ignored gate receipt for that
+head is `clean` (`ready_cli_evidence`). PR body text is not that
+receipt. `findings` and `unavailable` do not authorize it. A SHA-less
+skip notice matches no head. Non-bot `stale_approval` still requires
+that clean receipt. Critical, Major, and unknown CLI findings block
+`/push` (`blocked_major_findings` after two fix rounds) and are never
+ledgered. Only Minor and Trivial may be captured and pushed.
 
 The dirty-tree work-order path stays for tests. Outside
 `CODERABBIT_GATE_TEST=1`, that work-order path still records `unavailable` /
 `cli_paused` and does not spawn `coderabbit` or `cr`. GitHub review stays fail-closed.
-The `0.7.6` pin remains.
+The signed Linux pin is `0.9.0`.
 
 The local attempt is advisory after deterministic preflight. Findings at every
 severity and authentication/setup failure, rate limit, billing, timeout,
 skipped review, malformed/partial JSONL, unknown terminal events, and reviewed
 file/scope mismatch are recorded as `clean`, `findings`, or `unavailable` and
-exit zero. The ignored receipt under `.cursor/hooks/state/` is audit evidence
+exit zero. Exit zero is not a push when `record` is `blocked_cli_unavailable`
+or `blocked_major_findings`. The ignored receipt under `.cursor/hooks/state/` is audit evidence
 only; missing or stale receipt data never blocks `/commit`, `git commit`, or
 `/push`.
 
@@ -95,15 +123,17 @@ routes to `/sdd-to-tdd`. Without `--loop`, that snapshot stays
 `changes_requested`.
 
 When CodeRabbit has not posted a formal `APPROVED` or `CHANGES_REQUESTED`
-review on the latest head, the adapter returns `ok: true` with reason
-`ready_no_coderabbit_review` unless an automated review is in progress on
-that head SHA (in-progress comment or status). `/ready-merge-release`
+review on the latest head, a non-bot PR makes the adapter return `ok: true`
+with reason `ready_no_coderabbit_review` unless an automated review is in
+progress on that head SHA (in-progress comment or status). A bot-authored
+PR (`Bot`, a `[bot]` login, or `app/cursor`) without a clean gate receipt
+is `coderabbit_review_skipped` even when no skip notice was posted. `/ready-merge-release`
 pauses for a second review only then, within the existing bounded ticks.
 When no review is running, it goes straight to
 `ready_no_coderabbit_review` with no blind wait. Formal review gating and
 `changes_requested_meta_only` are unchanged. On `ready_no_coderabbit_review`
-it marks the draft ready and tries one operator comment so the human can
-trigger `@coderabbitai full review` or merge without it. A 403 on that comment
+it marks the draft ready and tries one operator comment that does not
+request a CodeRabbit review. A 403 on that comment
 (GitHub App token lacks `issues: write`) is non-fatal: still ready, log the
 403, and record the note on the PR body or in the agent report. A
 `COMMENTED` review whose body carries actionable comments still blocks into

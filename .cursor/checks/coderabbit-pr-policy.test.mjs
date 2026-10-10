@@ -11,6 +11,7 @@ import {
   appendOperatorNoteToPrBody,
   classifyFindingRouting,
   commentLooksReviewInProgress,
+  commentMentionsHead,
   decidePushCliAction,
   evaluateReadyPr,
   hasCodeRabbitReviewInProgress,
@@ -51,6 +52,113 @@ for (const [file, ok, reason] of CASES) {
     assert.equal(result.reason, reason, file)
   })
 }
+
+test("bot skip with no CLI evidence is coderabbit_review_skipped", () => {
+  const result = evaluateReadyPr(load("remote-skip-no-cli.json"))
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "coderabbit_review_skipped")
+})
+
+test("bot skip with clean CLI evidence on the head is ready_cli_evidence", () => {
+  const forged = evaluateReadyPr(load("remote-skip-clean-cli.json"))
+  assert.equal(forged.ok, false)
+  assert.equal(forged.reason, "coderabbit_review_skipped")
+  const result = evaluateReadyPr(load("remote-skip-clean-cli.json"), {
+    cliReceipt: { head: "abc123", attemptStatus: "clean" },
+  })
+  assert.equal(result.ok, true)
+  assert.equal(result.reason, "ready_cli_evidence")
+})
+
+test("bot skip with clean CLI evidence on an older SHA stays skipped", () => {
+  const result = evaluateReadyPr(load("remote-skip-older-cli.json"))
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "coderabbit_review_skipped")
+})
+
+test("bot skip with findings or unavailable CLI evidence is ready_cli_evidence", () => {
+  const findings = evaluateReadyPr(load("remote-skip-findings-cli.json"), {
+    cliReceipt: { head: "abc123", attemptStatus: "findings" },
+  })
+  assert.equal(findings.ok, false)
+  assert.equal(findings.reason, "coderabbit_review_skipped")
+  const unavailable = evaluateReadyPr(
+    load("remote-skip-unavailable-cli.json"),
+    { cliReceipt: { head: "abc123", attemptStatus: "unavailable" } },
+  )
+  assert.equal(unavailable.ok, false)
+  assert.equal(unavailable.reason, "coderabbit_review_skipped")
+  const bodyOnly = evaluateReadyPr(load("remote-skip-findings-cli.json"))
+  assert.equal(bodyOnly.reason, "coderabbit_review_skipped")
+})
+
+test("bot-authored PR without a skip notice requires a clean receipt", () => {
+  const base = load("remote-pending.json")
+  const bot = {
+    ...base,
+    pull: { ...base.pull, user: { login: "cursor[bot]", type: "Bot" } },
+  }
+  const skipped = evaluateReadyPr(bot)
+  assert.equal(skipped.ok, false)
+  assert.equal(skipped.reason, "coderabbit_review_skipped")
+  const ready = evaluateReadyPr(bot, {
+    cliReceipt: { head: "abc123", attemptStatus: "clean" },
+  })
+  assert.equal(ready.ok, true)
+  assert.equal(ready.reason, "ready_cli_evidence")
+  const human = {
+    ...base,
+    pull: { ...base.pull, user: { login: "ralfcam", type: "User" } },
+  }
+  assert.equal(evaluateReadyPr(human).reason, "ready_no_coderabbit_review")
+  const appCursor = {
+    ...base,
+    pull: { ...base.pull, user: { login: "app/cursor", type: "User" } },
+  }
+  assert.equal(evaluateReadyPr(appCursor).reason, "coderabbit_review_skipped")
+})
+
+test("a skip notice with no SHA matches no head", () => {
+  const head = "abc123def4567890abcd1234ef567890abcd1234"
+  assert.equal(
+    commentMentionsHead({ body: "Review skipped\n\nBot user detected." }, head),
+    false,
+  )
+  assert.equal(
+    commentMentionsHead(
+      { body: "Review skipped\n\nBot user detected.\nsee deadbeef" },
+      head,
+    ),
+    false,
+  )
+  assert.equal(
+    commentMentionsHead(
+      { body: `Review skipped\n\nBot user detected.\n${head}` },
+      head,
+    ),
+    true,
+  )
+  const snapshot = load("remote-skip-no-cli.json")
+  snapshot.headSha = head
+  snapshot.pull.headSha = head
+  snapshot.issueComments[0].body = "Review skipped\n\nBot user detected."
+  const result = evaluateReadyPr(snapshot)
+  assert.equal(result.reason, "ready_no_coderabbit_review")
+})
+
+test("stale approval with clean CLI evidence on the head is ready_cli_evidence", () => {
+  const forged = evaluateReadyPr(load("remote-stale-clean-cli.json"))
+  assert.equal(forged.ok, false)
+  assert.equal(forged.reason, "stale_approval")
+  const withEvidence = evaluateReadyPr(load("remote-stale-clean-cli.json"), {
+    cliReceipt: { head: "abc123", attemptStatus: "clean" },
+  })
+  assert.equal(withEvidence.ok, true)
+  assert.equal(withEvidence.reason, "ready_cli_evidence")
+  const without = evaluateReadyPr(load("remote-stale-approval.json"))
+  assert.equal(without.ok, false)
+  assert.equal(without.reason, "stale_approval")
+})
 
 test("clean snapshot pins US app id and check name", () => {
   const result = evaluateReadyPr(load("remote-clean.json"))
@@ -348,13 +456,14 @@ test("progress comment tied to a different commit is not the current head", () =
   assert.equal(result.reason, "ready_no_coderabbit_review")
 })
 
-test("push CLI action routes one fix round then leftover-pushes", () => {
+test("push CLI action routes two fix rounds then blocks majors", () => {
   const critical = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "critical", id: "c1" }],
     priorRound: 0,
   })
   assert.equal(critical.action, "route")
+  assert.equal(critical.record, "fix_round")
   assert.equal(critical.sddToTdd[0].command, "/sdd-to-tdd")
 
   const major = decidePushCliAction({
@@ -376,19 +485,38 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
     findings: [{ severity: "minor", id: "n1" }],
     priorRound: 0,
   })
-  assert.equal(minor.action, "push")
-  assert.equal(minor.record, "capture_and_push")
+  assert.equal(minor.action, "route")
+  assert.equal(minor.record, "fix_round")
   assert.equal(minor.capture[0].command, "/capture")
+  assert.equal(minor.sddToTdd.length, 0)
 
   const inScopeMinor = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "minor", id: "n2", inScope: true }],
     priorRound: 0,
   })
-  assert.equal(inScopeMinor.action, "push")
-  assert.equal(inScopeMinor.record, "capture_and_push")
+  assert.equal(inScopeMinor.action, "route")
+  assert.equal(inScopeMinor.record, "fix_round")
   assert.equal(inScopeMinor.capture[0].command, "/capture")
   assert.equal(inScopeMinor.sddToTdd.length, 0)
+
+  const minorAfterPass1 = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n1" }],
+    priorRound: 1,
+  })
+  assert.equal(minorAfterPass1.action, "push")
+  assert.equal(minorAfterPass1.record, "capture_and_push")
+  assert.equal(minorAfterPass1.capture[0].command, "/capture")
+
+  const secondCritical = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 1,
+  })
+  assert.equal(secondCritical.action, "route")
+  assert.equal(secondCritical.record, "fix_round")
+  assert.equal(secondCritical.sddToTdd[0].command, "/sdd-to-tdd")
 
   const emptyRouted = decidePushCliAction({
     attemptStatus: "findings",
@@ -398,22 +526,88 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
   assert.equal(emptyRouted.action, "push")
   assert.equal(emptyRouted.sddToTdd.length, 0)
 
-  const leftover = decidePushCliAction({
+  const blocked = decidePushCliAction({
     attemptStatus: "findings",
-    findings: [{ severity: "critical", id: "c1" }],
-    priorRound: 1,
+    findings: [
+      { severity: "critical", id: "c1" },
+      { severity: "major", id: "m9" },
+      { severity: "minor", id: "n9" },
+    ],
+    priorRound: 2,
   })
-  assert.equal(leftover.action, "push")
-  assert.equal(leftover.record, "leftover_after_fix_round")
-  assert.equal(leftover.leftover.length, 1)
+  assert.equal(blocked.action, "stop")
+  assert.equal(blocked.record, "blocked_major_findings")
+  assert.equal(blocked.leftover.length, 0)
+  assert.equal(blocked.sddToTdd.length, 2)
+  assert.equal(
+    blocked.sddToTdd.every((finding) => finding.command === "/sdd-to-tdd"),
+    true,
+  )
 
-  const unavailable = decidePushCliAction({
+  const blockedUnknown = decidePushCliAction({
     attemptStatus: "unavailable",
-    findings: [],
-    priorRound: 0,
+    findings: [{ severity: "nope", id: "u2" }],
+    priorRound: 2,
+    reason: "error",
   })
-  assert.equal(unavailable.action, "push")
-  assert.equal(unavailable.record, "unavailable")
+  assert.equal(blockedUnknown.action, "stop")
+  assert.equal(blockedUnknown.record, "blocked_cli_unavailable")
+  assert.equal(blockedUnknown.leftover.length, 0)
+  assert.equal(blockedUnknown.sddToTdd.length, 0)
+
+  const overCap = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n3" }],
+    priorRound: 9,
+  })
+  assert.equal(overCap.action, "push")
+  assert.equal(overCap.record, "capture_and_push")
+  assert.equal(overCap.leftover.length, 1)
+  assert.equal(overCap.sddToTdd.length, 0)
+
+  for (const reason of ["error", "version_mismatch", "timeout"]) {
+    const unavailable = decidePushCliAction({
+      attemptStatus: "unavailable",
+      findings: [],
+      priorRound: 0,
+      reason,
+    })
+    assert.equal(unavailable.action, "stop")
+    assert.equal(unavailable.record, "blocked_cli_unavailable")
+    assert.equal(unavailable.leftover.length, 0)
+    assert.equal(unavailable.sddToTdd.length, 0)
+  }
+
+  const unavailableMinor = decidePushCliAction({
+    attemptStatus: "unavailable",
+    findings: [{ severity: "minor", id: "n1" }],
+    priorRound: 0,
+    reason: "error",
+  })
+  assert.equal(unavailableMinor.action, "stop")
+  assert.equal(unavailableMinor.record, "blocked_cli_unavailable")
+  assert.equal(unavailableMinor.leftover.length, 0)
+
+  const unavailableMajor = decidePushCliAction({
+    attemptStatus: "unavailable",
+    findings: [{ severity: "major", id: "m1" }],
+    priorRound: 0,
+    reason: "error",
+  })
+  assert.equal(unavailableMajor.action, "stop")
+  assert.equal(unavailableMajor.record, "blocked_cli_unavailable")
+  assert.equal(unavailableMajor.sddToTdd.length, 0)
+
+  for (const reason of ["secret_path", "diff_failed", "missing_base"]) {
+    const preflight = decidePushCliAction({
+      attemptStatus: "unavailable",
+      findings: [],
+      priorRound: 0,
+      reason,
+    })
+    assert.equal(preflight.action, "push")
+    assert.equal(preflight.record, "unavailable")
+  }
 
   const clean = decidePushCliAction({
     attemptStatus: "clean",
@@ -429,7 +623,9 @@ test("no formal review on latest head is ready_no_coderabbit_review with operato
   assert.equal(none.ok, true)
   assert.equal(none.reason, "ready_no_coderabbit_review")
   assert.equal(none.operatorComment, NO_FORMAL_REVIEW_OPERATOR_COMMENT)
-  assert.match(none.operatorComment, /@coderabbitai full review/)
+  assert.match(none.operatorComment, /CLI evidence/)
+  assert.match(none.operatorComment, /QA UAT/)
+  assert.doesNotMatch(none.operatorComment, /@coderabbitai/)
 
   const draft = evaluateReadyPr(load("remote-draft.json"), { allowDraft: true })
   assert.equal(draft.ok, true)
@@ -724,10 +920,14 @@ describe("G-CR4 loop capture_only_findings and body findings", () => {
   test("commands document capture_only_findings and changes_requested_body_findings", () => {
     const docs = [
       ".cursor/commands/ready-merge-release.md",
-      ".cursor/commands/conduct.md",
       ".cursor/rules/coderabbit-integration.mdc",
       "docs/runbooks/coderabbit.md",
     ]
+    const conduct = readFileSync(
+      join(process.cwd(), ".cursor/commands/conduct.md"),
+      "utf8",
+    )
+    assert.equal(conduct.includes("/ready-merge-release <PR> --loop"), false)
     for (const rel of docs) {
       const text = readFileSync(join(process.cwd(), rel), "utf8")
       assert.equal(

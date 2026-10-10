@@ -62,10 +62,10 @@ exists**. `/commit` stays entirely Linear-free (local commit only, never
 pushes). A single `/push` publishes the branch and creates or updates a
 **draft** PR; that draft/open PR event is what fires **In Progress**. `/push`
 preps the promotion close-out whenever the PR it resolves targets the default
-branch, and may **request PR review** (`gh pr edit --add-reviewer`) so
-**In Review** can fire from review activity — it never calls `gh pr ready`,
+branch. It does not request review. **In Review** can fire from review
+activity or when the QA bot marks the draft ready — `/push` never calls `gh pr ready`,
 never calls `gh pr merge`, and never calls Linear MCP. `/push` creates PRs as
-**drafts**. CodeRabbit reviews the draft HEAD; other GitHub Actions jobs may
+**drafts**. A bot PR does not wait for a formal CodeRabbit review; other GitHub Actions jobs may
 remain gated on `pull_request.draft == false`. On a fresh PR **In Review** fires
 from review activity or when `/ready-merge-release PR#` marks a clean draft
 ready; **In Progress** fires immediately via the `Draft PR open` automation.
@@ -306,11 +306,13 @@ Two paths:
 **Feature PR** (head `sdd/RES-###` or any non-`staging` feature branch →
 base `staging`) — lighter; `/push` does not promotion-prep it:
 
-1. Confirm `/push` opened the PR as `<head> → staging` and requested review
-   (or reported the single-operator caveat).
-2. Run `/ready-merge-release <PR#>` and require
-   `APPROVED FOR OPERATOR MERGE`; it verifies CodeRabbit, marks a clean draft
-   ready, and re-checks the unchanged HEAD.
+1. Confirm `/push` opened the PR as `<head> → staging` and left it a draft.
+   Agents do not request review and do not mark it ready.
+2. The QA bot `ralfcam` runs UAT, digests the agent transcript, and may run
+   `/ready-merge-release <PR#>`. It does not post a review trigger. Readiness
+   is the /push CLI evidence on the head plus that UAT. Require `APPROVED FOR OPERATOR MERGE`; that
+   command verifies that evidence, marks a clean draft ready, and re-checks the
+   unchanged HEAD. Agents do not run it.
 3. Confirm the command reports required checks green.
 4. Merge the feature PR in the GitHub UI. The PR's own `Fixes RES-###`
    trailer is what Linear sees; the issue should move to **Done** at this
@@ -324,8 +326,8 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
    ambiguous) — confirm the `## Linear close-out` block /
    `Fixes RES-###[, RES-###, ...]` line is present on **that** PR (not
    just buried in staging commits).
-2. Run `/ready-merge-release <PR#>` and require
-   `APPROVED FOR OPERATOR MERGE`. The check
+2. The QA bot `ralfcam` may run `/ready-merge-release <PR#>`. Require
+   `APPROVED FOR OPERATOR MERGE`. Agents do not run it. The check
    `CodeRabbit US latest-head gate` is paused and not required.
 3. Confirm the command reports required checks green.
 4. Merge the promotion PR in the GitHub UI.

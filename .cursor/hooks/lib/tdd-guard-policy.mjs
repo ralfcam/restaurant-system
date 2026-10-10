@@ -314,11 +314,11 @@ export function extractPath(toolInput) {
 }
 
 function normalize(p) {
-  // Strip a leading absolute repo path and normalize slashes to forward slashes.
+  // Relativize a path inside this checkout (root from this module, same join
+  // pattern as STATE_PATH), then match on forward slashes.
   let s = String(p).replace(/\\/g, "/")
-  const marker = "/restaurant-system/"
-  const idx = s.indexOf(marker)
-  if (idx !== -1) s = s.slice(idx + marker.length)
+  const root = join(__dirname, "..", "..", "..").replace(/\\/g, "/")
+  if (s === root || s.startsWith(`${root}/`)) s = s.slice(root.length)
   return s.replace(/^\.?\//, "")
 }
 

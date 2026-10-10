@@ -20,6 +20,10 @@ import {
   evaluateReadyPr,
   isAllowedReadyPrShape,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
+import {
+  defaultStateDir,
+  loadReceipt,
+} from "../hooks/lib/coderabbit-review-policy.mjs"
 
 const PAGE_SIZE = 100
 const MAX_PAGES = 100
@@ -55,6 +59,7 @@ function emitReadyVerdict(
     allowDraft,
     loop,
     reviewWaitExpired,
+    cliReceipt: loadReceipt(defaultStateDir()),
   })
   if (!result.ok) fail(result.reason, result)
   console.log(JSON.stringify({ ok: true, ...result }, null, 2))
@@ -283,8 +288,17 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
       base: pull.base?.ref,
       head: pull.head?.ref,
       headSha,
+      ...(pull.user
+        ? {
+            user: {
+              login: pull.user.login || "",
+              type: pull.user.type || "",
+            },
+          }
+        : {}),
     },
     headSha,
+    body: pull.body || "",
     reviews,
     issueComments,
     reviewComments,

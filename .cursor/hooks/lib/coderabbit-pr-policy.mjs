@@ -3,21 +3,28 @@
  * identity, no unresolved CodeRabbit threads except `.cursor/plans/`
  * work-orders, outdated leftovers, or incremental-pause leftovers, no
  * rate-limit/billing/override markers, and deterministic severity routing
- * for active findings. A head with no formal US review is
- * `ready_no_coderabbit_review`. A quiet-mode walkthrough with no tagged
+ * for active findings. A head with no formal US review and no bot-skip
+ * notice is `ready_no_coderabbit_review`. A bot-skip notice does not expect
+ * a formal review, and it counts only when it names the head SHA.
+ * `ready_cli_evidence` is the ignored gate receipt for that head with
+ * `attemptStatus: clean`. PR body text is not that receipt. A matching
+ * bot skip without it stays `coderabbit_review_skipped`. Non-bot
+ * `stale_approval` still requires that same clean receipt. A quiet-mode
+ * walkthrough with no tagged
  * finding outside the walkthrough is still not a finding. A tagged
  * `cr-comment` outside the walkthrough section is still collected. A
  * COMMENTED review body with actionable comments still blocks.
  */
 import {
   US_APP_ID,
+  PUSH_CLI_FIX_ROUND_CAP,
   containsOverrideMarker,
   eventLooksBilling,
   eventLooksRateLimited,
   isUsBotLogin,
 } from "./coderabbit-review-policy.mjs"
 
-export { US_APP_ID }
+export { US_APP_ID, PUSH_CLI_FIX_ROUND_CAP }
 
 export const US_LATEST_HEAD_CHECK_NAME = "CodeRabbit US latest-head gate"
 export const REQUIRED_US_STATUS_CONTEXT = "CodeRabbit"
@@ -191,7 +198,6 @@ export function codeRabbitFindingId(comment, thread = {}) {
 }
 
 export const LOOP_ROUND_CAP = 3
-export const PUSH_CLI_FIX_ROUND_CAP = 1
 
 const IN_PROGRESS_CHECK_STATES = new Set([
   "queued",
@@ -234,19 +240,19 @@ export function statusLooksInProgress(status) {
   return context === REQUIRED_US_STATUS_CONTEXT || isCodeRabbitShaped(context)
 }
 
-function commentMentionsHead(comment, headSha) {
+export function commentMentionsHead(comment, headSha) {
   const body = String(comment?.body || "")
   const commentSha =
     comment?.commit_id || comment?.commitId || comment?.commit?.oid || ""
   if (commentSha) return Boolean(headSha && commentSha === headSha)
-  if (!headSha) return !/\b[0-9a-f]{7,40}\b/i.test(body)
-  const sha = String(headSha)
+  const sha = String(headSha || "")
+  if (!sha) return false
   if (body.toLowerCase().includes(sha.toLowerCase())) return true
   if (sha.length >= 7) {
     const short = sha.slice(0, 7).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
     if (new RegExp(`\\b${short}\\b`, "i").test(body)) return true
   }
-  return !/\b[0-9a-f]{7,40}\b/i.test(body)
+  return false
 }
 
 export function commentLooksReviewInProgress(comment, headSha) {
@@ -281,18 +287,13 @@ export function hasCodeRabbitReviewInProgress(snapshot) {
   )
 }
 
-export function decidePushCliAction({
-  attemptStatus,
-  findings = [],
-  priorRound = 0,
-} = {}) {
-  if (attemptStatus === "unavailable" || attemptStatus === "clean") {
-    return {
-      action: "push",
-      leftover: attemptStatus === "clean" ? [] : findings,
-      record: attemptStatus,
-    }
-  }
+function boundedPushRound(priorRound) {
+  const round = Number(priorRound)
+  if (!Number.isFinite(round) || round < 0) return 0
+  return Math.min(round, PUSH_CLI_FIX_ROUND_CAP)
+}
+
+function routedPushFindings(findings) {
   const routed = (findings || []).map((finding) => ({
     ...finding,
     ...classifyFindingRouting({
@@ -300,37 +301,117 @@ export function decidePushCliAction({
       body: finding.body,
     }),
   }))
-  const sddToTdd = routed.filter((finding) => finding.route === "sdd-to-tdd")
-  const capture = routed.filter((finding) => finding.route === "capture")
-  if (!sddToTdd.length) {
-    return {
-      action: "push",
-      leftover: routed,
-      sddToTdd,
-      capture,
-      record: capture.length ? "capture_and_push" : "push",
-    }
-  }
-  if (priorRound >= PUSH_CLI_FIX_ROUND_CAP) {
-    return {
-      action: "push",
-      leftover: routed,
-      sddToTdd,
-      capture,
-      record: "leftover_after_fix_round",
-    }
-  }
   return {
-    action: "route",
-    leftover: routed,
-    sddToTdd,
-    capture,
-    record: "fix_round",
+    sddToTdd: routed.filter((finding) => finding.route === "sdd-to-tdd"),
+    capture: routed.filter((finding) => finding.route === "capture"),
   }
 }
 
+const PUSH_CLI_PREFLIGHT_REASONS = new Set([
+  "secret_path",
+  "diff_failed",
+  "missing_base",
+])
+
+export function decidePushCliAction({
+  attemptStatus,
+  findings = [],
+  priorRound = 0,
+  reason = "",
+} = {}) {
+  const round = boundedPushRound(priorRound)
+  if (attemptStatus === "clean") {
+    return {
+      action: "push",
+      leftover: [],
+      sddToTdd: [],
+      capture: [],
+      record: "clean",
+    }
+  }
+  if (attemptStatus === "unavailable") {
+    if (PUSH_CLI_PREFLIGHT_REASONS.has(reason)) {
+      return {
+        action: "push",
+        leftover: [],
+        sddToTdd: [],
+        capture: [],
+        record: "unavailable",
+      }
+    }
+    return {
+      action: "stop",
+      leftover: [],
+      sddToTdd: [],
+      capture: [],
+      record: "blocked_cli_unavailable",
+    }
+  }
+  const { sddToTdd, capture } = routedPushFindings(findings)
+  const packet = { leftover: capture, sddToTdd, capture }
+  if (sddToTdd.length > 0) {
+    if (round >= PUSH_CLI_FIX_ROUND_CAP) {
+      return {
+        action: "stop",
+        leftover: [],
+        sddToTdd,
+        capture,
+        record: "blocked_major_findings",
+      }
+    }
+    return { action: "route", ...packet, record: "fix_round" }
+  }
+  // Pass 1 routes every finding. Later passes capture only Minor and Trivial.
+  if (capture.length > 0 && round < 1) {
+    return { action: "route", ...packet, record: "fix_round" }
+  }
+  return {
+    action: "push",
+    ...packet,
+    record: capture.length ? "capture_and_push" : "push",
+  }
+}
+
+export const CLI_EVIDENCE_HEADING = "## CodeRabbit CLI evidence"
+
+export function renderCliEvidenceBlock({ head, attemptStatus, reason } = {}) {
+  const lines = [
+    CLI_EVIDENCE_HEADING,
+    `Head: ${head}`,
+    `attemptStatus: ${attemptStatus}`,
+  ]
+  if (reason) lines.push(`reason: ${reason}`)
+  return `${lines.join("\n")}\n`
+}
+
+// Parses the human PR-body record. This is not authorization.
+export function cliEvidenceStatusForHead(body, headSha) {
+  const want = String(headSha || "")
+  const re =
+    /## CodeRabbit CLI evidence\r?\nHead:\s*(\S+)\r?\nattemptStatus:\s*(clean|findings|unavailable)\b/g
+  let status = null
+  let match
+  while ((match = re.exec(String(body || "")))) {
+    if (match[1] === want) status = match[2]
+  }
+  return status
+}
+
+export function hasCleanCliEvidence(receipt, headSha) {
+  if (!receipt || typeof receipt !== "object" || !headSha) return false
+  return (
+    String(receipt.head || "") === String(headSha) &&
+    receipt.attemptStatus === "clean"
+  )
+}
+
+export function isBotSkipNotice(body) {
+  const text = String(body || "")
+  return /review skipped/i.test(text) && /bot user detected/i.test(text)
+}
+
 export const NO_FORMAL_REVIEW_OPERATOR_COMMENT =
-  "No formal CodeRabbit review ran on this head. The draft is marked ready. Comment `@coderabbitai full review` if you want a review, or merge without one."
+  "No formal CodeRabbit review ran on this head. The draft is marked ready. Readiness is the /push CLI evidence for this SHA plus QA UAT. Do not request a CodeRabbit review."
 
 export const NO_FORMAL_REVIEW_BODY_HEADING = "## CodeRabbit note"
 
@@ -740,9 +821,45 @@ function collectLoopChangesRequestedFindings(latest, threads) {
   return [...byId.values()]
 }
 
+function pullAuthorLogin(snapshot) {
+  return String(
+    snapshot?.pull?.user?.login || snapshot?.pull?.author?.login || "",
+  )
+}
+
+function isBotPullAuthor(snapshot) {
+  const login = pullAuthorLogin(snapshot)
+  const type = String(
+    snapshot?.pull?.user?.type || snapshot?.pull?.author?.type || "",
+  ).toLowerCase()
+  if (type === "bot") return true
+  if (/\[bot\]$/i.test(login)) return true
+  return login === "app/cursor"
+}
+
+function headHasBotSkipNotice(snapshot, headSha) {
+  const comments = [
+    ...(snapshot?.issueComments || []),
+    ...(snapshot?.reviewComments || []),
+  ]
+  return comments.some((comment) => {
+    if (!isBotSkipNotice(comment?.body)) return false
+    const login = commentAuthorLogin(comment)
+    if (login && !isUsBotLogin(login) && !isCodeRabbitShaped(login)) {
+      return false
+    }
+    return commentMentionsHead(comment, headSha)
+  })
+}
+
 function evaluateReadyPrCore(
   snapshot,
-  { allowDraft = false, loop = false, reviewWaitExpired = false } = {},
+  {
+    allowDraft = false,
+    loop = false,
+    reviewWaitExpired = false,
+    cliReceipt = null,
+  } = {},
 ) {
   if (!snapshot || typeof snapshot !== "object") {
     return { ok: false, reason: "malformed_snapshot" }
@@ -871,10 +988,35 @@ function evaluateReadyPrCore(
         findings: commentedFindings,
       }
     }
+    const cleanReceipt = hasCleanCliEvidence(cliReceipt, headSha)
+    // Bot PRs: a formal review is not required. The gate receipt is the
+    // only clean-CLI proof. PR body text is not. A bot author counts even
+    // when CodeRabbit never posted a skip notice.
+    if (headHasBotSkipNotice(snapshot, headSha) || isBotPullAuthor(snapshot)) {
+      if (cleanReceipt) {
+        return {
+          ok: true,
+          reason: "ready_cli_evidence",
+          ...readyMetadata(headSha, isDraft),
+        }
+      }
+      return {
+        ok: false,
+        reason: "coderabbit_review_skipped",
+        ...readyMetadata(headSha, isDraft),
+      }
+    }
     const formalElsewhere = usReviews.some((review) =>
       ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
     )
     if (formalElsewhere) {
+      if (cleanReceipt) {
+        return {
+          ok: true,
+          reason: "ready_cli_evidence",
+          ...readyMetadata(headSha, isDraft),
+        }
+      }
       return { ok: false, reason: "stale_approval" }
     }
     return {

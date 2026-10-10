@@ -5,6 +5,7 @@ import { test } from "node:test"
 import {
   PINNED_CLI_VERSION,
   assertPinnedUsAuth,
+  shouldReinstallCli,
   applyWaivers,
   buildReceipt,
   evaluateAgentStream,
@@ -165,20 +166,20 @@ test("malformed, missing complete, mismatch, rate limit, billing, skipped, unkno
 
 test("pinned US auth rejects version and region mismatch", () => {
   const good = assertPinnedUsAuth({
-    version: "0.7.6",
+    version: "0.9.0",
     auth: { authenticated: true, region: "us" },
   })
   assert.equal(good.ok, true)
   assert.equal(
     assertPinnedUsAuth({
-      version: "v0.7.6",
+      version: "v0.9.0",
       auth: { authenticated: true, region: "us" },
     }).ok,
     true,
   )
   assert.equal(
     assertPinnedUsAuth({
-      version: "0.7.5",
+      version: "0.7.6",
       auth: { authenticated: true, region: "us" },
     }).reason,
     "version_mismatch",
@@ -196,6 +197,34 @@ test("pinned US auth rejects version and region mismatch", () => {
       auth: { authenticated: false, region: "us" },
     }).reason,
     "unauthenticated",
+  )
+  assert.equal(
+    assertPinnedUsAuth({
+      version: "",
+      auth: { authenticated: true, region: "us" },
+    }).reason,
+    "cli_missing",
+  )
+  assert.equal(
+    assertPinnedUsAuth({
+      version: "ignored",
+      spawnErrorCode: "ENOENT",
+      auth: { authenticated: true, region: "us" },
+    }).reason,
+    "cli_missing",
+  )
+  assert.equal(
+    assertPinnedUsAuth({
+      version: "coderabbit version 0.9.0\n",
+      auth: { authenticated: true, region: "us" },
+    }).ok,
+    true,
+  )
+  assert.equal(shouldReinstallCli({ reason: "cli_missing" }), true)
+  assert.equal(shouldReinstallCli({ reason: "version_mismatch" }), true)
+  assert.equal(
+    shouldReinstallCli({ ok: true, reason: undefined, version: "0.9.0" }),
+    false,
   )
 })
 
@@ -257,6 +286,24 @@ test("review command is uncommitted+untracked with policy config and never --use
       fixRound: 1,
     }),
     1,
+  )
+  assert.equal(
+    resolvePushPriorRound(null, {
+      fixRound: 9,
+    }),
+    2,
+  )
+  assert.equal(
+    resolvePushPriorRound(null, {
+      leftoverRecord: { record: "leftover_after_fix_round", round: 1 },
+    }),
+    2,
+  )
+  assert.equal(
+    resolvePushPriorRound(null, {
+      leftoverRecord: { record: "blocked_major_findings", round: 0 },
+    }),
+    2,
   )
   assert.equal(
     resolvePushPriorRound(

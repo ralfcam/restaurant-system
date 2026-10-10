@@ -299,7 +299,7 @@ describe("G-CR2 empty reviewedFiles fallback", () => {
 
     const gcr1Start = spec.indexOf("7. **G-CR1")
     const gcr1Body = spec.slice(gcr1Start, gcr2Start)
-    expect(gcr1Body).toContain("CODERABBIT_VERSION=0.7.6")
+    expect(gcr1Body).toContain("CODERABBIT_VERSION=0.9.0")
   })
 
   it("G-CR2 makes local review outcomes advisory but keeps deterministic safety hard", () => {

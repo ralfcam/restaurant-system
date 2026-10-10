@@ -1,13 +1,13 @@
 #!/bin/sh
 # Idempotent CodeRabbit CLI install for Cursor Cloud (Linux).
-# Pin: CodeRabbit CLI v0.7.6. The installer folder and `coderabbit --version`
-# are `0.7.6` (no leading v). `CODERABBIT_VERSION=v0.7.6` 404s on
-# cli.coderabbit.ai. Skip installer browser login. Authenticate US Team
+# Pin: CodeRabbit CLI 0.9.0 (no leading v). The current Linux installer
+# requires SHA256SUMS.sig. Release 0.7.6 has no signature and 404s, so that
+# pin cannot install. Skip installer browser login. Authenticate US Team
 # only via the CODERABBIT_API_KEY Cursor secret — never commit the key.
 # Missing key, failed login, or non-US status fail setup.
 set -eu
 
-PINNED_VERSION="0.7.6"
+PINNED_VERSION="0.9.0"
 BIN_DIR="${HOME}/.local/bin"
 export PATH="${BIN_DIR}:${PATH}"
 CI=1
