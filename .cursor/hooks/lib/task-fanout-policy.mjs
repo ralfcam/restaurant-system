@@ -10,16 +10,29 @@
  * subagentStop or Task postToolUseFailure. TTL prune so a crashed composer
  * cannot stick the cap.
  *
- * Fails OPEN at the hook: any error returns no opinion so TDD Task calls are
- * never bricked. Raise the cap only in TASK_FANOUT_INFLIGHT_CAP (harness-lint
- * pins the same number in .cursor/rules/task-fanout.mdc).
+ * Reservations are atomic (exclusive lock around load / tryReserve / save).
+ * The hook fails CLOSED: a crash or malformed stdin must not admit another
+ * Task. Raise the cap only in TASK_FANOUT_INFLIGHT_CAP (harness-lint pins
+ * the same number in .cursor/rules/task-fanout.mdc).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import {
+  closeSync,
+  existsSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = join(__dirname, "..", "state", "task-fanout.json")
+const LOCK_PATH = `${STATE_PATH}.lock`
+const LOCK_STALE_MS = 5_000
+const LOCK_WAIT_MS = 2_000
 
 export const TASK_FANOUT_INFLIGHT_CAP = 8
 export const RESERVATION_TTL_MS = 120_000
@@ -114,4 +127,74 @@ export function loadReservations() {
 export function saveReservations(reservations) {
   mkdirSync(dirname(STATE_PATH), { recursive: true })
   writeFileSync(STATE_PATH, JSON.stringify({ reservations }, null, 2), "utf8")
+}
+
+function sleepMs(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+export function withFanoutLock(fn) {
+  mkdirSync(dirname(LOCK_PATH), { recursive: true })
+  const started = Date.now()
+  while (true) {
+    try {
+      const fd = openSync(LOCK_PATH, "wx")
+      try {
+        writeFileSync(fd, String(process.pid))
+        return fn()
+      } finally {
+        closeSync(fd)
+        try {
+          const holder = readFileSync(LOCK_PATH, "utf8").trim()
+          if (holder === String(process.pid)) unlinkSync(LOCK_PATH)
+        } catch {
+          // lock already released or stolen
+        }
+      }
+    } catch (err) {
+      if (err?.code !== "EEXIST") throw err
+      try {
+        const st = statSync(LOCK_PATH)
+        if (Date.now() - st.mtimeMs > LOCK_STALE_MS) unlinkSync(LOCK_PATH)
+      } catch {
+        // raced with unlock
+      }
+      if (Date.now() - started > LOCK_WAIT_MS) {
+        throw new Error("task-fanout lock timeout")
+      }
+      sleepMs(5)
+    }
+  }
+}
+
+export function reserveTaskSlot(now = Date.now()) {
+  return withFanoutLock(() => {
+    const result = tryReserve(loadReservations(), now)
+    saveReservations(result.reservations)
+    return result
+  })
+}
+
+export function applySubagentStart(now = Date.now()) {
+  return withFanoutLock(() => {
+    const next = onSubagentStart(loadReservations(), now)
+    saveReservations(next)
+    return next
+  })
+}
+
+export function applySubagentStop(now = Date.now()) {
+  return withFanoutLock(() => {
+    const next = onSubagentStop(loadReservations(), now)
+    saveReservations(next)
+    return next
+  })
+}
+
+export function applyTaskFailure(now = Date.now()) {
+  return withFanoutLock(() => {
+    const next = onTaskFailure(loadReservations(), now)
+    saveReservations(next)
+    return next
+  })
 }

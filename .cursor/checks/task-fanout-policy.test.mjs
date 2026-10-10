@@ -27,10 +27,10 @@ function fillPending(n, ts = NOW) {
   return Array.from({ length: n }, () => ({ status: "pending", ts }))
 }
 
-test("task-fanout guard is fail-open on Task preToolUse with matcher Task", () => {
+test("task-fanout guard is fail-closed on Task preToolUse with matcher Task", () => {
   const pre = hookByCommand("preToolUse", "task-fanout-guard.mjs")
   assert.ok(pre, "task-fanout-guard is registered on preToolUse")
-  assert.equal(pre.failClosed, false)
+  assert.equal(pre.failClosed, true)
   assert.equal(pre.matcher, "Task")
 })
 

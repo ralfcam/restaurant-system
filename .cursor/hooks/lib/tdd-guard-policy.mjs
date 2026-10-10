@@ -383,7 +383,7 @@ export function checkTddWrite(relPath, { depth, phase }) {
  * chained invocations. Returns null when nothing matches. */
 export function detectBlanketGitStage(command) {
   if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
+  const segments = splitShellSegments(command)
   for (const rawSeg of segments) {
     const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
     const gitIdx = tokens.indexOf("git")
@@ -409,18 +409,252 @@ export function detectBlanketGitStage(command) {
   return null
 }
 
-/** Detect `gh pr merge` in a shell command string. Segments on &&/;/|/||
- * so it also catches chained invocations. Returns null when nothing matches. */
+function basenameToken(token) {
+  return token
+    .replace(/\\/g, "/")
+    .split("/")
+    .pop()
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\.exe$/i, "")
+}
+
+export function unwrapShellWrappers(command) {
+  let current = String(command).trim()
+  for (let i = 0; i < 5; i++) {
+    const m = current.match(
+      /^(?:(?:\S*\/)?(?:ba)?sh(?:\.exe)?)\s+-c\s+(?:(['"])([\s\S]*)\1|(\S+))$/i,
+    )
+    if (!m) break
+    current = (m[2] ?? m[3] ?? "").trim()
+  }
+  return current
+}
+
+function skipFlagTokens(tokens, valueFlags) {
+  const out = []
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (t.startsWith("-")) {
+      const flag = t.split("=")[0]
+      if (
+        !t.includes("=") &&
+        valueFlags.has(flag) &&
+        tokens[i + 1] &&
+        !tokens[i + 1].startsWith("-")
+      ) {
+        i += 1
+      }
+      continue
+    }
+    out.push(t)
+  }
+  return out
+}
+
+function splitShellSegments(command) {
+  return String(command).split(/&&|\|\||;|\||(?<!&)&(?!&)|\r?\n/)
+}
+
+function expandCommandSegments(command) {
+  const top = unwrapShellWrappers(String(command).trim())
+  return splitShellSegments(top).flatMap((s) => {
+    const trimmed = s.trim()
+    if (!trimmed) return []
+    const inner = unwrapShellWrappers(trimmed)
+    return inner !== trimmed ? splitShellSegments(inner) : [trimmed]
+  })
+}
+
+function firstPositionalIndex(tokens, valueFlags) {
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i]
+    if (!t.startsWith("-")) return i
+    const flag = t.split("=")[0]
+    if (
+      !t.includes("=") &&
+      valueFlags.has(flag) &&
+      tokens[i + 1] &&
+      !tokens[i + 1].startsWith("-")
+    ) {
+      i += 1
+    }
+  }
+  return -1
+}
+
+const GH_VALUE_FLAGS = new Set([
+  "-R",
+  "--repo",
+  "-X",
+  "--method",
+  "-f",
+  "-F",
+  "-H",
+  "--header",
+  "--input",
+  "-t",
+  "--hostname",
+])
+
+const GIT_GLOBAL_VALUE_FLAGS = new Set([
+  "-C",
+  "-c",
+  "--git-dir",
+  "--work-tree",
+  "--namespace",
+  "--config-env",
+])
+
+const GIT_PUSH_VALUE_FLAGS = new Set([
+  "-o",
+  "--push-option",
+  "--repo",
+  "--exec",
+  "--receive-pack",
+])
+
+const GITHUB_MCP_MERGE_TOOLS = new Set([
+  "merge_pull_request",
+  "mergePullRequest",
+  "merge_pr",
+])
+
+function detectGhPrMergeSegment(segment) {
+  const raw = unwrapShellWrappers(segment)
+  if (!raw) return null
+  const haystack = raw.replace(/\\/g, "/")
+  if (/\bmergePullRequest\b/.test(haystack)) {
+    return { kind: "pr-merge", segment: raw }
+  }
+  if (
+    /(?:^|[\s;|&])(?:\S*\/)?curl(?:\.exe)?\b[\s\S]*https?:\/\/api\.github\.com\/repos\/[^/\s]+\/[^/\s]+\/pulls\/\d+\/merge\b/i.test(
+      haystack,
+    )
+  ) {
+    return { kind: "pr-merge", segment: raw }
+  }
+  const tokens = haystack.split(/\s+/).filter(Boolean)
+  for (let i = 0; i < tokens.length; i++) {
+    if (basenameToken(tokens[i]) !== "gh") continue
+    const pos = skipFlagTokens(tokens.slice(i + 1), GH_VALUE_FLAGS)
+    if (pos[0] === "pr" && pos[1] === "merge") {
+      return { kind: "pr-merge", segment: raw }
+    }
+    if (
+      pos[0] === "api" &&
+      pos.some((t) => /\/pulls\/\d+\/merge(?:\b|$|\?)/.test(t))
+    ) {
+      return { kind: "pr-merge", segment: raw }
+    }
+  }
+  return null
+}
+
+/** Detect a GitHub PR merge in a shell command. Tolerant of bash -c,
+ * full-path `gh`, `gh -R`, `gh api …/merge`, GraphQL mergePullRequest,
+ * and curl to the pulls merge endpoint. */
 export function detectGhPrMerge(command) {
   if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
+  const segments = expandCommandSegments(command)
   for (const rawSeg of segments) {
-    const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
-    const ghIdx = tokens.indexOf("gh")
-    if (ghIdx === -1) continue
-    if (tokens[ghIdx + 1] === "pr" && tokens[ghIdx + 2] === "merge") {
-      return { kind: "pr-merge", segment: rawSeg.trim() }
+    const hit = detectGhPrMergeSegment(rawSeg.trim())
+    if (hit) return hit
+  }
+  return null
+}
+
+export function detectGithubMcpMerge(input) {
+  if (!input || typeof input !== "object") return null
+  const raw = typeof input.tool_name === "string" ? input.tool_name : ""
+  const name = raw.startsWith("MCP:") ? raw.slice(4) : raw
+  if (GITHUB_MCP_MERGE_TOOLS.has(name)) {
+    return { kind: "pr-merge", segment: raw }
+  }
+  const ti = input.tool_input
+  const nested =
+    ti && typeof ti === "object" ? ti.toolName || ti.tool_name : null
+  if (raw === "CallMcpTool" && GITHUB_MCP_MERGE_TOOLS.has(nested)) {
+    return { kind: "pr-merge", segment: String(nested) }
+  }
+  return null
+}
+
+function isProtectedBranch(name) {
+  return name === "main" || name === "staging"
+}
+
+function resolveCurrentBranch(cwd = process.cwd()) {
+  const result = spawnSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  })
+  if (result.status !== 0) return null
+  const name = (result.stdout || "").trim()
+  if (!name || name === "HEAD") return null
+  return name
+}
+
+function destFromRefspec(refspec, currentBranch) {
+  const dest = String(refspec)
+    .replace(/^['"]+|['"]+$/g, "")
+    .replace(/^\+/, "")
+    .split(":")
+    .pop()
+    .replace(/^refs\/heads\//, "")
+    .replace(/^['"]+|['"]+$/g, "")
+  if (dest === "HEAD" || dest === "@") return currentBranch
+  return dest
+}
+
+function implicitDestDenied(currentBranch) {
+  if (currentBranch == null || currentBranch === "") return true
+  return isProtectedBranch(currentBranch)
+}
+
+function detectProtectedPushSegment(segment, currentBranch) {
+  const raw = unwrapShellWrappers(segment)
+  if (!raw) return null
+  const tokens = raw.replace(/\\/g, "/").split(/\s+/).filter(Boolean)
+  for (let i = 0; i < tokens.length; i++) {
+    if (basenameToken(tokens[i]) !== "git") continue
+    const afterGitTokens = tokens.slice(i + 1)
+    const subIdx = firstPositionalIndex(afterGitTokens, GIT_GLOBAL_VALUE_FLAGS)
+    if (subIdx === -1 || afterGitTokens[subIdx] !== "push") return null
+    const afterPush = afterGitTokens.slice(subIdx + 1)
+    if (afterPush.some((t) => t === "--all" || t === "--mirror")) {
+      return { kind: "protected-push", segment: raw }
     }
+    const positionals = skipFlagTokens(afterPush, GIT_PUSH_VALUE_FLAGS)
+    const hit = { kind: "protected-push", segment: raw }
+    if (positionals.length <= 1) {
+      return implicitDestDenied(currentBranch) ? hit : null
+    }
+    const refspecs = positionals.slice(1)
+    if (
+      refspecs.some((r) => {
+        const dest = destFromRefspec(r, currentBranch)
+        if (dest == null || dest === "")
+          return implicitDestDenied(currentBranch)
+        return isProtectedBranch(dest)
+      })
+    ) {
+      return hit
+    }
+  }
+  return null
+}
+
+/** Detect `git push` whose destination ref is main or staging. */
+export function detectProtectedBranchPush(command, options = {}) {
+  if (typeof command !== "string" || !command.trim()) return null
+  const currentBranch = Object.hasOwn(options, "currentBranch")
+    ? options.currentBranch
+    : resolveCurrentBranch(options.cwd)
+  const segments = expandCommandSegments(command)
+  for (const rawSeg of segments) {
+    const hit = detectProtectedPushSegment(rawSeg.trim(), currentBranch)
+    if (hit) return hit
   }
   return null
 }
@@ -429,7 +663,7 @@ export function detectGhPrMerge(command) {
  * so it also catches chained invocations. Returns null when nothing matches. */
 export function detectGitCommit(command) {
   if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
+  const segments = splitShellSegments(command)
   for (const rawSeg of segments) {
     const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
     const gitIdx = tokens.indexOf("git")

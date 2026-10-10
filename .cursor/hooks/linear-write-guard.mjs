@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /**
- * beforeMCPExecution: deny parent Linear save_issue / save_comment /
- * save_status_update unless linear-writer.json is { "allowed": true }.
+ * beforeMCPExecution and Cloud preToolUse (MCP:save_*): deny parent Linear
+ * save_issue / save_comment / save_status_update unless linear-writer.json
+ * is { "allowed": true }. On the Cloud preToolUse path, unknown server +
+ * a guarded write name is also deny.
  *
  * subagentStart (matcher linear-resolver): set the allow flag.
  *   node .cursor/hooks/linear-write-guard.mjs start
@@ -25,7 +27,11 @@ import {
   writeStdoutJson,
   extractMcpCall,
 } from "./lib/mcp-payload.mjs"
-import { checkLinearWrite, setAllowed } from "./lib/linear-write-policy.mjs"
+import {
+  checkLinearWrite,
+  isAllowed,
+  setAllowed,
+} from "./lib/linear-write-policy.mjs"
 
 function main() {
   try {
@@ -48,7 +54,16 @@ function main() {
       return
     }
 
-    const hit = checkLinearWrite(extracted.server, extracted.toolName)
+    const cloudPath =
+      input.hook_event_name === "preToolUse" ||
+      (typeof input.tool_name === "string" &&
+        input.tool_name.startsWith("MCP:"))
+    const hit = checkLinearWrite(
+      extracted.server,
+      extracted.toolName,
+      isAllowed(),
+      { denyUnknownServer: cloudPath },
+    )
     if (!hit) {
       writeStdoutJson({})
       return
