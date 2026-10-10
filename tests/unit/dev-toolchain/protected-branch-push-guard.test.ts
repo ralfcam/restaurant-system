@@ -85,9 +85,57 @@ describe("G-PUSH1 no git push to main or staging", () => {
         command,
       ).toBeNull()
     }
-    const feature = runGitStageGuard("git push origin HEAD")
-    expect(feature.status).toBe(0)
-    expect(permission(feature.stdout)).toEqual({})
+    const featureDir = mkdtempSync(path.join(os.tmpdir(), "g-push1-feat-"))
+    try {
+      const init = spawnSync("git", ["init", "-b", "feat"], {
+        cwd: featureDir,
+        encoding: "utf8",
+      })
+      expect(init.status).toBe(0)
+      writeFileSync(path.join(featureDir, "README"), "x")
+      spawnSync("git", ["add", "README"], {
+        cwd: featureDir,
+        encoding: "utf8",
+      })
+      spawnSync(
+        "git",
+        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "t"],
+        { cwd: featureDir, encoding: "utf8" },
+      )
+      const feature = runGitStageGuard("git push origin HEAD", featureDir)
+      expect(feature.status).toBe(0)
+      expect(permission(feature.stdout)).toEqual({})
+    } finally {
+      rmSync(featureDir, { recursive: true, force: true })
+    }
+  })
+
+  it("resolves implicit dest from git -C, not the hook cwd", () => {
+    const mainDir = mkdtempSync(path.join(os.tmpdir(), "g-push1-c-main-"))
+    try {
+      const init = spawnSync("git", ["init", "-b", "main"], {
+        cwd: mainDir,
+        encoding: "utf8",
+      })
+      expect(init.status).toBe(0)
+      writeFileSync(path.join(mainDir, "README"), "x")
+      spawnSync("git", ["add", "README"], { cwd: mainDir, encoding: "utf8" })
+      spawnSync(
+        "git",
+        ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "t"],
+        { cwd: mainDir, encoding: "utf8" },
+      )
+      expect(
+        detectProtectedBranchPush(`git -C ${mainDir} push origin HEAD`, {
+          currentBranch: FEATURE,
+        })?.kind,
+      ).toBe("protected-push")
+      const spawned = runGitStageGuard(`git -C ${mainDir} push origin HEAD`)
+      expect(spawned.status).toBe(0)
+      expect(permission(spawned.stdout).permission).toBe("deny")
+    } finally {
+      rmSync(mainDir, { recursive: true, force: true })
+    }
   })
 
   it("denies implicit dest when current branch is main or staging", () => {

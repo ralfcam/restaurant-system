@@ -155,7 +155,12 @@ export function withFanoutLock(fn) {
       if (err?.code !== "EEXIST") throw err
       try {
         const st = statSync(LOCK_PATH)
-        if (Date.now() - st.mtimeMs > LOCK_STALE_MS) unlinkSync(LOCK_PATH)
+        if (Date.now() - st.mtimeMs > LOCK_STALE_MS) {
+          const same = statSync(LOCK_PATH)
+          if (same.ino === st.ino && same.mtimeMs === st.mtimeMs) {
+            unlinkSync(LOCK_PATH)
+          }
+        }
       } catch {
         // raced with unlock
       }

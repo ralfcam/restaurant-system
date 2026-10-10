@@ -103,15 +103,12 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   in-run, dedupe/sharpen existing ones, append only genuinely new out-of-scope
   items that no later criterion handles, and drop process notes. At close-out,
   **merge** the run file's open lines into the matching `docs/findings/<category>.md`
-  (dedupe/sharpen), delegate `linear-resolver` to read the (already-curated)
-  `docs/findings/*.md` (plus the plan's Out-of-Scope Findings table), file the
-  findings as linked Linear issues (your confirmation gates creation — managed
-  Cloud does not auto-confirm net-new finding issues; persist to the ledger and
-  continue), then
-  **prune** each registered entry into `docs/findings/archive.md` with its issue
-  id via `docs-updater` ledger-apply and **delete the run file** (never truncate
-  it). If Linear is unavailable, the merged
-  category files ARE the fallback backlog.
+  (dedupe/sharpen). Remote findings stay ledger text for `/capture` then
+  `/triage`. Do not delegate `linear-resolver` to file Linear issues from this
+  plan's review-findings path. Then **prune** registered entries into
+  `docs/findings/archive.md` via `docs-updater` ledger-apply only after
+  `/triage` has filed them, and **delete the run file** (never truncate it).
+  The merged category files are the backlog.
 - **A skipped test is not progress** (see
   [.cursor/rules/test-execution-integrity.mdc](.cursor/rules/test-execution-integrity.mdc)).
   No phase advances on a test that did not execute — that is a BLOCKER, never a
@@ -141,13 +138,9 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   to `tests/**`, Green/Refactor blocked from touching `tests/**`; clear it
   (`phase clear`) once the criterion's Refactor exits green.
 
-**Cloud-VM exception recorded here:** this managed session has no `Task`
-subagent tool (catalog search returned none). START / tdd-\* / docs-updater /
-linear-resolver delegation is therefore BLOCKED. The Cloud issue task still
-requires the ACs to ship. The orchestrator executes spec → Red tests → Green
-source in that order, without arming `tdd-guard` (arming would brick the only
-writer). Parent Linear `save_comment` stays forbidden; START is visibility
-BLOCKED.
+If `Task` is unavailable, STOP and report. Do not write tests or source, and
+do not skip the TDD guard. Tool unavailability is not authorization for
+parent implementation.
 
 ## Mode Check
 

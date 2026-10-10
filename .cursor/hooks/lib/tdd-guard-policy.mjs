@@ -612,6 +612,20 @@ function implicitDestDenied(currentBranch) {
   return isProtectedBranch(currentBranch)
 }
 
+function gitMinusCwd(afterGitTokens) {
+  for (let i = 0; i < afterGitTokens.length; i++) {
+    if (
+      (afterGitTokens[i] === "-C" ||
+        afterGitTokens[i] === "--git-dir" ||
+        afterGitTokens[i] === "--work-tree") &&
+      afterGitTokens[i + 1]
+    ) {
+      return afterGitTokens[i + 1]
+    }
+  }
+  return null
+}
+
 function detectProtectedPushSegment(segment, currentBranch) {
   const raw = unwrapShellWrappers(segment)
   if (!raw) return null
@@ -619,6 +633,8 @@ function detectProtectedPushSegment(segment, currentBranch) {
   for (let i = 0; i < tokens.length; i++) {
     if (basenameToken(tokens[i]) !== "git") continue
     const afterGitTokens = tokens.slice(i + 1)
+    const targetCwd = gitMinusCwd(afterGitTokens)
+    const branch = targetCwd ? resolveCurrentBranch(targetCwd) : currentBranch
     const subIdx = firstPositionalIndex(afterGitTokens, GIT_GLOBAL_VALUE_FLAGS)
     if (subIdx === -1 || afterGitTokens[subIdx] !== "push") return null
     const afterPush = afterGitTokens.slice(subIdx + 1)
@@ -628,14 +644,13 @@ function detectProtectedPushSegment(segment, currentBranch) {
     const positionals = skipFlagTokens(afterPush, GIT_PUSH_VALUE_FLAGS)
     const hit = { kind: "protected-push", segment: raw }
     if (positionals.length <= 1) {
-      return implicitDestDenied(currentBranch) ? hit : null
+      return implicitDestDenied(branch) ? hit : null
     }
     const refspecs = positionals.slice(1)
     if (
       refspecs.some((r) => {
-        const dest = destFromRefspec(r, currentBranch)
-        if (dest == null || dest === "")
-          return implicitDestDenied(currentBranch)
+        const dest = destFromRefspec(r, branch)
+        if (dest == null || dest === "") return implicitDestDenied(branch)
         return isProtectedBranch(dest)
       })
     ) {
