@@ -492,15 +492,11 @@ const GIT_GLOBAL_VALUE_FLAGS = new Set([
 ])
 
 const GIT_PUSH_VALUE_FLAGS = new Set([
-  "-u",
-  "--set-upstream",
   "-o",
   "--push-option",
   "--repo",
   "--exec",
   "--receive-pack",
-  "-C",
-  "-c",
 ])
 
 const GITHUB_MCP_MERGE_TOOLS = new Set([

@@ -44,6 +44,8 @@ const DENIED: Array<[string, string]> = [
   ["bash -c push staging", "bash -c 'git push origin staging'"],
   ["--all", "git push --all"],
   ["--mirror", "git push --mirror origin"],
+  ["-u origin main", "git push -u origin main"],
+  ["--set-upstream origin staging", "git push --set-upstream origin staging"],
 ]
 
 const IMPLICIT_DENIED: Array<[string, string]> = [

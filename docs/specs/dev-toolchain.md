@@ -998,7 +998,8 @@ latest-head` so `on.pull_request.types` includes `edited`.
 
 33. **G-PUSH1 — No git push to main or staging** —
     `git-stage-guard.mjs` MUST deny any `git push` (including `--force`,
-    `-f`, `--force-with-lease`, and a `+refspec`) whose destination ref
+    `-f`, `--force-with-lease`, `-u` / `--set-upstream`, and a `+refspec`)
+    whose destination ref
     is `main` or `staging` (including `HEAD:main`, `HEAD:staging`,
     `refs/heads/main`, `refs/heads/staging`, a full-path `git` binary,
     and `bash -c` / `sh -c` wrappers). A push with no refspec
