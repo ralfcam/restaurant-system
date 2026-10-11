@@ -35,6 +35,7 @@ export function selectOpenHeadPr(prs) {
 
 const WIP_START_COMMIT = /^wip\([^)]+\): start run\b/
 
+/** @param {{ title: string, commitMessage: string, env?: string, branch?: string }} args */
 export function shouldIgnoreWipBuild({ title, commitMessage, env, branch }) {
   if (
     env === "production" ||

@@ -483,7 +483,7 @@ describe("WIP draft PR", () => {
         row.ignore,
       )
       const result = spawnSync(process.execPath, [script], {
-        env: row.scriptEnv,
+        env: { ...process.env, ...row.scriptEnv },
       })
       expect(result.status, `${row.label} script`).toBe(row.exitCode)
     }
