@@ -45,12 +45,13 @@ Reusable pattern: Keep a `toContain` pin on one line when the test does not coll
 ### C5
 
 Suggested review order:
-- WIP skip decision: [public-api] `.cursor/hooks/lib/gate-evidence-policy.mjs:36` `shouldIgnoreWipBuild` (title prefix `[WIP]`, or `^wip\([^)]+\): start run\b`)
-- Vercel exit polarity: [public-api] `.cursor/hooks/lib/ignore-wip-build.mjs:5` exit 0 cancels the build; both fields are `VERCEL_GIT_COMMIT_MESSAGE`
+- WIP skip decision: [public-api] `.cursor/hooks/lib/gate-evidence-policy.mjs:38` `shouldIgnoreWipBuild` (title prefix `[WIP]`, or `^wip\([^)]+\): start run\b`)
+- Protected env/branch never skip: [public-api] `.cursor/hooks/lib/gate-evidence-policy.mjs:39` (`production`/`staging` env, `staging`/`main` branch → `false`)
+- Vercel exit polarity: [public-api] `.cursor/hooks/lib/ignore-wip-build.mjs:5` exit 0 cancels the build; reads `VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`, `VERCEL_GIT_COMMIT_MESSAGE`
 - CodeRabbit token: `.coderabbit.yaml:51` exact `"[WIP]"` next to existing `WIP`
 - Vercel wiring: `vercel.json:2` `ignoreCommand` only, no `crons`
 
-Reusable pattern: Vercel `ignoreCommand` exits 0 to cancel the build; keep that decision in `shouldIgnoreWipBuild({ title, commitMessage })` and leave `vercel.json` without `crons`.
+Reusable pattern: Short-circuit `shouldIgnoreWipBuild` to false for Vercel env `production`/`staging` and branch `staging`/`main` before the `[WIP]` / `wip(<key>): start run` check; `ignoreCommand` still exits 0 only on a non-protected preview skip.
 
 ### C6
 
@@ -99,8 +100,9 @@ Highest-risk first, grouped by concern.
 
 ### `[WIP]` skip [public-api]
 
-- Skip decision — `.cursor/hooks/lib/gate-evidence-policy.mjs:36` `shouldIgnoreWipBuild`
-- Vercel exit polarity — `.cursor/hooks/lib/ignore-wip-build.mjs:5`
+- Skip decision — `.cursor/hooks/lib/gate-evidence-policy.mjs:38` `shouldIgnoreWipBuild`
+- Protected env/branch never skip — `.cursor/hooks/lib/gate-evidence-policy.mjs:39` (`production`/`staging` env, `staging`/`main` branch → `false`)
+- Vercel exit polarity — `.cursor/hooks/lib/ignore-wip-build.mjs:5` (`VERCEL_ENV`, `VERCEL_GIT_COMMIT_REF`, `VERCEL_GIT_COMMIT_MESSAGE`; exit 0 still means skip)
 - CodeRabbit token — `.coderabbit.yaml:51`
 - Vercel wiring — `vercel.json:2`
 
@@ -126,14 +128,16 @@ Run: 2026-10-10 · plan: res-154_wip_draft_pr_10d5 · issue: RES-154
 | C3 | G-WIP2 | wip-draft-pr.test.ts::push reuses the single open head PR and strips WIP | `.cursor/commands/push.md`, gate-evidence + coderabbit-pr policies | P0 | shipped |
 | C4 | G-WIP1 | wip-draft-pr.test.ts::ticket-work commands open one WIP draft before first code change | `conduct.md`, `sdd-to-tdd.md`, `design.md`, gate-evidence-policy | P1 | shipped |
 | C5 | G-WIP4 | wip-draft-pr.test.ts::WIP title skips CodeRabbit review and Vercel build | `.coderabbit.yaml`, `vercel.json`, ignore script / `shouldIgnoreWipBuild` | P1 | shipped |
+| C5b | G-WIP4 | wip-draft-pr.test.ts::protected Vercel env and branch never skip a WIP build | `gate-evidence-policy.mjs`, `ignore-wip-build.mjs` | P0 | shipped |
 | C6 | G-WIP6 | wip-draft-pr.test.ts::noop run closes the WIP draft with a reason | `conduct.md`, `sdd-to-tdd.md`, `shouldCloseNoopWip` | P1 | shipped |
 | C7 | G-WIP7 | wip-draft-pr.test.ts::capacity counts agent-running drafts only | `dispatch-capacity-policy.mjs`, `conduct.md` | P1 | shipped |
 
 ## Run metrics
 
-Run: 2026-10-10 → 2026-10-10 · plan: res-154_wip_draft_pr_10d5
-Criteria: 7 shipped · 0 manual-uat · 7 total
-Phases delegated: 21
+Run: 2026-10-10 → 2026-10-11 · plan: res-154_wip_draft_pr_10d5
+Criteria: 8 shipped · 0 manual-uat · 8 total
+Phases delegated: 24
 Back-loops: none
 BLOCKED events: none
 Issues: 0 filed · 0 attached-to-existing · 25 left on ledger (below floor/cap) — cap 3/run
+Follow-up 2026-10-11: G-WIP4 protected `VERCEL_ENV`/`VERCEL_GIT_COMMIT_REF` bail-out (C5b).

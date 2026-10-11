@@ -1067,10 +1067,19 @@ latest-head` so `on.pull_request.types` includes `edited`.
     include the exact token `[WIP]`. A list that contains only `WIP`
     MUST NOT satisfy this criterion. `vercel.json` MUST set
     `ignoreCommand` and MUST NOT register `crons`.
-    `shouldIgnoreWipBuild({ title, commitMessage })` is true when `title`
-    starts with `[WIP]` or `commitMessage` matches
-    `^wip\([^)]+\): start run\b`, and false otherwise. The ignore script
-    exits 0 (skip) when that helper is true.
+    `shouldIgnoreWipBuild({ title, commitMessage, env, branch })` MUST
+    return false when `env` is `production` or `staging`, or when
+    `branch` is `staging` or `main`. Those four inputs MUST NOT skip or
+    cancel a deploy. When `env` and `branch` are omitted or any other
+    value, the helper is true when `title` starts with `[WIP]` or
+    `commitMessage` matches `^wip\([^)]+\): start run\b`, and false
+    otherwise. The ignore script reads `VERCEL_ENV`,
+    `VERCEL_GIT_COMMIT_REF`, and `VERCEL_GIT_COMMIT_MESSAGE`, passes them
+    as `env`, `branch`, `title`, and `commitMessage` (`title` is the
+    commit message because Vercel does not supply the PR title), and
+    exits 0 (skip) when that helper is true. Skip applies only to
+    `[WIP]` preview builds or the empty start commit on a non-protected
+    branch.
     - Regression guard:
       `tests/unit/dev-toolchain/wip-draft-pr.test.ts`.
 
@@ -1154,7 +1163,7 @@ latest-head` so `on.pull_request.types` includes `edited`.
 | G-WIP1 | `/conduct next`, `/sdd-to-tdd`, `/design` first-step empty `wip(<KEY>): start run` commit + `[WIP]` draft + `agent-running` | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP2 | `/push` reuses the single `--state open` head PR, rewrites protected CLI evidence, strips `[WIP]` and `agent-running` | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP3 | `selectOpenHeadPr` `none` / one / `duplicate_open_prs`; `/push` exits non-zero on duplicate | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
-| G-WIP4 | `.coderabbit.yaml` `ignore_title_keywords` includes `[WIP]`; `vercel.json` `ignoreCommand`; `shouldIgnoreWipBuild` | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
+| G-WIP4 | `.coderabbit.yaml` `ignore_title_keywords` includes `[WIP]`; `vercel.json` `ignoreCommand`; `shouldIgnoreWipBuild` false for `production`/`staging` env and `staging`/`main` branch; skip only `[WIP]` preview or the empty start commit | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP5 | Protected `<!-- coderabbit-cli-evidence:sha:status:hash -->` section; `qaDraftEvidenceVerdict` `missing_head_evidence` | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP6 | `shouldCloseNoopWip` + `gh pr close --comment`; no Linear state write | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP7 | `countAgentRunningDrafts`; spec-only / morning PRs keep their label | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |

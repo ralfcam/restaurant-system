@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
@@ -379,6 +380,113 @@ describe("WIP draft PR", () => {
         commitMessage: "feat: x",
       }),
     ).toBe(false)
+  })
+
+  it("protected Vercel env and branch never skip a WIP build", async () => {
+    const mod =
+      await import("../../../.cursor/hooks/lib/gate-evidence-policy.mjs")
+    expect(typeof mod.shouldIgnoreWipBuild).toBe("function")
+
+    const script = path.join(
+      repoRoot,
+      ".cursor",
+      "hooks",
+      "lib",
+      "ignore-wip-build.mjs",
+    )
+    const wipTitle = "[WIP] RES-154"
+    const startCommit = "wip(RES-154): start run https://x"
+    const previewBranch = "cursor/res-154-wip"
+    const wipShapes = [
+      {
+        shape: "[WIP] title",
+        title: wipTitle,
+        commitMessage: "feat: x",
+        scriptMessage: wipTitle,
+      },
+      {
+        shape: "start commit",
+        title: "Ready",
+        commitMessage: startCommit,
+        scriptMessage: startCommit,
+      },
+    ]
+    const cases = [
+      ...["production", "staging"].flatMap((env) =>
+        wipShapes.map((shape) => ({
+          label: `env: ${env} + ${shape.shape}`,
+          input: {
+            title: shape.title,
+            commitMessage: shape.commitMessage,
+            env,
+          },
+          ignore: false,
+          scriptEnv: {
+            VERCEL_ENV: env,
+            VERCEL_GIT_COMMIT_MESSAGE: shape.scriptMessage,
+          },
+          exitCode: 1,
+        })),
+      ),
+      ...["staging", "main"].flatMap((branch) =>
+        wipShapes.map((shape) => ({
+          label: `branch: ${branch} + ${shape.shape}`,
+          input: {
+            title: shape.title,
+            commitMessage: shape.commitMessage,
+            branch,
+          },
+          ignore: false,
+          scriptEnv: {
+            VERCEL_GIT_COMMIT_REF: branch,
+            VERCEL_GIT_COMMIT_MESSAGE: shape.scriptMessage,
+          },
+          exitCode: 1,
+        })),
+      ),
+      {
+        label: "preview + [WIP] title",
+        input: {
+          title: wipTitle,
+          commitMessage: "feat: x",
+          env: "preview",
+          branch: previewBranch,
+        },
+        ignore: true,
+        scriptEnv: {
+          VERCEL_ENV: "preview",
+          VERCEL_GIT_COMMIT_REF: previewBranch,
+          VERCEL_GIT_COMMIT_MESSAGE: wipTitle,
+        },
+        exitCode: 0,
+      },
+      {
+        label: "preview + start commit",
+        input: {
+          title: "Ready",
+          commitMessage: startCommit,
+          env: "preview",
+          branch: previewBranch,
+        },
+        ignore: true,
+        scriptEnv: {
+          VERCEL_ENV: "preview",
+          VERCEL_GIT_COMMIT_REF: previewBranch,
+          VERCEL_GIT_COMMIT_MESSAGE: startCommit,
+        },
+        exitCode: 0,
+      },
+    ]
+
+    for (const row of cases) {
+      expect(mod.shouldIgnoreWipBuild(row.input), `${row.label} helper`).toBe(
+        row.ignore,
+      )
+      const result = spawnSync(process.execPath, [script], {
+        env: row.scriptEnv,
+      })
+      expect(result.status, `${row.label} script`).toBe(row.exitCode)
+    }
   })
 
   it("noop run closes the WIP draft with a reason", async () => {
