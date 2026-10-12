@@ -59,9 +59,10 @@ npx vercel curl / --deployment <production-url>
 **Precedent:** consider a Supabase Edge Function plus `pg_cron` (`pg_net`)
 **first**. Do not default to `vercel.json` `crons`. `vercel.json` may set
 `ignoreCommand` to `node .cursor/hooks/lib/ignore-wip-build.mjs`. A `[WIP]`
-title or `wip(<KEY>): start run` commit exits 0 and cancels the build only
-on a non-protected preview (G-WIP4). `VERCEL_ENV` `production` or `staging`,
-and branch `staging` or `main`, must not skip. That file still must not
+PR title (or `wip(<KEY>): start run` commit) exits 0 and cancels the build
+only on a non-protected preview (G-WIP4), including later commits while
+the title stays `[WIP]`. `VERCEL_ENV` `production` or `staging`, and
+branch `staging` or `main`, must not skip. That file still must not
 register `crons`. Hobby rejects more-than-daily
 Vercel schedules (failed the RES-45 preview); Vercel Cron also ticks Production
 only. Doctrine: [../../.cursor/rules/scheduled-jobs.mdc](../../.cursor/rules/scheduled-jobs.mdc).

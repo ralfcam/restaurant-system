@@ -12,7 +12,9 @@ Invocation: read and follow this file with argument `morning` or `next`.
 This command is **managed Cloud only**. Local Plan Mode is not an entry.
 
 An issue PR is an open PR into `staging` whose head matches
-`cursor/res-<n>-<4 hex>` and whose body contains a `## Gate evidence` block.
+`cursor/res-<n>-<4 hex>` and that either contains a `## Gate evidence` block
+or is a `[WIP]` draft labeled `agent-running`. A `[WIP]` `agent-running`
+draft holds the lane even before `/push` writes `## Gate evidence`.
 A docs PR is an open PR whose head matches `cursor/morning-<YYYY-MM-DD>-<4 hex>`.
 `node .cursor/checks/ready-brief.mjs -` decides whether a Ready brief is
 complete; pass the issue description on stdin. Linear writes go only through
@@ -99,9 +101,11 @@ bot.
 
 ### 3. Issue PR
 
-While an issue PR is open, resume only that PR. Never start new work. Do
-not run `/ready-merge-release`. Do not run `gh pr ready`. Do not poll
-CodeRabbit and do not post `@coderabbitai review`.
+While an issue PR is open — including a `[WIP]` `agent-running` draft
+that does not yet have `## Gate evidence` — resume only that PR. Never
+start new work. Do not run `/ready-merge-release`. Do not run
+`gh pr ready`. Do not poll CodeRabbit and do not post
+`@coderabbitai review`.
 
 - If `/push` has already published the head, stop. The PR stays a draft.
   The QA bot `ralfcam` owns the next step.
@@ -137,15 +141,17 @@ When this head has no open PR, the first step — before the first code change
 — is `git commit --allow-empty -m "wip(<KEY>): start run <link>"`, push, then
 `gh pr create --draft --base staging`. The title is prefixed `[WIP]`. The body
 contains `Closes <KEY>` and the run link. The PR receives the GitHub label
-`agent-running`.
+`agent-running`. That draft is an issue PR for the resume path.
 
 - Code route: `/sdd-to-tdd RES-###`. Its one-shot already runs commit.md and
   push.md.
 - Design route: `/design RES-###`, then the commit.md design-spec lane, then
   push.md. `/design` does not run commit or push.
 
-A no-op run closes the WIP draft when the head is still the empty
+A no-op run closes the WIP draft only after the code or design route
+returns, and only when the head is still the empty
 `wip(<KEY>): start run` commit and no further tracked change shipped.
+Do not close immediately after opening the draft.
 Close it with `gh pr close <n> --comment` and a reason.
 There is no Linear state write.
 Do not write In Progress, In Review, or Done.

@@ -193,10 +193,13 @@ When this head has no open PR, the first step — before the first code change
 — is `git commit --allow-empty -m "wip(<KEY>): start run <link>"`, push, then
 `gh pr create --draft --base staging`. The title is prefixed `[WIP]`. The body
 contains `Closes <KEY>` and the run link. The PR receives the GitHub label
-`agent-running`.
+`agent-running`. This first step is required on managed Cloud and on local
+Plan Mode execution after approval. Plan production does not open the draft.
 
-A no-op run closes the WIP draft when the head is still the empty
+A no-op run closes the WIP draft only after the loop returns, and only
+when the head is still the empty
 `wip(<KEY>): start run` commit and no further tracked change shipped.
+Do not close immediately after opening the draft.
 Close it with `gh pr close <n> --comment` and a reason.
 There is no Linear state write.
 Do not write In Progress, In Review, or Done.
@@ -1533,6 +1536,11 @@ Collated into **`## Suggested Review Order (collated)`** in
 ## First Execution Action
 
 - **Local Plan Mode:** the single concrete action to take on approval. When
+  this head has no open PR, the first step — before the first code change
+  — is `git commit --allow-empty -m "wip(<KEY>): start run <link>"`, push, then
+  `gh pr create --draft --base staging`. The title is prefixed `[WIP]`. The
+  body contains `Closes <KEY>` and the run link. The PR receives the GitHub
+  label `agent-running`. Then, when
   STEP 2B applies, a **local** session resolves the plan file and delegates:
   "Invoke the `linear-resolver` subagent to start work on <RES-###> (plan:
   <plan-slug>), posting this digest." Task `run_in_background: true`. Do

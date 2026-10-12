@@ -248,6 +248,12 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
 
 ### 2. Push
 
+- **Duplicate open head PRs before publishing:** before any `git push`, run
+  `gh pr list --head <current-branch> --state open`. If that list has more
+  than one open PR, **STOP** and exit non-zero with reason
+  `duplicate_open_prs`. Do not push. Do not use the first PR. On the
+  argument-given path, list open PRs for the pinned PR's `headRefName` the
+  same way and apply the same STOP.
 - `git status` + `git branch --show-current` — confirm the working tree
   matches what `/commit` left (no unexpected dirty files beyond what's already
   committed).
@@ -280,13 +286,19 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   close it.
 - **Argument given:** `gh pr view <PR-URL|number> --json number,title,body,state,isDraft,baseRefName,headRefName,mergeable,mergeStateStatus,reviewRequests`.
   Require **state == OPEN** — if merged/closed, STOP and report; nothing to do.
-  Never auto-create when a PR was pinned by argument. Then apply the
+  Never auto-create when a PR was pinned by argument. Then list
+  `gh pr list --head <that headRefName> --state open`. If more than one
+  open PR shares that head, **STOP** and exit non-zero with reason
+  `duplicate_open_prs`. Do not use the first PR. Then apply the
   feature-PR-on-default STOP above. When the head is `cursor/`, run
   `gh pr edit <n> --body-file` after every push to replace the gate-evidence
   body, using the body the gate-evidence CLI printed.
 - **No argument:** `gh pr list --head <current-branch> --state open --json number,title,state,isDraft,baseRefName,reviewRequests,url`.
   If that list has more than one open PR, **STOP** and exit non-zero with reason `duplicate_open_prs`. Do not use the first PR.
-  - **Found (exactly one):** apply the feature-PR-on-default STOP above; otherwise proceed, strip the `[WIP]` title prefix, and remove the `agent-running` label.
+  - **Found (exactly one):** apply the feature-PR-on-default STOP above; otherwise first write the protected CLI-evidence marker for the finalized head, then proceed, strip the `[WIP]` title prefix, and remove the `agent-running` label.
+    Write `## CodeRabbit CLI evidence` (including
+    `<!-- coderabbit-cli-evidence:... -->`) via `gh pr edit <n> --body-file`
+    before any title or label graduation.
     When the head matches the cursor-head pattern, run
     `gh pr edit <n> --body-file` after every push, using the body the
     gate-evidence CLI printed.
@@ -425,8 +437,10 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
    and do not ledger that stop. Preflight `secret_path`, `diff_failed`,
    and `missing_base` still push.
    Never wait forever.
-2. Push the current branch if it has unpushed commits (skip with a note if
-   nothing to push, or if a pinned PR's head differs).
+2. Before publishing, list open PRs for the head and STOP on
+   `duplicate_open_prs`. Then push the current branch if it has unpushed
+   commits (skip with a note if nothing to push, or if a pinned PR's head
+   differs).
 3. Resolve the PR — pinned via the argument, or auto-discovered by current
    branch with `gh pr list --head <current-branch> --state open`. If that
    list has more than one open PR, STOP and exit non-zero with reason

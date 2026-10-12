@@ -489,6 +489,56 @@ describe("WIP draft PR", () => {
     }
   })
 
+  it("later commits on a [WIP] PR still skip the preview build", () => {
+    const script = path.join(
+      repoRoot,
+      ".cursor",
+      "hooks",
+      "lib",
+      "ignore-wip-build.mjs",
+    )
+    const later = "feat: later work on the same draft"
+    const wipTitle = "[WIP] RES-154"
+    const previewBranch = "cursor/res-154-wip"
+    const env = { ...process.env }
+    delete env.VERCEL_GIT_PULL_REQUEST_ID
+    delete env.VERCEL_GIT_PULL_REQUEST_TITLE
+    delete env.VERCEL_GIT_REPO_OWNER
+    delete env.VERCEL_GIT_REPO_SLUG
+
+    const skip = spawnSync(process.execPath, [script], {
+      env: {
+        ...env,
+        VERCEL_ENV: "preview",
+        VERCEL_GIT_COMMIT_REF: previewBranch,
+        VERCEL_GIT_COMMIT_MESSAGE: later,
+        VERCEL_GIT_PULL_REQUEST_TITLE: wipTitle,
+      },
+    })
+    expect(skip.status).toBe(0)
+
+    const noTitle = spawnSync(process.execPath, [script], {
+      env: {
+        ...env,
+        VERCEL_ENV: "preview",
+        VERCEL_GIT_COMMIT_REF: previewBranch,
+        VERCEL_GIT_COMMIT_MESSAGE: later,
+      },
+    })
+    expect(noTitle.status).toBe(1)
+
+    const protectedEnv = spawnSync(process.execPath, [script], {
+      env: {
+        ...env,
+        VERCEL_ENV: "production",
+        VERCEL_GIT_COMMIT_REF: previewBranch,
+        VERCEL_GIT_COMMIT_MESSAGE: later,
+        VERCEL_GIT_PULL_REQUEST_TITLE: wipTitle,
+      },
+    })
+    expect(protectedEnv.status).toBe(1)
+  })
+
   it("noop run closes the WIP draft with a reason", async () => {
     const mod =
       await import("../../../.cursor/hooks/lib/gate-evidence-policy.mjs")

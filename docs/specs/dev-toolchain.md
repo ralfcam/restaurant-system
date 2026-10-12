@@ -1074,12 +1074,14 @@ latest-head` so `on.pull_request.types` includes `edited`.
     value, the helper is true when `title` starts with `[WIP]` or
     `commitMessage` matches `^wip\([^)]+\): start run\b`, and false
     otherwise. The ignore script reads `VERCEL_ENV`,
-    `VERCEL_GIT_COMMIT_REF`, and `VERCEL_GIT_COMMIT_MESSAGE`, passes them
-    as `env`, `branch`, `title`, and `commitMessage` (`title` is the
-    commit message because Vercel does not supply the PR title), and
-    exits 0 (skip) when that helper is true. Skip applies only to
-    `[WIP]` preview builds or the empty start commit on a non-protected
-    branch.
+    `VERCEL_GIT_COMMIT_REF`, `VERCEL_GIT_COMMIT_MESSAGE`, and when present
+    `VERCEL_GIT_PULL_REQUEST_TITLE` or the GitHub PR title for
+    `VERCEL_GIT_PULL_REQUEST_ID`. It passes them as `env`, `branch`,
+    `title`, and `commitMessage`. `title` is the PR title when that
+    lookup succeeds, otherwise the commit message, so a later commit on a
+    still-`[WIP]` draft still skips. The script exits 0 (skip) when that
+    helper is true. Skip applies only to `[WIP]` preview builds or the
+    empty start commit on a non-protected branch.
     - Regression guard:
       `tests/unit/dev-toolchain/wip-draft-pr.test.ts`.
 

@@ -1,10 +1,12 @@
+import { spawnSync } from "node:child_process"
 import { shouldIgnoreWipBuild } from "./gate-evidence-policy.mjs"
 
 const commitMessage = process.env.VERCEL_GIT_COMMIT_MESSAGE ?? ""
+const title = resolvePrTitle() || commitMessage
 
 process.exit(
   shouldIgnoreWipBuild({
-    title: commitMessage,
+    title,
     commitMessage,
     env: process.env.VERCEL_ENV,
     branch: process.env.VERCEL_GIT_COMMIT_REF,
@@ -12,3 +14,25 @@ process.exit(
     ? 0
     : 1,
 )
+
+function resolvePrTitle() {
+  const fromEnv = process.env.VERCEL_GIT_PULL_REQUEST_TITLE
+  if (fromEnv) return fromEnv
+  const id = process.env.VERCEL_GIT_PULL_REQUEST_ID
+  const owner = process.env.VERCEL_GIT_REPO_OWNER
+  const repo = process.env.VERCEL_GIT_REPO_SLUG
+  if (!id || !owner || !repo) return ""
+  const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${id}`
+  const result = spawnSync(
+    "curl",
+    ["-fsS", "-H", "Accept: application/vnd.github+json", url],
+    { encoding: "utf8" },
+  )
+  if (result.status !== 0) return ""
+  try {
+    const parsed = JSON.parse(result.stdout)
+    return typeof parsed.title === "string" ? parsed.title : ""
+  } catch {
+    return ""
+  }
+}
