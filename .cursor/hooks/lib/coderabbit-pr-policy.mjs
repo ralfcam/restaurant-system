@@ -397,6 +397,53 @@ export function cliEvidenceStatusForHead(body, headSha) {
   return status
 }
 
+function cliEvidenceSectionBounds(text) {
+  const start = text.indexOf(CLI_EVIDENCE_HEADING)
+  if (start === -1) return null
+  const rest = text.slice(start + CLI_EVIDENCE_HEADING.length)
+  const next = rest.search(/\n## [^#]/)
+  const end =
+    next === -1 ? text.length : start + CLI_EVIDENCE_HEADING.length + next
+  return { start, end }
+}
+
+export function protectedCliEvidenceStatus(body, headSha) {
+  const want = String(headSha || "")
+  const text = String(body || "")
+  const bounds = cliEvidenceSectionBounds(text)
+  if (!bounds) return null
+  const section = text.slice(bounds.start, bounds.end)
+  const re = /<!-- coderabbit-cli-evidence:([^:\s]+):([^:\s]+):([^:\s]+) -->/g
+  let status = null
+  let match
+  while ((match = re.exec(section))) {
+    if (match[1] === want) status = match[2]
+  }
+  return status
+}
+
+export function replaceProtectedCliEvidence(body, block) {
+  const text = String(body || "")
+  const rendered = `${String(block || "").trim()}\n`
+  const bounds = cliEvidenceSectionBounds(text)
+  if (!bounds) {
+    const base = text.trimEnd()
+    return base ? `${base}\n\n${rendered}` : rendered
+  }
+  const prefix = text.slice(0, bounds.start)
+  const suffix = text.slice(bounds.end).replace(/^\n/, "")
+  return `${prefix}${rendered}${suffix}`
+}
+
+// Comment HTTP status, including 403, does not override this section.
+export function qaDraftEvidenceVerdict({ isDraft, headSha, body } = {}) {
+  const status = protectedCliEvidenceStatus(body, headSha)
+  if (isDraft && status == null) {
+    return { ok: false, reason: "missing_head_evidence" }
+  }
+  return { ok: true, reason: status }
+}
+
 export function hasCleanCliEvidence(receipt, headSha) {
   if (!receipt || typeof receipt !== "object" || !headSha) return false
   return (

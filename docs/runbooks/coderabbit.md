@@ -447,7 +447,9 @@ into `staging` (`head` is neither `staging` nor `main`) or the promotion PR
 including `main → staging`, fails `wrong_base_head`. Parsed
 `.coderabbit.yaml` `reviews.auto_review.drafts`
 must be boolean `true`; a comment-only `# drafts: true` does not enable draft
-review. GitHub Actions does not accept
+review. `reviews.auto_review.ignore_title_keywords` includes the exact token
+`[WIP]` so a `[WIP]` draft is not reviewed (G-WIP4). A list that contains
+only `WIP` does not satisfy that pin. GitHub Actions does not accept
 `pull_request_review_thread` (webhook-only). The paused job does not review.
 Never `@coderabbitai approve`, `resolve`, or
 `ignore pre-merge checks`.

@@ -1,0 +1,3 @@
+{
+  "ignoreCommand": "node .cursor/hooks/lib/ignore-wip-build.mjs"
+}

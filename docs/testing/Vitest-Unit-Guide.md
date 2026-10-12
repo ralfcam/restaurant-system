@@ -79,7 +79,10 @@
   G-MRG1 merge bypasses in
   `tests/unit/dev-toolchain/merge-bypass-guard.test.ts`; G-PUSH1
   protected-branch push, including quoted `bash -c` inner `;` chains, in
-  `tests/unit/dev-toolchain/protected-branch-push-guard.test.ts`)
+  `tests/unit/dev-toolchain/protected-branch-push-guard.test.ts`;
+  G-WIP1–G-WIP7 first-step `[WIP]` draft, head-PR reuse, duplicate fail-closed,
+  `[WIP]` CodeRabbit/Vercel skip, SHA-bound CLI evidence, no-op close, and
+  `agent-running` capacity in `tests/unit/dev-toolchain/wip-draft-pr.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,

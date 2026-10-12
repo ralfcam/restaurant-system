@@ -48,6 +48,7 @@ reviews:
       - staging
     ignore_title_keywords:
       - WIP
+      - "[WIP]"
   finishing_touches:
     docstrings:
       enabled: false

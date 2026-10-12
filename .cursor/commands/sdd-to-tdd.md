@@ -189,6 +189,19 @@ work-order text. A spec or existing-test path **not** listed in
 CHANGES-REQUESTED, FAIL, permission, verification, or `/push` safety stop.
 Never `gh pr ready`. Never `gh pr merge`.
 
+When this head has no open PR, the first step — before the first code change
+— is `git commit --allow-empty -m "wip(<KEY>): start run <link>"`, push, then
+`gh pr create --draft --base staging`. The title is prefixed `[WIP]`. The body
+contains `Closes <KEY>` and the run link. The PR receives the GitHub label
+`agent-running`.
+
+A no-op run closes the WIP draft when the head is still the empty
+`wip(<KEY>): start run` commit and no further tracked change shipped.
+Close it with `gh pr close <n> --comment` and a reason.
+There is no Linear state write.
+Do not write In Progress, In Review, or Done.
+The TPM bot owns any status revert.
+
 **Ready brief.** When the invoked issue description has a complete
 `## Ready brief` (`node .cursor/checks/ready-brief.mjs`): `Decisions:` resolve
 STEP 1A clarifications, `Allowed edits:` pre-grant `## Permissions Requested`,
@@ -197,6 +210,7 @@ and `Verification:` sets the phase commands.
 **In-loop fix.** An invocation
 `bug: CodeRabbit finding <local-ref> on PR #<n>` from `/conduct` stays on the
 PR branch and skips START and CLOSE-OUT.
+An already-open head PR MUST NOT open a second draft.
 
 **Cloud test stack (Linux Cloud VM only).** Before a fail-closed integration
 or e2e phase, run `sh .cursor/cloud-supabase-up.sh`. Write every integration
