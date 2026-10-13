@@ -1,53 +1,77 @@
 #!/usr/bin/env node
 /**
- * preToolUse fail-closed Write guard: deny parent edits and tracker-state
- * writes when Task has not succeeded in an armed /sdd-to-tdd run.
+ * Fail-closed Write interlock: while /sdd-to-tdd is ARMED, deny edits until
+ * a Task (subagent) invocation has succeeded in this run. If Task is
+ * unavailable, the orchestrator cannot self-implement — STOP with
+ * BLOCKED (infra).
  *
- * linear-writer.json is denied for the parent at all times. The only Write
- * escape while Task is down is the armed-state file (tdd-guard.json).
+ * preToolUse (matcher Write, failClosed: true):
+ *   node .cursor/hooks/task-availability-guard.mjs
+ * postToolUse (matcher Task):
+ *   node .cursor/hooks/task-availability-guard.mjs --success
+ * postToolUseFailure (matcher Task):
+ *   node .cursor/hooks/task-availability-guard.mjs --failure
  *
- * postToolUse Task: latch succeeded.
- * postToolUseFailure Task: mark unavailable without clearing a succeeded latch.
+ * Escape: only the armed-state file (tdd-guard.json, including TDD_GUARD_STATE)
+ * stays allowed so the window can be disarmed without Task. Parent writes to
+ * linear-writer.json are denied at all times (unarmed, after Task, always);
+ * only linear-resolver subagentStart may write that file. Shell writes are
+ * matched in git-stage-guard.mjs.
  */
 import {
   readStdinJson,
   writeStdoutJson,
+  isArmed,
+  isArmedStateFile,
+  isTaskAvailable,
+  markTaskAvailable,
+  markTaskUnavailable,
   isWriteTool,
   extractPath,
-  isArmed,
-  isTaskAvailable,
-  isArmedStateFile,
-  checkTaskUnavailableWrite,
-  markTaskSucceeded,
-  markTaskUnavailable,
+  checkLinearWriterParentWrite,
+  checkTaskAvailabilityWrite,
   recordDisarm,
 } from "./lib/tdd-guard-policy.mjs"
 
 function main() {
   try {
-    const argv = process.argv.slice(2)
-    if (argv.includes("succeeded")) {
-      markTaskSucceeded()
+    const flag = process.argv[2]
+    if (flag === "--success") {
+      const input = readStdinJson()
+      if (input.tool_name === "Task") markTaskAvailable()
       writeStdoutJson({})
       return
     }
-    if (argv.includes("--failure")) {
-      markTaskUnavailable()
+    if (flag === "--failure") {
+      const input = readStdinJson()
+      if (input.tool_name === "Task") markTaskUnavailable()
       writeStdoutJson({})
       return
     }
+
     const input = readStdinJson()
     if (!isWriteTool(input.tool_name)) {
       writeStdoutJson({})
       return
     }
     const path = extractPath(input.tool_input)
-    if (isArmedStateFile(path)) {
-      recordDisarm("write")
-      writeStdoutJson({})
+    const writerHit = checkLinearWriterParentWrite(path)
+    if (writerHit) {
+      writeStdoutJson({
+        permission: "deny",
+        user_message:
+          "Blocked a parent write to linear-writer.json — only linear-resolver subagentStart may set that flag.",
+        agent_message:
+          "linear-writer guard: the parent must not Write `.cursor/hooks/state/linear-writer.json`. " +
+          "Only the linear-resolver subagentStart hook path may set the allow flag. " +
+          "This deny is unconditional (armed or not, Task succeeded or not).",
+      })
       return
     }
-    const hit = checkTaskUnavailableWrite(path, {
+    if (isArmed() && isArmedStateFile(path)) {
+      recordDisarm({ source: `parent Write ${path}` })
+    }
+    const hit = checkTaskAvailabilityWrite(path, {
       armed: isArmed(),
       taskAvailable: isTaskAvailable(),
     })
@@ -58,14 +82,11 @@ function main() {
     writeStdoutJson({
       permission: "deny",
       user_message:
-        hit.kind === "linear-writer-parent"
-          ? `Blocked a parent write to "${path}" — linear-writer.json is linear-resolver-only.`
-          : `BLOCKED (infra): no Task tool — refused write to "${path}".`,
+        "Blocked an edit — Task is unavailable. STOP and report BLOCKED (infra).",
       agent_message:
-        hit.kind === "linear-writer-parent"
-          ? `task-availability guard: parent writes to linear-writer.json are denied at all times.`
-          : `task-availability guard: Task has not succeeded in this armed run. ` +
-            `End BLOCKED (infra): no Task tool. Do not edit code, tests, or tracker state.`,
+        "task-availability guard: the Task (subagent) tool has not succeeded " +
+        "in this armed /sdd-to-tdd run. Do not edit tests or source inline. " +
+        "STOP and report BLOCKED (infra). Re-run when Task is available.",
     })
   } catch (err) {
     console.error("[task-availability-guard]", err)

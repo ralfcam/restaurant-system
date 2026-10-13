@@ -20,7 +20,6 @@ import {
   POLICY_REL,
   applyWaivers,
   assertPinnedUsAuth,
-  shouldReinstallCli,
   buildReceipt,
   clearPushRound,
   configHashes,
@@ -44,10 +43,7 @@ import {
   saveReceipt,
   branchDiffBaseExists,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
-import {
-  PUSH_CLI_FIX_ROUND_CAP,
-  decidePushCliAction,
-} from "../hooks/lib/coderabbit-pr-policy.mjs"
+import { decidePushCliAction } from "../hooks/lib/coderabbit-pr-policy.mjs"
 
 function argValue(name) {
   const idx = process.argv.indexOf(name)
@@ -155,52 +151,6 @@ function isTestMode() {
   return process.env.CODERABBIT_GATE_TEST === "1"
 }
 
-let cliAttempts = 0
-let cliReinstalls = 0
-let stubReviewCalls = 0
-
-function forcedStubUnavailable() {
-  if (!isTestMode()) return null
-  const once = process.env.CODERABBIT_STUB_UNAVAILABLE_ONCE
-  const always = process.env.CODERABBIT_STUB_UNAVAILABLE
-  stubReviewCalls += 1
-  if (once && stubReviewCalls === 1) return once
-  if (always) return always
-  if (process.env.CODERABBIT_STUB_REVIEW_ERROR === "1") return "error"
-  return null
-}
-
-function reinstallPinnedCli(cwd, timeoutMs) {
-  cliReinstalls += 1
-  if (isTestMode()) {
-    const fixOn = Number(process.env.CODERABBIT_STUB_REINSTALL_FIXES || "0")
-    if (Number.isFinite(fixOn) && fixOn > 0 && cliReinstalls >= fixOn) {
-      process.env.CODERABBIT_STUB_VERSION = PINNED_CLI_VERSION
-    }
-    return { timedOut: false }
-  }
-  const install =
-    process.platform === "win32"
-      ? spawnTimed(
-          "powershell.exe",
-          [
-            "-NoProfile",
-            "-Command",
-            `$env:CODERABBIT_VERSION='${PINNED_CLI_VERSION}'; irm https://cli.coderabbit.ai/install.ps1 | iex`,
-          ],
-          { cwd, timeoutMs },
-        )
-      : spawnTimed(
-          "sh",
-          [resolve(cwd, ".cursor/cloud-install-coderabbit.sh")],
-          { cwd, timeoutMs },
-        )
-  return {
-    timedOut:
-      install.error?.code === "ETIMEDOUT" || install.signal === "SIGTERM",
-  }
-}
-
 function spawnTimed(bin, args, { cwd, timeoutMs }) {
   return spawnSync(bin, args, {
     ...spawnOpts(bin, cwd),
@@ -211,6 +161,9 @@ function spawnTimed(bin, args, { cwd, timeoutMs }) {
 
 function readPinnedAuth(cwd, { timeoutMs } = {}) {
   if (isTestMode()) {
+    if (process.env.CODERABBIT_STUB_TIMEOUT === "1") {
+      return { timedOut: true, bin: "stub" }
+    }
     return {
       version: process.env.CODERABBIT_STUB_VERSION || PINNED_CLI_VERSION,
       auth: JSON.parse(
@@ -229,9 +182,6 @@ function readPinnedAuth(cwd, { timeoutMs } = {}) {
     versionRun.signal === "SIGTERM"
   ) {
     return { timedOut: true, bin }
-  }
-  if (versionRun.error?.code === "ENOENT") {
-    return { bin, version: "", auth: "", spawnErrorCode: "ENOENT" }
   }
   const authRun = spawnTimed(bin, ["auth", "status", "--agent"], {
     cwd,
@@ -393,98 +343,63 @@ async function main() {
       reviewedFiles: [],
     }
   } else {
-    const maxAttempts = branchDiff ? 2 : 1
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      cliAttempts += 1
-      evaluated = undefined
-      try {
-        pinned = readPinnedAuth(cwd, { timeoutMs })
-        if (pinned.timedOut) {
-          evaluated = unavailable("timeout", [], waivers)
-        }
-        authCheck = pinned.timedOut
-          ? { ok: false, reason: "timeout" }
-          : assertPinnedUsAuth({
-              version: pinned.version,
-              auth: pinned.auth,
-              spawnErrorCode: pinned.spawnErrorCode,
+    try {
+      pinned = readPinnedAuth(cwd, { timeoutMs })
+      if (pinned.timedOut) {
+        evaluated = unavailable("timeout", [], waivers)
+      }
+      authCheck = pinned.timedOut
+        ? { ok: false, reason: "timeout" }
+        : assertPinnedUsAuth({
+            version: pinned.version,
+            auth: pinned.auth,
+          })
+      if (!authCheck.ok) {
+        evaluated = unavailable(authCheck.reason, [], waivers)
+      } else {
+        let jsonl = pinned.jsonl
+        if (isTestMode()) {
+          if (process.env.CODERABBIT_STUB_REVIEW_ERROR === "1") {
+            evaluated = unavailable("error", [], waivers, {
+              code: 1,
+              stderr: "stubbed review process failure",
             })
-        if (!evaluated && branchDiff && shouldReinstallCli(authCheck)) {
-          const install = reinstallPinnedCli(cwd, timeoutMs)
-          if (install.timedOut) {
-            evaluated = unavailable("timeout", [], waivers)
-            authCheck = { ok: false, reason: "timeout" }
-          } else {
-            pinned = readPinnedAuth(cwd, { timeoutMs })
-            if (pinned.timedOut) {
-              evaluated = unavailable("timeout", [], waivers)
-              authCheck = { ok: false, reason: "timeout" }
-            } else {
-              authCheck = assertPinnedUsAuth({
-                version: pinned.version,
-                auth: pinned.auth,
-                spawnErrorCode: pinned.spawnErrorCode,
-              })
-            }
+          } else if (!jsonl) {
+            evaluated = unavailable("missing_complete", [], waivers)
           }
-        }
-        if (!authCheck.ok) {
-          evaluated = unavailable(authCheck.reason, [], waivers)
         } else {
-          let jsonl = pinned.jsonl
-          if (isTestMode()) {
-            const forced = forcedStubUnavailable()
-            if (forced) {
-              evaluated = unavailable(forced, [], waivers, {
-                code: 1,
-                stderr: "stubbed review process failure",
-              })
-            } else if (!jsonl) {
-              evaluated = unavailable("missing_complete", [], waivers)
-            }
+          const bin = pinned.bin || resolveCrBinary()
+          const args = reviewCommandArgs({
+            owningSpec,
+            base,
+            branchDiff,
+          })
+          const review = await runCr(bin, args, { timeoutMs, cwd })
+          if (review.timedOut) {
+            evaluated = unavailable("timeout", [], waivers)
+          } else if (review.code !== 0) {
+            const parsed = parseJsonl(review.stdout)
+            const findings = parsed.events.filter(
+              (event) => event.type === "finding",
+            )
+            evaluated = unavailable("error", findings, waivers, {
+              stderr: review.stderr,
+              code: review.code,
+            })
           } else {
-            const bin = pinned.bin || resolveCrBinary()
-            const args = reviewCommandArgs({
-              owningSpec,
-              base,
-              branchDiff,
-            })
-            const review = await runCr(bin, args, { timeoutMs, cwd })
-            if (review.timedOut) {
-              evaluated = unavailable("timeout", [], waivers)
-            } else if (review.code !== 0) {
-              const parsed = parseJsonl(review.stdout)
-              const findings = parsed.events.filter(
-                (event) => event.type === "finding",
-              )
-              evaluated = unavailable("error", findings, waivers, {
-                stderr: review.stderr,
-                code: review.code,
-              })
-            } else {
-              jsonl = review.stdout
-            }
-          }
-          if (!evaluated) {
-            evaluated = evaluateAdvisoryJsonl(jsonl, {
-              reviewablePaths: scope.reviewablePaths,
-              base,
-              waivers,
-            })
+            jsonl = review.stdout
           }
         }
-      } catch (err) {
-        evaluated = unavailable("error", [], waivers, { message: err.message })
+        if (!evaluated) {
+          evaluated = evaluateAdvisoryJsonl(jsonl, {
+            reviewablePaths: scope.reviewablePaths,
+            base,
+            waivers,
+          })
+        }
       }
-      const retry =
-        branchDiff &&
-        attempt < maxAttempts &&
-        evaluated?.attemptStatus === "unavailable"
-      if (!retry) break
-      const midManifest = manifestFor(cwd, scope.reviewablePaths, true)
-      if (JSON.stringify(beforeManifest) !== JSON.stringify(midManifest)) {
-        fail("changed_bytes")
-      }
+    } catch (err) {
+      evaluated = unavailable("error", [], waivers, { message: err.message })
     }
   }
 
@@ -494,7 +409,7 @@ async function main() {
   }
 
   const receipt = buildReceipt({
-    cliVersion: authCheck?.version || pinned?.version || "",
+    cliVersion: pinned?.version || PINNED_CLI_VERSION,
     region: authCheck?.region || pinned?.auth?.region || "unknown",
     attemptStatus: evaluated.attemptStatus,
     reason: evaluated.reason,
@@ -523,15 +438,14 @@ async function main() {
   const decision = branchDiff
     ? decidePushCliAction({
         attemptStatus: receipt.attemptStatus,
+        reason: receipt.reason,
         findings: evaluated.findings,
         priorRound,
-        reason: receipt.reason,
       })
     : null
+  const ok = !decision || decision.action !== "block"
   const startedRound =
-    decision?.action === "route"
-      ? Math.min(priorRound + 1, PUSH_CLI_FIX_ROUND_CAP)
-      : Math.min(priorRound, PUSH_CLI_FIX_ROUND_CAP)
+    decision?.action === "route" ? priorRound + 1 : priorRound
   if (decision?.action === "route") {
     savePushRound(defaultStateDir(), {
       branch,
@@ -543,11 +457,9 @@ async function main() {
   console.log(
     JSON.stringify(
       {
-        ok: true,
+        ok,
         attemptStatus: receipt.attemptStatus,
         reason: receipt.reason,
-        cliAttempts,
-        reinstalls: cliReinstalls,
         reviewedFiles: receipt.reviewedFiles,
         findingIds: receipt.findingIds,
         yaml: YAML_REL,

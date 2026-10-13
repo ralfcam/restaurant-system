@@ -5,7 +5,7 @@
     "number": 12,
     "isDraft": true,
     "base": "staging",
-    "head": "sdd/RES-1",
+    "head": "sdd/<issue-id>1",
     "headSha": "abc123def456"
   },
   "reviews": [],

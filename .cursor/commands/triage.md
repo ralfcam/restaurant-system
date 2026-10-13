@@ -11,16 +11,16 @@ ledger entry behind every proposal.
 </persona>
 
 <context>
-Linear workspace: https://linear.app/realized
-Fixed team key: **RES** (issues `RES-###`). The live team display name is
-informational. Version projects are discovered live as RES projects with
+Linear workspace: https://linear.app/example
+Configured Linear team key (issues `<issue-id>`). The live team display name is
+informational. Version projects are discovered live as configured-team projects with
 canonical version key `V-X.X`; there is no hardcoded Linear project default.
 Shared discovery, scope parsing, allocation precedence, and fail-closed
 behavior:
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
 
 Invocation: `/triage [project-url|project-name] [issue-list]`. No argument
-discovers the live nonterminal RES set of projects with canonical version key
+discovers the live nonterminal configured-team set of projects with canonical version key
 `V-X.X`. A project URL/name pins one exact project; issue IDs/URLs or a
 multiline Markdown list form an exact ordered inclusion set; supplying both
 makes the project the target boundary and the list the complete candidate
@@ -61,10 +61,7 @@ term; `Urgent` is the corresponding Linear priority.
 
 Linear writes are never performed by this command directly. Approved intake,
 consolidation, terminal Duplicate/Canceled cleanup, and finding registration
-go through `linear-resolver`. Mutating Linear names (`save_`, `create_`,
-`delete_`, `update_`) including `delete_comment`, `delete_attachment`,
-`delete_issue`, and `create_attachment` stay resolver-only. `/triage` never
-absorbs `/conduct next` or `/sdd-to-tdd` phases inline. Managed Cloud may execute only the nonterminal,
+go through `linear-resolver`. Managed Cloud may execute only the nonterminal,
 non-creative actions explicitly authorized by STEP 0B after writing its
 work-order. `In Progress`, `In Review`, and `Done` remain automation-owned per
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).
@@ -151,7 +148,7 @@ stop.
 
 ## PHASE 0 — Resolve the live intake surface
 
-1. Resolve the team once and require key `RES`. Call `list_projects`
+1. Resolve the team once and require the configured Linear team key. Call `list_projects`
    for that team, paginate fully, extract each display-name canonical
    `versionKey` `V-X.X`, exclude terminal projects, reject duplicate canonical
    keys, and classify the remainder as ongoing or available from live
@@ -162,8 +159,8 @@ stop.
    ignoring layout/query parameters. Resolve that exact slug against live
    projects, then derive `versionKey` from the resolved display name. Never
    infer identity from the slug text itself. De-duplicate supplied issues in
-   order, resolve each with `get_issue`, and reject malformed, unresolved,
-   or non-RES entries without broadening scope.
+   order, resolve each with `get_issue`, and reject malformed, unresolved, non-RES,
+   or non-configured-team entries without broadening scope.
 3. Call `list_issue_statuses` to resolve the team's ordinary workflow states
    (including Backlog, Todo, Duplicate, and Canceled). This call does **not**
    determine whether the special Triage inbox exists.
@@ -215,7 +212,7 @@ Read open `- [ ]` entries from:
   with no equivalent open bus line in the matching `## <category>` file)
 
 Skip `archive.md` as an active source and skip lines already carrying a
-`RES-###` outcome. Preserve each entry's category, location, severity,
+`<issue-id>` outcome. Preserve each entry's category, location, severity,
 provenance, and existing `(seen: /triage ...)` token.
 
 For each candidate, search only as far as needed to determine whether an open
@@ -305,7 +302,7 @@ body and stable `clarify:<RES-id>:<spec-basename>:<rule-or-ac>` key. Add a
 `clarify-*` todo only after the operator approves that exact comment. A
 managed Cloud task launched from that tracked issue preauthorizes this bounded
 visibility comment only; it does not authorize a state, scope, or project
-change. An operator-created automation run counts as a launch from the tracked issue. `/conduct morning` may commit the ledger edits afterward; triage itself
+change. An operator-created automation run counts as a launch from the tracked issue. Triage itself
 never runs `/commit` or `/push`.
 
 The plan must identify explicit `clarify-*`, `groom-intake-*`, `register-*`,
@@ -324,7 +321,7 @@ its reason in Applied vs Deferred.
 
 - **Clarification (`clarify-*`).** Delegate:
   "Use the linear-resolver subagent to request the approved clarification on
-  <RES-ID>, using this exact bounded comment: <body>." Leave current
+  <issue-id>, using this exact bounded comment: <body>." Leave current
   workflow state unchanged (comment-only; excluded from scheduling). A
   re-run may resume it only after `list_comments` shows an unambiguous
   human answer.
@@ -420,7 +417,7 @@ Format: structured Markdown, evidence-first.
 - Plan Mode: YES | CLOUD-MANAGED (one-shot) | NO
 - Cloud runtime: `agent/runtime` = managed | n/a (Plan Mode) | cannot verify
 - Work-order: `.cursor/plans/<plan-slug>.plan.md` | n/a (Plan Mode)
-- Scope: no argument | project <V-X.X> | exact issues <ordered RES IDs> |
+- Scope: no argument | project <V-X.X> | exact issues <ordered issue IDs> |
   project + exact issues
 - Candidate projects: <ongoing> · <available> | cannot verify
 - Linear Triage: <N issues read from the live inbox>
@@ -443,7 +440,7 @@ Duplicate/Canceled outcome.
 
 Per item:
 
-- **[RES-###] title** — ordinary → Backlog/no cycle | fast lane → Urgent
+- **[<issue-id>] title** — ordinary → Backlog/no cycle | fast lane → Urgent
   Todo/current cycle
 - Project: current → allocated `V-X.X` · precedence evidence
 - Signal: explicit priority / ledger mapping; state explicitly when

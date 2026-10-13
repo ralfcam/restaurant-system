@@ -5,7 +5,7 @@
     "number": 193,
     "isDraft": false,
     "base": "staging",
-    "head": "cursor/res-145-1771",
+    "head": "cursor/145-1771",
     "headSha": "f5c7e1d69addc046d9f89f6d890c5137041eb887"
   },
   "reviews": [
@@ -20,11 +20,11 @@
     {
       "isResolved": false,
       "isOutdated": false,
-      "path": ".cursor/plans/res-124_guest_pii_b839.plan.md",
+      "path": ".cursor/plans/issue-124_example_plan_b839.plan.md",
       "comments": [
         {
           "author": { "login": "coderabbitai[bot]" },
-          "path": ".cursor/plans/res-124_guest_pii_b839.plan.md",
+          "path": ".cursor/plans/issue-124_example_plan_b839.plan.md",
           "body": "**Data Integrity** | **🟠 Major** | **Quick win**\n\n<!-- cr-comment:v1:38d764802c7598c99a1a6827 -->"
         }
       ]

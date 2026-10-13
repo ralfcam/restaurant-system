@@ -536,7 +536,7 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "--review-wait-expired",
   ],
   ".cursor/rules/coderabbit-integration.mdc": [
-    "0.7.6",
+    "0.9.0",
     "347564",
     "mandatory advisory local attempts",
     "Remote G-CR3 enforcement below remains fail-closed and unchanged",

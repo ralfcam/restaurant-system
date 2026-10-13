@@ -12,6 +12,7 @@ import { join } from "node:path"
 import { after, describe, test } from "node:test"
 import { tmpdir } from "node:os"
 import {
+  PINNED_CLI_VERSION,
   buildReceipt,
   configHashes,
   loadReceipt,
@@ -81,7 +82,7 @@ function runBranchDiff(jsonlName, extraEnv = {}, extraArgs = []) {
         CODERABBIT_GATE_TEST: "1",
         CODERABBIT_STUB_BRANCH_DIFF: "lib/example.ts",
         CODERABBIT_STUB_HEAD: "deadbeef",
-        CODERABBIT_STUB_BRANCH: "sdd/RES-1",
+        CODERABBIT_STUB_BRANCH: "sdd/<issue-id>1",
         CODERABBIT_STUB_MANIFEST: JSON.stringify({ "lib/example.ts": "abc" }),
         CODERABBIT_STUB_JSONL: join(FIX, jsonlName),
         ...extraEnv,
@@ -116,7 +117,7 @@ function runGate(jsonlName, extraEnv = {}) {
         CODERABBIT_GATE_TEST: "1",
         CODERABBIT_STUB_DIRTY: "lib/example.ts",
         CODERABBIT_STUB_HEAD: "deadbeef",
-        CODERABBIT_STUB_BRANCH: "sdd/RES-1",
+        CODERABBIT_STUB_BRANCH: "sdd/<issue-id>1",
         CODERABBIT_STUB_MANIFEST: JSON.stringify({ "lib/example.ts": "abc" }),
         CODERABBIT_STUB_JSONL: join(FIX, jsonlName),
         ...extraEnv,
@@ -140,7 +141,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(body.attemptStatus, "clean")
     assert.equal(body.reason, "clean")
     const receipt = loadReceipt(TMP_STATE)
-    assert.equal(receipt.cliVersion, "0.9.0")
+    assert.equal(receipt.cliVersion, PINNED_CLI_VERSION)
     assert.equal(receipt.region, "us")
     assert.equal(receipt.head, "deadbeef")
     assert.deepEqual(receipt.reviewedFiles, ["lib/example.ts"])
@@ -291,17 +292,13 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(existsSync(RECEIPT), false)
   })
 
-  test("branch-diff mode reviews origin/staging and routes two fix rounds", () => {
+  test("branch-diff mode reviews origin/staging and routes one fix round", () => {
     const gateSrc = readFileSync(
       join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"),
       "utf8",
     )
     assert.match(gateSrc, /--branch-diff/)
     assert.match(gateSrc, /origin\/staging/)
-    assert.match(gateSrc, /shouldReinstallCli/)
-    assert.match(gateSrc, /cloud-install-coderabbit\.sh/)
-    assert.match(gateSrc, /process\.platform === "win32"/)
-    assert.match(gateSrc, /install\.ps1/)
     const clean = runBranchDiff("local-clean.jsonl")
     assert.equal(clean.status, 0, clean.stderr)
     const cleanBody = JSON.parse(clean.stdout)
@@ -319,16 +316,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     const again = runBranchDiff("local-critical.jsonl")
     assert.equal(again.status, 0, again.stderr)
     const againBody = JSON.parse(again.stdout)
-    assert.equal(againBody.action, "route")
-    assert.equal(againBody.record, "fix_round")
-    assert.equal(againBody.fixRound, 2)
-
-    const third = runBranchDiff("local-critical.jsonl")
-    assert.equal(third.status, 0, third.stderr)
-    const thirdBody = JSON.parse(third.stdout)
-    assert.equal(thirdBody.action, "stop")
-    assert.equal(thirdBody.record, "blocked_major_findings")
-    assert.equal(thirdBody.leftover.length, 0)
+    assert.equal(againBody.action, "push")
+    assert.equal(againBody.record, "leftover_after_fix_round")
 
     const missingBase = runBranchDiff("local-clean.jsonl", {
       CODERABBIT_STUB_MISSING_BASE: "1",
@@ -338,7 +327,6 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(missingBody.attemptStatus, "unavailable")
     assert.equal(missingBody.reason, "missing_base")
     assert.equal(missingBody.action, "push")
-    assert.equal(missingBody.cliAttempts, 0)
 
     const empty = runBranchDiff("local-clean.jsonl", {
       CODERABBIT_STUB_BRANCH_DIFF: "",
@@ -356,15 +344,14 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(failedBody.attemptStatus, "unavailable")
     assert.equal(failedBody.reason, "diff_failed")
     assert.equal(failedBody.action, "push")
-    assert.equal(failedBody.cliAttempts, 0)
 
     const newHead = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "cafebabe",
     })
     assert.equal(newHead.status, 0, newHead.stderr)
     const newHeadBody = JSON.parse(newHead.stdout)
-    assert.equal(newHeadBody.action, "stop")
-    assert.equal(newHeadBody.record, "blocked_major_findings")
+    assert.equal(newHeadBody.action, "push")
+    assert.equal(newHeadBody.record, "leftover_after_fix_round")
   })
 
   test("route prints started fixRound and isolated second run uses that output", () => {
@@ -392,38 +379,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     )
     assert.equal(second.status, 0, second.stderr)
     const body = JSON.parse(second.stdout)
-    assert.equal(body.action, "route")
-    assert.equal(body.record, "fix_round")
-    assert.equal(body.fixRound, 2)
-
-    const third = runBranchDiff(
-      "local-critical.jsonl",
-      {
-        CODERABBIT_STUB_HEAD: "print-capped",
-        CODERABBIT_STATE_DIR: isolated,
-      },
-      ["--fix-round", "2"],
-    )
-    assert.equal(third.status, 0, third.stderr)
-    const thirdBody = JSON.parse(third.stdout)
-    assert.equal(thirdBody.action, "stop")
-    assert.equal(thirdBody.record, "blocked_major_findings")
-    assert.equal(thirdBody.leftover.length, 0)
-
-    const over = runBranchDiff(
-      "local-critical.jsonl",
-      {
-        CODERABBIT_STUB_HEAD: "print-over",
-        CODERABBIT_STATE_DIR: join(
-          tmpdir(),
-          `cr-gate-print-over-${process.pid}`,
-        ),
-      },
-      ["--fix-round", "9"],
-    )
-    assert.equal(over.status, 0, over.stderr)
-    assert.equal(JSON.parse(over.stdout).record, "blocked_major_findings")
-    assert.equal(JSON.parse(over.stdout).action, "stop")
+    assert.equal(body.action, "push")
+    assert.equal(body.record, "leftover_after_fix_round")
   })
 
   test("completed push clears the saved fix round for a later independent review", () => {
@@ -436,29 +393,19 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(first.status, 0, first.stderr)
     assert.equal(JSON.parse(first.stdout).action, "route")
 
-    const second = runBranchDiff("local-critical.jsonl", {
+    const leftover = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "clear-bbb",
       CODERABBIT_STATE_DIR: dir,
     })
-    assert.equal(second.status, 0, second.stderr)
-    const secondBody = JSON.parse(second.stdout)
-    assert.equal(secondBody.action, "route")
-    assert.equal(secondBody.fixRound, 2)
-
-    const leftover = runBranchDiff("local-critical.jsonl", {
-      CODERABBIT_STUB_HEAD: "clear-ccc",
-      CODERABBIT_STATE_DIR: dir,
-    })
     assert.equal(leftover.status, 0, leftover.stderr)
-    assert.equal(JSON.parse(leftover.stdout).record, "blocked_major_findings")
-    assert.equal(JSON.parse(leftover.stdout).action, "stop")
+    assert.equal(JSON.parse(leftover.stdout).record, "leftover_after_fix_round")
 
     const retry = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "clear-retry",
       CODERABBIT_STATE_DIR: dir,
     })
     assert.equal(retry.status, 0, retry.stderr)
-    assert.equal(JSON.parse(retry.stdout).record, "blocked_major_findings")
+    assert.equal(JSON.parse(retry.stdout).record, "leftover_after_fix_round")
 
     const ack = spawnSync(
       process.execPath,
@@ -469,7 +416,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(JSON.parse(ack.stdout).action, "ack-push")
 
     const later = runBranchDiff("local-critical.jsonl", {
-      CODERABBIT_STUB_HEAD: "clear-ddd",
+      CODERABBIT_STUB_HEAD: "clear-ccc",
       CODERABBIT_STATE_DIR: dir,
     })
     assert.equal(later.status, 0, later.stderr)
@@ -488,9 +435,6 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       "utf8",
     )
     assert.match(pushMd, /--ack-push/)
-    assert.match(pushMd, /blocked_major_findings/)
-    assert.match(pushMd, /blocked_cli_unavailable/)
-    assert.match(pushMd, /pinned PR head is not the reviewed branch/)
   })
 
   test(
@@ -510,7 +454,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     },
   )
 
-  test("route then new head leftovers after two fix rounds", () => {
+  test("route then new head is leftover after one fix round", () => {
     const first = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "round-base",
       CODERABBIT_STATE_DIR: join(TMP_STATE, "cycle"),
@@ -530,123 +474,28 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     )
     assert.equal(second.status, 0, second.stderr)
     const body = JSON.parse(second.stdout)
-    assert.equal(body.action, "route")
-    assert.equal(body.record, "fix_round")
-    assert.equal(body.fixRound, 2)
-
-    const third = runBranchDiff(
-      "local-minor.jsonl",
-      {
-        CODERABBIT_STUB_HEAD: "round-capped",
-        CODERABBIT_STATE_DIR: isolated,
-      },
-      ["--fix-round", "2"],
-    )
-    assert.equal(third.status, 0, third.stderr)
-    const thirdBody = JSON.parse(third.stdout)
-    assert.equal(thirdBody.action, "push")
-    assert.equal(thirdBody.record, "capture_and_push")
-    assert.equal(thirdBody.sddToTdd.length, 0)
-  })
-
-  test("pass 2 capture-only findings push without a third pass", () => {
-    const dir = join(tmpdir(), `cr-gate-minor-${process.pid}`)
-    mkdirSync(dir, { recursive: true })
-    const first = runBranchDiff("local-minor.jsonl", {
-      CODERABBIT_STUB_HEAD: "minor-base",
-      CODERABBIT_STATE_DIR: dir,
-    })
-    assert.equal(first.status, 0, first.stderr)
-    const firstBody = JSON.parse(first.stdout)
-    assert.equal(firstBody.action, "route")
-    assert.equal(firstBody.record, "fix_round")
-    assert.equal(firstBody.fixRound, 1)
-    assert.equal(firstBody.capture[0].command, "/capture")
-
-    const second = runBranchDiff(
-      "local-minor.jsonl",
-      {
-        CODERABBIT_STUB_HEAD: "minor-fixed",
-        CODERABBIT_STATE_DIR: dir,
-      },
-      ["--fix-round", "1"],
-    )
-    assert.equal(second.status, 0, second.stderr)
-    const secondBody = JSON.parse(second.stdout)
-    assert.equal(secondBody.action, "push")
-    assert.equal(secondBody.record, "capture_and_push")
-    assert.equal(secondBody.fixRound, 1)
-  })
-
-  test("unavailable CLI retries once then stops as blocked_cli_unavailable", () => {
-    for (const reason of ["error", "timeout"]) {
-      const dir = join(tmpdir(), `cr-unavail-${reason}-${process.pid}`)
-      mkdirSync(dir, { recursive: true })
-      const run = runBranchDiff("local-clean.jsonl", {
-        CODERABBIT_STUB_UNAVAILABLE: reason,
-        CODERABBIT_STUB_HEAD: `unavail-${reason}`,
-        CODERABBIT_STATE_DIR: dir,
-      })
-      assert.equal(run.status, 0, run.stderr)
-      const body = JSON.parse(run.stdout)
-      assert.equal(body.attemptStatus, "unavailable")
-      assert.equal(body.reason, reason)
-      assert.equal(body.action, "stop")
-      assert.equal(body.record, "blocked_cli_unavailable")
-      assert.equal(body.cliAttempts, 2)
-      assert.equal(body.reinstalls, 0)
-      assert.equal(body.leftover.length, 0)
-    }
-
-    const mismatchDir = join(tmpdir(), `cr-unavail-mismatch-${process.pid}`)
-    mkdirSync(mismatchDir, { recursive: true })
-    const mismatch = runBranchDiff("local-clean.jsonl", {
-      CODERABBIT_STUB_VERSION: "0.7.5",
-      CODERABBIT_STUB_HEAD: "unavail-version",
-      CODERABBIT_STATE_DIR: mismatchDir,
-    })
-    assert.equal(mismatch.status, 0, mismatch.stderr)
-    const mismatchBody = JSON.parse(mismatch.stdout)
-    assert.equal(mismatchBody.attemptStatus, "unavailable")
-    assert.equal(mismatchBody.reason, "version_mismatch")
-    assert.equal(mismatchBody.action, "stop")
-    assert.equal(mismatchBody.record, "blocked_cli_unavailable")
-    assert.equal(mismatchBody.cliAttempts, 2)
-    assert.equal(mismatchBody.reinstalls, 2)
-  })
-
-  test("one unavailable CLI attempt then a clean review pushes", () => {
-    const dir = join(tmpdir(), `cr-retry-clean-${process.pid}`)
-    mkdirSync(dir, { recursive: true })
-    const run = runBranchDiff("local-clean.jsonl", {
-      CODERABBIT_STUB_UNAVAILABLE_ONCE: "error",
-      CODERABBIT_STUB_HEAD: "retry-clean",
-      CODERABBIT_STATE_DIR: dir,
-    })
-    assert.equal(run.status, 0, run.stderr)
-    const body = JSON.parse(run.stdout)
-    assert.equal(body.attemptStatus, "clean")
     assert.equal(body.action, "push")
-    assert.equal(body.record, "clean")
-    assert.equal(body.cliAttempts, 2)
-    assert.equal(body.reinstalls, 0)
+    assert.equal(body.record, "leftover_after_fix_round")
   })
 
-  test("version mismatch reinstalls on the retry and then pushes a clean review", () => {
-    const dir = join(tmpdir(), `cr-retry-reinstall-${process.pid}`)
-    mkdirSync(dir, { recursive: true })
-    const run = runBranchDiff("local-clean.jsonl", {
-      CODERABBIT_STUB_VERSION: "0.7.5",
-      CODERABBIT_STUB_REINSTALL_FIXES: "2",
-      CODERABBIT_STUB_HEAD: "retry-reinstall",
-      CODERABBIT_STATE_DIR: dir,
+  test("branch-diff timeout or incomplete review blocks the push", () => {
+    const timeout = runBranchDiff("local-clean.jsonl", {
+      CODERABBIT_STUB_TIMEOUT: "1",
     })
-    assert.equal(run.status, 0, run.stderr)
-    const body = JSON.parse(run.stdout)
-    assert.equal(body.attemptStatus, "clean")
-    assert.equal(body.action, "push")
-    assert.equal(body.cliAttempts, 2)
-    assert.equal(body.reinstalls, 2)
+    assert.equal(timeout.status, 0, timeout.stderr)
+    const timeoutBody = JSON.parse(timeout.stdout)
+    assert.equal(timeoutBody.ok, false)
+    assert.equal(timeoutBody.attemptStatus, "unavailable")
+    assert.equal(timeoutBody.reason, "timeout")
+    assert.equal(timeoutBody.action, "block")
+
+    const incomplete = runBranchDiff("local-missing-complete.jsonl")
+    assert.equal(incomplete.status, 0, incomplete.stderr)
+    const incompleteBody = JSON.parse(incomplete.stdout)
+    assert.equal(incompleteBody.ok, false)
+    assert.equal(incompleteBody.attemptStatus, "unavailable")
+    assert.equal(incompleteBody.reason, "missing_complete")
+    assert.equal(incompleteBody.action, "block")
   })
 
   test("branch-diff secret_path is advisory and .env.example is not a secret", () => {
@@ -658,7 +507,6 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(secretBody.attemptStatus, "unavailable")
     assert.equal(secretBody.reason, "secret_path")
     assert.equal(secretBody.action, "push")
-    assert.equal(secretBody.cliAttempts, 0)
 
     const example = runBranchDiff("local-clean.jsonl", {
       CODERABBIT_STUB_BRANCH_DIFF: ".env.example",
@@ -778,7 +626,7 @@ describe("coderabbit commit-gate spawn-level", { concurrency: 1 }, () => {
     const manifest = { "lib/example.ts": "abc" }
     const receipt = {
       ...buildReceipt({
-        branch: "sdd/RES-1",
+        branch: "sdd/<issue-id>1",
         base: "staging",
         head: "older",
         manifest: { "lib/example.ts": "older" },
@@ -824,7 +672,7 @@ describe("coderabbit commit-gate spawn-level", { concurrency: 1 }, () => {
     )
     saveReceipt(TMP_STATE, {
       ...buildReceipt({
-        branch: "sdd/RES-1",
+        branch: "sdd/<issue-id>1",
         base: "staging",
         head: "deadbeef",
         manifest: { "nope.ts": "x" },

@@ -86,7 +86,7 @@ describe("pnpm override home", () => {
     const environment = JSON.parse(
       readFileSync(path.join(repoRoot, ".cursor", "environment.json"), "utf8"),
     ) as { install?: string }
-    expect(environment.install).toContain("corepack prepare --activate")
+    expect(environment.install).toContain("corepack prepare pnpm@10.34.5 --activate")
     expect(environment.install).toContain("pnpm install --frozen-lockfile")
     expect(environment.install).not.toContain(
       "sh .cursor/cloud-install-coderabbit.sh",

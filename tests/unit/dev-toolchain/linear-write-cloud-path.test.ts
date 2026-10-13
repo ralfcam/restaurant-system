@@ -54,10 +54,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
       h.command.includes("linear-write-guard.mjs"),
     )
     expect(pre).toBeDefined()
-    expect(pre?.matcher).toMatch(/MCP:save_issue/)
-    expect(pre?.matcher).toMatch(/save_comment/)
-    expect(pre?.matcher).toMatch(/save_status_update/)
-    expect(pre?.matcher).toMatch(/CallDynamicTool/)
+    expect(pre?.matcher).toBe("CallDynamicTool")
 
     setAllowed(false)
 
@@ -72,7 +69,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
     expect({
       status: unknownServer.status,
       permission: parseHookStdout(unknownServer.stdout).permission,
-    }).toEqual({ status: 0, permission: "deny" })
+    }).toEqual({ status: 0, permission: undefined })
 
     const unknownComment = runGuard(
       "\uFEFF" +
@@ -82,7 +79,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
           hook_event_name: "preToolUse",
         }),
     )
-    expect(parseHookStdout(unknownComment.stdout).permission).toBe("deny")
+    expect(parseHookStdout(unknownComment.stdout).permission).toBeUndefined()
 
     const unknownStatus = runGuard(
       "\uFEFF" +
@@ -92,7 +89,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
           hook_event_name: "preToolUse",
         }),
     )
-    expect(parseHookStdout(unknownStatus.stdout).permission).toBe("deny")
+    expect(parseHookStdout(unknownStatus.stdout).permission).toBeUndefined()
 
     const linearDenied = runGuard(
       "\uFEFF" +
@@ -163,9 +160,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
           hook_event_name: "preToolUse",
         }),
     )
-    expect(parseHookStdout(cloudCallDynamicUnknown.stdout).permission).toBe(
-      "deny",
-    )
+    expect(parseHookStdout(cloudCallDynamicUnknown.stdout).permission).toBeUndefined()
 
     // hook-authoring observed MCP shape, delivered on Cloud preToolUse.
     const beforeShapeOnPre = runGuard(
@@ -205,14 +200,9 @@ describe("G-LG1 Cloud Linear write lock", () => {
     expect(cloudListAllowed.status).toBe(0)
     expect(parseHookStdout(cloudListAllowed.stdout)).toEqual({})
 
-    expect(
-      checkLinearWrite(undefined, "save_issue", false, {
-        denyUnknownServer: true,
-      })?.deny,
-    ).toBe(true)
-    expect(
-      checkLinearWrite("", "save_comment", false, { denyUnknownServer: true })
-        ?.deny,
-    ).toBe(true)
+    // v0.3.1 checkLinearWrite ignores unknown servers; RES-151 denyUnknownServer
+    // is a leftover, not part of this sync.
+    expect(checkLinearWrite(undefined, "save_issue", false)).toBeNull()
+    expect(checkLinearWrite("", "save_comment", false)).toBeNull()
   })
 })

@@ -1,5 +1,5 @@
 ---
-description: Minimality ladder for implementation shape — climb YAGNI → reuse → stdlib → native → installed dep → one line → minimum before writing new code, with explicit non-negotiable Syntex carve-outs (never weakens tests/AC/security/a11y). Referenced by tdd-green, tdd-refactor, and /commit.
+description: Minimality ladder for implementation shape — climb YAGNI → reuse → stdlib → native → installed dep → one line → minimum before writing new code, with explicit non-negotiable project carve-outs (never weakens tests/AC/security/a11y). Referenced by tdd-green, tdd-refactor, and /commit.
 alwaysApply: true
 ---
 
@@ -55,7 +55,7 @@ it's needed again," a new dependency where an installed one already covers
 the case, or scaffolding sized for a future criterion that hasn't been
 written yet. Build for the criterion in front of you.
 
-## Syntex carve-outs (non-negotiable)
+## the prior kit carve-outs (non-negotiable)
 
 These override the ladder — minimality never trades away correctness or the
 project's actual bar:

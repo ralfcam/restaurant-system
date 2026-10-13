@@ -1,6 +1,6 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
-import { existsSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { after, describe, test } from "node:test"
 import { tmpdir } from "node:os"
@@ -14,12 +14,15 @@ import {
   disarm,
   evaluateGateOpen,
   evaluateGitCommitPermission,
+  extractPath,
   getCommitExempt,
+  isArmedStateFile,
   isDesignSpecLaneSet,
   isDocsArtifactPath,
   isLoopRan,
   openCommitGate,
   setPhase,
+  status,
 } from "../hooks/lib/tdd-guard-policy.mjs"
 import { TASK_FANOUT_INFLIGHT_CAP } from "../hooks/lib/task-fanout-policy.mjs"
 
@@ -34,12 +37,10 @@ const FANOUT_STATE = join(
   "task-fanout.json",
 )
 const TDD_STATE = join(
-  process.cwd(),
-  ".cursor",
-  "hooks",
-  "state",
+  mkdtempSync(join(tmpdir(), "tdd-suite-")),
   "tdd-guard.json",
 )
+process.env.TDD_GUARD_STATE = TDD_STATE
 const REPEAT_STATE = join(
   process.cwd(),
   ".cursor",
@@ -74,8 +75,8 @@ function runGuard(scriptName, payload, extraArgs = []) {
       {
         env: {
           ...process.env,
+          TDD_GUARD_STATE: TDD_STATE,
           CODERABBIT_STATE_DIR: join(tmpdir(), `cr-idle-${process.pid}`),
-          TDD_DISARM_LOG: join(tmpdir(), `tdd-disarm-${process.pid}.md`),
         },
       },
     )
@@ -113,6 +114,52 @@ test("hooks.json has exactly one failClosed Shell hook (git-stage-guard)", () =>
   assert.ok(shellFailClosed[0].command.includes("git-stage-guard.mjs"))
 })
 
+test("isArmedStateFile matches only the resolved state path or repo-relative armed file", () => {
+  assert.equal(isArmedStateFile(".cursor/hooks/state/tdd-guard.json"), true)
+  assert.equal(isArmedStateFile(TDD_STATE), true)
+  assert.equal(isArmedStateFile("tdd-guard.json"), false)
+  assert.equal(isArmedStateFile("hooks/state/tdd-guard.json"), false)
+  assert.equal(isArmedStateFile("lib/tdd-guard.json"), false)
+  assert.equal(
+    isArmedStateFile("lib/.cursor/hooks/state/tdd-guard.json"),
+    false,
+  )
+  assert.equal(isArmedStateFile("json"), false)
+  assert.equal(isArmedStateFile("guard.json"), false)
+  assert.equal(isArmedStateFile("tdd"), false)
+  assert.equal(isArmedStateFile("linear-writer.json"), false)
+  assert.equal(isArmedStateFile(".cursor/hooks/state/linear-writer.json"), false)
+})
+
+test("isArmedStateFile does not match a short suffix of the resolved state path", () => {
+  const slash = TDD_STATE.replace(/\\/g, "/")
+  const suffix = slash.split("/").slice(-2).join("/")
+  assert.ok(suffix && suffix !== slash)
+  assert.equal(isArmedStateFile(suffix), false)
+})
+
+test("extractPath does not collapse spoof tdd-guard.json paths onto the armed file", () => {
+  assert.equal(
+    extractPath({ path: ".cursor/hooks/state/tdd-guard.json" }),
+    ".cursor/hooks/state/tdd-guard.json",
+  )
+  assert.equal(extractPath({ path: "lib/tdd-guard.json" }), "lib/tdd-guard.json")
+  assert.equal(
+    extractPath({ path: "lib/.cursor/hooks/state/tdd-guard.json" }),
+    "lib/.cursor/hooks/state/tdd-guard.json",
+  )
+})
+
+test("tddRun survives disarm and gate open", () => {
+  arm()
+  assert.equal(status().tddRun, true)
+  disarm()
+  assert.equal(status().tddRun, true)
+  assert.equal(status().armed, false)
+  openCommitGate()
+  assert.equal(status().tddRun, true)
+})
+
 test("git-stage-guard.mjs wires both blanket-stage and gh pr merge detectors", () => {
   const src = readFileSync(
     join(process.cwd(), ".cursor", "hooks", "git-stage-guard.mjs"),
@@ -120,6 +167,7 @@ test("git-stage-guard.mjs wires both blanket-stage and gh pr merge detectors", (
   )
   assert.match(src, /detectGhPrMerge/)
   assert.match(src, /detectBlanketGitStage/)
+  assert.match(src, /checkTaskAvailabilityShell/)
 })
 
 test("commit authorization hooks do not read or mutate CodeRabbit receipts", () => {

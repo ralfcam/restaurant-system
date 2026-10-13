@@ -1,93 +1,157 @@
 /**
- * Shared evaluator for /conduct next transcripts.
- * Credits a criterion only when the Task text names that id.
- * An unlabelled Task credits no criteria.
+ * Shared /conduct next transcript check. Parses Cursor conversation JSONL
+ * (`role` / `message.content` `tool_use` blocks) and verifies every required
+ * criterion has Task phases to tdd-red / tdd-green / tdd-refactor, tracker
+ * writes come from linear-resolver, and the conductor does not Write a
+ * protected path or call Linear mutations inline.
  */
-export const PHASE_AGENTS = {
+import { extractMcpCall, isLinearServer } from "./mcp-payload.mjs"
+import { isLinearWriteTool } from "./linear-write-policy.mjs"
+import { isProtected } from "./tdd-guard-policy.mjs"
+
+export const PHASE_AGENTS = Object.freeze({
   "tdd-red": "red",
   "tdd-green": "green",
   "tdd-refactor": "refactor",
-}
+})
+
+const AC_RE = /\b(AC-\d+)\b/g
+const WRITE_TOOLS = new Set(["Write", "StrReplace", "SearchReplace"])
 
 function emptyPhases() {
   return { red: false, green: false, refactor: false }
 }
 
-function extractCriterionIds(text, requiredCriteria) {
+export function extractCriterionIds(text, requiredCriteria = []) {
   const ids = []
-  const hay = String(text || "")
+  const seen = new Set()
+  const source = String(text || "")
+  AC_RE.lastIndex = 0
+  let match
+  while ((match = AC_RE.exec(source))) {
+    if (seen.has(match[1])) continue
+    seen.add(match[1])
+    ids.push(match[1])
+  }
   for (const id of requiredCriteria) {
-    if (hay.includes(id)) ids.push(id)
+    if (typeof id !== "string" || !id || seen.has(id)) continue
+    if (!source.includes(id)) continue
+    seen.add(id)
+    ids.push(id)
   }
   return ids
 }
 
-function subagentFromEvent(event) {
-  return (
-    event?.subagent ||
-    event?.agent ||
-    event?.name ||
-    event?.tool_input?.subagent_type ||
-    event?.tool_input?.description ||
-    ""
+function contentBlocks(record) {
+  const content = record?.message?.content ?? record?.content
+  return Array.isArray(content) ? content : []
+}
+
+function toolUsesFromRecord(record) {
+  return contentBlocks(record).filter(
+    (block) =>
+      block &&
+      (block.type === "tool_use" || block.type === "tool-use") &&
+      typeof (block.name || block.tool_name) === "string",
   )
 }
 
-export function evaluateConductorTranscript(
-  events,
-  { requiredCriteria = [] } = {},
-) {
-  const criteria = Object.fromEntries(
-    requiredCriteria.map((id) => [id, emptyPhases()]),
-  )
+export function parseConductorTranscript(text) {
+  const events = []
+  const raw = String(text || "")
+  if (!raw.trim()) return events
+  for (const [index, line] of raw.split(/\r?\n/).entries()) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+    let record
+    try {
+      record = JSON.parse(trimmed)
+    } catch {
+      continue
+    }
+    if (record?.type === "turn_ended") continue
+    for (const block of toolUsesFromRecord(record)) {
+      const name = block.name || block.tool_name
+      const input = block.input || block.tool_input || {}
+      events.push({
+        line: index + 1,
+        tool: name,
+        input: input && typeof input === "object" ? input : {},
+      })
+    }
+  }
+  return events
+}
+
+function writePath(input) {
+  return String(input?.path || input?.file_path || input?.filePath || "")
+}
+
+function isInlineLinearWrite(event) {
+  if (isLinearWriteTool(event.tool)) return true
+  const mcp = extractMcpCall({
+    tool_name: event.tool,
+    tool_input: event.input,
+  })
+  if (!mcp) return false
+  return isLinearServer(mcp.server) && isLinearWriteTool(mcp.toolName)
+}
+
+export function evaluateConductorTranscript(jsonl, { requiredCriteria = [] } = {}) {
+  const events = parseConductorTranscript(jsonl)
+  const criteria = {}
+  for (const id of requiredCriteria) criteria[id] = emptyPhases()
   let linearResolverTasks = 0
-  let parentTrackerWrites = 0
-  let parentInlineEdits = 0
-  let deniedInline = false
-  for (const event of events || []) {
-    const type = event?.type || event?.kind
-    if (type === "deny" || event?.denied) deniedInline = true
-    if (type === "write" && event?.via === "parent") {
-      parentInlineEdits += 1
+  const inlineLinearWrites = []
+  const inlineProtectedWrites = []
+
+  for (const event of events) {
+    if (event.tool === "Task") {
+      const subagent = String(event.input.subagent_type || "")
+      const blob = `${event.input.description || ""}\n${event.input.prompt || ""}`
+      const ids = extractCriterionIds(blob, requiredCriteria)
+      if (subagent === "linear-resolver") linearResolverTasks += 1
+      const phase = PHASE_AGENTS[subagent]
+      if (phase) {
+        for (const id of ids) {
+          if (!criteria[id]) criteria[id] = emptyPhases()
+          criteria[id][phase] = true
+        }
+      }
       continue
     }
-    if (type === "linear" || event?.via === "linear-resolver") {
-      if (event?.via === "parent") parentTrackerWrites += 1
-      else linearResolverTasks += 1
+    if (WRITE_TOOLS.has(event.tool)) {
+      const path = writePath(event.input)
+      if (path && isProtected(path)) {
+        inlineProtectedWrites.push({ tool: event.tool, path, line: event.line })
+      }
       continue
     }
-    if (type !== "task" && event?.tool !== "Task") continue
-    const subagent = String(subagentFromEvent(event))
-    if (subagent === "linear-resolver") {
-      linearResolverTasks += 1
-      continue
-    }
-    const phase = PHASE_AGENTS[subagent]
-    if (!phase) continue
-    const ids = extractCriterionIds(
-      event?.text || event?.prompt || event?.tool_input?.prompt || "",
-      requiredCriteria,
-    )
-    for (const id of ids) {
-      if (!criteria[id]) criteria[id] = emptyPhases()
-      criteria[id][phase] = true
+    if (isInlineLinearWrite(event)) {
+      inlineLinearWrites.push({ tool: event.tool, line: event.line })
     }
   }
-  const missing = []
-  for (const [id, phases] of Object.entries(criteria)) {
+
+  const missingPhases = []
+  for (const id of requiredCriteria) {
+    const row = criteria[id] || emptyPhases()
     for (const phase of ["red", "green", "refactor"]) {
-      if (!phases[phase]) missing.push(`${id}:${phase}`)
+      if (!row[phase]) missingPhases.push({ criterion: id, phase })
     }
   }
+
+  const everyPhaseIsTask = requiredCriteria.length > 0 && missingPhases.length === 0
+  const trackerWritesDelegated =
+    linearResolverTasks > 0 && inlineLinearWrites.length === 0
+
   return {
-    ok:
-      missing.length === 0 &&
-      parentTrackerWrites === 0 &&
-      parentInlineEdits === 0,
-    missing,
+    ok: everyPhaseIsTask && trackerWritesDelegated && inlineProtectedWrites.length === 0,
+    everyPhaseIsTask,
+    trackerWritesDelegated,
+    inlineProtectedWrites,
+    inlineLinearWrites,
+    missingPhases,
+    criteria,
     linearResolverTasks,
-    parentTrackerWrites,
-    parentInlineEdits,
-    deniedInline,
   }
 }

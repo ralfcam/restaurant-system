@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest"
 const repoRoot = process.cwd()
 
 const CLOUD_INSTALL =
-  "corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile"
+  "corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile"
 
 function readInstallScript() {
   return readFileSync(
@@ -34,9 +34,11 @@ describe("Cloud CodeRabbit US pin", () => {
     expect(script).toMatch(/PINNED_VERSION="0\.9\.0"/)
     expect(script).not.toMatch(/^(?:export )?CODERABBIT_VERSION=v0\.7\.6/m)
     expect(script).toMatch(/if \[ "\$\{current\}" != "\$\{PINNED_VERSION\}" \]/)
+    expect(script).toMatch(/install_from_zip/)
     expect(script).toMatch(
-      /curl -fsSL https:\/\/cli\.coderabbit\.ai\/install\.sh \| sh/,
+      /cli\.coderabbit\.ai\/releases\/\$\{PINNED_VERSION\}\/coderabbit-linux-x64\.zip/,
     )
+    expect(script).not.toMatch(/install\.sh/)
 
     expect(script).toMatch(/if \[ -z "\$\{CODERABBIT_API_KEY:-\}" \]/)
     expect(script).not.toMatch(/if \[ -n "\$\{CODERABBIT_API_KEY:-\}" \]/)

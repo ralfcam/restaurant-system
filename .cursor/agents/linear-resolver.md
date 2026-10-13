@@ -129,7 +129,7 @@ READY are narrow standalone duties and are never combined with another mode.
   run key or `Dispatch run key: dispatch:<YYYY-MM-DD>:project=<UUID>`,
   `onTrack`/`atRisk`/`offTrack` health, and the bounded digest. No
   issue ID or issue mutation is valid in this mode.
-- **Clarify:** when the orchestrator hands you one exact `RES-###`, source
+- **Clarify:** when the orchestrator hands you one exact `<issue-id>`, source
   command, stable key, and operator-approved bounded comment. A local Plan
   Mode run must show and obtain approval for the exact comment first. A
   managed Cloud task launched from that tracked issue preauthorizes this
@@ -277,7 +277,7 @@ This duty is a bounded comment-only feedback loop. It never changes state,
 project, milestone, priority, cycle, labels, assignee, delegate, or scope.
 It may call only `list_comments` and `save_comment`. An operator-created automation run counts as a launch from the tracked issue. That preauthorizes this bounded comment only, with no state or scope change.
 
-1. **Validate the handed payload locally.** Require one `RES-###`, source
+1. **Validate the handed payload locally.** Require one `<issue-id>`, source
    command, and stable key exactly
    `clarify:<RES-id>:<spec-basename>:<rule-or-ac>`. The handed body must begin
    `Clarification required`, contain that same key, fit
@@ -321,10 +321,10 @@ It may call only `list_comments` and `save_comment`. An operator-created automat
    children — the invoked issue only. No tracked issue in the handoff → omit
    the summary comment (`omitted — no tracked issue`) and skip this
    workflow; do not invent an issue.
-2. **Do not write workflow state.** A launch prompt saying "Do not change status"
-   still posts this START `Work started:` comment — START is comment-only and
-   is not a workflow-state change. Never call `save_issue` in START (not for
-   state, not for assignee). Never open a Cloud Agent spawn door
+2. **Do not write workflow state.** Never call `save_issue` in START (not for
+   state, not for assignee). A handoff or issue prompt that says "Do not change status"
+   still posts the `Work started:` comment; it still forbids `save_issue`.
+   Never open a Cloud Agent spawn door
    (`save_issue.assignee` including `null`, `save_issue.delegate`, or
    `@Cursor` in a comment / title / description / document / `patch`). See
    [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).
@@ -484,8 +484,8 @@ It may call only `list_comments` and `save_comment`. An operator-created automat
    without guessing.
 
 6. **Return the mapping.** Hand back a finding→outcome mapping — `filed
-<RES-###>`, `attached to <RES-###>` (comment posted, no new issue), `umbrella
-<RES-###>` (with its member findings), or `left on ledger (below floor)` /
+<<issue-id>>`, `attached to <<issue-id>>` (comment posted, no new issue), `umbrella
+<<issue-id>>` (with its member findings), or `left on ledger (below floor)` /
    `left on ledger (cap reached)` — with source path/entry mapping for every
    outcome (bus `docs/findings/<category>.md` or named
    `docs/findings/runs/<slug>.md` line), so the orchestrator can prune the
@@ -676,7 +676,7 @@ This mode is intentionally isolated from issue management.
 ## Report (exactly this shape)
 
 ```
-## Clarification — <RES-###>   (omit this block unless CLARIFY)
+## Clarification — <<issue-id>>   (omit this block unless CLARIFY)
 Key: clarify:<RES-id>:<spec-basename>:<rule-or-ac>
 Comment: created <ID/URL> | updated <ID/URL> (material evidence change) | skipped — identical unresolved key | no write — resolved by human comment <ID>
 Issue fields: unchanged (comment-only)
@@ -699,8 +699,8 @@ Notes: In Progress/In Review/Done via Linear automations (comment/message + GitH
 Source: `docs/findings/*.md` (<n> open entries across security/tech-debt/test-debt/product-gaps) [+ named run files] [+ inline]
 Filed: <new issue ID/URL> — "<title>" (ordinary Backlog/no cycle/scheduling deferred | Urgent fast lane Todo/current cycle, related to <source>) | proposed, awaiting confirmation
        <…one line per finding…>
-Attached (no new issue): <finding> → commented on <existing RES-###> | none
-Umbrella issues: <new RES-###> "<title>" ← <member findings, N> | none
+Attached (no new issue): <finding> → commented on <existing <issue-id>> | none
+Umbrella issues: <new <issue-id>> "<title>" ← <member findings, N> | none
 De-duped: <finding → existing issue it was related to, or "none">
 Below floor — left on ledger: <finding · source path/entry · severity> (does not meet filing floor) | none
 Cap reached — left on ledger: <finding · source path/entry> (per-run cap of 3 already used) | none
@@ -716,7 +716,7 @@ Post-write re-read: <issue ID> state=<value> project=<value> priority=<value> mi
 New issues created: <ID/URL> — "<title>" | none
 Deferred / not confirmed: <items left unchanged and why, including stale source-state mismatch, or "none">
 
-## Ready brief — <RES-###>   (omit this block unless READY)
+## Ready brief — <<issue-id>>   (omit this block unless READY)
 Section: replaced | appended | deferred — stale
 Observed brief: <route and verification, or absent>
 State: unchanged

@@ -34,8 +34,8 @@ carries no `Fixes RES-###` — without a trailer the issue never closes.
 **Cloud-PR identity:** the head pattern `cursor/<slug>-<4 hex>`
 (`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`). Never identify a cloud
 PR by author. Historical cloud PRs are authored by the operator
-(`ralfcam`, `is_bot: false`) — that account is on every human PR too and
-carries no signal. Never invent a `cursor/RES-###` identity.
+(the operator's GitHub account, `is_bot: false`) — that account is on every human PR too and
+carries no signal. Never invent a `cursor/<issue-id>` identity.
 
 **Re-check `.cursor/environment.json` on the default branch:**
 [.cursor/environment.json](.cursor/environment.json) pins the cloud
@@ -94,7 +94,7 @@ thinking: { type: "adaptive", effort: "medium" }
     `cursor/` heads matching the cloud-PR pattern that have **no**
     OPEN PR (`git ls-remote --heads origin 'cursor/*'`; skip any
     head already listed by `gh pr list --state open`). Per orphan:
-    `<head> @ <oid-short> — no OPEN PR — RES-### | cannot verify`.
+    `<head> @ <oid-short> — no OPEN PR — <issue-id> | cannot verify`.
     Scan that head's tip commit subject only
     (`git log -1 --format=%s <oid>`) for `RES-\d+` — never invent
     from the slug. Do **not** `gh pr create`. If none, omit the extra
@@ -104,9 +104,9 @@ thinking: { type: "adaptive", effort: "medium" }
     `gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`)
     to surface its Linear ID — `cannot verify` per PR if none is found,
     never invented. STOP and list every candidate as `#<n> <head> →
-    <base> — RES-### | cannot verify`. If two or more candidates
+    <base> — <issue-id> | cannot verify`. If two or more candidates
     share the same ID, append one line: "duplicate cloud dispatch on
-    RES-### — reconcile (close or delete the redundant branch)
+    <issue-id> — reconcile (close or delete the redundant branch)
     before pinning." The operator still must pin `/intake <n>`.
 - Do **not** create a PR. Do **not** `git push`. This command only
   intakes an existing OPEN cloud PR.
@@ -184,9 +184,9 @@ path instead of `sdd/RES-###`.
 ```powershell
 git fetch origin
 git fetch origin pull/<n>/head
-git worktree add C:\Users\joser\.cursor\worktrees\restaurant-system\intake-<n> FETCH_HEAD
-cd C:\Users\joser\.cursor\worktrees\restaurant-system\intake-<n>
-Copy-Item C:\Users\joser\PycharmProjects\restaurant-system\.env, C:\Users\joser\PycharmProjects\restaurant-system\.env.local .
+git worktree add C:\src\worktrees\<repo>\intake-<n> FETCH_HEAD
+cd C:\src\worktrees\<repo>\intake-<n>
+Copy-Item C:\src\<repo>\.env, C:\src\<repo>\.env.local .
 pnpm install
 pnpm lint; pnpm typecheck; pnpm test:unit
 ```
@@ -215,7 +215,7 @@ collapse this into a generic "fix lint + typecheck + test:unit".
 | `lint`               | mechanical-first                                                      | `pnpm exec next lint --fix` → `/commit` (gate-remediation) if dirty → `/intake`. If still red after fix, or the output is a non-fixable rule: `/sdd-to-tdd "bug: lint: <rule> in <file>"` then `/commit` then `/intake`. |
 | `typecheck`          | product/type                                                          | `/sdd-to-tdd "bug: typecheck: <file>(<line>): <message>"` then `/commit` then `/intake`.                                                                                                                                 |
 | `test:unit:coverage` | subclass from Vitest output — do **not** treat the label as one class | See the three bullets below.                                                                                                                                                                                             |
-| `dependency-audit`   | product (AC-1315-1)                                                   | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/intake`.                                                                                                                                     |
+| `dependency-audit`   | product                                                               | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/intake`.                                                                                                                                     |
 
 `test:unit:coverage` subclass (read this run's Vitest output):
 
@@ -233,8 +233,8 @@ for a gate red.
 On green: tear down the worktree, then continue.
 
 ```powershell
-$wt = "C:\Users\joser\.cursor\worktrees\restaurant-system\intake-<n>"
-cd C:\Users\joser\PycharmProjects\restaurant-system
+$wt = "C:\src\worktrees\<repo>\intake-<n>"
+cd C:\src\<repo>
 # Expect exit 255 "Directory not empty" when node_modules is present.
 # The worktree is still unregistered from `git worktree list`.
 git worktree remove $wt
@@ -258,15 +258,15 @@ A cloud PR was not produced by `/commit`, so it usually has no
 
 1. Scan the PR title, body, and commits
    (`gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`)
-   for `RES-\d+`. Also accept an existing
-   `^(Fixes|Closes|Resolves)\s+(RES-\d+)` line (case-insensitive on the
+   for `<issue-id>`. Also accept an existing
+   `^(Fixes|Closes|Resolves)\s+(<issue-id>)` line (case-insensitive on the
    keyword). De-duplicate IDs.
 2. If **no** ID can be identified: report `cannot verify` and **skip**
    — do not guess from the slug, the author, or a Linear search.
 3. If the title or body already closing-links every identified ID:
    skip — already linked.
 4. Otherwise append (never overwrite) via
-   `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, RES-###]\n"`.
+   `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, <issue-id>]\n"`.
    Preserve the existing body verbatim above this block. Re-fetch and
    confirm the edit landed.
 
@@ -275,30 +275,33 @@ No Linear MCP. Do not invent an ID.
 When the title/body is missing owning spec/criteria, fresh executed-test
 evidence from this worktree gate, or optional audit-only CodeRabbit
 `/push` CLI `attemptStatus`/`reason` metadata, append those facts in the same edit (never
-overwrite). Handoff stops on the draft. Agents do not run
-`/ready-merge-release`. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the /push CLI
-evidence on the head plus that UAT.
+overwrite). Handoff is draft CodeRabbit review →
+`/ready-merge-release <PR#>` → operator merge.
 
-### 6. Leave the PR a draft
+### 6. Request review
 
-- Do not request human review and do not run `gh pr ready`. Agents do not
-  run `/ready-merge-release`. The QA bot `ralfcam` runs UAT, digests the
-  agent transcript, and does not post a review trigger. Readiness is the
-  CLI evidence on the head plus that UAT.
-- If the PR is already ready, report that. Do not add a reviewer from this
-  command.
+- If the PR is a draft, do not request human review or ready it. CodeRabbit
+  reviews drafts automatically; `/ready-merge-release <n>` owns readiness.
+- If the PR is ready and `reviewRequests` is empty:
+  `gh pr edit <n> --add-reviewer <operator>` to fire Linear's
+  `PR review request → In Review` automation.
+- **Idempotent** — skip if a reviewer is already assigned; report
+  "already requested."
+- **Caveat:** GitHub rejects a review request naming the PR author. On
+  this single-operator repo the cloud PR author is the operator, so
+  this request usually cannot fire. Report that plainly — In Review
+  then comes from the operator's own review activity, or from the
+  close-out comment automation.
 
 ### 7. Stop — instruct the operator to merge manually
 
 - Do **not** merge, ever. `git-stage-guard` also blocks `gh pr merge`
   mechanically. Present one summary: PR number/title, `<head> → <base>`,
   firewall outcome (already on staging | retargeted | stopped —
-  rebase), worktree lint + typecheck + test:unit status, trailer status, draft
-  status, and advisory checks. The next step belongs to the QA bot
-  `ralfcam`: run UAT, digest the agent transcript, and mark the PR ready
-  from the CLI evidence on the head plus that UAT. Do not post a review
-  trigger.
-  Agents do not run `/ready-merge-release`. Remote review never
+  rebase), worktree lint + typecheck + test:unit status, trailer status, review-request
+  status, and advisory checks. Instruct the operator to run
+  **`/ready-merge-release <n>`** after the draft review and merge in the
+  GitHub UI only on `APPROVED FOR OPERATOR MERGE`. Remote review never
   substitutes for the mandatory advisory local JSONL attempt.
 
 `gh pr checks <n>` is **advisory** — it does not block this command.
@@ -319,8 +322,8 @@ note that rather than treating it as a gap.
    ancestry — never naive-retarget.
 4. Isolated worktree `pnpm lint; pnpm typecheck; pnpm test:unit`. On red: tear down, classify, STOP.
 5. Append `Fixes RES-###` when identifiable; `cannot verify` skips.
-6. Leave the PR a draft. Agents do not run `/ready-merge-release` and do
-   not mark it ready. The QA bot `ralfcam` owns that step.
+6. Request review if none requested on an already-ready PR; leave draft
+   readiness to `/ready-merge-release`.
 7. Never merge, never call Linear MCP, never check out the cloud head
    in the operator's tree.
 
@@ -329,11 +332,10 @@ note that rather than treating it as a gap.
 <constraints>
 - Be concrete and specific.
 - **No `gh pr merge`, ever.** Merging is the operator's job in the GitHub UI.
-- **No Linear MCP calls, ever.** This command does not request review.
-  Never `save_comment`/`save_issue`.
-- **No `gh pr ready`.** Agents do not mark a PR ready and do not run
-  `/ready-merge-release`. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is the CLI
-  evidence on the head plus that UAT.
+- **No Linear MCP calls, ever.** Review requests go through `gh`
+  (`gh pr edit --add-reviewer`), never `save_comment`/`save_issue`.
+- **No `gh pr ready`.** Readiness belongs exclusively to
+  `/ready-merge-release <PR#>` after a clean CodeRabbit draft review.
 - **DO NOT operate on a PR that is not OPEN.**
 - **DO NOT touch a non-`cursor/<slug>-<4 hex>` head.** Point at `/push`.
 - **DO NOT identify a cloud PR by author.**
@@ -368,13 +370,13 @@ Tone: professional and actionable. Length: concise.
 
 Exactly these sections:
 
-1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" (include any Step 1 orphan list: `<head> @ <oid-short> — no OPEN PR — RES-### | cannot verify`) | "stopped — multiple open cloud PRs; pin `/intake <n>`" (include the per-candidate `#<n> <head> — RES-### | cannot verify` breakdown and any duplicate-dispatch line from Step 1) | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
+1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" (include any Step 1 orphan list: `<head> @ <oid-short> — no OPEN PR — <issue-id> | cannot verify`) | "stopped — multiple open cloud PRs; pin `/intake <n>`" (include the per-candidate `#<n> <head> — <issue-id> | cannot verify` breakdown and any duplicate-dispatch line from Step 1) | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
 2. **Cloud-PR gate** — "MATCH — `<head>`" | "stopped — NO-MATCH (not this command)".
 3. **Base firewall** — "already on staging — ancestry held; no edit" | "retargeted — `<old-base>` → staging; descendant + drag-in checks held" | "stopped — head is not a descendant of `origin/staging`; rebase onto staging, then `/intake`" | "stopped — retarget would drag `origin/staging..origin/main` (<N> commits); rebase onto staging, then `/intake`" | "stopped — cannot verify ancestry".
 4. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed, isolated worktree intake-<n>)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run. On stop, remaining sections are `n/a — stopped at whole-suite gate`. Tear-down: `removed` | `failed — <why>`.
 5. **Linear trailer** — "already linked — <IDs>" | "injected — `Fixes RES-###[, …]`" | "skipped — cannot verify source issue" | "n/a — stopped earlier".
-6. **Draft** — "left a draft — QA bot `ralfcam` runs UAT and digests the transcript; readiness is CLI evidence on the head plus that UAT; agents do not run `/ready-merge-release`" | "already ready — reported, not changed" | "n/a — no PR / stopped earlier".
+6. **Review request** — "deferred — draft CodeRabbit review; `/ready-merge-release <n>` owns readiness" | "fired — requested `<reviewer>`" | "already present — skipped" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the ready-for-merge event" | "n/a — no PR / stopped earlier".
 7. **Checks** (advisory; omit if no PR) — each required check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local worktree lint + typecheck + test:unit is Step 4, not this section.
 8. **Linear expectations** — In Progress fires from a linked draft/open PR (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command. Report the `.cursor/environment.json` state on the default branch as observed this run.
-9. **Operator next** — "draft PR open — QA bot `ralfcam` runs UAT and digests the transcript; readiness is CLI evidence on the head plus that UAT; agents do not run `/ready-merge-release`; merge `<PR-URL>` in the GitHub UI only on `APPROVED FOR OPERATOR MERGE` — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | "no open cloud PR" (zero discovery; if Step 1 listed orphans: open a PR from the Dashboard/operator then `/intake`, or delete a plan-only stub — this command never `gh pr create`) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
+9. **Operator next** — "wait for the draft CodeRabbit review, then run `/ready-merge-release <n>`; merge `<PR-URL>` in the GitHub UI only on `APPROVED FOR OPERATOR MERGE` — this command never merges" | "rebase `<head>` onto `origin/staging`, then re-run `/intake`" (ancestry STOP) | "use `/push`" (NO-MATCH / not a cloud PR) | "pin `/intake <n>`" (ambiguous discovery) | "no open cloud PR" (zero discovery; if Step 1 listed orphans: open a PR from the Dashboard/operator then `/intake`, or delete a plan-only stub — this command never `gh pr create`) | on Step 4 stop: the **paste-ready recipe for the classified class** from the Step 4 table (command + required argument + then `/intake`) — never `fix lint+typecheck+test:unit, then re-run /intake`.
    </output_format>

@@ -13,7 +13,7 @@ Communication style: direct, plain, non-jargon.
 </persona>
 
 <context>
-Repository: restaurant-system. This command is a standalone read-only helper: no other
+Repository: this repository. This command is a standalone read-only helper: no other
 command invokes it, and it writes nothing. In practice it is most often run on an
 **[`/sdd-to-tdd`](.cursor/commands/sdd-to-tdd.md) thread** — a chat that turned a
 spec or a bug into a TDD plan, then possibly executed some of it. Treat that as
@@ -27,14 +27,14 @@ that may or may not have ended in a plan.
 
 **Plan files** live in one of two `*.plan.md` directories:
 
-- the workspace copy, `.cursor/plans/` (e.g. `.cursor/plans/grilling_intake_2ddb48c3.plan.md`)
+- the workspace copy, `.cursor/plans/` (e.g. `.cursor/plans/<plan-slug>.plan.md`)
 - the user-level Cursor plans dir, `~/.cursor/plans/` (Windows:
   `C:\Users\<user>\.cursor\plans\`), where newly created plans land before they
   are moved into the workspace
 
 **Conversations** are past-chat transcripts, one JSONL file per chat, at
 `<transcripts>/<uuid>/<uuid>.jsonl` where `<transcripts>` is
-`C:\Users\<user>\.cursor\projects\c-Users-<user>-PycharmProjects-restaurant-system\agent-transcripts`.
+`C:\Users\<user>\.cursor\projects\<repo>\agent-transcripts`.
 Each line is `{"role":…,"message":{"content":[…]}}` (or a `turn_ended` marker);
 content blocks are `text` and `tool_use`, and **tool results are not recorded**.
 A sibling `subagents/` dir holds subagent transcripts — ignore those; recap the
@@ -45,14 +45,14 @@ named `CreatePlan`; that block's `input.name` is the plan's name and is how you
 find the plan file. A conversation with no such block is still a valid target —
 recap the conversation itself.
 
-**Issues** belong to the team whose key is **RES** (`RES-###` IDs). The live
+**Issues** belong to the **RES** team (`RES-###` IDs). The live
 team display name is informational. There is no default Linear project. For an
-Issue recap, discover the team's live nonterminal RES projects with canonical version key `V-X.X` and validate the issue's current project
+Issue recap, discover the team's live nonterminal configured-team projects with canonical version key `V-X.X` and validate the issue's current project
 using
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
 This command remains read-only: it reports an unallocated/ambiguous project
 rather than moving the issue. Canonical issue URL:
-`https://linear.app/realized/issue/RES-###`.
+`https://linear.app/example/issue/<issue-id>`.
 
 **Invocation:**
 
@@ -63,7 +63,7 @@ optional**, because every accepted target shape already identifies its own lane:
 | -------------------------------------------------------------------------------------- | ------------------- |
 | `*.plan.md` — `@`-attached path, full path, or bare filename in either plans dir above | Plan (plan file)    |
 | a `<uuid>.jsonl` path, a transcript directory, or a bare chat `<uuid>`                 | Plan (conversation) |
-| `RES-###`, a Linear issue URL, or an `@`-pasted issue link                             | Issue               |
+| `<issue-id>`, a Linear issue URL, or an `@`-pasted issue link                             | Issue               |
 
 So `/tldr @c:\…\<uuid>.jsonl` and `/tldr Plan @c:\…\<uuid>.jsonl` behave
 identically. Strip a leading `@` from any target before resolving it. If a given
@@ -139,14 +139,14 @@ Mode.
 
 1. Drop a leading `Plan` / `Issue` keyword if present (case-insensitive) — it is
    optional and only a label. Strip a leading `@` from the target.
-2. Require a concrete `<target>` (path, chat UUID, URL, or `RES-###`). If there is
+2. Require a concrete `<target>` (path, chat UUID, URL, or `<issue-id>`). If there is
    no target at all: STOP and output one line —
-   `Usage: /tldr [Plan|Issue] <@.cursor/plans/…|chat-uuid|RES-###|Linear URL>` —
+   `Usage: /tldr [Plan|Issue] <@.cursor/plans/…|chat-uuid|<issue-id>|Linear URL>` —
    then end the turn.
 3. **Classify by shape**, not by the keyword:
    - ends in `.plan.md` → **plan file**
    - a `<uuid>.jsonl` path, a transcript directory, or a bare UUID → **conversation**
-   - `RES-###` or a `linear.app` URL → **issue**
+   - `<issue-id>` or a `linear.app` URL → **issue**
      If the shape matches none of these, stop with the one-line usage hint. If a
      supplied keyword disagrees with the shape, follow the shape and note it in one
      clause.
@@ -159,8 +159,8 @@ Mode.
    `<transcripts>/<uuid>/<uuid>.jsonl`. A bare UUID or a directory target is
    completed to that path. Never resolve to a file under `subagents/`. Reject an
    unknown UUID with a one-line stop.
-6. **Issue:** extract the issue id (`RES-###`) from a bare id or from a Linear
-   URL (path segment or query). Reject non-RES or unparseable targets with a
+6. **Issue:** extract the issue id (`<issue-id>`) from a bare id or from a Linear
+   URL (path segment or query). Reject non-configured-team or unparseable targets with a
    one-line stop.
 
 ## STEP 2 — Load source (read-only)
@@ -225,8 +225,8 @@ Mode.
 - **Conversation that ended in a plan:** slugify the last plan's name the way
   Cursor does — lowercase, whitespace runs → `_`, **hyphens preserved**, other
   punctuation dropped — then `Glob` `*<slug>*.plan.md` across both dirs (the file adds
-  an `_<hash>` suffix). E.g. `RES-1290 security residuals` →
-  `res-1290_security_residuals_d885ddfb.plan.md`. `Read` the hit: the plan is the
+  an `_<hash>` suffix). E.g. `<issue-id> security residuals` →
+  `issue-1290_example_plan_d885ddfb.plan.md`. `Read` the hit: the plan is the
   cheap, dense source, so let it drive Why, How, and Where. The transcript's
   closing turns supply anything decided **after** the plan — later turns often
   revise or supersede it, so recap the final state, not the plan as drafted. If no
@@ -238,11 +238,11 @@ Mode.
   truncated before the query text, derive the ask from those closing turns and say
   it is inferred, rather than paying for a full line-1 read. If the chat ended
   unresolved, say so instead of implying completion.
-- **Issue:** resolve the team once and require key `RES`. Call `list_projects`
+- **Issue:** resolve the team once and require the configured Linear team key. Call `list_projects`
   for that team and paginate fully. Keep only nonterminal projects whose display
   name yields exactly one canonical `versionKey` `V-X.X`, classified
   ongoing/available from live status. Call Linear
-  MCP `get_issue` with the parsed id and require its team key to be `RES`
+  MCP `get_issue` with the parsed id and require its team key to match `.cursor/harness.json` `linear.teamKey`
   even when the live team display name differs.
   Validate its returned project against that discovered set; if it is missing,
   terminal, incompatible, or tied under the shared allocation evidence, say
@@ -255,7 +255,7 @@ Mode.
   state drives the status line: **Backlog**, **Todo**, **In Progress**, **In
   Review**, **Canceled**, and **Duplicate** are all unfinished work; only
   **Done** licenses omitting the line. Include the issue URL in the header — the
-  one the tool returns, else `https://linear.app/realized/issue/RES-###`.
+  one the tool returns, else `https://linear.app/example/issue/<issue-id>`.
 
 If load fails (missing file, unknown UUID, Linear unreachable, unknown id):
 report "cannot load …" briefly and stop.
@@ -290,7 +290,7 @@ Header:
   a markdown link whose target is the bare UUID (no `.jsonl`). When it ended in a
   plan, name that plan in the same line — e.g.
   `# TLDR — Chat: [tldr command design](<uuid>) → Plan: <plan name>`.
-- Issue: `# TLDR — Issue: RES-### <title>` (plus URL on the same or next line when available)
+- Issue: `# TLDR — Issue: <issue-id> <title>` (plus URL on the same or next line when available)
 - Status line, when emitted: the line immediately after the header (after the
   issue URL in an Issue run), before `## Why`.
 

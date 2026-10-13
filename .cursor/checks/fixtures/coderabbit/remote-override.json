@@ -17,7 +17,7 @@
   ],
   "threads": [],
   "issueComments": [
-    { "user": { "login": "ralfcam" }, "body": "@coderabbitai approve" }
+    { "user": { "login": "operator" }, "body": "@coderabbitai approve" }
   ],
   "reviewComments": [],
   "checkRuns": []

@@ -1,5 +1,20 @@
 # Synthetic fixture. Hand-written; not captured from a conductor run.
-{"type":"task","subagent":"tdd-red","text":"write the failing test for ISSUE-1"}
-{"type":"task","subagent":"tdd-green","text":"implement ISSUE-1"}
-{"type":"task","subagent":"tdd-refactor","text":"refactor ISSUE-1"}
-{"type":"linear","via":"linear-resolver","tool":"save_comment"}
+{"role":"user","message":{"content":[{"type":"text","text":"/conduct next"}]}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Managed Cloud runtime confirmed. Claiming the queued delegation-enforcement issues and routing implementation through /sdd-to-tdd. The conductor does not do phase work or tracker writes inline."},{"type":"tool_use","name":"Task","input":{"description":"START ISSUE-350","subagent_type":"linear-resolver","prompt":"Post Work started: for ISSUE-350 (AC-12 Task-unavailable fail-closed). Do not change status. No save_issue."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"START ISSUE-351","subagent_type":"linear-resolver","prompt":"Post Work started: for ISSUE-351 (AC-14 non-skippable phases + agentId). Do not change status."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"START ISSUE-352","subagent_type":"linear-resolver","prompt":"Post Work started: for ISSUE-352 (AC-15 agent frontmatter owns model pins). Do not change status."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"START ISSUE-353","subagent_type":"linear-resolver","prompt":"Post Work started: for ISSUE-353 (AC-16 conduct next delegates). Do not change status."}}]}}
+{"role":"assistant","message":{"content":[{"type":"text","text":"Red for ISSUE-350 / AC-12."},{"type":"tool_use","name":"Task","input":{"description":"Red ISSUE-350","subagent_type":"tdd-red","prompt":"Write the failing test for ISSUE-350 / AC-12: armed Write is denied until Task succeeds."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Green ISSUE-350","subagent_type":"tdd-green","prompt":"Implement the minimum fail-closed Write guard for ISSUE-350 / AC-12."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Refactor ISSUE-350","subagent_type":"tdd-refactor","prompt":"Refactor ISSUE-350 / AC-12 without weakening the criterion."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Red ISSUE-351","subagent_type":"tdd-red","prompt":"Write the failing test for ISSUE-351 / AC-14: phase evidence requires agentId and START still posts when the prompt says Do not change status."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Green ISSUE-351","subagent_type":"tdd-green","prompt":"Implement ISSUE-351 / AC-14 phase evidence agentId and START-on-do-not-change-status."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Refactor ISSUE-351","subagent_type":"tdd-refactor","prompt":"Refactor ISSUE-351 / AC-14 without weakening the criterion."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Red ISSUE-352","subagent_type":"tdd-red","prompt":"Write the failing scan for ISSUE-352 / AC-15: no hardcoded model slugs in commands or rules."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Green ISSUE-352","subagent_type":"tdd-green","prompt":"Remove hardcoded model slugs for ISSUE-352 / AC-15."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Refactor ISSUE-352","subagent_type":"tdd-refactor","prompt":"Refactor ISSUE-352 / AC-15 without weakening the criterion."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Red ISSUE-353","subagent_type":"tdd-red","prompt":"Write the failing test for ISSUE-353 / AC-16: /conduct next delegates phases and tracker writes through /sdd-to-tdd."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Green ISSUE-353","subagent_type":"tdd-green","prompt":"Route /conduct next through /sdd-to-tdd for ISSUE-353 / AC-16."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"Refactor ISSUE-353","subagent_type":"tdd-refactor","prompt":"Refactor ISSUE-353 / AC-16 without weakening the criterion."}}]}}
+{"role":"assistant","message":{"content":[{"type":"tool_use","name":"Task","input":{"description":"CLOSE-OUT ISSUE-350..353","subagent_type":"linear-resolver","prompt":"Post CLOSE-OUT for ISSUE-350, ISSUE-351, ISSUE-352, and ISSUE-353. Do not change status."}}]}}
+{"type":"turn_ended"}

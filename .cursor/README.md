@@ -1,39 +1,53 @@
-# Operator harness
+# Restaurant-system operator harness
 
-Map of the Cursor command cycle in this folder. Command files under
-[`commands/`](commands/) are the source of truth.
-
-Work ships on the **`staging` accumulator** (feature PR = `<head> → staging`,
-then promotion = `staging →` default branch). Agents never merge. You merge
-in the GitHub UI. Linear **In Progress** / **In Review** / **Done** are
-automation-owned (draft/open PR, review/ready-for-merge, closing-linked merge).
-
+`docs/` is the source of truth. Specifications define acceptance, work-item
+concepts define the queue, and code/tests provide implementation evidence.
 Linear IDs are **`RES-###`** on the team whose key is **`RES`**. The live
-team display name is informational. Linear projects are discovered dynamically:
-active work routes only to live nonterminal RES projects with canonical version key **`V-X.X`**, classified ongoing/available from their Linear status
-and allocated fail-closed by
-[`rules/linear-project-routing.mdc`](rules/linear-project-routing.mdc).
-Specs live in [`docs/specs/`](../docs/specs/).
-Linear Triage is the special intake inbox. Ordinary accepted work lands in
-Backlog without a cycle; `/dispatch` metadata-plans the full scoped Backlog
+team display name is informational. Version projects use canonical version key
+`V-X.X`. Project values come from
+[`harness.json`](harness.json). `.cursor/conductor.json` is the parked
+automation switch.
+
+Work ships on the configured **accumulator** (default `staging`). Feature
+PRs target that branch. Only the accumulator is promoted to the default
+branch. Agents never merge. `/dispatch` metadata-plans the full scoped Backlog
 portfolio, then activates only the available slots in a 5–10 total-active
-Todo/current-cycle queue.
+daily wave and writes Ready briefs.
 
-Milestones are project-owned M1–M9 routes: `/design` is M1–M3
-pre-implementation work; `/sdd-to-tdd` routes contract clarification to M2,
-implementation to M4, and test/beta/UAT/launch/maintenance work to M5–M9.
-Tracked routing/spec conflicts use one bounded `Clarification required`
-comment through `linear-resolver`; the existing Linear-to-Slack relay provides
-visibility. That comment never triggers In Review/Done automation.
+## Bootstrap
 
-Vercel team **ralfcams-projects** (`team_MP13K4M0To2S4Duu2kknllAb`), git-linked
-project **restaurant-system** (`prj_wFVDqQOtf6cjuUXscIoHDbtHzTTz`). Dashboard:
-[ralfcams-projects/restaurant-system](https://vercel.com/ralfcams-projects/restaurant-system).
-MCP namespace `plugin-vercel-vercel` (`get_project` / `list_deployments` on
-this `prj_`). Env vars and `vercel link` are **CLI-only** — this MCP has no
-env tools. Runbook:
-[`docs/runbooks/deploy.md`](../docs/runbooks/deploy.md). Rule:
-[`rules/vercel-project.mdc`](rules/vercel-project.mdc).
+Run `/doctor`, then `/init <project-name>`. Initialization performs a
+guarded in-place bootstrap and leaves all changes uncommitted. When Docker
+is unavailable, explicit scaffold-only initialization can be completed
+later with `/verify-local`. CodeRabbit and Linear are explicit profiles.
+
+The bootstrap manifest pins the template, generator, test tools, Node
+22.22, and pnpm version. Initialization checkpoints resume by phase. Use
+`/upgrade-harness` for dry-run-first, collision-safe harness migrations.
+
+The harness must ship in its pre-`/init` state. Before releasing it, run
+`pnpm harness:release-check`.
+
+## Lifecycle
+
+`/capture` → `/triage` → `/dispatch` → `/design` →
+`/sdd-to-tdd` → `/review` → `/commit` → `/push` →
+`/ready-merge-release`
+
+- `/audit` verifies specs against code and tests.
+- `/intake` verifies Cursor Cloud pull requests.
+- `/reflect` checks claims against current evidence.
+- `/tldr` summarizes a plan, spec, or work item.
+- `/conduct` is the optional parked next automation entry.
+- `/curate` is the weekly backlog and ledger curator.
+
+Linear writes go only through `linear-resolver`. Ledger writes go only
+through `docs-updater` ledger-apply. `/ready-merge-release` may mark a
+clean draft ready and then stops; it never merges. `/push` runs the local
+CodeRabbit CLI on the committed branch diff before publish.
+
+Independent subagent tasks run in waves of 8. Runtime hook state is
+ignored and created on demand.
 
 **Plan Mode only:** [`/audit`](commands/audit.md).
 
@@ -45,123 +59,7 @@ Plan Mode; managed Cloud
 (`agent/runtime` = `managed`) may one-shot past that gate.
 [`/conduct`](commands/conduct.md) is managed Cloud only (`morning` and `next`).
 [`/design`](commands/design.md) also defaults to Plan Mode; managed Cloud may
-bypass that gate but retains its interactive dialogue and approval stops,
-except a complete design brief with no open clarification, which is the
-briefed STEP 0C one-shot.
-
-[`/intake`](commands/intake.md) has no Plan Mode gate.
-
-There is no GitHub QA workflow in this repo. Local gates are
-`pnpm lint`, `pnpm typecheck`, and `pnpm test:unit`.
-
----
-
-## Recommended cycle
+bypass that gate but retains its interactive dialogue and approval stops.
 
 `docs/findings + Linear Triage` → `/triage` → `Backlog` → `/curate` → `/dispatch` →
-`Todo/current cycle` → (`/sdd-to-tdd` → `/commit` → `/push`)×N →
-draft PR → QA bot `ralfcam` runs `/ready-merge-release PR#` → you merge
-
-`/audit` remains spec-first and writes findings to the ledger, then publishes
-one idempotent project-health digest through `linear-resolver`. Linear is
-visibility only, never the audit acceptance bar.
-
-- **Greenfield (no owning spec):** idea → [`/design`](commands/design.md) →
-  new `docs/specs/<slug>.md` → `/sdd-to-tdd @<file>` FEATURE
-- **Cloud Agent PR:** [`/intake`](commands/intake.md) for
-  `cursor/<slug>-<4 hex>` heads. Run `/intake` **before** `/push` on the
-  local lane when such a PR is open.
-
-```mermaid
-flowchart TD
-  subgraph snapshot [Snapshot]
-    Audit["/audit spec-first"]
-    Audit --> Ledger["docs/findings"]
-    Audit --> ProjectHealth["Linear project health"]
-  end
-  subgraph adhoc [Ad-hoc]
-    Capture["/capture"]
-    Design["/design"]
-    Capture --> Ledger
-    Design --> Spec["docs/specs new file"]
-  end
-  LinearTriage["Linear Triage inbox"] --> Triage["/triage intake"]
-  Ledger --> Triage
-  Triage --> Backlog["Backlog / no cycle"]
-  Backlog --> Curate["/curate weekly keep or drop"]
-  Curate --> Dispatch["/dispatch portfolio + daily wave"]
-  Dispatch --> Todo["Todo / current cycle"]
-  Spec --> Sdd["/sdd-to-tdd FEATURE"]
-  Todo --> Sdd2["/sdd-to-tdd RES-###"]
-  Sdd --> Commit["/commit"]
-  Sdd2 --> Commit
-  Commit --> Push["/push"]
-  Push --> Draft["draft PR"]
-  Draft --> QA["QA bot ralfcam"]
-  QA --> Release["/ready-merge-release PR#"]
-  Release --> Merge["You merge in GitHub"]
-  CloudPR["cursor/slug-abcd PR"] --> Intake["/intake"]
-  Intake --> Draft
-```
-
----
-
-## Command map
-
-| Command                                                   | Job                                                                                  | Typical next                               |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`/audit`](commands/audit.md)                             | Spec/test audit; PART 8 writes ledger, then one idempotent project-health update     | `/triage`                                  |
-| [`/triage`](commands/triage.md)                           | Findings + Linear Triage intake; ordinary → Backlog, Urgent fast lane → Todo/current | `/dispatch`                                |
-| [`/curate`](commands/curate.md)                           | Weekly keep-or-drop for Backlog, Todo, and below-floor ledger lines; link what stays | `/dispatch`                                |
-| [`/dispatch`](commands/dispatch.md)                       | Route/groom every scoped Backlog issue; fill 5–10 total-active queue; Ready briefs   | `/design RES-###` or `/sdd-to-tdd RES-###` |
-| [`/conduct`](commands/conduct.md)                         | Managed Cloud morning groom and next-issue conductor. Stops on the draft             | QA bot `ralfcam`                           |
-| [`/design`](commands/design.md)                           | Greenfield spec — hub walk, grill, one new spec file                                 | `/sdd-to-tdd @<file>` FEATURE              |
-| [`/sdd-to-tdd`](commands/sdd-to-tdd.md)                   | Plan Mode, START, then Red → Green → Refactor                                        | `/commit`                                  |
-| [`/commit`](commands/commit.md)                           | Lint + typecheck + unit + harness-lint, then commit. Never Linear writes             | `/push`                                    |
-| [`/push`](commands/push.md)                               | Human heads (`sdd/RES-###` or `staging` promotion). Leaves a draft. Never merges     | QA bot `ralfcam`, then you merge           |
-| [`/intake`](commands/intake.md)                           | Cloud `cursor/<slug>-<4 hex>` PRs. Isolated gates. Never merges                      | QA bot `ralfcam`, then you merge           |
-| [`/ready-merge-release`](commands/ready-merge-release.md) | Operator/QA-owned. Agents do not invoke it. Readies a clean PR. Never merges         | You merge                                  |
-| [`/capture`](commands/capture.md)                         | Observation → ledger (Plan Mode default; managed Cloud one-shot)                     | `/triage`                                  |
-| [`/tldr`](commands/tldr.md)                               | Recap a plan, chat, or `RES-###` (Ask Mode)                                          | —                                          |
-| [`/reflect`](commands/reflect.md)                         | Re-check a thread’s claims against the tree                                          | —                                          |
-
-Helper: [`/reset-remote-db`](commands/reset-remote-db.md).
-
----
-
-## Do not put on the loop
-
-| Skip                                                                             | Why                                                                                                        |
-| -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `/audit` after every ticket                                                      | TDD + `/commit` already prove the criterion                                                                |
-| `/dispatch` promoting a groomed issue outside the approved `activate-daily-wave` | Portfolio metadata is not activation                                                                       |
-| `/dispatch` emitting a card before Todo/current-cycle post-apply confirmation    | Failed/partial promotions are excluded                                                                     |
-| `/audit` filing issues or using Linear as an acceptance bar                      | Project update is visibility only                                                                          |
-| Treating a Ready brief as launch authorization                                   | Automations you created are the launch authority; a complete brief on a Todo issue is eligibility evidence |
-| `/intake` on a non-`cursor/` head                                                | Use `/push`                                                                                                |
-| `/intake` on a conductor PR whose gate-evidence head matches                     | `push.md` already firewalled it                                                                            |
-| `/push` while an OPEN `cursor/` PR exists without matching gate evidence         | Intake first                                                                                               |
-| Asking the operator a question from `/conduct`                                   | A missing fact is one Clarification required comment, then stop                                            |
-| Agent `gh pr merge` or Linear In Progress / In Review / Done                     | You merge; automations own those states                                                                    |
-| `/review` as a Linear Done gate                                                  | Mode 1 file/plan revise only                                                                               |
-
----
-
-## This folder
-
-| Path                     | What                                      |
-| ------------------------ | ----------------------------------------- |
-| [`commands/`](commands/) | Slash-command orchestrators               |
-| [`agents/`](agents/)     | Subagents (`spec-verifier`, `tdd-red`, …) |
-| [`rules/`](rules/)       | Doctrine                                  |
-| [`hooks/`](hooks/)       | Mechanical guards                         |
-| [`checks/`](checks/)     | Harness lints and policy tests            |
-
-## Next reading
-
-- [`rules/staging-accumulator.mdc`](rules/staging-accumulator.mdc)
-- [`rules/linear-project-routing.mdc`](rules/linear-project-routing.mdc)
-- [`rules/grilling.mdc`](rules/grilling.mdc)
-- [`rules/linear-automation.mdc`](rules/linear-automation.mdc)
-- [`rules/scheduled-jobs.mdc`](rules/scheduled-jobs.mdc)
-- [`docs/findings/README.md`](../docs/findings/README.md)
+`Todo/current cycle` → (`/sdd-to-tdd` → `/commit` → `/push`)×N → draft PR.

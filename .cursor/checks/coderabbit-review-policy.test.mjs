@@ -5,7 +5,6 @@ import { test } from "node:test"
 import {
   PINNED_CLI_VERSION,
   assertPinnedUsAuth,
-  shouldReinstallCli,
   applyWaivers,
   buildReceipt,
   evaluateAgentStream,
@@ -164,22 +163,54 @@ test("malformed, missing complete, mismatch, rate limit, billing, skipped, unkno
   }
 })
 
+test("cloud.Dockerfile installs the pinned CodeRabbit CLI", () => {
+  const dockerfile = readFileSync(
+    join(process.cwd(), ".cursor", "cloud.Dockerfile"),
+    "utf8",
+  )
+  assert.match(
+    dockerfile,
+    new RegExp(`cli\\.coderabbit\\.ai/releases/${PINNED_CLI_VERSION}`),
+  )
+  assert.match(
+    dockerfile,
+    new RegExp(`CODERABBIT_VERSION=${PINNED_CLI_VERSION}`),
+  )
+  assert.match(dockerfile, /SHA256SUMS\.sig/)
+})
+
+test("cloud-install-coderabbit.sh uses only the pinned zip plus SHA-256", () => {
+  const script = readFileSync(
+    join(process.cwd(), ".cursor", "cloud-install-coderabbit.sh"),
+    "utf8",
+  )
+  assert.doesNotMatch(script, /install\.sh/)
+  assert.doesNotMatch(script, /curl[^\n]*\|\s*sh/)
+  assert.match(script, new RegExp(`PINNED_VERSION="${PINNED_CLI_VERSION}"`))
+  assert.match(
+    script,
+    /cli\.coderabbit\.ai\/releases\/\$\{PINNED_VERSION\}\/coderabbit-linux-x64\.zip/,
+  )
+  assert.match(script, /sha256sum -c/)
+  assert.match(script, /install_from_zip/)
+})
+
 test("pinned US auth rejects version and region mismatch", () => {
   const good = assertPinnedUsAuth({
-    version: "0.9.0",
+    version: PINNED_CLI_VERSION,
     auth: { authenticated: true, region: "us" },
   })
   assert.equal(good.ok, true)
   assert.equal(
     assertPinnedUsAuth({
-      version: "v0.9.0",
+      version: `v${PINNED_CLI_VERSION}`,
       auth: { authenticated: true, region: "us" },
     }).ok,
     true,
   )
   assert.equal(
     assertPinnedUsAuth({
-      version: "0.7.6",
+      version: "0.7.5",
       auth: { authenticated: true, region: "us" },
     }).reason,
     "version_mismatch",
@@ -197,34 +228,6 @@ test("pinned US auth rejects version and region mismatch", () => {
       auth: { authenticated: false, region: "us" },
     }).reason,
     "unauthenticated",
-  )
-  assert.equal(
-    assertPinnedUsAuth({
-      version: "",
-      auth: { authenticated: true, region: "us" },
-    }).reason,
-    "cli_missing",
-  )
-  assert.equal(
-    assertPinnedUsAuth({
-      version: "ignored",
-      spawnErrorCode: "ENOENT",
-      auth: { authenticated: true, region: "us" },
-    }).reason,
-    "cli_missing",
-  )
-  assert.equal(
-    assertPinnedUsAuth({
-      version: "coderabbit version 0.9.0\n",
-      auth: { authenticated: true, region: "us" },
-    }).ok,
-    true,
-  )
-  assert.equal(shouldReinstallCli({ reason: "cli_missing" }), true)
-  assert.equal(shouldReinstallCli({ reason: "version_mismatch" }), true)
-  assert.equal(
-    shouldReinstallCli({ ok: true, reason: undefined, version: "0.9.0" }),
-    false,
   )
 })
 
@@ -266,21 +269,21 @@ test("review command is uncommitted+untracked with policy config and never --use
   )
   assert.equal(
     resolvePushPriorRound(
-      { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
-      { branch: "sdd/RES-1", head: "bbb", findingIds: ["c2"] },
+      { branch: "sdd/<issue-id>1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/<issue-id>1", head: "bbb", findingIds: ["c2"] },
     ),
     1,
   )
   assert.equal(
     resolvePushPriorRound(
-      { branch: "sdd/RES-1", head: "aaa", round: 1, findingIds: ["c1"] },
-      { branch: "sdd/RES-1", head: "aaa", findingIds: ["c1"] },
+      { branch: "sdd/<issue-id>1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/<issue-id>1", head: "aaa", findingIds: ["c1"] },
     ),
     1,
   )
   assert.equal(
     resolvePushPriorRound(null, {
-      branch: "sdd/RES-1",
+      branch: "sdd/<issue-id>1",
       head: "bbb",
       findingIds: ["c2"],
       fixRound: 1,
@@ -288,28 +291,10 @@ test("review command is uncommitted+untracked with policy config and never --use
     1,
   )
   assert.equal(
-    resolvePushPriorRound(null, {
-      fixRound: 9,
-    }),
-    2,
-  )
-  assert.equal(
-    resolvePushPriorRound(null, {
-      leftoverRecord: { record: "leftover_after_fix_round", round: 1 },
-    }),
-    2,
-  )
-  assert.equal(
-    resolvePushPriorRound(null, {
-      leftoverRecord: { record: "blocked_major_findings", round: 0 },
-    }),
-    2,
-  )
-  assert.equal(
     resolvePushPriorRound(
       { branch: "other", head: "aaa", round: 0 },
       {
-        branch: "sdd/RES-1",
+        branch: "sdd/<issue-id>1",
         head: "bbb",
         leftoverRecord: { record: "fix_round", round: 1 },
       },
@@ -373,7 +358,7 @@ test("resolveCrBinary prefers CODERABBIT_BIN then Windows install path", () => {
 test("gate open is receipt-independent while exemption paths stay bounded", () => {
   const manifest = { "lib/example.ts": "abc" }
   const receipt = buildReceipt({
-    branch: "sdd/RES-1",
+    branch: "sdd/<issue-id>1",
     base: "staging",
     head: "deadbeef",
     manifest,
@@ -432,7 +417,7 @@ test("git commit ignores audit receipts but preserves TDD and exemption guards",
   const manifest = { "lib/example.ts": "abc" }
   const receipt = {
     ...buildReceipt({
-      branch: "sdd/RES-1",
+      branch: "sdd/<issue-id>1",
       base: "staging",
       head: "deadbeef",
       manifest,

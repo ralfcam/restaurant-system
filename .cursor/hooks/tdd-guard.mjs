@@ -5,6 +5,8 @@
  *   node .cursor/hooks/tdd-guard.mjs off             → disarm (orchestrator's last exec action)
  *   node .cursor/hooks/tdd-guard.mjs phase <name>    → set the active phase (red|green|refactor|clear)
  *   node .cursor/hooks/tdd-guard.mjs gate open       → clear loopRan so /commit can proceed
+ *   node .cursor/hooks/tdd-guard.mjs evidence …      → record/check START + R/G/R evidence
+ *   node .cursor/hooks/tdd-guard.mjs fingerprint …   → append tool-surface line to the run file
  *   node .cursor/hooks/tdd-guard.mjs status          → print current state
  *
  * While armed, .cursor/hooks/tdd-delegation-guard.mjs (preToolUse) blocks the
@@ -19,14 +21,13 @@ import {
   setPhase,
   clearPhase,
   openCommitGate,
-  markTaskSucceeded,
-  markTaskUnavailable,
   recordStartEvidence,
-  setRequiredCriteria,
   recordPhaseEvidence,
+  setRequiredCriteria,
   evaluatePhaseEvidence,
   appendRunFileFingerprint,
-  recordDisarm,
+  defaultFingerprintTools,
+  isTaskAvailable,
 } from "./lib/tdd-guard-policy.mjs"
 
 const cmd = (process.argv[2] || "status").toLowerCase()
@@ -39,7 +40,6 @@ switch (cmd) {
     )
     break
   case "off":
-    recordDisarm("off")
     disarm()
     console.log("tdd-guard: DISARMED — direct edits allowed again.")
     break
@@ -94,48 +94,103 @@ switch (cmd) {
     }
     break
   }
-  case "task": {
-    const sub = (process.argv[3] || "").toLowerCase()
-    if (sub === "succeeded") {
-      markTaskSucceeded()
-      console.log("tdd-guard: Task success latched for this armed run.")
-    } else if (sub === "unavailable") {
-      markTaskUnavailable()
-      console.log(
-        "tdd-guard: Task marked unavailable (latch preserved if already succeeded).",
-      )
-    } else {
+  case "fingerprint": {
+    const planIdx = process.argv.indexOf("--plan")
+    const toolsIdx = process.argv.indexOf("--tools")
+    const planSlug = planIdx === -1 ? "" : process.argv[planIdx + 1] || ""
+    const tools =
+      toolsIdx === -1
+        ? defaultFingerprintTools()
+        : (process.argv[toolsIdx + 1] || "")
+            .split(",")
+            .map((name) => name.trim())
+            .filter(Boolean)
+    const result = appendRunFileFingerprint({
+      planSlug,
+      tools,
+      taskAvailable: isTaskAvailable(),
+    })
+    if (!result.ok) {
       console.error(
-        `tdd-guard: unknown task action "${sub}" — expected succeeded|unavailable.`,
+        `tdd-guard: cannot write tool-surface fingerprint — ${result.reason}. Expected: fingerprint --plan <slug> [--tools Task,Write,...].`,
       )
       process.exitCode = 1
+      break
     }
-    break
-  }
-  case "start":
-    recordStartEvidence()
-    console.log("tdd-guard: START evidence recorded.")
-    break
-  case "criteria": {
-    const ids = process.argv.slice(3).filter((a) => a && a !== "--")
-    setRequiredCriteria(ids)
-    console.log(`tdd-guard: required criteria set (${ids.length}).`)
+    console.log(result.line)
     break
   }
   case "evidence": {
-    const sub = (process.argv[3] || "").toLowerCase()
-    if (sub === "check") {
-      const requireStart = process.argv.includes("--require-start")
-      const s = status()
-      const verdict = evaluatePhaseEvidence({
-        requireStart,
-        startRecorded: s.startRecorded,
-        requiredCriteria: s.requiredCriteria,
-        phaseEvidence: s.phaseEvidence,
-        tddRun: s.tddRun || requireStart,
+    const sub = process.argv[3] || ""
+    if (sub === "start") {
+      recordStartEvidence()
+      console.log("tdd-guard: recorded START evidence.")
+      break
+    }
+    if (sub === "require") {
+      const ids = (process.argv[4] || "")
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean)
+      const requireStart = process.argv.includes("--start")
+      setRequiredCriteria(ids, requireStart)
+      console.log(
+        `tdd-guard: required criteria ${ids.join(", ") || "(none)"}` +
+          `${requireStart ? " (START required)" : ""}.`,
+      )
+      break
+    }
+    if (sub === "fingerprint") {
+      const planIdx = process.argv.indexOf("--plan")
+      const toolsIdx = process.argv.indexOf("--tools")
+      const planSlug = planIdx === -1 ? "" : process.argv[planIdx + 1] || ""
+      const tools =
+        toolsIdx === -1
+          ? defaultFingerprintTools()
+          : (process.argv[toolsIdx + 1] || "")
+              .split(",")
+              .map((name) => name.trim())
+              .filter(Boolean)
+      const result = appendRunFileFingerprint({
+        planSlug,
+        tools,
+        taskAvailable: isTaskAvailable(),
       })
-      if (!verdict.ok) {
-        console.error(`tdd-guard: evidence check failed (${verdict.reason}).`)
+      if (!result.ok) {
+        console.error(
+          `tdd-guard: cannot write tool-surface fingerprint — ${result.reason}. Expected: fingerprint --plan <slug> [--tools Task,Write,...].`,
+        )
+        process.exitCode = 1
+        break
+      }
+      console.log(result.line)
+      break
+    }
+    if (sub === "check") {
+      const s = status()
+      const criteriaIdx = process.argv.indexOf("--criteria")
+      const ids =
+        criteriaIdx === -1
+          ? s.requiredCriteria
+          : (process.argv[criteriaIdx + 1] || "")
+              .split(",")
+              .map((id) => id.trim())
+              .filter(Boolean)
+      const requireStart =
+        process.argv.includes("--require-start") || s.requireStart
+      const result = evaluatePhaseEvidence({
+        criteria: ids,
+        evidence: s.phaseEvidence,
+        requireStart,
+      })
+      if (!result.ok) {
+        const detail =
+          result.reason === "missing_phase"
+            ? `${result.reason} ${result.criterion}/${result.phase}`
+            : result.reason
+        console.error(
+          `tdd-guard: CHANGES-REQUESTED — skipped phase evidence (${detail}).`,
+        )
         process.exitCode = 1
         break
       }
@@ -148,33 +203,20 @@ switch (cmd) {
     const agentId = agentIdx === -1 ? "" : process.argv[agentIdx + 1] || ""
     const recorded = recordPhaseEvidence(criterion, phase, agentId)
     if (!recorded.ok) {
-      console.error(`tdd-guard: evidence not recorded (${recorded.reason}).`)
+      console.error(
+        `tdd-guard: cannot record evidence — ${recorded.reason}. Expected: evidence <criterion> red|green|refactor --agent-id <Task agentId>.`,
+      )
       process.exitCode = 1
       break
     }
-    console.log(`tdd-guard: recorded ${phase} for ${criterion} (${agentId}).`)
-    break
-  }
-  case "fingerprint": {
-    const runIdx = process.argv.indexOf("--run-file")
-    const runFile = runIdx === -1 ? "" : process.argv[runIdx + 1] || ""
-    const toolsIdx = process.argv.indexOf("--tools")
-    const tools =
-      toolsIdx === -1
-        ? []
-        : process.argv
-            .slice(toolsIdx + 1)
-            .filter((a) => a && !a.startsWith("--"))
-    const fingerprint = appendRunFileFingerprint(runFile, tools)
-    console.log(`tdd-guard: fingerprint ${fingerprint || "missing"}.`)
-    if (!fingerprint) process.exitCode = 1
+    console.log(`tdd-guard: recorded ${phase} evidence for ${criterion}.`)
     break
   }
   case "status":
   default: {
     const s = status()
     console.log(
-      `tdd-guard: ${s.armed ? "ARMED" : "disarmed"} (subagent depth=${s.depth}, phase=${s.phase || "none"}, task=${s.taskAvailable ? "available" : "down"})`,
+      `tdd-guard: ${s.armed ? "ARMED" : "disarmed"} (subagent depth=${s.depth}, phase=${s.phase || "none"})`,
     )
     break
   }

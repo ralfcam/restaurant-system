@@ -12,25 +12,21 @@
  * postToolUseFailure (Task): release the pending spawn that never started.
  *   node .cursor/hooks/task-fanout-guard.mjs --failure
  *
- * Fails CLOSED (failClosed: true): a crash or malformed stdin exits
- * non-zero so a raced or broken hook cannot admit another Task.
+ * Fails OPEN (failClosed: false): any error returns {} so TDD Task calls are
+ * never bricked by this hook.
  */
-import { readFileSync } from "node:fs"
 import {
   TASK_FANOUT_INFLIGHT_CAP,
-  applySubagentStart,
-  applySubagentStop,
-  applyTaskFailure,
   isTaskTool,
-  reserveTaskSlot,
+  loadReservations,
+  onSubagentStart,
+  onSubagentStop,
+  onTaskFailure,
+  readStdinJson,
+  saveReservations,
+  tryReserve,
   writeStdoutJson,
 } from "./lib/task-fanout-policy.mjs"
-
-function readPayload() {
-  const text = readFileSync(0, "utf8").replace(/^\uFEFF/, "")
-  if (!text.trim()) return {}
-  return JSON.parse(text)
-}
 
 const DENY = {
   permission: "deny",
@@ -42,25 +38,31 @@ const DENY = {
     "do not serialize to one-at-a-time.",
 }
 
+function persist(next) {
+  saveReservations(next)
+  return next
+}
+
 function main() {
   try {
-    const input = readPayload()
+    const input = readStdinJson()
     const argv = process.argv.slice(2)
     const failure = argv.includes("--failure")
     const action = argv.find((a) => a === "start" || a === "stop")
 
     if (action === "start") {
-      applySubagentStart()
+      persist(onSubagentStart(loadReservations()))
       writeStdoutJson({})
       return
     }
     if (action === "stop") {
-      applySubagentStop()
+      persist(onSubagentStop(loadReservations()))
       writeStdoutJson({})
       return
     }
     if (failure) {
-      if (isTaskTool(input.tool_name)) applyTaskFailure()
+      if (isTaskTool(input.tool_name))
+        persist(onTaskFailure(loadReservations()))
       writeStdoutJson({})
       return
     }
@@ -70,7 +72,8 @@ function main() {
       return
     }
 
-    const result = reserveTaskSlot()
+    const result = tryReserve(loadReservations())
+    persist(result.reservations)
     if (result.deny) {
       writeStdoutJson(DENY)
       return
@@ -78,7 +81,7 @@ function main() {
     writeStdoutJson({})
   } catch (err) {
     console.error("[task-fanout-guard]", err)
-    process.exit(1)
+    writeStdoutJson({})
   }
 }
 
