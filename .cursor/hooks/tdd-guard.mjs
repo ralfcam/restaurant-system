@@ -19,6 +19,13 @@ import {
   setPhase,
   clearPhase,
   openCommitGate,
+  markTaskSucceeded,
+  markTaskUnavailable,
+  recordStartEvidence,
+  setRequiredCriteria,
+  recordPhaseEvidence,
+  evaluatePhaseEvidence,
+  appendRunFileFingerprint,
 } from "./lib/tdd-guard-policy.mjs"
 
 const cmd = (process.argv[2] || "status").toLowerCase()
@@ -85,11 +92,87 @@ switch (cmd) {
     }
     break
   }
+  case "task": {
+    const sub = (process.argv[3] || "").toLowerCase()
+    if (sub === "succeeded") {
+      markTaskSucceeded()
+      console.log("tdd-guard: Task success latched for this armed run.")
+    } else if (sub === "unavailable") {
+      markTaskUnavailable()
+      console.log(
+        "tdd-guard: Task marked unavailable (latch preserved if already succeeded).",
+      )
+    } else {
+      console.error(
+        `tdd-guard: unknown task action "${sub}" — expected succeeded|unavailable.`,
+      )
+      process.exitCode = 1
+    }
+    break
+  }
+  case "start":
+    recordStartEvidence()
+    console.log("tdd-guard: START evidence recorded.")
+    break
+  case "criteria": {
+    const ids = process.argv.slice(3).filter((a) => a && a !== "--")
+    setRequiredCriteria(ids)
+    console.log(`tdd-guard: required criteria set (${ids.length}).`)
+    break
+  }
+  case "evidence": {
+    const sub = (process.argv[3] || "").toLowerCase()
+    if (sub === "check") {
+      const requireStart = process.argv.includes("--require-start")
+      const s = status()
+      const verdict = evaluatePhaseEvidence({
+        requireStart,
+        startRecorded: s.startRecorded,
+        requiredCriteria: s.requiredCriteria,
+        phaseEvidence: s.phaseEvidence,
+        tddRun: s.tddRun || requireStart,
+      })
+      if (!verdict.ok) {
+        console.error(`tdd-guard: evidence check failed (${verdict.reason}).`)
+        process.exitCode = 1
+        break
+      }
+      console.log("tdd-guard: phase evidence complete.")
+      break
+    }
+    const criterion = sub
+    const phase = (process.argv[4] || "").toLowerCase()
+    const agentIdx = process.argv.indexOf("--agent-id")
+    const agentId = agentIdx === -1 ? "" : process.argv[agentIdx + 1] || ""
+    const recorded = recordPhaseEvidence(criterion, phase, agentId)
+    if (!recorded.ok) {
+      console.error(`tdd-guard: evidence not recorded (${recorded.reason}).`)
+      process.exitCode = 1
+      break
+    }
+    console.log(`tdd-guard: recorded ${phase} for ${criterion} (${agentId}).`)
+    break
+  }
+  case "fingerprint": {
+    const runIdx = process.argv.indexOf("--run-file")
+    const runFile = runIdx === -1 ? "" : process.argv[runIdx + 1] || ""
+    const toolsIdx = process.argv.indexOf("--tools")
+    const tools =
+      toolsIdx === -1
+        ? []
+        : process.argv
+            .slice(toolsIdx + 1)
+            .filter((a) => a && !a.startsWith("--"))
+    const fingerprint = appendRunFileFingerprint(runFile, tools)
+    console.log(`tdd-guard: fingerprint ${fingerprint || "missing"}.`)
+    if (!fingerprint) process.exitCode = 1
+    break
+  }
   case "status":
   default: {
     const s = status()
     console.log(
-      `tdd-guard: ${s.armed ? "ARMED" : "disarmed"} (subagent depth=${s.depth}, phase=${s.phase || "none"})`,
+      `tdd-guard: ${s.armed ? "ARMED" : "disarmed"} (subagent depth=${s.depth}, phase=${s.phase || "none"}, task=${s.taskAvailable ? "available" : "down"})`,
     )
     break
   }

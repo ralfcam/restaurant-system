@@ -1,0 +1,5 @@
+# Synthetic fixture. Hand-written; not captured from a conductor run.
+{"type":"task","subagent":"tdd-red","text":"write the failing test for ISSUE-1"}
+{"type":"task","subagent":"tdd-green","text":"implement ISSUE-1"}
+{"type":"task","subagent":"tdd-refactor","text":"refactor ISSUE-1"}
+{"type":"linear","via":"linear-resolver","tool":"save_comment"}

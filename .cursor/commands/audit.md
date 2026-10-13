@@ -126,9 +126,10 @@ Execution strategy (wave-ordered — dependencies flow downward):
   Wave at the Task fan-out cap in `.cursor/rules/task-fanout.mdc`.
   - PART 2 per-spec — one `spec-verifier` Task per spec in the normalized
     audit scope (all specs only for no-argument runs; exclude README.md).
-    `model: inherit`.
+    Models stay in agent frontmatter; never pass `model` on the Task call.
   - PART 3–6 — one `audit-explorer` Task per part/subsection, handing the
-    part text + report path. `model: inherit`. Do not use anonymous explore.
+    part text + report path. Never pass `model` on the Task call. Do not use
+    anonymous explore.
 - Wave 2 — Synthesis (after Wave 1 returns): PART 3E booking/reservation
   deviation consolidation and the main-audit Spec–Code Deviations section.
 - Wave 3 — Spec-coverage synthesis (last): run PART 7 yourself.
@@ -203,7 +204,7 @@ Source of truth: every spec in the normalized docs/specs/ audit scope
 For EVERY in-scope spec file (exclude README.md), deploy one `spec-verifier`
 Task. A no-argument run includes every spec; a targeted run includes only the
 derived set and records all others as out of scope. Wave at the fan-out cap.
-`model: inherit`.
+Never pass `model` on the Task call.
 
 2A. Spec → report mapping (deterministic)
 

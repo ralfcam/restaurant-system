@@ -269,10 +269,10 @@ executed:
   separate operator-initiated turn.
 - If out-of-scope deferrals exist, delegate **one** `docs-updater` Task (same
   ledger-line shape and provenance convention as `/capture` PHASE 5). The model
-  is pinned in that agent's frontmatter (`model: inherit[fast=false]`).
+  is pinned in that agent's frontmatter.
   **Never pass `model` on the Task call** — omitting it lets the pin apply;
   copying the parent chat's model overrides it and is forbidden unless the
-  operator explicitly requested that model for this run:
+  operator explicitly requested a one-off override for this run:
   `"Use the docs-updater subagent to apply design ledger writes to
 docs/findings/product-gaps.md: append '<full ledger line>'; … ; cite
 docs/findings/README.md entry format."` Each line stamped

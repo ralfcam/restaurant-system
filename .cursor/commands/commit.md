@@ -232,6 +232,7 @@ missing item → **CHANGES-REQUESTED** (unless noted as note-only):
 | Each path in `uat_flows_to_stamp` has refreshed `Possibly stale` marker                                                              | Else CHANGES-REQUESTED                                     |
 | `node .cursor/checks/harness-lint.mjs <plan-slug>` exits 0 (structural lint of the tdd log + findings ledger — trajectory, not code) | Else CHANGES-REQUESTED, citing its violation list verbatim |
 | `node .cursor/checks/harness-lint.mjs` exits 0 (repo-wide harness link / capability / always-apply budget lint)                      | Else CHANGES-REQUESTED, citing its violation list verbatim |
+| `node .cursor/hooks/tdd-guard.mjs evidence check --require-start` exits 0 on a post-TDD run (START + 3×N phase rows with agentId)    | Else CHANGES-REQUESTED — missing START or a phase/agentId  |
 | `node --test ".cursor/checks/**/*.test.mjs"` exits 0 (guard-policy + harness-lint resolver tests)                                    | Else CHANGES-REQUESTED                                     |
 | `## Run metrics` block present in the tdd log                                                                                        | Note only — do not fail                                    |
 

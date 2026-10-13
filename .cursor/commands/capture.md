@@ -69,12 +69,11 @@ per observation item. Wave at the cap in
 [.cursor/rules/task-fanout.mdc](.cursor/rules/task-fanout.mdc) — at most 8 `Task`
 calls per assistant message / in flight; **do not** serialize to one; **do not**
 put the whole batch in one message. The model for each
-named subagent is pinned in that agent's frontmatter under `.cursor/agents/`
-(`model: inherit[fast=false]`). **Never pass `model` on the Task call.**
-Omitting `model` is what lets the agent frontmatter apply; passing the parent
-chat's model (e.g. Claude Sonnet) overrides the pin and is forbidden. Pass
-`model` only if the operator explicitly requested a one-off override for this
-run. Each validator is a **read-only** codebase inspector: it confirms or rejects
+named subagent is pinned in that agent's frontmatter under `.cursor/agents/`.
+**Never pass `model` on the Task call.** Omitting `model` is what lets the
+agent frontmatter apply; passing the parent chat's model overrides the pin
+and is forbidden. Pass `model` only if the operator explicitly requested a
+one-off override for this run. Each validator is a **read-only** codebase inspector: it confirms or rejects
 the operator's claim, cites evidence, and recommends capture vs route-away. Its
 brief and return-format live in the agent (`.cursor/agents/feedback-validator.md`);
 you hand it only `[OBSERVATION]` and `[SUGGESTED CLASS]`. Validators **return** a
@@ -253,8 +252,8 @@ wave; **do not** serialize to one-at-a-time; **do not** dump the whole batch in
 one message. On `Timeout waiting for bubble creation`, treat those items as
 **undispatched** — do not retry them in the same turn (ending the turn is already
 allowed). The brief,
-verdicts, and return-format live in the agent (`.cursor/agents/feedback-validator.md`,
-model pinned to `composer-2.5[fast=false]`); hand each only its per-dispatch params —
+verdicts, and return-format live in the agent (`.cursor/agents/feedback-validator.md`);
+hand each only its per-dispatch params —
 `[OBSERVATION]` and `[SUGGESTED CLASS]`. Invoke as: "Use the feedback-validator
 subagent to validate this observation: `[OBSERVATION]` (class: `[SUGGESTED CLASS]`)."
 

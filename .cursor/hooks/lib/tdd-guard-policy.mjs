@@ -73,6 +73,10 @@ const VALID_PHASES = ["red", "green", "refactor"]
 
 const VALID_EXEMPTIONS = ["docs-artifact", "gate-remediation", "design-spec"]
 
+const ARMED_STATE_BASENAME = "tdd-guard.json"
+const LINEAR_WRITER_BASENAME = "linear-writer.json"
+const PHASE_KEYS = ["red", "green", "refactor"]
+
 function defaultState() {
   return {
     armed: false,
@@ -80,13 +84,40 @@ function defaultState() {
     phase: null,
     loopRan: false,
     commitExempt: null,
+    taskAvailable: false,
+    tddRun: false,
+    startRecorded: false,
+    requiredCriteria: [],
+    phaseEvidence: {},
+    evidenceVerified: false,
+    toolSurface: null,
   }
+}
+
+function loadPhaseEvidence(raw) {
+  if (!raw || typeof raw !== "object") return {}
+  const out = {}
+  for (const [criterion, row] of Object.entries(raw)) {
+    if (!row || typeof row !== "object") continue
+    out[criterion] = {}
+    for (const phase of PHASE_KEYS) {
+      const cell = row[phase]
+      if (
+        cell &&
+        typeof cell === "object" &&
+        typeof cell.agentId === "string"
+      ) {
+        out[criterion][phase] = { agentId: cell.agentId }
+      }
+    }
+  }
+  return out
 }
 
 function loadState() {
   try {
-    if (!existsSync(STATE_PATH)) return defaultState()
-    const s = JSON.parse(readFileSync(STATE_PATH, "utf8"))
+    if (!existsSync(statePath())) return defaultState()
+    const s = JSON.parse(readFileSync(statePath(), "utf8"))
     return {
       armed: Boolean(s.armed),
       depth: Number(s.depth) || 0,
@@ -95,6 +126,15 @@ function loadState() {
       commitExempt: VALID_EXEMPTIONS.includes(s.commitExempt)
         ? s.commitExempt
         : null,
+      taskAvailable: Boolean(s.taskAvailable),
+      tddRun: Boolean(s.tddRun),
+      startRecorded: Boolean(s.startRecorded),
+      requiredCriteria: Array.isArray(s.requiredCriteria)
+        ? s.requiredCriteria.map(String)
+        : [],
+      phaseEvidence: loadPhaseEvidence(s.phaseEvidence),
+      evidenceVerified: Boolean(s.evidenceVerified),
+      toolSurface: typeof s.toolSurface === "string" ? s.toolSurface : null,
     }
   } catch {
     return defaultState()
@@ -102,28 +142,58 @@ function loadState() {
 }
 
 function saveState(state) {
-  mkdirSync(dirname(STATE_PATH), { recursive: true })
-  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), "utf8")
+  const dest = statePath()
+  mkdirSync(dirname(dest), { recursive: true })
+  writeFileSync(dest, JSON.stringify(state, null, 2), "utf8")
+}
+
+export function statePath() {
+  return process.env.TDD_GUARD_STATE || STATE_PATH
+}
+
+export function sameOrSegmentPrefixed(value, prefix) {
+  const v = String(value || "").replace(/\\/g, "/")
+  const p = String(prefix || "").replace(/\\/g, "/")
+  if (!v || !p) return false
+  return v === p || v.startsWith(p.endsWith("/") ? p : `${p}/`)
+}
+
+/** True only for the armed-state file (`tdd-guard.json`), including TDD_GUARD_STATE. */
+export function isArmedStateFile(relPath) {
+  const slash = String(relPath || "").replace(/\\/g, "/")
+  const armed = statePath().replace(/\\/g, "/")
+  if (slash === armed || sameOrSegmentPrefixed(slash, armed)) return true
+  return slash === `.cursor/hooks/state/${ARMED_STATE_BASENAME}`
+}
+
+export function isLinearWriterStateFile(relPath) {
+  const slash = String(relPath || "").replace(/\\/g, "/")
+  return (
+    slash === `.cursor/hooks/state/${LINEAR_WRITER_BASENAME}` ||
+    slash.endsWith(`/.cursor/hooks/state/${LINEAR_WRITER_BASENAME}`)
+  )
 }
 
 export function arm() {
   saveState({
+    ...defaultState(),
     armed: true,
-    depth: 0,
-    phase: null,
-    loopRan: false,
-    commitExempt: null,
+    tddRun: true,
   })
 }
 
 export function disarm() {
   const s = loadState()
+  if (s.armed) {
+    console.error(
+      `[tdd-guard] DISARM armed=${s.armed} taskAvailable=${s.taskAvailable}`,
+    )
+  }
   saveState({
+    ...s,
     armed: false,
     depth: 0,
     phase: null,
-    loopRan: s.loopRan,
-    commitExempt: s.commitExempt,
   })
 }
 
@@ -176,6 +246,7 @@ export function openCommitGate(exempt = null) {
   saveState({
     ...s,
     loopRan: false,
+    evidenceVerified: true,
     commitExempt: VALID_EXEMPTIONS.includes(exempt) ? exempt : null,
   })
 }
@@ -273,7 +344,13 @@ export function evaluateGitCommitPermission({
   exemption,
   stagedPaths,
   addedPaths,
-}) {
+  tddRun,
+  requireStart,
+  evidenceVerified,
+  startRecorded,
+  requiredCriteria,
+  phaseEvidence,
+} = {}) {
   if (loopRan) return { ok: false, reason: "loopRan", deny: "tdd" }
   if (exemption === "docs-artifact") {
     if (!stagedPaths?.length || !stagedPaths.every(isDocsArtifactPath)) {
@@ -289,6 +366,19 @@ export function evaluateGitCommitPermission({
       return { ok: false, reason: "exempt_path_mismatch", deny: "tdd" }
     }
     return { ok: true, exempt: "design-spec" }
+  }
+  const evidence = phaseEvidence || {}
+  const recorded = Object.keys(evidence).length > 0
+  const isTdd = Boolean(tddRun) || Boolean(requireStart) || recorded
+  if (isTdd && !evidenceVerified) {
+    const verdict = evaluatePhaseEvidence({
+      requireStart: Boolean(requireStart) || Boolean(tddRun) || recorded,
+      startRecorded: Boolean(startRecorded),
+      requiredCriteria: requiredCriteria || [],
+      phaseEvidence: evidence,
+      tddRun: true,
+    })
+    if (!verdict.ok) return { ...verdict, deny: "tdd" }
   }
   return { ok: true, exempt: null }
 }
@@ -672,6 +762,206 @@ export function detectProtectedBranchPush(command, options = {}) {
     if (hit) return hit
   }
   return null
+}
+
+export function isTaskAvailable() {
+  return loadState().taskAvailable
+}
+
+/** Latch Task success for the armed run. A later failure does not clear it. */
+export function markTaskSucceeded() {
+  const s = loadState()
+  if (!s.armed) return
+  saveState({ ...s, taskAvailable: true })
+}
+
+export function markTaskUnavailable() {
+  const s = loadState()
+  if (s.taskAvailable) return
+  saveState({ ...s, taskAvailable: false })
+}
+
+export function recordStartEvidence() {
+  const s = loadState()
+  saveState({ ...s, startRecorded: true, tddRun: true })
+}
+
+export function setRequiredCriteria(ids) {
+  const s = loadState()
+  saveState({
+    ...s,
+    requiredCriteria: Array.isArray(ids) ? ids.map(String) : [],
+    tddRun: true,
+  })
+}
+
+export function recordPhaseEvidence(criterion, phase, agentId) {
+  if (!criterion || !PHASE_KEYS.includes(phase)) {
+    return { ok: false, reason: "invalid_phase" }
+  }
+  const id = String(agentId || "").trim()
+  if (!id) return { ok: false, reason: "missing_agent_id" }
+  const s = loadState()
+  const phaseEvidence = { ...s.phaseEvidence }
+  const row = { ...(phaseEvidence[criterion] || {}) }
+  row[phase] = { agentId: id }
+  phaseEvidence[criterion] = row
+  saveState({ ...s, phaseEvidence, tddRun: true })
+  return { ok: true, criterion, phase, agentId: id }
+}
+
+export function evaluatePhaseEvidence({
+  requireStart = false,
+  startRecorded = false,
+  requiredCriteria = [],
+  phaseEvidence = {},
+  tddRun = false,
+} = {}) {
+  if (!tddRun && !requireStart && !Object.keys(phaseEvidence || {}).length) {
+    return { ok: true }
+  }
+  if (requireStart && !startRecorded) {
+    return { ok: false, reason: "missing_start" }
+  }
+  const ids = Array.isArray(requiredCriteria)
+    ? requiredCriteria.map(String)
+    : []
+  if (tddRun && ids.length === 0) {
+    return { ok: false, reason: "empty_required_criteria" }
+  }
+  for (const criterion of ids) {
+    const row = phaseEvidence?.[criterion]
+    if (!row) return { ok: false, reason: "missing_phase", criterion }
+    for (const phase of PHASE_KEYS) {
+      const cell = row[phase]
+      if (!cell) return { ok: false, reason: "missing_phase", criterion, phase }
+      if (!String(cell.agentId || "").trim()) {
+        return { ok: false, reason: "missing_agent_id", criterion, phase }
+      }
+    }
+  }
+  return { ok: true }
+}
+
+export function shouldPostStartComment({ hasTrackedIssue, prompt } = {}) {
+  if (!hasTrackedIssue) return false
+  void prompt
+  return true
+}
+
+export function extractShellWriteTargets(command) {
+  if (typeof command !== "string" || !command.trim()) return []
+  const text = unwrapShellWrappers(command)
+  const targets = []
+  const add = (value) => {
+    const t = String(value || "")
+      .trim()
+      .replace(/^['"]|['"]$/g, "")
+    if (t) targets.push(t)
+  }
+  for (const m of text.matchAll(/(?:\d*)>>?\s*(?:(['"])([^'"]+)\1|(\S+))/g)) {
+    add(m[2] || m[3])
+  }
+  for (const m of text.matchAll(
+    /\btee\b(?:\s+-a)?\s+(?:(['"])([^'"]+)\1|(\S+))/g,
+  )) {
+    add(m[2] || m[3])
+  }
+  for (const m of text.matchAll(
+    /\b(?:cp|mv)\b(?:\s+-[a-zA-Z]+)*\s+(\S+(?:\s+\S+)*)/g,
+  )) {
+    const args = m[1]
+      .trim()
+      .split(/\s+/)
+      .filter((t) => !t.startsWith("-"))
+    if (args.length >= 2) add(args[args.length - 1])
+  }
+  for (const m of text.matchAll(/\bsed\b[^\n;&|]*?-i[^\s]*\s+([^\n;&|]+)/g)) {
+    const args = m[1]
+      .trim()
+      .split(/\s+/)
+      .map((t) => t.replace(/^['"]|['"]$/g, ""))
+      .filter((t) => t && !t.startsWith("-") && !t.startsWith("s/"))
+    if (args.length) add(args[args.length - 1])
+  }
+  return targets
+}
+
+export function checkLinearWriterParentShell(command) {
+  for (const target of extractShellWriteTargets(command)) {
+    const rel = normalize(target)
+    if (isLinearWriterStateFile(rel) || isLinearWriterStateFile(target)) {
+      return { deny: true, kind: "linear-writer-parent-shell", target: rel }
+    }
+  }
+  return null
+}
+
+export function checkTaskUnavailableWrite(
+  relPath,
+  { armed, taskAvailable } = {},
+) {
+  const slash = normalize(relPath)
+  if (isLinearWriterStateFile(slash) || isLinearWriterStateFile(relPath)) {
+    return { deny: true, kind: "linear-writer-parent", target: slash }
+  }
+  if (!armed) return null
+  if (taskAvailable) return null
+  if (isArmedStateFile(slash) || isArmedStateFile(relPath)) return null
+  if (
+    isProtected(slash) ||
+    slash.startsWith(".cursor/hooks/state/") ||
+    slash.startsWith("docs/specs/")
+  ) {
+    return { deny: true, kind: "task-unavailable", target: slash }
+  }
+  return null
+}
+
+export function checkTaskUnavailableShell(
+  command,
+  { armed, taskAvailable } = {},
+) {
+  const writer = checkLinearWriterParentShell(command)
+  if (writer) return writer
+  if (!armed || taskAvailable) return null
+  for (const target of extractShellWriteTargets(command)) {
+    const rel = normalize(target)
+    if (isArmedStateFile(rel) || isArmedStateFile(target)) continue
+    if (
+      isProtected(rel) ||
+      rel.startsWith(".cursor/hooks/state/") ||
+      rel.startsWith("docs/specs/")
+    ) {
+      return { deny: true, kind: "task-unavailable-shell", target: rel }
+    }
+  }
+  return null
+}
+
+export function hashToolSurface(tools) {
+  const list = (Array.isArray(tools) ? tools : [])
+    .map((t) => String(t).trim())
+    .filter(Boolean)
+    .sort()
+  return `sha256:${list.join("|") || "empty"}`
+}
+
+export function setToolSurface(tools) {
+  const s = loadState()
+  const toolSurface = hashToolSurface(tools)
+  saveState({ ...s, toolSurface })
+  return toolSurface
+}
+
+export function appendRunFileFingerprint(runFile, tools) {
+  const fingerprint = tools ? setToolSurface(tools) : loadState().toolSurface
+  if (!runFile || !fingerprint) return null
+  mkdirSync(dirname(runFile), { recursive: true })
+  const line = `- tool-surface fingerprint: \`${fingerprint}\`\n`
+  const prev = existsSync(runFile) ? readFileSync(runFile, "utf8") : ""
+  writeFileSync(runFile, prev + line, "utf8")
+  return fingerprint
 }
 
 /** Detect any `git commit` in a shell command string. Segments on &&/;/|/||

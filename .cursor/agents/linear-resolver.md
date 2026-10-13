@@ -321,7 +321,9 @@ It may call only `list_comments` and `save_comment`. An operator-created automat
    children — the invoked issue only. No tracked issue in the handoff → omit
    the summary comment (`omitted — no tracked issue`) and skip this
    workflow; do not invent an issue.
-2. **Do not write workflow state.** Never call `save_issue` in START (not for
+2. **Do not write workflow state.** A launch prompt saying "Do not change status"
+   still posts this START `Work started:` comment — START is comment-only and
+   is not a workflow-state change. Never call `save_issue` in START (not for
    state, not for assignee). Never open a Cloud Agent spawn door
    (`save_issue.assignee` including `null`, `save_issue.delegate`, or
    `@Cursor` in a comment / title / description / document / `patch`). See

@@ -28,6 +28,10 @@ import {
   getCommitExempt,
   isLoopRan,
   stagedPathsFromGit,
+  checkTaskUnavailableShell,
+  isArmed,
+  isTaskAvailable,
+  status,
 } from "./lib/tdd-guard-policy.mjs"
 
 function main() {
@@ -51,6 +55,21 @@ function main() {
       return
     }
     const command = input.tool_input?.command
+    const shellHit = checkTaskUnavailableShell(command, {
+      armed: isArmed(),
+      taskAvailable: isTaskAvailable(),
+    })
+    if (shellHit) {
+      writeStdoutJson({
+        permission: "deny",
+        user_message:
+          shellHit.kind === "linear-writer-parent-shell"
+            ? "Blocked a parent Shell write to linear-writer.json — linear-resolver-only."
+            : `BLOCKED (infra): no Task tool — refused Shell write to "${shellHit.target}".`,
+        agent_message: `git-stage guard: ${shellHit.kind} denied "${shellHit.target}".`,
+      })
+      return
+    }
     const mergeHit = detectGhPrMerge(command)
     if (mergeHit) {
       writeStdoutJson({
@@ -109,11 +128,18 @@ function main() {
       }
       const cwd = process.cwd()
       const staged = stagedPathsFromGit(cwd)
+      const s = status()
       const verdict = evaluateGitCommitPermission({
         loopRan: false,
         exemption: getCommitExempt(),
         stagedPaths: staged,
         addedPaths: addedPathsFromGit(cwd),
+        tddRun: s.tddRun,
+        requireStart: s.tddRun,
+        evidenceVerified: s.evidenceVerified,
+        startRecorded: s.startRecorded,
+        requiredCriteria: s.requiredCriteria,
+        phaseEvidence: s.phaseEvidence,
       })
       if (!verdict.ok) {
         writeStdoutJson({

@@ -602,13 +602,11 @@ belongs in the tdd log or findings run file, not in a longer return message.
 This mirrors `/audit`'s per-dispatch-params pattern (hand only the spec/report
 path or part text + report path, never the full brief) — the same discipline
 applies to every phase dispatch here. The model for each named subagent is
-pinned in that agent's frontmatter under `.cursor/agents/` (`tdd-red` /
-`tdd-green` / `tdd-refactor` → `model: grok-4.5[fast=false]`; `docs-updater` /
-`linear-resolver` → `model: inherit[fast=false]`). **Never pass `model` on
-the Task call.** Omitting `model` is what lets the agent frontmatter apply;
-passing the parent chat's model (e.g. Claude Sonnet) overrides the pin and is
-forbidden. Pass `model` only if the operator explicitly requested a one-off
-override for this run.
+pinned in that agent's frontmatter under `.cursor/agents/`. **Never pass `model`
+on the Task call.** Omitting `model` is what lets the agent frontmatter apply;
+passing the parent chat's model overrides the pin and is forbidden. Pass
+`model` only if the operator explicitly requested a one-off override for this
+run.
 
 **Run a findings revision pass after EVERY phase — to the run file,
 immediately.** Each `tdd-red`/`tdd-green`/`tdd-refactor` report ends with a
@@ -1222,8 +1220,24 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `pnpm exec playwright test <path> --project=chromium-desktop` (or
   `pnpm test:e2e:chromium <path>`). If a phase returns `BLOCKED (infra)`, STOP
   and report the remedy.
-- If you cannot delegate (Task tool unavailable in this mode), STOP and report —
-  do not self-implement. Managed Cloud one-shot does not waive this STOP.
+- **Task probe (first, fail-closed).** Before any file edit or tracker write,
+  confirm the Task/subagent tool exists. If it does not, end immediately with
+  `BLOCKED (infra): no Task tool`. Make zero code/test edits and zero tracker
+  writes. Close any WIP draft with that reason. A launch prompt that says
+  "follow the harness flow / open a draft PR" does not override this STOP.
+  Log the tool-surface fingerprint:
+  `node .cursor/hooks/tdd-guard.mjs fingerprint --run-file docs/findings/runs/<plan-slug>.md --tools <available-tool-names>`.
+  After the first successful Task, latch availability with
+  `node .cursor/hooks/tdd-guard.mjs task succeeded`.
+- Record START even when the launch prompt says "Do not change status"
+  (`shouldPostStartComment` is true; START is comment-only via
+  `linear-resolver`, never `save_issue`). Then record each phase:
+  `node .cursor/hooks/tdd-guard.mjs evidence <criterion> <red|green|refactor> --agent-id <Task-agentId>`
+  and `node .cursor/hooks/tdd-guard.mjs start` after the START comment posts.
+  Set `node .cursor/hooks/tdd-guard.mjs criteria <id>…` from the work-order.
+- If you cannot delegate (Task tool unavailable in this mode), STOP and report
+  `BLOCKED (infra): no Task tool` — do not self-implement. Managed Cloud
+  one-shot does not waive this STOP.
 - **Managed Cloud one-shot:** after the work-order exists at
   `.cursor/plans/<plan-slug>.plan.md`, execute immediately. Do not wait for a
   second plan accept. Do not auto-confirm new Linear finding issues. After a

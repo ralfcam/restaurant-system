@@ -18,6 +18,11 @@
         "failClosed": false
       },
       {
+        "command": "node .cursor/hooks/task-availability-guard.mjs",
+        "matcher": "Write",
+        "failClosed": true
+      },
+      {
         "command": "node .cursor/hooks/tdd-delegation-guard.mjs",
         "failClosed": false
       },
@@ -52,6 +57,10 @@
       }
     ],
     "postToolUse": [
+      {
+        "command": "node .cursor/hooks/task-availability-guard.mjs succeeded",
+        "matcher": "Task"
+      },
       {
         "command": "node .cursor/hooks/after-git-commit.mjs",
         "matcher": "Shell"
