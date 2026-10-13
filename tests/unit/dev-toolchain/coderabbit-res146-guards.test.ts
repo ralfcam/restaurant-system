@@ -60,7 +60,6 @@ describe("RES-146 CodeRabbit CLI evidence guards", () => {
   })
 
   it("documents the QA handoff and the evidence block", () => {
-    const release = read(".cursor/commands/ready-merge-release.md")
     const push = read(".cursor/commands/push.md")
     const conduct = read(".cursor/commands/conduct.md")
     const runbook = read("docs/runbooks/coderabbit.md")
