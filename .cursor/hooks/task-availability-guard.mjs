@@ -5,6 +5,9 @@
  *
  * linear-writer.json is denied for the parent at all times. The only Write
  * escape while Task is down is the armed-state file (tdd-guard.json).
+ *
+ * postToolUse Task: latch succeeded.
+ * postToolUseFailure Task: mark unavailable without clearing a succeeded latch.
  */
 import {
   readStdinJson,
@@ -13,14 +16,23 @@ import {
   extractPath,
   isArmed,
   isTaskAvailable,
+  isArmedStateFile,
   checkTaskUnavailableWrite,
   markTaskSucceeded,
+  markTaskUnavailable,
+  recordDisarm,
 } from "./lib/tdd-guard-policy.mjs"
 
 function main() {
   try {
-    if (process.argv[2] === "succeeded") {
+    const argv = process.argv.slice(2)
+    if (argv.includes("succeeded")) {
       markTaskSucceeded()
+      writeStdoutJson({})
+      return
+    }
+    if (argv.includes("--failure")) {
+      markTaskUnavailable()
       writeStdoutJson({})
       return
     }
@@ -30,6 +42,11 @@ function main() {
       return
     }
     const path = extractPath(input.tool_input)
+    if (isArmedStateFile(path)) {
+      recordDisarm("write")
+      writeStdoutJson({})
+      return
+    }
     const hit = checkTaskUnavailableWrite(path, {
       armed: isArmed(),
       taskAvailable: isTaskAvailable(),

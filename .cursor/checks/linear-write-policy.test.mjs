@@ -92,10 +92,20 @@ function runGuard(payload, extraArgs = []) {
   })
 }
 
-test("linear-write-guard is fail-open beforeMCPExecution; linear-resolver start/stop set the flag", () => {
+test("linear-write-guard is fail-closed beforeMCPExecution and CallDynamicTool; linear-resolver start/stop set the flag", () => {
   const mcp = hookByCommand("beforeMCPExecution", "linear-write-guard.mjs")
   assert.ok(mcp, "linear-write-guard is registered on beforeMCPExecution")
-  assert.equal(mcp.failClosed, false)
+  assert.equal(mcp.failClosed, true)
+  const callDynamic = (hooks.hooks.preToolUse || []).find(
+    (h) =>
+      h.command.includes("linear-write-guard.mjs") &&
+      h.matcher === "CallDynamicTool",
+  )
+  assert.ok(
+    callDynamic,
+    "linear-write-guard has a CallDynamicTool preToolUse entry",
+  )
+  assert.equal(callDynamic.failClosed, true)
   const start = hookByCommand("subagentStart", "linear-write-guard.mjs")
   assert.ok(start, "linear-write-guard start is registered")
   assert.equal(start.matcher, "linear-resolver")
@@ -118,14 +128,20 @@ test("linear-write-guard is fail-open beforeMCPExecution; linear-resolver start/
   }
 })
 
-test("isLinearWriteTool guards issue, comment, and project-status writers", () => {
+test("isLinearWriteTool guards mutating Linear names and keeps reads", () => {
   assert.equal(isLinearWriteTool("save_issue"), true)
   assert.equal(isLinearWriteTool("save_comment"), true)
   assert.equal(isLinearWriteTool("save_status_update"), true)
+  assert.equal(isLinearWriteTool("delete_comment"), true)
+  assert.equal(isLinearWriteTool("delete_attachment"), true)
+  assert.equal(isLinearWriteTool("delete_issue"), true)
+  assert.equal(isLinearWriteTool("create_attachment"), true)
+  assert.equal(isLinearWriteTool("update_issue"), true)
+  assert.equal(isLinearWriteTool("save_document"), true)
   assert.equal(isLinearWriteTool("list_issues"), false)
   assert.equal(isLinearWriteTool("get_status_updates"), false)
   assert.equal(isLinearWriteTool("get_issue"), false)
-  assert.equal(isLinearWriteTool("save_document"), false)
+  assert.equal(isLinearWriteTool("search_issues"), false)
 })
 
 test("checkLinearWrite denies Linear writes unless allowed", () => {
@@ -135,6 +151,8 @@ test("checkLinearWrite denies Linear writes unless allowed", () => {
     checkLinearWrite(LINEAR, "save_status_update", false)?.deny,
     true,
   )
+  assert.equal(checkLinearWrite(LINEAR, "delete_comment", false)?.deny, true)
+  assert.equal(checkLinearWrite(LINEAR, "create_attachment", false)?.deny, true)
   assert.equal(checkLinearWrite(LINEAR, "save_issue", true), null)
   assert.equal(checkLinearWrite(LINEAR, "save_status_update", true), null)
   assert.equal(checkLinearWrite(LINEAR, "list_issues", false), null)
@@ -202,6 +220,26 @@ describe("linear-write spawn-level", { concurrency: 1 }, () => {
     const { code, out } = await runGuard(LIST_ISSUES)
     assert.equal(code, 0)
     assert.deepEqual(JSON.parse(out), {})
+  })
+
+  test("malformed stdin exits 1 instead of allowing", async () => {
+    const { code, out } = await runGuard("{")
+    assert.equal(code, 1)
+    assert.equal(out.trim(), "")
+  })
+
+  test("CallDynamicTool delete_comment denies when flag is off", async () => {
+    setAllowed(false)
+    const payload =
+      "\uFEFF" +
+      JSON.stringify({
+        tool_name: "CallDynamicTool",
+        hook_event_name: "preToolUse",
+        tool_input: { namespace: "Linear", toolName: "delete_comment" },
+      })
+    const { code, out } = await runGuard(payload)
+    assert.equal(code, 0)
+    assert.equal(JSON.parse(out).permission, "deny")
   })
 
   test("linear-resolver start/stop toggles the allow flag", async () => {

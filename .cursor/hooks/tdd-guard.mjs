@@ -26,6 +26,7 @@ import {
   recordPhaseEvidence,
   evaluatePhaseEvidence,
   appendRunFileFingerprint,
+  recordDisarm,
 } from "./lib/tdd-guard-policy.mjs"
 
 const cmd = (process.argv[2] || "status").toLowerCase()
@@ -38,6 +39,7 @@ switch (cmd) {
     )
     break
   case "off":
+    recordDisarm("off")
     disarm()
     console.log("tdd-guard: DISARMED — direct edits allowed again.")
     break

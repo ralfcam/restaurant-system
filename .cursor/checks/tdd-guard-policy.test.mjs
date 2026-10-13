@@ -75,6 +75,7 @@ function runGuard(scriptName, payload, extraArgs = []) {
         env: {
           ...process.env,
           CODERABBIT_STATE_DIR: join(tmpdir(), `cr-idle-${process.pid}`),
+          TDD_DISARM_LOG: join(tmpdir(), `tdd-disarm-${process.pid}.md`),
         },
       },
     )

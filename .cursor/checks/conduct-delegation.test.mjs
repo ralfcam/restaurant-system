@@ -26,6 +26,14 @@ const FIXTURE = join(
   "conduct",
   "conductor-next-delegated.jsonl",
 )
+const VIOLATION = join(
+  process.cwd(),
+  ".cursor",
+  "checks",
+  "fixtures",
+  "conduct",
+  "conductor-next-inline-violation.jsonl",
+)
 
 function runGuard(scriptName, payload) {
   return new Promise((resolve, reject) => {
@@ -81,6 +89,34 @@ describe("conduct-delegation", () => {
     assert.deepEqual(verdict.missing, [])
     assert.ok(verdict.linearResolverTasks >= 1)
     assert.equal(verdict.parentTrackerWrites, 0)
+  })
+
+  test("inline-violation fixture fails: parent write plus parent tracker write", () => {
+    const raw = readFileSync(VIOLATION, "utf8")
+    assert.match(raw, /Synthetic fixture\. Hand-written/)
+    const events = raw
+      .split("\n")
+      .filter((line) => line.startsWith("{"))
+      .map((line) => JSON.parse(line))
+    const verdict = evaluateConductorTranscript(events, {
+      requiredCriteria: ["ISSUE-1"],
+    })
+    assert.equal(verdict.ok, false)
+    assert.ok(verdict.parentTrackerWrites >= 1)
+    assert.ok(verdict.parentInlineEdits >= 1)
+  })
+
+  test("triage.md keeps mutating Linear writes resolver-only and never absorbs next inline", () => {
+    const text = readFileSync(
+      join(process.cwd(), ".cursor", "commands", "triage.md"),
+      "utf8",
+    )
+    assert.match(text, /delete_comment/)
+    assert.match(text, /delete_attachment/)
+    assert.match(text, /delete_issue/)
+    assert.match(text, /create_attachment/)
+    assert.match(text, /never\s+absorbs `\/conduct next`/)
+    assert.match(text, /\/conduct morning/)
   })
 
   test("unlabelled Task credits no criteria", () => {

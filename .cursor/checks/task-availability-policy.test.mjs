@@ -5,11 +5,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { after, describe, test } from "node:test"
 
-const ISOLATED_STATE = join(
-  mkdtempSync(join(tmpdir(), "task-avail-state-")),
-  "tdd-guard.json",
-)
+const ISOLATED_DIR = mkdtempSync(join(tmpdir(), "task-avail-state-"))
+const ISOLATED_STATE = join(ISOLATED_DIR, "tdd-guard.json")
+const ISOLATED_LOG = join(ISOLATED_DIR, "log.md")
 process.env.TDD_GUARD_STATE = ISOLATED_STATE
+process.env.TDD_DISARM_LOG = ISOLATED_LOG
 import {
   arm,
   disarm,
@@ -19,9 +19,11 @@ import {
   isArmedStateFile,
   isLinearWriterStateFile,
   checkTaskUnavailableWrite,
+  checkTaskUnavailableShell,
   checkLinearWriterParentShell,
   appendRunFileFingerprint,
   hashToolSurface,
+  recordDisarm,
 } from "../hooks/lib/tdd-guard-policy.mjs"
 
 const TDD_STATE = join(
@@ -65,7 +67,13 @@ function runGuard(scriptName, payload, extraArgs = []) {
     const child = spawn(
       process.execPath,
       [join(process.cwd(), ".cursor", "hooks", scriptName), ...extraArgs],
-      { env: { ...process.env, TDD_GUARD_STATE: ISOLATED_STATE } },
+      {
+        env: {
+          ...process.env,
+          TDD_GUARD_STATE: ISOLATED_STATE,
+          TDD_DISARM_LOG: ISOLATED_LOG,
+        },
+      },
     )
     let stdout = ""
     let stderr = ""
@@ -108,7 +116,7 @@ const SAVE_COMMENT = JSON.stringify({
   tool_input: { namespace: "Linear", toolName: "save_comment" },
 })
 
-describe("task-availability-policy", () => {
+describe("task-availability-policy", { concurrency: 1 }, () => {
   test("isArmedStateFile matches only the armed-state file", () => {
     assert.equal(isArmedStateFile(".cursor/hooks/state/tdd-guard.json"), true)
     assert.equal(isArmedStateFile("lib/tdd-guard.json"), false)
@@ -134,6 +142,45 @@ describe("task-availability-policy", () => {
       taskAvailable: false,
     })
     assert.equal(hit?.kind, "task-unavailable")
+    disarm()
+  })
+
+  test("armed Write before Task denies every path except tdd-guard.json", () => {
+    arm()
+    assert.equal(
+      checkTaskUnavailableWrite("README.md", {
+        armed: true,
+        taskAvailable: false,
+      })?.kind,
+      "task-unavailable",
+    )
+    assert.equal(
+      checkTaskUnavailableWrite("docs/log.md", {
+        armed: true,
+        taskAvailable: false,
+      })?.kind,
+      "task-unavailable",
+    )
+    assert.equal(
+      checkTaskUnavailableWrite(".cursor/hooks/state/tdd-guard.json", {
+        armed: true,
+        taskAvailable: false,
+      }),
+      null,
+    )
+    assert.ok(
+      checkTaskUnavailableShell("echo x>README.md", {
+        armed: true,
+        taskAvailable: false,
+      }),
+    )
+    assert.equal(
+      checkTaskUnavailableShell("echo x>.cursor/hooks/state/tdd-guard.json", {
+        armed: true,
+        taskAvailable: false,
+      }),
+      null,
+    )
     disarm()
   })
 
@@ -222,7 +269,7 @@ describe("task-availability-policy", () => {
     assert.match(readFileSync(runFile, "utf8"), /tool-surface fingerprint/)
   })
 
-  test("hooks.json fail-closes the Write availability guard", () => {
+  test("hooks.json fail-closes the Write availability guard and registers --failure", () => {
     const hooks = JSON.parse(
       readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
     )
@@ -231,5 +278,70 @@ describe("task-availability-policy", () => {
     )
     assert.equal(hit.failClosed, true)
     assert.equal(hit.matcher, "Write")
+    const failure = (hooks.hooks.postToolUseFailure || []).find((h) =>
+      h.command.includes("task-availability-guard.mjs --failure"),
+    )
+    assert.ok(failure)
+    assert.equal(failure.matcher, "Task")
+  })
+
+  test("--failure does not clear a succeeded latch", async () => {
+    arm()
+    markTaskSucceeded()
+    const result = await runGuard("task-availability-guard.mjs", "{}", [
+      "--failure",
+    ])
+    assert.equal(result.code, 0)
+    assert.equal(isTaskAvailable(), true)
+    disarm()
+  })
+
+  test("recordDisarm writes stderr and a docs/log.md entry", () => {
+    writeFileSync(ISOLATED_LOG, "# log\n\n", "utf8")
+    arm()
+    recordDisarm("off")
+    assert.match(readFileSync(ISOLATED_LOG, "utf8"), /DISARM reason=off/)
+    disarm()
+  })
+
+  test("tdd-guard off records a disarm", async () => {
+    writeFileSync(ISOLATED_LOG, "# log\n\n", "utf8")
+    arm()
+    const result = await runGuard("tdd-guard.mjs", "", ["off"])
+    assert.equal(result.code, 0)
+    assert.match(result.stderr, /DISARM reason=off/)
+    assert.match(readFileSync(ISOLATED_LOG, "utf8"), /DISARM reason=off/)
+  })
+
+  test("parent Write to tdd-guard.json records a disarm and is allowed", async () => {
+    writeFileSync(ISOLATED_LOG, "# log\n\n", "utf8")
+    arm()
+    const payload = JSON.stringify({
+      tool_name: "Write",
+      tool_input: { path: ".cursor/hooks/state/tdd-guard.json" },
+    })
+    const result = await runGuard("task-availability-guard.mjs", payload)
+    assert.equal(result.code, 0)
+    assert.doesNotMatch(result.stdout, /"permission":"deny"/)
+    assert.match(result.stderr, /DISARM reason=write/)
+    assert.match(readFileSync(ISOLATED_LOG, "utf8"), /DISARM reason=write/)
+    disarm()
+  })
+
+  test("parent Shell write to tdd-guard.json records a disarm", async () => {
+    writeFileSync(ISOLATED_LOG, "# log\n\n", "utf8")
+    arm()
+    const payload = JSON.stringify({
+      tool_name: "Shell",
+      tool_input: {
+        command: "echo '{}' > .cursor/hooks/state/tdd-guard.json",
+      },
+    })
+    const result = await runGuard("git-stage-guard.mjs", payload)
+    assert.equal(result.code, 0)
+    assert.doesNotMatch(result.stdout, /"permission":"deny"/)
+    assert.match(result.stderr, /DISARM reason=shell/)
+    assert.match(readFileSync(ISOLATED_LOG, "utf8"), /DISARM reason=shell/)
+    disarm()
   })
 })

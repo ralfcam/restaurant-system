@@ -1,0 +1,3 @@
+# Synthetic fixture. Hand-written; not captured from a conductor run.
+{"type":"write","path":"tests/issue-1.test.ts","via":"parent"}
+{"type":"linear","via":"parent","tool":"save_comment"}

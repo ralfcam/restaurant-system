@@ -184,17 +184,30 @@ export function arm() {
 
 export function disarm() {
   const s = loadState()
-  if (s.armed) {
-    console.error(
-      `[tdd-guard] DISARM armed=${s.armed} taskAvailable=${s.taskAvailable}`,
-    )
-  }
   saveState({
     ...s,
     armed: false,
     depth: 0,
     phase: null,
   })
+}
+
+export function disarmLogPath() {
+  return (
+    process.env.TDD_DISARM_LOG ||
+    join(__dirname, "..", "..", "..", "docs", "log.md")
+  )
+}
+
+/** stderr line + docs/log.md entry for an observed disarm. */
+export function recordDisarm(reason = "disarm") {
+  const s = loadState()
+  const line = `[tdd-guard] DISARM reason=${reason} armed=${s.armed} taskAvailable=${s.taskAvailable}`
+  console.error(line)
+  const dest = disarmLogPath()
+  mkdirSync(dirname(dest), { recursive: true })
+  const prev = existsSync(dest) ? readFileSync(dest, "utf8") : "# log\n\n"
+  writeFileSync(dest, `${prev}- ${new Date().toISOString()} ${line}\n`, "utf8")
 }
 
 export function isArmed() {
@@ -908,14 +921,7 @@ export function checkTaskUnavailableWrite(
   if (!armed) return null
   if (taskAvailable) return null
   if (isArmedStateFile(slash) || isArmedStateFile(relPath)) return null
-  if (
-    isProtected(slash) ||
-    slash.startsWith(".cursor/hooks/state/") ||
-    slash.startsWith("docs/specs/")
-  ) {
-    return { deny: true, kind: "task-unavailable", target: slash }
-  }
-  return null
+  return { deny: true, kind: "task-unavailable", target: slash }
 }
 
 export function checkTaskUnavailableShell(
@@ -928,13 +934,7 @@ export function checkTaskUnavailableShell(
   for (const target of extractShellWriteTargets(command)) {
     const rel = normalize(target)
     if (isArmedStateFile(rel) || isArmedStateFile(target)) continue
-    if (
-      isProtected(rel) ||
-      rel.startsWith(".cursor/hooks/state/") ||
-      rel.startsWith("docs/specs/")
-    ) {
-      return { deny: true, kind: "task-unavailable-shell", target: rel }
-    }
+    return { deny: true, kind: "task-unavailable-shell", target: rel }
   }
   return null
 }

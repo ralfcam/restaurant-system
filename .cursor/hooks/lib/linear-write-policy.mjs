@@ -1,13 +1,12 @@
 /**
- * Allow-flag for Linear MCP writes. Parent save_issue / save_comment /
- * save_status_update calls are denied unless a linear-resolver subagent is
- * in flight.
+ * Allow-flag for Linear MCP writes. Parent mutating calls are denied unless
+ * a linear-resolver subagent is in flight.
  *
- * Reads (list_*, get_*) stay unrestricted. Residual: a concurrent parent
- * write while linear-resolver is in flight also passes. Cloud agents run
- * preToolUse (MCP: / CallDynamicTool matcher), not beforeMCPExecution. On
- * that path, denyUnknownServer rejects guarded write names when the server
- * is missing.
+ * Reads (list_*, get_*, search_*) stay unrestricted. Residual: a concurrent
+ * parent write while linear-resolver is in flight also passes. Cloud agents
+ * run preToolUse (CallDynamicTool matcher), not beforeMCPExecution. On that
+ * path, denyUnknownServer rejects guarded write names when the server is
+ * missing.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -21,10 +20,23 @@ export const LINEAR_WRITE_TOOLS = new Set([
   "save_issue",
   "save_comment",
   "save_status_update",
+  "delete_comment",
+  "delete_attachment",
+  "delete_issue",
+  "create_attachment",
+  "create_attachment_from_upload",
+  "save_document",
+  "save_project",
 ])
 
+const LINEAR_WRITE_NAME_RE =
+  /^(save_|create_|delete_|update_|remove_|restore_|retire_|merge_|submit_|share_|unshare_)/
+const LINEAR_READ_NAME_RE = /^(list_|get_|search_)/
+
 export function isLinearWriteTool(toolName) {
-  return typeof toolName === "string" && LINEAR_WRITE_TOOLS.has(toolName)
+  if (typeof toolName !== "string" || !toolName.trim()) return false
+  if (LINEAR_READ_NAME_RE.test(toolName)) return false
+  return LINEAR_WRITE_TOOLS.has(toolName) || LINEAR_WRITE_NAME_RE.test(toolName)
 }
 
 function loadState() {

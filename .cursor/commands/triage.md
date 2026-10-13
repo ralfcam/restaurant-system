@@ -61,7 +61,10 @@ term; `Urgent` is the corresponding Linear priority.
 
 Linear writes are never performed by this command directly. Approved intake,
 consolidation, terminal Duplicate/Canceled cleanup, and finding registration
-go through `linear-resolver`. Managed Cloud may execute only the nonterminal,
+go through `linear-resolver`. Mutating Linear names (`save_`, `create_`,
+`delete_`, `update_`) including `delete_comment`, `delete_attachment`,
+`delete_issue`, and `create_attachment` stay resolver-only. `/triage` never
+absorbs `/conduct next` or `/sdd-to-tdd` phases inline. Managed Cloud may execute only the nonterminal,
 non-creative actions explicitly authorized by STEP 0B after writing its
 work-order. `In Progress`, `In Review`, and `Done` remain automation-owned per
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc).

@@ -14,8 +14,13 @@
       },
       {
         "command": "node .cursor/hooks/linear-write-guard.mjs",
-        "matcher": "MCP:save_issue|save_comment|save_status_update|CallDynamicTool",
-        "failClosed": false
+        "matcher": "MCP:save_issue|save_comment|save_status_update|delete_comment|delete_attachment|delete_issue|create_attachment",
+        "failClosed": true
+      },
+      {
+        "command": "node .cursor/hooks/linear-write-guard.mjs",
+        "matcher": "CallDynamicTool",
+        "failClosed": true
       },
       {
         "command": "node .cursor/hooks/task-availability-guard.mjs",
@@ -53,7 +58,7 @@
       },
       {
         "command": "node .cursor/hooks/linear-write-guard.mjs",
-        "failClosed": false
+        "failClosed": true
       }
     ],
     "postToolUse": [
@@ -78,6 +83,10 @@
       {
         "command": "node .cursor/hooks/task-fanout-guard.mjs --failure",
         "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/task-availability-guard.mjs --failure",
+        "matcher": "Task"
       }
     ],
     "subagentStart": [

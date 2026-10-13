@@ -42,10 +42,15 @@ export function evaluateConductorTranscript(
   )
   let linearResolverTasks = 0
   let parentTrackerWrites = 0
+  let parentInlineEdits = 0
   let deniedInline = false
   for (const event of events || []) {
     const type = event?.type || event?.kind
     if (type === "deny" || event?.denied) deniedInline = true
+    if (type === "write" && event?.via === "parent") {
+      parentInlineEdits += 1
+      continue
+    }
     if (type === "linear" || event?.via === "linear-resolver") {
       if (event?.via === "parent") parentTrackerWrites += 1
       else linearResolverTasks += 1
@@ -75,10 +80,14 @@ export function evaluateConductorTranscript(
     }
   }
   return {
-    ok: missing.length === 0 && parentTrackerWrites === 0,
+    ok:
+      missing.length === 0 &&
+      parentTrackerWrites === 0 &&
+      parentInlineEdits === 0,
     missing,
     linearResolverTasks,
     parentTrackerWrites,
+    parentInlineEdits,
     deniedInline,
   }
 }

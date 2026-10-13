@@ -29,8 +29,11 @@ import {
   isLoopRan,
   stagedPathsFromGit,
   checkTaskUnavailableShell,
+  extractShellWriteTargets,
   isArmed,
+  isArmedStateFile,
   isTaskAvailable,
+  recordDisarm,
   status,
 } from "./lib/tdd-guard-policy.mjs"
 
@@ -69,6 +72,13 @@ function main() {
         agent_message: `git-stage guard: ${shellHit.kind} denied "${shellHit.target}".`,
       })
       return
+    }
+    if (
+      extractShellWriteTargets(command).some((target) =>
+        isArmedStateFile(target),
+      )
+    ) {
+      recordDisarm("shell")
     }
     const mergeHit = detectGhPrMerge(command)
     if (mergeHit) {
