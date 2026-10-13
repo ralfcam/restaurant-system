@@ -494,12 +494,17 @@ describe("WIP draft PR", () => {
       },
     ]
 
+    const env = { ...process.env }
+    delete env.VERCEL_GIT_PULL_REQUEST_ID
+    delete env.VERCEL_GIT_PULL_REQUEST_TITLE
+    delete env.VERCEL_GIT_REPO_OWNER
+    delete env.VERCEL_GIT_REPO_SLUG
     for (const row of cases) {
       expect(mod.shouldIgnoreWipBuild(row.input), `${row.label} helper`).toBe(
         row.ignore,
       )
       const result = spawnSync(process.execPath, [script], {
-        env: { ...process.env, ...row.scriptEnv },
+        env: { ...env, ...row.scriptEnv },
       })
       expect(result.status, `${row.label} script`).toBe(row.exitCode)
     }

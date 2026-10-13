@@ -1032,7 +1032,9 @@ latest-head` so `on.pull_request.types` includes `edited`.
     — is `git commit --allow-empty -m "wip(<KEY>): start run <link>"`,
     push, then `gh pr create --draft --base staging`. The title is prefixed
     `[WIP]`. The body contains `Closes <KEY>` and the run link. The PR
-    receives the GitHub label `agent-running`. An in-loop `/sdd-to-tdd` on
+    receives the GitHub label `agent-running`. A spec-only `/design` draft
+    keeps its existing label and MUST NOT receive `agent-running` (G-CON1).
+    An in-loop `/sdd-to-tdd` on
     an already-open head PR MUST NOT open a second draft. A later `/push`
     that creates a draft MUST NOT satisfy this criterion. A command that
     mentions `gh pr create` only at publication time MUST NOT satisfy this
@@ -1045,9 +1047,10 @@ latest-head` so `on.pull_request.types` includes `edited`.
     open PR is reused. Zero open PRs may create one draft and MUST log that
     create. `/push` rewrites the protected CLI-evidence section for the
     finalized head, removes the `[WIP]` title prefix, removes the
-    `agent-running` label, and leaves the PR a draft targeting `staging`.
-    It MUST NOT run `gh pr ready` or `gh pr merge`, and MUST NOT retarget
-    `main`.
+    `agent-running` label, and leaves a feature-head PR a draft targeting
+    `staging`. A `staging` head keeps the promotion PR targeted at the
+    default branch (`main`). It MUST NOT run `gh pr ready` or `gh pr merge`,
+    and MUST NOT retarget a feature head to `main`.
     - Regression guard:
       `tests/unit/dev-toolchain/wip-draft-pr.test.ts`.
 

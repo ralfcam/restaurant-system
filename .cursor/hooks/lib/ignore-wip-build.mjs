@@ -23,17 +23,12 @@ function resolvePrTitle() {
   const repo = process.env.VERCEL_GIT_REPO_SLUG
   if (!id || !owner || !repo) return ""
   const url = `https://api.github.com/repos/${owner}/${repo}/pulls/${id}`
-  // Unauthenticated lookup 404s on private repos and then falls back.
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN
+  const headers = ["-H", "Accept: application/vnd.github+json"]
+  if (token) headers.push("-H", `Authorization: Bearer ${token}`)
   const result = spawnSync(
     "curl",
-    [
-      "-fsS",
-      "--max-time",
-      "10",
-      "-H",
-      "Accept: application/vnd.github+json",
-      url,
-    ],
+    ["-fsS", "--max-time", "10", ...headers, url],
     { encoding: "utf8", timeout: 15_000 },
   )
   if (result.status !== 0) return ""
