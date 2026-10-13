@@ -22,6 +22,7 @@ import {
   eventLooksBilling,
   eventLooksRateLimited,
   isUsBotLogin,
+  sha256Hex,
 } from "./coderabbit-review-policy.mjs"
 
 export { US_APP_ID, PUSH_CLI_FIX_ROUND_CAP }
@@ -374,14 +375,29 @@ export function decidePushCliAction({
 
 export const CLI_EVIDENCE_HEADING = "## CodeRabbit CLI evidence"
 
-export function renderCliEvidenceBlock({ head, attemptStatus, reason } = {}) {
+export function renderCliEvidenceBlock({
+  head,
+  attemptStatus,
+  reason,
+  hash,
+} = {}) {
   const lines = [
     CLI_EVIDENCE_HEADING,
     `Head: ${head}`,
     `attemptStatus: ${attemptStatus}`,
   ]
   if (reason) lines.push(`reason: ${reason}`)
+  if (head && attemptStatus && hash) {
+    lines.push(
+      `<!-- coderabbit-cli-evidence:${head}:${attemptStatus}:${hash} -->`,
+    )
+  }
   return `${lines.join("\n")}\n`
+}
+
+/** Hash the real CLI JSONL. Never hash `"<sha>:<status>"` by hand. */
+export function cliEvidenceOutputHash(cliOutput) {
+  return sha256Hex(String(cliOutput ?? ""))
 }
 
 // Parses the human PR-body record. This is not authorization.
@@ -398,8 +414,10 @@ export function cliEvidenceStatusForHead(body, headSha) {
 }
 
 function cliEvidenceSectionBounds(text) {
-  const start = text.indexOf(CLI_EVIDENCE_HEADING)
-  if (start === -1) return null
+  const escaped = CLI_EVIDENCE_HEADING.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = new RegExp(`^${escaped}[ \\t]*$`, "m").exec(text)
+  if (!match) return null
+  const start = match.index
   const rest = text.slice(start + CLI_EVIDENCE_HEADING.length)
   const next = rest.search(/\n## [^#]/)
   const end =

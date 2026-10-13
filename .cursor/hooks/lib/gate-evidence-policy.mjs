@@ -58,8 +58,8 @@ export function formatWipStart({ key, runUrl }) {
 }
 
 export function shouldCloseNoopWip({ commits, furtherTrackedChange }) {
-  if (furtherTrackedChange) return false
-  if (commits.length !== 1) return false
+  if (furtherTrackedChange !== false) return false
+  if (!Array.isArray(commits) || commits.length !== 1) return false
   const commit = commits[0]
   return commit.empty === true && WIP_START_COMMIT.test(commit.message)
 }

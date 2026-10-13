@@ -290,15 +290,21 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   `gh pr list --head <that headRefName> --state open`. If more than one
   open PR shares that head, **STOP** and exit non-zero with reason
   `duplicate_open_prs`. Do not use the first PR. Then apply the
-  feature-PR-on-default STOP above. When the head is `cursor/`, run
+  feature-PR-on-default STOP above. When the pinned PR's `headRefName` is
+  the current branch, first write the protected CLI-evidence marker for the
+  finalized head via `renderCliEvidenceBlock` (hash from the real CLI JSONL
+  through `cliEvidenceOutputHash`, never `sha256("<sha>:<status>")`), then
+  strip the `[WIP]` title prefix and remove the `agent-running` label.
+  When the head is `cursor/`, run
   `gh pr edit <n> --body-file` after every push to replace the gate-evidence
   body, using the body the gate-evidence CLI printed.
 - **No argument:** `gh pr list --head <current-branch> --state open --json number,title,state,isDraft,baseRefName,reviewRequests,url`.
   If that list has more than one open PR, **STOP** and exit non-zero with reason `duplicate_open_prs`. Do not use the first PR.
   - **Found (exactly one):** apply the feature-PR-on-default STOP above; otherwise first write the protected CLI-evidence marker for the finalized head, then proceed, strip the `[WIP]` title prefix, and remove the `agent-running` label.
-    Write `## CodeRabbit CLI evidence` (including
-    `<!-- coderabbit-cli-evidence:... -->`) via `gh pr edit <n> --body-file`
-    before any title or label graduation.
+    Write the block from `renderCliEvidenceBlock` (including
+    `<!-- coderabbit-cli-evidence:<sha>:<status>:<hash> -->`, hash from
+    `cliEvidenceOutputHash` on the real CLI JSONL) via
+    `gh pr edit <n> --body-file` before any title or label graduation.
     When the head matches the cursor-head pattern, run
     `gh pr edit <n> --body-file` after every push, using the body the
     gate-evidence CLI printed.
@@ -379,8 +385,11 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
   readiness write this command may make.
 - Do not post `@coderabbitai review` and do not poll for a remote review.
   `/push` posts no pull-request comment. Record `## CodeRabbit CLI evidence`
-  (`Head:` and `attemptStatus:`) for the finalized head in the PR body,
-  plus any leftover CLI findings after the capped fix rounds.
+  from `renderCliEvidenceBlock` for the finalized head in the PR body,
+  including `<!-- coderabbit-cli-evidence:<sha>:<status>:<hash> -->` from
+  `cliEvidenceOutputHash` on the real CLI JSONL (never a hand-hashed
+  `"<sha>:<status>"`), plus any leftover CLI findings after the capped
+  fix rounds.
 - Agents do not run `/ready-merge-release`. The QA bot `ralfcam` runs
   UAT, digests the agent transcript, and does not post a review trigger.
   Readiness is the CLI evidence on the head plus that UAT.
@@ -447,8 +456,10 @@ A missing receipt is non-blocking. Receipts never authorize `git push`.
    `duplicate_open_prs`. Do not use the first PR. STOP if `origin/staging`
    is absent. STOP if an existing or pinned PR has `base=default` and
    `head != staging` (feature PR aimed at `main`). On the no-argument path,
-   exactly one open PR that passes those STOPs is reused: strip the `[WIP]`
-   title prefix and remove the `agent-running` label. An absent prefix or
+   exactly one open PR that passes those STOPs is reused: write the
+   protected CLI-evidence marker, then strip the `[WIP]` title prefix and
+   remove the `agent-running` label. The argument-given path on the
+   current branch does the same graduation. An absent prefix or
    label does not fail the push. No PR found (no argument
    case) → create a **draft** PR against `staging`
    for a feature head, or against the default branch when head is `staging`

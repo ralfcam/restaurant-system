@@ -167,14 +167,30 @@ describe("WIP draft PR", () => {
     expect(typeof mod.protectedCliEvidenceStatus).toBe("function")
     expect(typeof mod.replaceProtectedCliEvidence).toBe("function")
     expect(typeof mod.qaDraftEvidenceVerdict).toBe("function")
+    expect(typeof mod.renderCliEvidenceBlock).toBe("function")
+    expect(typeof mod.cliEvidenceOutputHash).toBe("function")
 
     const headSha = "0123456789abcdef0123456789abcdef01234567"
     const otherSha = "fedcba9876543210fedcba9876543210fedcba98"
     const decoy = `<!-- coderabbit-cli-evidence:${otherSha}:findings:zzzz -->`
     const outsideHead = `<!-- coderabbit-cli-evidence:${headSha}:findings:zzzz -->`
     const marker = `<!-- coderabbit-cli-evidence:${headSha}:clean:c0ffee -->`
+    const inline = "See ## CodeRabbit CLI evidence in the runbook"
+    const deeper = "### CodeRabbit CLI evidence"
+    const rendered = mod.renderCliEvidenceBlock({
+      head: headSha,
+      attemptStatus: "clean",
+      reason: "clean",
+      hash: "c0ffee",
+    })
+    expect(rendered).toContain(
+      `<!-- coderabbit-cli-evidence:${headSha}:clean:c0ffee -->`,
+    )
+    expect(mod.cliEvidenceOutputHash("jsonl")).toMatch(/^[0-9a-f]{64}$/)
     const body = [
       decoy,
+      inline,
+      deeper,
       "## Decoy heading",
       decoy,
       "## CodeRabbit CLI evidence",
@@ -605,6 +621,7 @@ describe("WIP draft PR", () => {
       isDraft: true,
       labels: ["agent-running", "other"],
     }
+    const ghShape = { isDraft: true, labels: [{ name: "agent-running" }] }
     const specOnly = { isDraft: true, labels: ["spec-only"] }
     const morning = { isDraft: true, labels: ["morning"] }
     const readyWithLabel = { isDraft: false, labels: ["agent-running"] }
@@ -617,8 +634,10 @@ describe("WIP draft PR", () => {
         morning,
         readyWithLabel,
         { isDraft: true, labels: [] },
+        { isDraft: true },
+        ghShape,
       ]),
-    ).toBe(2)
+    ).toBe(3)
     expect(mod.countAgentRunningDrafts([specOnly, morning])).toBe(0)
     expect(mod.countAgentRunningDrafts([])).toBe(0)
 

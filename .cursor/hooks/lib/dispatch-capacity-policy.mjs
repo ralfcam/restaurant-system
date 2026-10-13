@@ -40,8 +40,16 @@ export function calculateDailyQueueCapacity(activeCount, eligibleCount) {
   }
 }
 
+function labelNames(labels) {
+  return (labels ?? []).map((label) =>
+    typeof label === "string" ? label : label?.name,
+  )
+}
+
 export function countAgentRunningDrafts(pulls) {
   return pulls.filter(
-    (pull) => pull.isDraft === true && pull.labels.includes("agent-running"),
+    (pull) =>
+      pull.isDraft === true &&
+      labelNames(pull.labels).includes("agent-running"),
   ).length
 }

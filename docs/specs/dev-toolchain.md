@@ -1088,10 +1088,13 @@ latest-head` so `on.pull_request.types` includes `edited`.
 38. **G-WIP5 — QA gate binds protected CLI evidence to the current head** —
     The machine marker
     `<!-- coderabbit-cli-evidence:<sha>:<status>:<hash> -->` lives only
-    inside the `## CodeRabbit CLI evidence` section. `/push` rewrites
-    that section atomically. `protectedCliEvidenceStatus(body, sha)`
-    reads only that section. A decoy marker or heading outside the
-    section MUST NOT change the result. `qaDraftEvidenceVerdict` returns
+    inside the `## CodeRabbit CLI evidence` section.
+    `renderCliEvidenceBlock` writes that marker; the hash is
+    `cliEvidenceOutputHash` of the real CLI JSONL, never a hand-hashed
+    `"<sha>:<status>"`. `/push` rewrites that section atomically.
+    `protectedCliEvidenceStatus(body, sha)` reads only that section.
+    The section heading match is an exact H2 line. A decoy marker or
+    heading outside the section MUST NOT change the result. `qaDraftEvidenceVerdict` returns
     `{ ok: false, reason: "missing_head_evidence" }` for a draft whose
     protected evidence SHA is not the current head. `/ready-merge-release`
     ignores those drafts. A 403 on a cursor-bot PR comment leaves the
@@ -1166,7 +1169,7 @@ latest-head` so `on.pull_request.types` includes `edited`.
 | G-WIP2 | `/push` reuses the single `--state open` head PR, rewrites protected CLI evidence, strips `[WIP]` and `agent-running` | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP3 | `selectOpenHeadPr` `none` / one / `duplicate_open_prs`; `/push` exits non-zero on duplicate | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP4 | `.coderabbit.yaml` `ignore_title_keywords` includes `[WIP]`; `vercel.json` `ignoreCommand`; `shouldIgnoreWipBuild` false for `production`/`staging` env and `staging`/`main` branch; skip only `[WIP]` preview or the empty start commit | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
-| G-WIP5 | Protected `<!-- coderabbit-cli-evidence:sha:status:hash -->` section; `qaDraftEvidenceVerdict` `missing_head_evidence` | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
+| G-WIP5 | Protected `<!-- coderabbit-cli-evidence:sha:status:hash -->` section from `renderCliEvidenceBlock`; `qaDraftEvidenceVerdict` `missing_head_evidence` | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP6 | `shouldCloseNoopWip` + `gh pr close --comment`; no Linear state write | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 | G-WIP7 | `countAgentRunningDrafts`; spec-only / morning PRs keep their label | `tests/unit/dev-toolchain/wip-draft-pr.test.ts` |
 
