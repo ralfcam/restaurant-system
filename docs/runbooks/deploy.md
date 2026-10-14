@@ -646,7 +646,7 @@ Use `--local` instead of `--linked` when testing against the local stack.
 `.cursor/environment.json` `install` is exactly:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
 The CodeRabbit CLI helper runs last in the Cloud `install`. GitHub review stays

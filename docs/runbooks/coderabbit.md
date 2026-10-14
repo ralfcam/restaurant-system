@@ -114,7 +114,7 @@ Rerun by hand: `sh .cursor/cloud-install-coderabbit.sh`.
 
 ### Residual supply-chain risk
 
-The spec requires the official `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`
+The harness contract (REAZED-383) uses the official `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`
 flow, so the installer script itself is fetched over TLS and executed without
 an independently pinned checksum or signature. The installer authenticates the
 CLI release it then downloads (signature over `SHA256SUMS`, checked with
@@ -231,24 +231,26 @@ Cloud `install` ends by invoking the helper:
 corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
-The helper sets `CI=1` so the installer skips the interactive login prompt,
-pins `CODERABBIT_VERSION=0.9.0` (reinstalls when `coderabbit --version` is
-not `0.9.0`), and always runs:
+The helper installs CLI `0.9.0` through the official installer with
+`CI=1 CR_CLI_SKIP_LOGIN=1` and `CODERABBIT_API_KEY` removed from the installer
+environment, skips the install when `coderabbit --version` already reports
+`0.9.0`, and, when the key is set, runs:
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-Missing `CODERABBIT_API_KEY`, failed login, or a status that is not
-`"authenticated":true` with `"region":"us"` fails the Cloud install. Do not
-skip login when the key is absent, and do not use
+A missing or empty `CODERABBIT_API_KEY` only prints a warning and the install
+exits 0 without logging in; the gate then records the review as unavailable.
+A failed login, or a status that is not `"authenticated":true` with
+`"region":"us"`, fails the Cloud install. Do not use
 `coderabbit auth status --agent || true`.
 
 Headless login on any Linux runner (same commands as the helper):
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
