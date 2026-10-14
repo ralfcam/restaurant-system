@@ -166,39 +166,31 @@ test("malformed, missing complete, mismatch, rate limit, billing, skipped, unkno
   }
 })
 
-test("cloud.Dockerfile installs the pinned CodeRabbit CLI", () => {
+test("cloud.Dockerfile installs the pinned CodeRabbit CLI via the official installer", () => {
   const dockerfile = readFileSync(
     join(process.cwd(), ".cursor", "cloud.Dockerfile"),
     "utf8",
   )
+  assert.match(dockerfile, /cli\.coderabbit\.ai\/install\.sh/)
   assert.match(
     dockerfile,
-    new RegExp(`cli\\.coderabbit\\.ai/releases/${PINNED_CLI_VERSION}`),
+    new RegExp(`CODERABBIT_VERSION=${PINNED_CLI_VERSION.replaceAll(".", "\\.")}`),
   )
-  assert.match(
-    dockerfile,
-    new RegExp(`CODERABBIT_VERSION=${PINNED_CLI_VERSION}`),
-  )
-  assert.match(dockerfile, /SHA256SUMS\.sig/)
+  assert.doesNotMatch(dockerfile, /0\.7\.6/)
 })
 
-test("cloud-install-coderabbit.sh uses only the pinned zip plus SHA-256", () => {
+test("cloud-install-coderabbit.sh pins the same CLI version as the gate", () => {
   const script = readFileSync(
     join(process.cwd(), ".cursor", "cloud-install-coderabbit.sh"),
     "utf8",
   )
-  assert.doesNotMatch(script, /install\.sh/)
-  assert.doesNotMatch(script, /curl[^\n]*\|\s*sh/)
   assert.match(script, new RegExp(`PINNED_VERSION="${PINNED_CLI_VERSION}"`))
-  assert.match(
-    script,
-    /cli\.coderabbit\.ai\/releases\/\$\{PINNED_VERSION\}\/coderabbit-linux-x64\.zip/,
-  )
-  assert.match(script, /sha256sum -c/)
-  assert.match(script, /install_from_zip/)
+  assert.match(script, /https:\/\/cli\.coderabbit\.ai\/install\.sh/)
+  assert.match(script, /CI=1 CR_CLI_SKIP_LOGIN=1 CODERABBIT_VERSION=/)
 })
 
 test("pinned US auth rejects version and region mismatch", () => {
+  assert.equal(PINNED_CLI_VERSION, "0.9.0")
   const good = assertPinnedUsAuth({
     version: PINNED_CLI_VERSION,
     auth: { authenticated: true, region: "us" },
@@ -211,13 +203,16 @@ test("pinned US auth rejects version and region mismatch", () => {
     }).ok,
     true,
   )
-  assert.equal(
-    assertPinnedUsAuth({
-      version: "0.7.5",
-      auth: { authenticated: true, region: "us" },
-    }).reason,
-    "version_mismatch",
-  )
+  for (const stale of ["0.7.6", "0.7.5", "0.9.1"]) {
+    assert.equal(
+      assertPinnedUsAuth({
+        version: stale,
+        auth: { authenticated: true, region: "us" },
+      }).reason,
+      "version_mismatch",
+      stale,
+    )
+  }
   assert.equal(
     assertPinnedUsAuth({
       version: PINNED_CLI_VERSION,

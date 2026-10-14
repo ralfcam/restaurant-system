@@ -1,26 +1,16 @@
 #!/bin/sh
-# Idempotent CodeRabbit CLI install for Cursor Cloud (Linux).
-# Pin: CodeRabbit CLI 0.9.0 (no leading v). The official installer can pin
-# 0.9.0, but this script uses only the pinned linux-x64 zip plus published
-# SHA-256 so /push and tests stay installer-free. Authenticate US Team only
-# via the CODERABBIT_API_KEY Cursor secret — never commit the key.
-# Missing key, failed login, or non-US status fail setup.
+# Idempotent CodeRabbit CLI install + login for Cursor Cloud (Linux).
+# Pin: CLI 0.9.0 via the official installer (`coderabbit --version` prints
+# `0.9.0`, no leading v). The key comes only from the CODERABBIT_API_KEY
+# environment secret; it is never typed, logged, or echoed. Never enable
+# shell tracing here: it would print the key.
 set -eu
 
 PINNED_VERSION="0.9.0"
-# linux-x64 zip hash from https://cli.coderabbit.ai/releases/0.9.0/SHA256SUMS
-PINNED_LINUX_X64_SHA256="56e4c99de9d11106c3e6bf31034864db8f746cb97c9eaf9470adcfa6461da66f"
-BIN_DIR="${HOME}/.local/bin"
-export PATH="${BIN_DIR}:${PATH}"
-CI=1
-export CI
-CODERABBIT_VERSION="${PINNED_VERSION}"
-export CODERABBIT_VERSION
-
-if [ -z "${CODERABBIT_API_KEY:-}" ]; then
-  echo "cloud-install-coderabbit: CODERABBIT_API_KEY is required (US Agentic key from https://app.coderabbit.ai/settings/api-keys). Store it as a Cursor Cloud secret named CODERABBIT_API_KEY, then re-run: corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh" >&2
-  exit 1
-fi
+INSTALLER_URL="https://cli.coderabbit.ai/install.sh"
+BIN_DIR="${CODERABBIT_INSTALL_DIR:-${HOME}/.local/bin}"
+PATH="${BIN_DIR}:${PATH}"
+export PATH
 
 installed_version() {
   if command -v coderabbit >/dev/null 2>&1; then
@@ -30,52 +20,38 @@ installed_version() {
   fi
 }
 
-install_from_zip() {
-  work="$(mktemp -d)"
-  zip="${work}/coderabbit-linux-x64.zip"
-  curl -fsSL "https://cli.coderabbit.ai/releases/${PINNED_VERSION}/coderabbit-linux-x64.zip" -o "${zip}"
-  echo "${PINNED_LINUX_X64_SHA256}  ${zip}" | sha256sum -c -
-  unzip -o "${zip}" -d "${work}"
-  mkdir -p "${BIN_DIR}"
-  install -m 0755 "${work}/coderabbit" "${BIN_DIR}/coderabbit"
-  ln -sfn "${BIN_DIR}/coderabbit" "${BIN_DIR}/cr"
-  rm -rf "${work}"
-}
-
 current="$(installed_version)"
-if [ "${current}" != "${PINNED_VERSION}" ]; then
-  # Restaurant pin is 0.9.0. Use the pinned zip plus published SHA-256 only.
-  install_from_zip
-  export PATH="${BIN_DIR}:${PATH}"
+if [ "${current}" = "${PINNED_VERSION}" ]; then
+  echo "cloud-install-coderabbit: CodeRabbit CLI ${PINNED_VERSION} already installed; skipping install."
+else
+  # The remote installer never needs the key, so it is removed from its environment.
+  curl -fsSL "${INSTALLER_URL}" | env -u CODERABBIT_API_KEY CI=1 CR_CLI_SKIP_LOGIN=1 CODERABBIT_VERSION="${PINNED_VERSION}" sh
   current="$(installed_version)"
 fi
 
 if [ "${current}" != "${PINNED_VERSION}" ]; then
-  echo "cloud-install-coderabbit: expected CLI ${PINNED_VERSION}, got '${current}'. Reinstall with CODERABBIT_VERSION=${PINNED_VERSION}." >&2
+  echo "cloud-install-coderabbit: expected CLI ${PINNED_VERSION}, got '${current}'." >&2
   exit 1
 fi
 
-line='export PATH="$HOME/.local/bin:$PATH"'
-profile="${HOME}/.profile"
-if [ -f "${profile}" ]; then
-  grep -Fqx "${line}" "${profile}" || echo "${line}" >>"${profile}"
-else
-  echo "${line}" >>"${profile}"
+if [ -z "${CODERABBIT_API_KEY:-}" ]; then
+  echo "cloud-install-coderabbit: WARNING: CODERABBIT_API_KEY is not set; skipping CodeRabbit login. The CodeRabbit gate will report unavailable at review time. Add an Agentic API key as a Cursor Cloud secret named CODERABBIT_API_KEY." >&2
+  coderabbit --version
+  exit 0
 fi
 
-coderabbit auth login --region us --api-key "${CODERABBIT_API_KEY}"
+# Login output is suppressed so a CLI error can never echo the key.
+if ! coderabbit auth login --api-key "${CODERABBIT_API_KEY}" >/dev/null 2>&1; then
+  echo "cloud-install-coderabbit: coderabbit auth login failed (output suppressed). Check that CODERABBIT_API_KEY is a valid Agentic API key, then rerun: sh .cursor/cloud-install-coderabbit.sh" >&2
+  exit 1
+fi
 
+coderabbit --version
 status_json="$(coderabbit auth status --agent)"
 printf '%s\n' "${status_json}"
 
-printf '%s\n' "${status_json}" | grep -Eq '"authenticated":[[:space:]]*true' || {
-  echo "cloud-install-coderabbit: auth status is not authenticated. Recovery: coderabbit auth login --region us --api-key \"\$CODERABBIT_API_KEY\"; coderabbit auth status --agent" >&2
+if ! printf '%s\n' "${status_json}" | grep -Eq '"authenticated":[[:space:]]*true' ||
+  ! printf '%s\n' "${status_json}" | grep -Eiq '"region":[[:space:]]*"us"'; then
+  echo "cloud-install-coderabbit: auth status is not authenticated for the required US region." >&2
   exit 1
-}
-
-printf '%s\n' "${status_json}" | grep -Eq '"region":[[:space:]]*"us"' || {
-  echo "cloud-install-coderabbit: auth region is not us. Recovery: coderabbit auth login --region us --api-key \"\$CODERABBIT_API_KEY\"; coderabbit auth status --agent" >&2
-  exit 1
-}
-
-coderabbit --version
+fi

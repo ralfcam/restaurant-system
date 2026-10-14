@@ -66,7 +66,9 @@ Readiness is the CLI evidence on the head plus that UAT.
 The dirty-tree work-order path stays for tests. Outside
 `CODERABBIT_GATE_TEST=1`, that work-order path still records `unavailable` /
 `cli_paused` and does not spawn `coderabbit` or `cr`. GitHub review stays fail-closed.
-The signed Linux pin is `0.9.0`.
+The signed Linux pin is `0.9.0`. Cloud `install` runs
+`.cursor/cloud-install-coderabbit.sh`, which installs that pin and logs in
+from the `CODERABBIT_API_KEY` secret only.
 
 The local attempt is advisory after deterministic preflight. Findings
 and review unavailability (timeout, incomplete `missing_complete`,

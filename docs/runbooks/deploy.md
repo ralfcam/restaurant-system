@@ -649,7 +649,7 @@ Use `--local` instead of `--linked` when testing against the local stack.
 corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
 ```
 
-The CodeRabbit CLI helper is not on the Cloud snapshot `install`. GitHub review stays
+The CodeRabbit CLI helper runs last in the Cloud `install`. GitHub review stays
 required. `/push` runs the helper on a missing or mismatched CLI, and again on the one unavailable retry when that reason remains. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
 and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 `unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`
@@ -657,19 +657,19 @@ and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 G-O1 / G-CR1 / G-CR2 / G-CR3. The helper pins `CODERABBIT_VERSION=0.9.0` (unsigned `0.7.6` 404s).
 `/push` `--branch-diff` runs it when the binary is missing
 (`cli_missing`) or the reported version is not `0.9.0`
-(`version_mismatch`), and again on the one unavailable retry when that reason remains. It requires the Cursor
-Cloud secret `CODERABBIT_API_KEY`, and when appended to `install` always runs:
+(`version_mismatch`), and again on the one unavailable retry when that reason remains. With the Cursor
+Cloud secret `CODERABBIT_API_KEY` set, the helper runs:
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-Missing key, failed login, or non-US `"region"` fails the helper. Resume
-appends the helper to `install`:
+A missing key only warns (exit 0). A failed login or non-US `"region"` fails
+the helper. `install` ends with the helper:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
 US CodeRabbit CLI (Agentic key as Cursor Cloud secret `CODERABBIT_API_KEY`
