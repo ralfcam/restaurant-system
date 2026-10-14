@@ -1,10 +1,10 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-10-10
+**Last updated:** 2026-10-14
 
 This repository uses **one** CodeRabbit installation: **US Team**. The
-Cloud `install` helper stays paused. `/push` runs the local CLI over
+Cloud `install` runs the CLI helper (see [Cloud environment setup](#cloud-environment-setup)). `/push` runs the local CLI over
 the committed branch diff against `origin/staging` after the cursor-head
 firewall has finalized `HEAD` and before `git push`. An unavailable CLI
 result retries once.
@@ -67,21 +67,71 @@ the agent report. Actionable findings that do exist, including a
 `COMMENTED` review body with actionable comments, still block into
 `/capture`. Quiet-mode walkthrough bodies are not findings. CLI pin
 `0.9.0` stays in `.cursor/cloud-install-coderabbit.sh`. Release `0.7.6`
-has no `SHA256SUMS.sig`. `/push` runs that
+has no `SHA256SUMS.sig`. `/push` also runs that
 helper when the branch-diff pass sees `cli_missing` or
 `version_mismatch`, and again on the one unavailable retry when that
-reason remains. The Cloud `environment.json` install still does not
-call the helper. When the CLI runs, it must
+reason remains. The Cloud `environment.json` install calls the helper
+once at environment setup. When the CLI runs, it must
 authenticate against [app.coderabbit.ai](https://app.coderabbit.ai) with
 `"region":"us"`.
 
 Repository YAML: [`.coderabbit.yaml`](../../.coderabbit.yaml). Cloud install
-is [`.cursor/environment.json`](../../.cursor/environment.json) without
+is [`.cursor/environment.json`](../../.cursor/environment.json) ending with
 [`.cursor/cloud-install-coderabbit.sh`](../../.cursor/cloud-install-coderabbit.sh).
 Do not commit API keys or `.env*` files.
 
 CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 `/triage`, and the operator merge decision. It does not replace them.
+
+## Cloud environment setup
+
+`.cursor/environment.json` `install` ends with
+`sh .cursor/cloud-install-coderabbit.sh`. The script:
+
+- Installs CodeRabbit CLI `0.9.0` through the official installer
+  (`curl -fsSL https://cli.coderabbit.ai/install.sh | CI=1 CR_CLI_SKIP_LOGIN=1 CODERABBIT_VERSION=0.9.0 sh`)
+  and skips the install when `coderabbit --version` already reports `0.9.0`.
+  The installer needs `curl`, `unzip` and `openssl`; `cloud.Dockerfile`
+  provides all three (`openssl` arrives as a dependency of
+  `ca-certificates`).
+- Logs in with `coderabbit auth login --api-key "$CODERABBIT_API_KEY"`. The
+  key is an Agentic API key (US region unless `--region eu` is passed) and
+  is read only from the `CODERABBIT_API_KEY` Cursor secret. It is never
+  typed, logged or echoed, login output is suppressed, and the script never
+  enables shell tracing.
+- With no `CODERABBIT_API_KEY`, prints a warning and exits 0; the gate then
+  reports CodeRabbit unavailable at review time.
+- Verifies with `coderabbit --version` and `coderabbit auth status --agent`.
+  Setup requires an authenticated **US-region** session (`authenticated` true
+  and `region` `us`, matching the `/push` gate). A failed login, an
+  unauthenticated status, or any other region (a saved EU session is not
+  valid for this repository) exits non-zero.
+- Runs the installer with `CODERABBIT_API_KEY` removed from its environment
+  (`env -u CODERABBIT_API_KEY`), in both the script and `cloud.Dockerfile`, so
+  the remote script never receives the key.
+
+Rerun by hand: `sh .cursor/cloud-install-coderabbit.sh`.
+
+### Residual supply-chain risk
+
+The harness contract (REAZED-383) uses the official `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`
+flow, so the installer script itself is fetched over TLS and executed without
+an independently pinned checksum or signature. The installer authenticates the
+CLI release it then downloads (signature over `SHA256SUMS`, checked with
+`openssl`), but a compromise of `cli.coderabbit.ai` or of the installer could
+still run arbitrary code as the build user. Stripping the key from the
+installer environment keeps the secret out of that process, but it does not
+protect the rest of the build: after login the key is stored in
+`~/.coderabbit` inside the environment snapshot, and the CLI binary that runs
+with it is the one the installer fetched. Mitigations if this risk becomes
+unacceptable: vendor the installer at a reviewed hash, or install the pinned
+release zip and verify its published SHA-256 as the earlier script did.
+
+The `/push` gate pins `PINNED_CLI_VERSION` `0.9.0` in
+`.cursor/hooks/lib/coderabbit-review-policy.mjs`, and `assertPinnedUsAuth`
+rejects any other CLI version as `version_mismatch`. The install script,
+`cloud.Dockerfile` and the gate share that one pin; change all three
+together (a policy test fails when they drift).
 
 ## Keep only the US installation
 
@@ -157,12 +207,13 @@ Exit `0` is schema-valid. Exit `1` is missing, unreadable, or invalid YAML.
 
 ## Agentic API key (Cloud / headless)
 
-Cloud `install` does not run the helper. The dirty-tree work-order path
-still records `cli_paused` without spawning `coderabbit`. `/push`
-`--branch-diff` actually runs the CLI when a key is present; if the CLI
-is still unavailable after one retry, `/push` stops with
+Cloud `install` runs the helper (see
+[Cloud environment setup](#cloud-environment-setup)). The dirty-tree
+work-order path still records `cli_paused` without spawning `coderabbit`.
+`/push` `--branch-diff` actually runs the CLI when a key is present; if the
+CLI is still unavailable after one retry, `/push` stops with
 `blocked_cli_unavailable` and does not push. The notes below are the
-auth and resume path.
+auth path.
 
 Browser OAuth does not persist into Cursor Cloud. Provision an **Agentic**
 API key (not a user API key) from the **US** account:
@@ -174,30 +225,32 @@ on the [Cloud Agents dashboard](https://cursor.com/dashboard/cloud-agents)
 (Secrets tab). Never put it in `.cursor/environment.json`,
 `.coderabbit.yaml`, git, or chat.
 
-Cloud `install` is exactly the paused command (the helper is not invoked):
+Cloud `install` ends by invoking the helper:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
-The helper sets `CI=1` so the installer skips the interactive login prompt,
-pins `CODERABBIT_VERSION=0.9.0` (reinstalls when `coderabbit --version` is
-not `0.9.0`), and always runs:
+The helper installs CLI `0.9.0` through the official installer with
+`CI=1 CR_CLI_SKIP_LOGIN=1` and `CODERABBIT_API_KEY` removed from the installer
+environment, skips the install when `coderabbit --version` already reports
+`0.9.0`, and, when the key is set, runs:
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-Missing `CODERABBIT_API_KEY`, failed login, or a status that is not
-`"authenticated":true` with `"region":"us"` fails the Cloud install. Do not
-skip login when the key is absent, and do not use
+A missing or empty `CODERABBIT_API_KEY` only prints a warning and the install
+exits 0 without logging in; the gate then records the review as unavailable.
+A failed login, or a status that is not `"authenticated":true` with
+`"region":"us"`, fails the Cloud install. Do not use
 `coderabbit auth status --agent || true`.
 
 Headless login on any Linux runner (same commands as the helper):
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
@@ -258,16 +311,17 @@ Missing `CODERABBIT_API_KEY`, failed login, or non-US status:
 2. Store it as the Cursor Cloud secret named **`CODERABBIT_API_KEY`** at
    [https://cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents)
    (Secrets tab).
-3. Resume the paused helper by making `install` this command:
+3. Rebuild the environment so `install` re-runs the helper, or rerun it in
+   the agent VM:
 
-```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+```sh
+sh .cursor/cloud-install-coderabbit.sh
 ```
 
 The helper equivalent is:
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
@@ -282,7 +336,7 @@ cr auth status --agent
 ```
 
 On Cloud / headless Linux, use
-`coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"`
+`coderabbit auth login --api-key "$CODERABBIT_API_KEY"`
 then `coderabbit auth status --agent`. Confirm the Agentic key was created
 under the US org. User API keys are rejected by the CLI.
 
@@ -331,21 +385,23 @@ CODERABBIT_VERSION=0.9.0 curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 ```
 
 `CODERABBIT_VERSION=v0.9.0` and unsigned `0.7.6` 404 on `cli.coderabbit.ai`.
+The helper passes `CI=1 CR_CLI_SKIP_LOGIN=1` so the installer never starts a
+browser login.
 
 ### Cloud Build has CLI but reviews fail with 401
 
-The CLI install is paused, so this does not apply to the current snapshot.
-On resume, the secret was missing at install time, or the key is not a US
-Agentic key. Set `CODERABBIT_API_KEY` and re-run:
+The secret was missing at install time (the helper only warned), or the key
+is not a US Agentic key. Set `CODERABBIT_API_KEY` and rebuild the
+environment, or re-run
 
-```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+```sh
+sh .cursor/cloud-install-coderabbit.sh
 ```
 
 or run
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 

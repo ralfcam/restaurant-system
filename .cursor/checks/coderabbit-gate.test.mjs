@@ -255,7 +255,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
 
   test("authentication and setup failures are advisory unavailable attempts", () => {
     const ver = runGate("local-clean.jsonl", {
-      CODERABBIT_STUB_VERSION: "0.7.5",
+      CODERABBIT_STUB_VERSION: "0.7.6",
     })
     assert.equal(ver.status, 0, ver.stderr)
     assert.equal(JSON.parse(ver.stdout).reason, "version_mismatch")

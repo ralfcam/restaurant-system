@@ -42,13 +42,13 @@ carries no signal. Never invent a `cursor/<issue-id>` identity.
 install command:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
-The CodeRabbit CLI helper is paused and is not invoked from `install`.
-`.cursor/cloud-install-coderabbit.sh` still pins `CODERABBIT_VERSION=0.9.0`
-and fail-closed US auth for a later resume. Cloud builds clone the
-**default branch**, so the file only takes effect once it is on `main`.
+`.cursor/cloud-install-coderabbit.sh` installs CodeRabbit CLI `0.9.0` (the
+gate pin) and logs in with the `CODERABBIT_API_KEY` secret; a missing key
+only warns. Cloud builds clone the **default branch**, so the file only
+takes effect once it is on `main`.
 Re-check rather than trusting this line — the state moves. Use
 `git ls-tree -r origin/main -- .cursor/environment.json`;
 without `-r` and `--` the nested path resolves to nothing and the file
