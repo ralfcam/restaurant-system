@@ -65,6 +65,17 @@ describe("RES-146 CodeRabbit CLI evidence guards", () => {
     const runbook = read("docs/runbooks/coderabbit.md")
     expect(push).toContain("## CodeRabbit CLI evidence")
     expect(push).toContain("gh pr ready --undo")
+    expect(push).toContain(
+      "Do not publish when the gate returns `action: block`",
+    )
+    expect(push).toMatch(
+      /records `attemptStatus: unavailable` and exits zero/,
+    )
+    const rule = read(".cursor/rules/coderabbit-integration.mdc")
+    expect(rule).toMatch(/recorded with exit zero/)
+    expect(rule).toMatch(
+      /does not publish or mark the PR ready when the\s+review was unavailable/,
+    )
     expect(conduct).toContain("/ready-merge-release")
     expect(runbook).toContain("only CodeRabbit gate")
   })

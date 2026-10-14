@@ -198,17 +198,16 @@ finding is open.
 
 If `action` is `block` (`reason` is `timeout`, `missing_complete`,
 `missing_binary`, `blocked_cli_unavailable`, or `blocked_major_findings`),
-the gate exits zero. That record is advisory G-CR2, not a `/push` stop.
-Record `attemptStatus`, `reason`, `action`, `record`, and leftover
-findings on the PR body and in this report. Do not describe the attempt
-as clean. Emit the paste-ready `/sdd-to-tdd` fences for
-Critical/Major/unknown. Only the gate's safety `fail()` paths
-(work-order secrets, unrelated dirty, no reviewable paths, changed
-bytes) stop `/push`. Never wait forever for the CLI.
+the gate exits zero. Record `attemptStatus`, `reason`, `action`,
+`record`, and leftover findings on the PR body and in this report. Do
+not describe the attempt as clean. Emit the paste-ready `/sdd-to-tdd`
+fences for Critical/Major/unknown. Never wait forever for the CLI. Do
+not mark the PR ready and do not publish when the gate returns
+`action: block`.
 
 If the CLI is unavailable, times out, or the binary is missing, the gate
 records `attemptStatus: unavailable` and exits zero. Record that
-reason on the PR body and continue.
+reason on the PR body. Do not publish when the gate returns `action: block`.
 
 A `--branch-diff` `secret_path` stays advisory. `.env.example` is not a
 secret path. Record that reason on the PR body and continue.

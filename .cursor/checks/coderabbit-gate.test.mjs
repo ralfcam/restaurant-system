@@ -421,6 +421,27 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     )
     assert.match(pushMd, /--ack-push/)
     assert.match(pushMd, /coderabbit auth login --api-key \$env:CODERABBIT_API_KEY/)
+    assert.match(
+      pushMd,
+      /Do not publish when the gate returns `action: block`/,
+    )
+    assert.match(
+      pushMd,
+      /records `attemptStatus: unavailable` and exits zero/,
+    )
+    assert.doesNotMatch(
+      pushMd,
+      /records `attemptStatus: unavailable` and exits zero\. Record that\s+reason on the PR body and continue/,
+    )
+    const rule = readFileSync(
+      join(ROOT, ".cursor", "rules", "coderabbit-integration.mdc"),
+      "utf8",
+    )
+    assert.match(rule, /recorded with exit zero/)
+    assert.match(
+      rule,
+      /does not publish or mark the PR ready when the\s+review was unavailable/,
+    )
     assert.doesNotMatch(pushMd, /set -[x]/)
     assert.doesNotMatch(
       readFileSync(join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"), "utf8"),
