@@ -16,6 +16,9 @@ import {
   resolveCrBinary,
   resolveBranchDiff,
   resolveBranchDiffPaths,
+  resolveDirtyPaths,
+  dirtyPathsFromGit,
+  resolveHead,
   isCrRunExpired,
   resolvePushPriorRound,
   reviewCommandArgs,
@@ -256,16 +259,26 @@ test("review command is uncommitted+untracked with policy config and never --use
   assert.ok(branch.includes("origin/staging"))
   assert.deepEqual(
     resolveBranchDiffPaths(process.cwd(), "origin/staging", {
+      CODERABBIT_GATE_TEST: "1",
       CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts,app/b.ts",
     }),
     ["lib/a.ts", "app/b.ts"],
   )
   assert.deepEqual(
     resolveBranchDiff(process.cwd(), "origin/staging", {
+      CODERABBIT_GATE_TEST: "1",
       CODERABBIT_STUB_DIFF_FAILED: "1",
       CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts",
     }),
     { ok: false, paths: [], reason: "diff_failed" },
+  )
+  assert.deepEqual(
+    resolveDirtyPaths(process.cwd(), { CODERABBIT_STUB_DIRTY: "fake/stub.ts" }),
+    dirtyPathsFromGit(process.cwd()),
+  )
+  assert.notEqual(
+    resolveHead(process.cwd(), { CODERABBIT_STUB_HEAD: "not-a-real-head" }),
+    "not-a-real-head",
   )
   assert.equal(
     resolvePushPriorRound(

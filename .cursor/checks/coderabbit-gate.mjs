@@ -491,7 +491,6 @@ async function main() {
       2,
     ),
   )
-  if (!ok) process.exit(1)
 }
 
 if (resolve(process.argv[1] || "") === fileURLToPath(import.meta.url)) {

@@ -88,10 +88,15 @@ function stripFences(text) {
 
 /** Minimal YAML-frontmatter split for agent name/description. No yaml dep. */
 export function splitFrontmatter(text) {
-  if (!text.startsWith("---\n")) return { data: null, body: text, error: null }
-  const end = text.indexOf("\n---\n", 4)
-  if (end === -1) return { data: null, body: text, error: "unclosed frontmatter" }
-  const raw = text.slice(4, end)
+  const normalized = String(text).replace(/\r\n/g, "\n")
+  if (!normalized.startsWith("---\n")) {
+    return { data: null, body: normalized, error: null }
+  }
+  const end = normalized.indexOf("\n---\n", 4)
+  if (end === -1) {
+    return { data: null, body: normalized, error: "unclosed frontmatter" }
+  }
+  const raw = normalized.slice(4, end)
   const data = {}
   let currentKey = null
   let folded = null
@@ -120,7 +125,7 @@ export function splitFrontmatter(text) {
   if (currentKey && folded !== null) {
     data[currentKey] = folded.join(" ").trim()
   }
-  return { data, body: text.slice(end + 5), error: null }
+  return { data, body: normalized.slice(end + 5), error: null }
 }
 
 export function agentFrontmatterViolations(rel, text) {

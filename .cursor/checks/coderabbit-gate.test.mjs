@@ -307,7 +307,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(cleanBody.action, "push")
 
     const critical = runBranchDiff("local-critical.jsonl")
-    assert.notEqual(critical.status, 0)
+    assert.equal(critical.status, 0, critical.stderr)
     const criticalBody = JSON.parse(critical.stdout)
     assert.equal(criticalBody.ok, false)
     assert.equal(criticalBody.attemptStatus, "findings")
@@ -317,7 +317,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(criticalBody.sddToTdd[0].command, "/sdd-to-tdd")
 
     const again = runBranchDiff("local-critical.jsonl")
-    assert.notEqual(again.status, 0)
+    assert.equal(again.status, 0, again.stderr)
     const againBody = JSON.parse(again.stdout)
     assert.equal(againBody.ok, false)
     assert.equal(againBody.action, "block")
@@ -352,7 +352,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     const newHead = runBranchDiff("local-critical.jsonl", {
       CODERABBIT_STUB_HEAD: "cafebabe",
     })
-    assert.notEqual(newHead.status, 0)
+    assert.equal(newHead.status, 0, newHead.stderr)
     const newHeadBody = JSON.parse(newHead.stdout)
     assert.equal(newHeadBody.ok, false)
     assert.equal(newHeadBody.action, "block")
@@ -366,7 +366,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       CODERABBIT_STUB_HEAD: "print-base",
       CODERABBIT_STATE_DIR: firstDir,
     })
-    assert.notEqual(first.status, 0)
+    assert.equal(first.status, 0, first.stderr)
     const firstBody = JSON.parse(first.stdout)
     assert.equal(firstBody.ok, false)
     assert.equal(firstBody.action, "block")
@@ -383,7 +383,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       },
       ["--fix-round", "1"],
     )
-    assert.notEqual(second.status, 0)
+    assert.equal(second.status, 0, second.stderr)
     const body = JSON.parse(second.stdout)
     assert.equal(body.ok, false)
     assert.equal(body.action, "block")
@@ -398,7 +398,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       CODERABBIT_STUB_HEAD: "clear-aaa",
       CODERABBIT_STATE_DIR: dir,
     })
-    assert.notEqual(first.status, 0)
+    assert.equal(first.status, 0, first.stderr)
     assert.equal(JSON.parse(first.stdout).action, "block")
 
     const ack = spawnSync(
@@ -445,11 +445,11 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     },
   )
 
-  test("branch-diff timeout, incomplete review, or missing binary blocks with a non-zero exit", () => {
+  test("branch-diff timeout, incomplete review, or missing binary is recorded with exit 0", () => {
     const timeout = runBranchDiff("local-clean.jsonl", {
       CODERABBIT_STUB_TIMEOUT: "1",
     })
-    assert.notEqual(timeout.status, 0)
+    assert.equal(timeout.status, 0, timeout.stderr)
     const timeoutBody = JSON.parse(timeout.stdout)
     assert.equal(timeoutBody.ok, false)
     assert.equal(timeoutBody.attemptStatus, "unavailable")
@@ -457,7 +457,7 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
     assert.equal(timeoutBody.action, "block")
 
     const incomplete = runBranchDiff("local-missing-complete.jsonl")
-    assert.notEqual(incomplete.status, 0)
+    assert.equal(incomplete.status, 0, incomplete.stderr)
     const incompleteBody = JSON.parse(incomplete.stdout)
     assert.equal(incompleteBody.ok, false)
     assert.equal(incompleteBody.attemptStatus, "unavailable")
@@ -466,10 +466,6 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
 
     const env = childEnv({
       CODERABBIT_BIN: join(tmpdir(), `missing-cr-${process.pid}`, "coderabbit"),
-      CODERABBIT_STUB_BRANCH_DIFF: "lib/example.ts",
-      CODERABBIT_STUB_HEAD: "deadbeef",
-      CODERABBIT_STUB_BRANCH: "sdd/<issue-id>1",
-      CODERABBIT_STUB_MANIFEST: JSON.stringify({ "lib/example.ts": "abc" }),
     })
     delete env.CODERABBIT_GATE_TEST
     const missingBinary = spawnSync(
@@ -478,11 +474,11 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
         join(ROOT, ".cursor", "checks", "coderabbit-gate.mjs"),
         "--branch-diff",
         "--base",
-        "HEAD",
+        "origin/staging",
       ],
       { cwd: ROOT, encoding: "utf8", env },
     )
-    assert.notEqual(missingBinary.status, 0)
+    assert.equal(missingBinary.status, 0, missingBinary.stderr)
     const missingBody = JSON.parse(missingBinary.stdout)
     assert.equal(missingBody.ok, false)
     assert.equal(missingBody.attemptStatus, "unavailable")

@@ -59,6 +59,13 @@ test("harness-lint.mjs exists and exits 0 on this tree", () => {
   assert.equal(r.status, 0, r.stderr || r.stdout)
 })
 
+test("agent frontmatter split accepts CRLF documents", () => {
+  const crlf =
+    "---\r\nname: broken\r\ndescription: >-\r\n  A folded description.\r\n---\r\n\r\n# Body\r\n"
+  const messages = agentFrontmatterViolations(".cursor/agents/crlf.md", crlf)
+  assert.deepEqual(messages, [])
+})
+
 test("harness lint rejects agent frontmatter without a description", () => {
   const messages = agentFrontmatterViolations(
     ".cursor/agents/broken.md",

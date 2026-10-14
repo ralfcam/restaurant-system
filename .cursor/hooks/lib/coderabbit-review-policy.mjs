@@ -558,8 +558,12 @@ export function dirtyPathsFromGit(cwd = process.cwd()) {
   return parseGitPorcelain(gitCapture(["status", "--porcelain", "-uall"], cwd))
 }
 
+function isGateTest(env = process.env) {
+  return env.CODERABBIT_GATE_TEST === "1"
+}
+
 export function resolveDirtyPaths(cwd = process.cwd(), env = process.env) {
-  if (Object.hasOwn(env, "CODERABBIT_STUB_DIRTY")) {
+  if (isGateTest(env) && Object.hasOwn(env, "CODERABBIT_STUB_DIRTY")) {
     return env.CODERABBIT_STUB_DIRTY.split(",")
       .map((s) => posixPath(s.trim()))
       .filter(Boolean)
@@ -604,10 +608,10 @@ export function resolveBranchDiff(
   base = "origin/staging",
   env = process.env,
 ) {
-  if (env.CODERABBIT_STUB_DIFF_FAILED === "1") {
+  if (isGateTest(env) && env.CODERABBIT_STUB_DIFF_FAILED === "1") {
     return { ok: false, paths: [], reason: "diff_failed" }
   }
-  if (Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
+  if (isGateTest(env) && Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
     return {
       ok: true,
       paths: env.CODERABBIT_STUB_BRANCH_DIFF.split(",")
@@ -684,8 +688,8 @@ export function branchDiffBaseExists(
   base = "origin/staging",
   env = process.env,
 ) {
-  if (env.CODERABBIT_STUB_MISSING_BASE === "1") return false
-  if (env.CODERABBIT_GATE_TEST === "1") return true
+  if (isGateTest(env) && env.CODERABBIT_STUB_MISSING_BASE === "1") return false
+  if (isGateTest(env)) return true
   const result = spawnSync("git", ["rev-parse", "--verify", base], {
     cwd,
     encoding: "utf8",
@@ -695,12 +699,12 @@ export function branchDiffBaseExists(
 }
 
 export function resolveHead(cwd = process.cwd(), env = process.env) {
-  if (env.CODERABBIT_STUB_HEAD) return env.CODERABBIT_STUB_HEAD
+  if (isGateTest(env) && env.CODERABBIT_STUB_HEAD) return env.CODERABBIT_STUB_HEAD
   return currentHead(cwd)
 }
 
 export function resolveManifest(cwd, relPaths, env = process.env) {
-  if (env.CODERABBIT_STUB_MANIFEST) {
+  if (isGateTest(env) && env.CODERABBIT_STUB_MANIFEST) {
     return JSON.parse(env.CODERABBIT_STUB_MANIFEST)
   }
   return hashPathContents(cwd, relPaths)

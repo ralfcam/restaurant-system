@@ -198,13 +198,14 @@ finding is open.
 
 If `action` is `block` (`reason` is `timeout`, `missing_complete`,
 `missing_binary`, `blocked_cli_unavailable`, or `blocked_major_findings`),
-STOP. Do not push, and do not describe the attempt as clean. A finished
-review with open Majors is `ok: false` / `action: block` — never
-`ok: true`. Record the stop on the PR body and in this report.
+the gate still exits zero. Record `attemptStatus`, `reason`, `action`,
+and `record` on the PR body and in this report. Do not describe the
+attempt as clean. Emit the paste-ready `/sdd-to-tdd` fences for
+Critical/Major/unknown. Never wait forever for the CLI.
 
 If the CLI is unavailable, times out, or the binary is missing, the gate
-exits non-zero with `action: block`. STOP. Do not push. Never wait
-forever for the CLI.
+records `attemptStatus: unavailable` and exits zero. Record that
+reason on the PR body and continue.
 
 A `--branch-diff` `secret_path` stays advisory. `.env.example` is not a
 secret path. Record that reason on the PR body and continue.

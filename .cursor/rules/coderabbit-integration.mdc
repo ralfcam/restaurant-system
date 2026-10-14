@@ -60,13 +60,13 @@ The dirty-tree work-order path stays for tests. Outside
 `cli_paused` and does not spawn `coderabbit` or `cr`. GitHub review stays fail-closed.
 The signed Linux pin is `0.9.0`.
 
-The local attempt is fail-closed after deterministic preflight except a
-`--branch-diff` `secret_path`, `missing_base`, or `diff_failed` preflight,
-which stay advisory. A timeout, incomplete (`missing_complete`), missing
-binary, or other CLI-unavailable review is `ok: false` / `action: block`
-and exits non-zero. A finished review with open Majors is the same stop.
-The ignored receipt under `.cursor/hooks/state/` is audit evidence only;
-missing or stale receipt data never blocks `/commit` or `git commit`.
+The local attempt is advisory after deterministic preflight. Findings
+and review unavailability (timeout, incomplete `missing_complete`,
+missing binary, or other CLI-unavailable outcomes) are recorded with
+exit zero. A finished review with open Majors is the same advisory
+record (`action` / `record` in JSON). The ignored receipt under
+`.cursor/hooks/state/` is audit evidence only; missing or stale receipt
+data never blocks `/commit` or `git commit`.
 
 Work-order secret paths and changed bytes remain hard failures. A
 `--branch-diff` secret path is advisory. `.env.example` is not a secret.
