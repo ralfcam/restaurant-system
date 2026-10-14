@@ -109,6 +109,25 @@ test("checkTaskAvailabilityWrite denies armed edits until Task succeeds", () => 
   )
 })
 
+test("pre-Task depth>0 claim is still denied; subagent write after Task is allowed", () => {
+  assert.equal(
+    checkTaskAvailabilityWrite("lib/foo.ts", {
+      armed: true,
+      taskAvailable: false,
+      depth: 1,
+    })?.kind,
+    "task-unavailable",
+  )
+  assert.equal(
+    checkTaskAvailabilityWrite("lib/foo.ts", {
+      armed: true,
+      taskAvailable: true,
+      depth: 1,
+    }),
+    null,
+  )
+})
+
 test("checkTaskAvailabilityShell denies protected and guard-state writes", () => {
   const armed = { armed: true, taskAvailable: false }
   assert.equal(
@@ -379,6 +398,60 @@ describe("task-availability isolated spawn", { concurrency: 1 }, () => {
   const dir = mkdtempSync(join(tmpdir(), "task-avail-"))
   const statePath = join(dir, "tdd-guard.json")
   after(() => rmSync(dir, { recursive: true, force: true }))
+
+  test("pre-Task Write with depth>0 in state is still denied", async () => {
+    writeFileSync(
+      statePath,
+      JSON.stringify({
+        armed: true,
+        depth: 1,
+        phase: "red",
+        taskAvailable: false,
+      }),
+      "utf8",
+    )
+    const denied = await runIsolated(
+      "task-availability-guard.mjs",
+      WRITE_LIB,
+      [],
+      statePath,
+    )
+    assert.equal(denied.code, 0)
+    assert.equal(JSON.parse(denied.out).permission, "deny")
+    assert.match(JSON.parse(denied.out).user_message, /BLOCKED \(infra\)/)
+  })
+
+  test("subagent Write after Task succeeds is allowed", async () => {
+    writeFileSync(
+      statePath,
+      JSON.stringify({
+        armed: true,
+        depth: 1,
+        phase: "green",
+        taskAvailable: false,
+      }),
+      "utf8",
+    )
+    assert.equal(
+      (
+        await runIsolated(
+          "task-availability-guard.mjs",
+          TASK_OK,
+          ["--success"],
+          statePath,
+        )
+      ).code,
+      0,
+    )
+    const allowed = await runIsolated(
+      "task-availability-guard.mjs",
+      WRITE_LIB,
+      [],
+      statePath,
+    )
+    assert.equal(allowed.code, 0)
+    assert.deepEqual(JSON.parse(allowed.out), {})
+  })
 
   test("armed Write without Task is denied; Task success then allows", async () => {
     const armed = await runIsolated("tdd-guard.mjs", "", ["on"], statePath)

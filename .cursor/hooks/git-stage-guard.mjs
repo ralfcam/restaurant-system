@@ -88,14 +88,24 @@ function main() {
     }
     const mergeHit = detectGhPrMerge(command)
     if (mergeHit) {
+      const what =
+        mergeHit.reason === "expansion"
+          ? "Blocked a Shell command that assembles gh, pr, or api merge via expansion ($ % backtick backslash)."
+          : mergeHit.reason === "api-merge"
+            ? "Blocked a Shell command that calls gh api on a pulls+merge path."
+            : mergeHit.reason === "encoded"
+              ? "Blocked a Shell command that uses an encoded PowerShell flag (can hide gh, pr, and merge)."
+              : "Blocked a Shell command that contains the tokens gh, pr, and merge."
+      const why =
+        "Merging is the operator's job in the GitHub UI; Shell must not carry or assemble those operations."
+      const alt =
+        "Merge in the GitHub UI. To put those words in a commit message, Write a file and use `git commit -F <file>` — do not retry the Shell command."
       writeStdoutJson({
         permission: "deny",
-        user_message:
-          "Blocked `gh pr merge` — merging is the operator's job in the GitHub UI.",
+        user_message: `${what} ${why} ${alt}`,
         agent_message:
-          `git-stage guard: "${mergeHit.segment}" matches \`gh pr merge\`, which is blocked ` +
-          "repo-wide. Merge in the GitHub UI after /push; never merge from the agent. See " +
-          ".cursor/rules/staging-accumulator.mdc and .cursor/commands/push.md.",
+          `git-stage guard: "${mergeHit.segment}" (${mergeHit.reason || "tokens"}). ` +
+          `${what} ${why} ${alt}`,
       })
       return
     }

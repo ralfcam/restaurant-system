@@ -155,6 +155,18 @@ test("checkLinearWrite denies Linear writes unless allowed", () => {
   assert.equal(checkLinearWrite(LINEAR, "delete_comment", true), null)
 })
 
+test("checkLinearWrite denies guarded mutations when the server is unknown", () => {
+  assert.equal(checkLinearWrite(undefined, "save_issue", false)?.deny, true)
+  assert.equal(checkLinearWrite(null, "save_comment", false)?.deny, true)
+  assert.equal(checkLinearWrite("", "delete_comment", false)?.deny, true)
+  assert.equal(checkLinearWrite(undefined, "save_issue", true)?.deny, true)
+  assert.equal(checkLinearWrite(undefined, "list_issues", false), null)
+  assert.equal(
+    checkLinearWrite("plugin-vercel-vercel", "save_issue", false),
+    null,
+  )
+})
+
 test("extractMcpCall unwraps CallDynamicTool Linear deletes", () => {
   const extracted = extractMcpCall({
     tool_name: "CallDynamicTool",

@@ -12,10 +12,12 @@ import { join } from "node:path"
 import { afterEach, test } from "node:test"
 import {
   executeLocalVerification,
+  mergeLocalEnvironment,
   migrationFingerprint,
   parseConfiguredCommand,
   parseSupabaseEnvironment,
   runProcess,
+  serializeLocalEnvironment,
   verifyInitializedProject,
 } from "../bootstrap/verification.mjs"
 
@@ -195,6 +197,87 @@ test("failed verification clears stale success and never records a new timestamp
   assert.equal(config.project.localSupabaseVerified, false)
   assert.equal("localSupabaseVerifiedAt" in config.project, false)
   assert.equal("localSupabaseMigrationFingerprint" in config.project, false)
+})
+
+test("local verification merges .env.local and keeps existing keys", async () => {
+  const merged = mergeLocalEnvironment(
+    "EXISTING_APP_KEY=keep-me\nNEXT_PUBLIC_SUPABASE_URL=http://stale.invalid\n",
+    {
+      API_URL: "http://127.0.0.1:54321",
+      ANON_KEY: "local-anon-value",
+      SERVICE_ROLE_KEY: "local-service-value",
+    },
+  )
+  assert.match(merged, /EXISTING_APP_KEY=keep-me/)
+  assert.match(merged, /NEXT_PUBLIC_SUPABASE_URL=http:\/\/127\.0\.0\.1:54321/)
+  assert.doesNotMatch(merged, /stale\.invalid/)
+  assert.equal(
+    serializeLocalEnvironment({
+      API_URL: "http://127.0.0.1:54321",
+      ANON_KEY: "local-anon-value",
+    }).includes("EXISTING_APP_KEY"),
+    false,
+  )
+
+  const root = checkout()
+  writeFileSync(
+    join(root, ".env.local"),
+    "EXISTING_APP_KEY=keep-me\nCUSTOM_FLAG=1\n",
+    { mode: 0o600 },
+  )
+  const calls = []
+  await verifyInitializedProject(root, {
+    run: successfulRunner(calls),
+    now: () => new Date("2026-09-15T12:00:00.000Z"),
+  })
+  const envText = readFileSync(join(root, ".env.local"), "utf8")
+  assert.match(envText, /EXISTING_APP_KEY=keep-me/)
+  assert.match(envText, /CUSTOM_FLAG=1/)
+  assert.match(envText, /NEXT_PUBLIC_SUPABASE_URL=http:\/\/127\.0\.0\.1:54321/)
+  assert.doesNotMatch(calls.join("\n"), /keep-me|local-(anon|service)-value/)
+})
+
+test("env merge preserves export lines, multiline values, comments, and blanks", () => {
+  const existing = [
+    "# keep this comment",
+    "",
+    "export APP_KEY=keep-export",
+    "NOTE=line1\\",
+    'QUOTED="first',
+    'second"',
+    "NEXT_PUBLIC_SUPABASE_URL=http://stale.invalid",
+    "",
+  ].join("\n")
+  const merged = mergeLocalEnvironment(existing, {
+    API_URL: "http://127.0.0.1:54321",
+    ANON_KEY: "local-anon-value",
+  })
+  assert.match(merged, /# keep this comment/)
+  assert.match(merged, /export APP_KEY=keep-export/)
+  assert.match(merged, /QUOTED="first\nsecond"/)
+  assert.match(merged, /\n\nexport APP_KEY/)
+  assert.match(merged, /NEXT_PUBLIC_SUPABASE_URL=http:\/\/127\.0\.0\.1:54321/)
+  assert.doesNotMatch(merged, /stale\.invalid/)
+  assert.match(merged, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=local-anon-value/)
+  assert.ok(merged.endsWith("\n"))
+})
+
+test("quoted env value with inline comment does not swallow the next key", () => {
+  const merged = mergeLocalEnvironment(
+    [
+      'NEXT_PUBLIC_SUPABASE_URL="http://stale.invalid" # local',
+      "EXISTING_APP_KEY=keep-me",
+      "",
+    ].join("\n"),
+    {
+      API_URL: "http://127.0.0.1:54321",
+      ANON_KEY: "local-anon-value",
+    },
+  )
+  assert.match(merged, /EXISTING_APP_KEY=keep-me/)
+  assert.match(merged, /NEXT_PUBLIC_SUPABASE_URL=http:\/\/127\.0\.0\.1:54321/)
+  assert.doesNotMatch(merged, /stale\.invalid/)
+  assert.match(merged, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=local-anon-value/)
 })
 
 test("verification requires initialization and can be repeated safely", async () => {

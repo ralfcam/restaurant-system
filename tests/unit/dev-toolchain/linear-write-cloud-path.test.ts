@@ -69,7 +69,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
     expect({
       status: unknownServer.status,
       permission: parseHookStdout(unknownServer.stdout).permission,
-    }).toEqual({ status: 0, permission: undefined })
+    }).toEqual({ status: 0, permission: "deny" })
 
     const unknownComment = runGuard(
       "\uFEFF" +
@@ -79,7 +79,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
           hook_event_name: "preToolUse",
         }),
     )
-    expect(parseHookStdout(unknownComment.stdout).permission).toBeUndefined()
+    expect(parseHookStdout(unknownComment.stdout).permission).toBe("deny")
 
     const unknownStatus = runGuard(
       "\uFEFF" +
@@ -89,7 +89,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
           hook_event_name: "preToolUse",
         }),
     )
-    expect(parseHookStdout(unknownStatus.stdout).permission).toBeUndefined()
+    expect(parseHookStdout(unknownStatus.stdout).permission).toBe("deny")
 
     const linearDenied = runGuard(
       "\uFEFF" +
@@ -160,7 +160,9 @@ describe("G-LG1 Cloud Linear write lock", () => {
           hook_event_name: "preToolUse",
         }),
     )
-    expect(parseHookStdout(cloudCallDynamicUnknown.stdout).permission).toBeUndefined()
+    expect(parseHookStdout(cloudCallDynamicUnknown.stdout).permission).toBe(
+      "deny",
+    )
 
     // hook-authoring observed MCP shape, delivered on Cloud preToolUse.
     const beforeShapeOnPre = runGuard(
@@ -200,9 +202,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
     expect(cloudListAllowed.status).toBe(0)
     expect(parseHookStdout(cloudListAllowed.stdout)).toEqual({})
 
-    // v0.3.1 checkLinearWrite ignores unknown servers; RES-151 denyUnknownServer
-    // is a leftover, not part of this sync.
-    expect(checkLinearWrite(undefined, "save_issue", false)).toBeNull()
-    expect(checkLinearWrite("", "save_comment", false)).toBeNull()
+    expect(checkLinearWrite(undefined, "save_issue", false)?.deny).toBe(true)
+    expect(checkLinearWrite("", "save_comment", false)?.deny).toBe(true)
   })
 })

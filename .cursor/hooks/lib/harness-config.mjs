@@ -14,7 +14,7 @@ const STATUS_WRITES = new Set(["comment-only", "github-automation"])
 export function defaultHarnessConfig(manifest = null) {
   return {
     schemaVersion: 1,
-    harnessVersion: manifest?.harnessVersion || "0.3.1",
+    harnessVersion: manifest?.harnessVersion || "0.3.2",
     initialized: false,
     project: { name: null, repository: null },
     template: manifest

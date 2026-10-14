@@ -56,7 +56,7 @@ test("upgrade is dry-run plannable and applies bundled compatibility migration",
   assert.equal(applied.applied, true)
   const config = JSON.parse(readFileSync(join(root, ".cursor", "harness.json"), "utf8"))
   const state = JSON.parse(readFileSync(join(root, ".cursor", "upgrade-state.json"), "utf8"))
-  assert.equal(config.harnessVersion, "0.3.1")
+  assert.equal(config.harnessVersion, "0.3.2")
   assert.equal(
     JSON.parse(readFileSync(join(root, "package.json"), "utf8")).packageManager,
     "pnpm@10.34.5",

@@ -15,6 +15,8 @@ import {
   eventLooksBilling,
   eventLooksRateLimited,
   isUsBotLogin,
+  parseJsonl,
+  sha256Hex,
 } from "./coderabbit-review-policy.mjs"
 
 export { US_APP_ID }
@@ -284,6 +286,13 @@ export function hasCodeRabbitReviewInProgress(snapshot) {
 export const INCOMPLETE_CLI_REASONS = Object.freeze([
   "timeout",
   "missing_complete",
+  "missing_binary",
+])
+
+export const PUSH_CLI_PREFLIGHT_REASONS = Object.freeze([
+  "secret_path",
+  "diff_failed",
+  "missing_base",
 ])
 
 export function isIncompleteCliAttempt(reason) {
@@ -294,20 +303,30 @@ export function decidePushCliAction({
   attemptStatus,
   reason,
   findings = [],
-  priorRound = 0,
 } = {}) {
-  if (attemptStatus === "unavailable" && isIncompleteCliAttempt(reason)) {
+  if (attemptStatus === "clean") {
+    return {
+      action: "push",
+      leftover: [],
+      sddToTdd: [],
+      capture: [],
+      record: "clean",
+    }
+  }
+  if (attemptStatus === "unavailable") {
+    if (PUSH_CLI_PREFLIGHT_REASONS.includes(String(reason || ""))) {
+      return {
+        action: "push",
+        leftover: findings,
+        record: "unavailable",
+      }
+    }
     return {
       action: "block",
       leftover: findings,
-      record: reason,
-    }
-  }
-  if (attemptStatus === "unavailable" || attemptStatus === "clean") {
-    return {
-      action: "push",
-      leftover: attemptStatus === "clean" ? [] : findings,
-      record: attemptStatus,
+      record: isIncompleteCliAttempt(reason)
+        ? String(reason)
+        : "blocked_cli_unavailable",
     }
   }
   const routed = (findings || []).map((finding) => ({
@@ -319,31 +338,137 @@ export function decidePushCliAction({
   }))
   const sddToTdd = routed.filter((finding) => finding.route === "sdd-to-tdd")
   const capture = routed.filter((finding) => finding.route === "capture")
-  if (!sddToTdd.length) {
+  if (sddToTdd.length) {
     return {
-      action: "push",
+      action: "block",
       leftover: routed,
       sddToTdd,
       capture,
-      record: capture.length ? "capture_and_push" : "push",
-    }
-  }
-  if (priorRound >= PUSH_CLI_FIX_ROUND_CAP) {
-    return {
-      action: "push",
-      leftover: routed,
-      sddToTdd,
-      capture,
-      record: "leftover_after_fix_round",
+      record: "blocked_major_findings",
     }
   }
   return {
-    action: "route",
+    action: "push",
     leftover: routed,
     sddToTdd,
     capture,
-    record: "fix_round",
+    record: capture.length ? "capture_and_push" : "push",
   }
+}
+
+export const CLI_EVIDENCE_HEADING = "## CodeRabbit CLI evidence"
+
+export function renderCliEvidenceBlock({
+  head,
+  attemptStatus,
+  reason,
+  hash,
+} = {}) {
+  const lines = [
+    CLI_EVIDENCE_HEADING,
+    `Head: ${head}`,
+    `attemptStatus: ${attemptStatus}`,
+  ]
+  if (reason) lines.push(`reason: ${reason}`)
+  if (head && attemptStatus && hash) {
+    lines.push(
+      `<!-- coderabbit-cli-evidence:${head}:${attemptStatus}:${hash} -->`,
+    )
+  }
+  return `${lines.join("\n")}\n`
+}
+
+/** Hash the real CLI JSONL. Never hash `"<sha>:<status>"` by hand. */
+export function cliEvidenceOutputHash(cliOutput) {
+  return sha256Hex(String(cliOutput ?? ""))
+}
+
+export function cliOutputAttemptStatus(cliOutput) {
+  const parsed = parseJsonl(String(cliOutput ?? ""))
+  if (!parsed.ok) return "unavailable"
+  if (!parsed.events.some((event) => event.type === "complete")) {
+    return "unavailable"
+  }
+  if (parsed.events.some((event) => event.type === "finding")) return "findings"
+  return "clean"
+}
+
+// Parses the human PR-body record. This is not authorization.
+export function cliEvidenceStatusForHead(body, headSha) {
+  const want = String(headSha || "")
+  const re =
+    /## CodeRabbit CLI evidence\r?\nHead:\s*(\S+)\r?\nattemptStatus:\s*(clean|findings|unavailable)\b/g
+  let status = null
+  let match
+  while ((match = re.exec(String(body || "")))) {
+    if (match[1] === want) status = match[2]
+  }
+  return status
+}
+
+function cliEvidenceSectionBounds(text) {
+  const escaped = CLI_EVIDENCE_HEADING.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = new RegExp(`^${escaped}[ \\t]*$`, "m").exec(text)
+  if (!match) return null
+  const start = match.index
+  const rest = text.slice(start + CLI_EVIDENCE_HEADING.length)
+  const next = rest.search(/\n## [^#]/)
+  const end =
+    next === -1 ? text.length : start + CLI_EVIDENCE_HEADING.length + next
+  return { start, end }
+}
+
+export function protectedCliEvidenceStatus(body, headSha, { cliOutput } = {}) {
+  const want = String(headSha || "")
+  const text = String(body || "")
+  const bounds = cliEvidenceSectionBounds(text)
+  if (!bounds) return null
+  if (cliOutput == null) return null
+  const parsed = parseJsonl(String(cliOutput))
+  if (!parsed.ok || !parsed.events.some((event) => event.type === "complete")) {
+    return null
+  }
+  const expected = cliEvidenceOutputHash(cliOutput)
+  const realStatus = cliOutputAttemptStatus(cliOutput)
+  const section = text.slice(bounds.start, bounds.end)
+  const re = /<!-- coderabbit-cli-evidence:([^:\s]+):([^:\s]+):([^:\s]+) -->/g
+  let status = null
+  let match
+  while ((match = re.exec(section))) {
+    if (match[1] !== want) continue
+    if (match[3] !== expected) continue
+    if (match[2] !== realStatus) continue
+    status = match[2]
+  }
+  return status
+}
+
+export function replaceProtectedCliEvidence(body, block) {
+  const text = String(body || "")
+  const rendered = `${String(block || "").trim()}\n`
+  const bounds = cliEvidenceSectionBounds(text)
+  if (!bounds) {
+    const base = text.trimEnd()
+    return base ? `${base}\n\n${rendered}` : rendered
+  }
+  const prefix = text.slice(0, bounds.start)
+  const suffix = text.slice(bounds.end).replace(/^\n/, "")
+  return `${prefix}${rendered}${suffix}`
+}
+
+export function qaDraftEvidenceVerdict({
+  isDraft,
+  headSha,
+  body,
+  cliOutput,
+} = {}) {
+  const status = protectedCliEvidenceStatus(body, headSha, {
+    cliOutput,
+  })
+  if (isDraft && status == null) {
+    return { ok: false, reason: "missing_head_evidence" }
+  }
+  return { ok: true, reason: status }
 }
 
 export const NO_FORMAL_REVIEW_OPERATOR_COMMENT =

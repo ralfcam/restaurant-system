@@ -14,15 +14,41 @@
  * never bricked. Raise the cap only in TASK_FANOUT_INFLIGHT_CAP (harness-lint
  * pins the same number in .cursor/rules/task-fanout.mdc).
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import {
+  closeSync,
+  existsSync,
+  linkSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const STATE_PATH = join(__dirname, "..", "state", "task-fanout.json")
+export const LOCK_STALE_MS = 5_000
+export const LOCK_MAX_AGE_MS = 60_000
+const DEFAULT_LOCK_WAIT_MS = 2_000
+
+function lockWaitMs() {
+  const n = Number(process.env.TASK_FANOUT_LOCK_WAIT_MS)
+  return Number.isFinite(n) && n >= 0 ? n : DEFAULT_LOCK_WAIT_MS
+}
+
+function stateFile() {
+  return process.env.TASK_FANOUT_STATE || STATE_PATH
+}
 
 export const TASK_FANOUT_INFLIGHT_CAP = 8
 export const RESERVATION_TTL_MS = 120_000
+
+/** Patch point for tests that force a write failure after wx create. */
+export const reservationLockWrite = { writeFileSync }
 
 export function readStdinJson() {
   try {
@@ -103,8 +129,9 @@ export function onTaskFailure(reservations, now = Date.now()) {
 
 export function loadReservations() {
   try {
-    if (!existsSync(STATE_PATH)) return []
-    const s = JSON.parse(readFileSync(STATE_PATH, "utf8"))
+    const path = stateFile()
+    if (!existsSync(path)) return []
+    const s = JSON.parse(readFileSync(path, "utf8"))
     return Array.isArray(s.reservations) ? s.reservations : []
   } catch {
     return []
@@ -112,6 +139,187 @@ export function loadReservations() {
 }
 
 export function saveReservations(reservations) {
-  mkdirSync(dirname(STATE_PATH), { recursive: true })
-  writeFileSync(STATE_PATH, JSON.stringify({ reservations }, null, 2), "utf8")
+  const path = stateFile()
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, JSON.stringify({ reservations }, null, 2), "utf8")
+}
+
+function lockOwnerAlive(pid) {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (err) {
+    return err?.code === "EPERM"
+  }
+}
+
+/** Linux /proc/<pid>/stat field 22 (starttime), parsed after the last `)`. */
+export function processStartTime(pid) {
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, "utf8")
+    const after = stat.slice(stat.lastIndexOf(")") + 1).trim().split(/\s+/)
+    const start = after[19]
+    return start != null && start !== "" ? start : null
+  } catch {
+    return null
+  }
+}
+
+function classifyLockLiveness(owner) {
+  const lines = String(owner).split("\n")
+  const pid = Number(lines[0])
+  const recorded = lines.length > 1 ? String(lines[1]).trim() : ""
+  if (!Number.isFinite(pid) || pid <= 0) return "dead"
+  if (!lockOwnerAlive(pid)) return "dead"
+  const current = processStartTime(pid)
+  const recordedOk = /^\d+$/.test(recorded)
+  const currentOk = current != null && /^\d+$/.test(String(current))
+  if (recordedOk && currentOk && recorded === String(current)) return "alive"
+  if (recordedOk && currentOk && recorded !== String(current)) return "dead"
+  return "ambiguous"
+}
+
+function ownerBytes() {
+  return `${process.pid}\n${processStartTime(process.pid) ?? ""}\n`
+}
+
+function restoreLock(tmp, lockPath) {
+  try {
+    linkSync(tmp, lockPath)
+  } catch (err) {
+    if (err?.code !== "EEXIST") {
+      // restore failed; still drop tmp and report no reclaim
+    }
+  }
+  try {
+    unlinkSync(tmp)
+  } catch {
+    // leftover tmp is harmless
+  }
+}
+
+/** Atomically take lockPath off the name. Restore it when the bytes are
+ *  a live holder or not the expected owner. Never unlinkSync(lockPath). */
+export function unlinkLockIfOwner(lockPath, expectedOwner) {
+  let current
+  try {
+    current = readFileSync(lockPath, "utf8")
+  } catch {
+    return false
+  }
+  if (current !== expectedOwner && classifyLockLiveness(current) === "alive") {
+    return false
+  }
+  const tmp = `${lockPath}.reclaim.${process.pid}.${Date.now()}.${Math.random().toString(36).slice(2)}`
+  try {
+    renameSync(lockPath, tmp)
+  } catch {
+    return false
+  }
+  let bytes
+  try {
+    bytes = readFileSync(tmp, "utf8")
+  } catch {
+    bytes = null
+  }
+  if (bytes !== expectedOwner) {
+    restoreLock(tmp, lockPath)
+    return false
+  }
+  if (classifyLockLiveness(bytes) === "alive" && bytes !== expectedOwner) {
+    restoreLock(tmp, lockPath)
+    return false
+  }
+  try {
+    unlinkSync(tmp)
+  } catch {
+    // tmp already gone
+  }
+  return true
+}
+
+/** Reclaim a stale lock only when its recorded owner is gone, or when
+ *  liveness is ambiguous past LOCK_MAX_AGE_MS. Never steal a live holder. */
+export function reclaimStaleLock(lockPath, now = Date.now()) {
+  let owner
+  let age
+  try {
+    const st = statSync(lockPath)
+    age = now - st.mtimeMs
+    if (age < LOCK_STALE_MS) return false
+    owner = readFileSync(lockPath, "utf8")
+  } catch {
+    return false
+  }
+  const life = classifyLockLiveness(owner)
+  if (life === "alive") return false
+  if (life === "ambiguous" && age < LOCK_MAX_AGE_MS) return false
+  return unlinkLockIfOwner(lockPath, owner)
+}
+
+export function withReservationLock(fn) {
+  const lockPath = `${stateFile()}.lock`
+  mkdirSync(dirname(stateFile()), { recursive: true })
+  const deadline = Date.now() + lockWaitMs()
+  const expectedOwner = ownerBytes()
+  let fd
+  while (true) {
+    try {
+      fd = openSync(lockPath, "wx")
+    } catch (err) {
+      if (err.code !== "EEXIST") throw err
+      if (reclaimStaleLock(lockPath)) continue
+      if (Date.now() >= deadline) {
+        const timeout = new Error("lock wait timed out")
+        timeout.code = "LOCK_TIMEOUT"
+        throw timeout
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5)
+      continue
+    }
+    try {
+      reservationLockWrite.writeFileSync(fd, expectedOwner)
+    } catch (writeErr) {
+      try {
+        closeSync(fd)
+      } catch {
+        // already closed
+      }
+      try {
+        unlinkSync(lockPath)
+      } catch {
+        // lock already gone
+      }
+      throw writeErr
+    }
+    break
+  }
+  try {
+    return fn()
+  } finally {
+    try {
+      closeSync(fd)
+    } catch {
+      // already closed
+    }
+    unlinkLockIfOwner(lockPath, expectedOwner)
+  }
+}
+
+/** Exclusive read-modify-write for reservation state. */
+export function applyReservationMutation(mutator, now = Date.now()) {
+  try {
+    return withReservationLock(() => {
+      const current = loadReservations()
+      const result = mutator(current, now)
+      const next = Array.isArray(result) ? result : result.reservations
+      saveReservations(next)
+      return result
+    })
+  } catch (err) {
+    if (err?.code === "LOCK_TIMEOUT") {
+      return { deny: true, kind: "lock-timeout" }
+    }
+    throw err
+  }
 }

@@ -10,11 +10,16 @@ import {
   US_LATEST_HEAD_CHECK_NAME,
   appendOperatorNoteToPrBody,
   classifyFindingRouting,
+  cliEvidenceOutputHash,
+  cliOutputAttemptStatus,
   commentLooksReviewInProgress,
   decidePushCliAction,
   evaluateReadyPr,
   hasCodeRabbitReviewInProgress,
   isQuietModeWalkthroughBody,
+  protectedCliEvidenceStatus,
+  qaDraftEvidenceVerdict,
+  renderCliEvidenceBlock,
   resolveOperatorNotePlacement,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
 
@@ -348,13 +353,15 @@ test("progress comment tied to a different commit is not the current head", () =
   assert.equal(result.reason, "ready_no_coderabbit_review")
 })
 
-test("push CLI action routes one fix round then leftover-pushes", () => {
+test("push CLI action blocks open Majors and leftover-pushes only capture findings", () => {
   const critical = decidePushCliAction({
     attemptStatus: "findings",
     findings: [{ severity: "critical", id: "c1" }],
     priorRound: 0,
   })
-  assert.equal(critical.action, "route")
+  assert.equal(critical.action, "block")
+  assert.equal(critical.record, "blocked_major_findings")
+  assert.notEqual(critical.action, "route")
   assert.equal(critical.sddToTdd[0].command, "/sdd-to-tdd")
 
   const major = decidePushCliAction({
@@ -362,6 +369,9 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
     findings: [{ severity: "major", id: "m1" }],
     priorRound: 0,
   })
+  assert.equal(major.action, "block")
+  assert.equal(major.record, "blocked_major_findings")
+  assert.notEqual(major.action, "route")
   assert.equal(major.sddToTdd[0].command, "/sdd-to-tdd")
 
   const unknown = decidePushCliAction({
@@ -369,6 +379,7 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
     findings: [{ severity: "nope", id: "u1" }],
     priorRound: 0,
   })
+  assert.equal(unknown.action, "block")
   assert.equal(unknown.sddToTdd[0].command, "/sdd-to-tdd")
 
   const minor = decidePushCliAction({
@@ -403,8 +414,10 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
     findings: [{ severity: "critical", id: "c1" }],
     priorRound: 1,
   })
-  assert.equal(leftover.action, "push")
-  assert.equal(leftover.record, "leftover_after_fix_round")
+  assert.equal(leftover.action, "block")
+  assert.equal(leftover.record, "blocked_major_findings")
+  assert.notEqual(leftover.action, "push")
+  assert.notEqual(leftover.action, "route")
   assert.equal(leftover.leftover.length, 1)
 
   const unavailable = decidePushCliAction({
@@ -412,8 +425,8 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
     findings: [],
     priorRound: 0,
   })
-  assert.equal(unavailable.action, "push")
-  assert.equal(unavailable.record, "unavailable")
+  assert.equal(unavailable.action, "block")
+  assert.equal(unavailable.record, "blocked_cli_unavailable")
 
   const clean = decidePushCliAction({
     attemptStatus: "clean",
@@ -422,9 +435,37 @@ test("push CLI action routes one fix round then leftover-pushes", () => {
   })
   assert.equal(clean.action, "push")
   assert.deepEqual(clean.leftover, [])
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "push.md"),
+    "utf8",
+  )
+  assert.match(command, /`--leftover-record`/)
+  assert.match(
+    command,
+    /top-level `action` is `push` or `block`/,
+  )
+  assert.match(
+    command,
+    /`route` applies only\s+to individual findings/,
+  )
+  assert.match(
+    command,
+    /do not push until blocked findings\s+are resolved/,
+  )
+  assert.match(
+    command,
+    /only when no Critical, Major, or unknown\s+finding is open/,
+  )
+  assert.doesNotMatch(command, /leftover-pushes instead of routing again/)
+  assert.doesNotMatch(command, /must not return `route`/)
+  assert.doesNotMatch(
+    command,
+    /Capture Minor\/Trivial findings and push\r?\n in the same pass/,
+  )
 })
 
-test("timeout or incomplete CLI review blocks push", () => {
+test("timeout, incomplete, or missing-binary CLI review blocks push", () => {
   const timeout = decidePushCliAction({
     attemptStatus: "unavailable",
     reason: "timeout",
@@ -444,6 +485,24 @@ test("timeout or incomplete CLI review blocks push", () => {
   assert.equal(incomplete.action, "block")
   assert.equal(incomplete.record, "missing_complete")
 
+  const missingBinary = decidePushCliAction({
+    attemptStatus: "unavailable",
+    reason: "missing_binary",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(missingBinary.action, "block")
+  assert.equal(missingBinary.record, "missing_binary")
+
+  const error = decidePushCliAction({
+    attemptStatus: "unavailable",
+    reason: "error",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(error.action, "block")
+  assert.equal(error.record, "blocked_cli_unavailable")
+
   const advisory = decidePushCliAction({
     attemptStatus: "unavailable",
     reason: "missing_base",
@@ -452,6 +511,158 @@ test("timeout or incomplete CLI review blocks push", () => {
   })
   assert.equal(advisory.action, "push")
   assert.equal(advisory.record, "unavailable")
+})
+
+test("hand-written or unchecked PR-body marker is not protected CLI evidence", () => {
+  const head = "a".repeat(40)
+  const realJsonl =
+    '{"type":"review_context","reviewedFiles":["lib/example.ts"]}\n{"type":"complete","findings":0,"reviewedFiles":["lib/example.ts"]}\n'
+  const realHash = cliEvidenceOutputHash(realJsonl)
+  const forged = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: "0".repeat(64),
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(forged, head, { cliOutput: realJsonl }),
+    null,
+  )
+  const unmarked = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(unmarked, head, { cliOutput: realJsonl }),
+    null,
+  )
+  const matching = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: realHash,
+  })
+  assert.equal(protectedCliEvidenceStatus(matching, head), null)
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: matching,
+    }).ok,
+    false,
+  )
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: matching,
+    }).reason,
+    "missing_head_evidence",
+  )
+  assert.equal(
+    protectedCliEvidenceStatus(matching, head, { cliOutput: realJsonl }),
+    "clean",
+  )
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: matching,
+      cliOutput: realJsonl,
+    }).ok,
+    true,
+  )
+
+  const findingsJsonl = `${readFileSync(join(FIX, "local-major.jsonl"), "utf8")}`
+  const findingsHash = cliEvidenceOutputHash(findingsJsonl)
+  const lyingClean = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: findingsHash,
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(lyingClean, head, { cliOutput: findingsJsonl }),
+    null,
+  )
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: lyingClean,
+      cliOutput: findingsJsonl,
+    }).ok,
+    false,
+  )
+  const honestFindings = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "findings",
+    hash: findingsHash,
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(honestFindings, head, {
+      cliOutput: findingsJsonl,
+    }),
+    "findings",
+  )
+
+  const incompleteJsonl =
+    '{"type":"review_context","reviewedFiles":["lib/example.ts"]}\n{"type":"finding","id":"cr-major-1","severity":"major","fileName":"lib/example.ts","comment":"logic bug"}\n'
+  assert.equal(cliOutputAttemptStatus(incompleteJsonl), "unavailable")
+  const incompleteHash = cliEvidenceOutputHash(incompleteJsonl)
+  for (const claim of ["findings", "clean", "unavailable"]) {
+    const incompleteBody = renderCliEvidenceBlock({
+      head,
+      attemptStatus: claim,
+      hash: incompleteHash,
+    })
+    assert.equal(
+      protectedCliEvidenceStatus(incompleteBody, head, {
+        cliOutput: incompleteJsonl,
+      }),
+      null,
+      `incomplete JSONL must not count as ${claim} evidence`,
+    )
+    assert.equal(
+      qaDraftEvidenceVerdict({
+        isDraft: true,
+        headSha: head,
+        body: incompleteBody,
+        cliOutput: incompleteJsonl,
+      }).ok,
+      false,
+    )
+  }
+
+  const policySrc = readFileSync(
+    join(process.cwd(), ".cursor", "hooks", "lib", "coderabbit-pr-policy.mjs"),
+    "utf8",
+  )
+  assert.doesNotMatch(policySrc, /expectedHash/)
+  const forgedByOverride = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: "0".repeat(64),
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(forgedByOverride, head, {
+      cliOutput: realJsonl,
+      expectedHash: "0".repeat(64),
+    }),
+    null,
+  )
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "push.md"),
+    "utf8",
+  )
+  const loginFence = command.match(
+    /```powershell\n[\s\S]*?coderabbit auth login[\s\S]*?```/,
+  )
+  assert.ok(loginFence, "push.md PowerShell login fence")
+  assert.match(
+    loginFence[0],
+    /coderabbit auth login --api-key \$env:CODERABBIT_API_KEY/,
+  )
+  assert.doesNotMatch(loginFence[0], /set -[x]/)
+  assert.doesNotMatch(command, /API key authentication configured/i)
 })
 
 test("no formal review on latest head is ready_no_coderabbit_review with operator comment", () => {

@@ -21,7 +21,7 @@ function permission(stdout: string) {
   return JSON.parse(stdout) as { permission?: string }
 }
 
-describe("v0.3.1 gh pr merge matching", () => {
+describe("v0.3.2 gh pr merge matching", () => {
   it("denies plain gh pr merge and leaves MCP merge matching to RES-151", () => {
     expect(detectGhPrMerge("gh pr merge")?.kind).toBe("pr-merge")
     expect(detectGhPrMerge("gh pr merge 12 --squash")?.kind).toBe("pr-merge")

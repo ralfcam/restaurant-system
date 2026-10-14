@@ -86,6 +86,74 @@ function stripFences(text) {
   return out.join("\n")
 }
 
+/** Minimal YAML-frontmatter split for agent name/description. No yaml dep. */
+export function splitFrontmatter(text) {
+  if (!text.startsWith("---\n")) return { data: null, body: text, error: null }
+  const end = text.indexOf("\n---\n", 4)
+  if (end === -1) return { data: null, body: text, error: "unclosed frontmatter" }
+  const raw = text.slice(4, end)
+  const data = {}
+  let currentKey = null
+  let folded = null
+  for (const line of raw.split("\n")) {
+    const keyMatch = /^([A-Za-z0-9_]+):\s*(.*)$/.exec(line)
+    if (keyMatch && !line.startsWith(" ") && !line.startsWith("\t")) {
+      if (currentKey && folded !== null) {
+        data[currentKey] = folded.join(" ").trim()
+      }
+      currentKey = keyMatch[1]
+      const value = keyMatch[2]
+      if (value === ">-" || value === ">" || value === "|" || value === "|-") {
+        data[currentKey] = ""
+        folded = []
+      } else {
+        data[currentKey] = value
+        folded = null
+        currentKey = null
+      }
+      continue
+    }
+    if (currentKey && folded !== null && /^(?: {2}|\t)\s*(.*)$/.test(line)) {
+      folded.push(line.trim())
+    }
+  }
+  if (currentKey && folded !== null) {
+    data[currentKey] = folded.join(" ").trim()
+  }
+  return { data, body: text.slice(end + 5), error: null }
+}
+
+export function agentFrontmatterViolations(rel, text) {
+  const document = splitFrontmatter(text)
+  if (document.error) return [`${rel}: ${document.error}`]
+  const data = document.data
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return [`${rel}: missing YAML frontmatter`]
+  }
+  const violations = []
+  if (typeof data.name !== "string" || !data.name.trim()) {
+    violations.push(`${rel}: missing name`)
+  }
+  if (typeof data.description !== "string" || !data.description.trim()) {
+    violations.push(`${rel}: missing description`)
+  }
+  return violations
+}
+
+function checkAgentFrontmatter() {
+  const dir = join(ROOT, ".cursor", "agents")
+  if (!existsSync(dir)) return
+  for (const path of walk(dir, ".md")) {
+    const rel = path.slice(ROOT.length + 1).replaceAll("\\", "/")
+    for (const message of agentFrontmatterViolations(
+      rel,
+      readFileSync(path, "utf8"),
+    )) {
+      fail("agent-frontmatter", message)
+    }
+  }
+}
+
 function checkLinks() {
   const files = [
     ...walk(join(ROOT, ".cursor", "rules"), ".mdc"),
@@ -1435,6 +1503,7 @@ export function runHarnessLint() {
   checkClarificationLoop()
   checkReviewFixContracts()
   checkCoderabbitContracts()
+  checkAgentFrontmatter()
 
   if (violations.length) {
     for (const v of violations) console.error(v)

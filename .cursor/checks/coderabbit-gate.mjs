@@ -177,6 +177,9 @@ function readPinnedAuth(cwd, { timeoutMs } = {}) {
   }
   const bin = resolveCrBinary()
   const versionRun = spawnTimed(bin, ["--version"], { cwd, timeoutMs })
+  if (versionRun.error?.code === "ENOENT") {
+    return { missingBinary: true, bin }
+  }
   if (
     versionRun.error?.code === "ETIMEDOUT" ||
     versionRun.signal === "SIGTERM"
@@ -187,6 +190,9 @@ function readPinnedAuth(cwd, { timeoutMs } = {}) {
     cwd,
     timeoutMs,
   })
+  if (authRun.error?.code === "ENOENT") {
+    return { missingBinary: true, bin }
+  }
   if (authRun.error?.code === "ETIMEDOUT" || authRun.signal === "SIGTERM") {
     return { timedOut: true, bin }
   }
@@ -345,15 +351,19 @@ async function main() {
   } else {
     try {
       pinned = readPinnedAuth(cwd, { timeoutMs })
-      if (pinned.timedOut) {
+      if (pinned.missingBinary) {
+        evaluated = unavailable("missing_binary", [], waivers)
+      } else if (pinned.timedOut) {
         evaluated = unavailable("timeout", [], waivers)
       }
-      authCheck = pinned.timedOut
-        ? { ok: false, reason: "timeout" }
-        : assertPinnedUsAuth({
-            version: pinned.version,
-            auth: pinned.auth,
-          })
+      authCheck = pinned.missingBinary
+        ? { ok: false, reason: "missing_binary" }
+        : pinned.timedOut
+          ? { ok: false, reason: "timeout" }
+          : assertPinnedUsAuth({
+              version: pinned.version,
+              auth: pinned.auth,
+            })
       if (!authCheck.ok) {
         evaluated = unavailable(authCheck.reason, [], waivers)
       } else {
@@ -443,7 +453,9 @@ async function main() {
         priorRound,
       })
     : null
-  const ok = !decision || decision.action !== "block"
+  const ok =
+    !decision ||
+    (decision.action !== "block" && decision.action !== "stop")
   const startedRound =
     decision?.action === "route" ? priorRound + 1 : priorRound
   if (decision?.action === "route") {
@@ -479,6 +491,7 @@ async function main() {
       2,
     ),
   )
+  if (!ok) process.exit(1)
 }
 
 if (resolve(process.argv[1] || "") === fileURLToPath(import.meta.url)) {

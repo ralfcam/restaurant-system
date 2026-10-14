@@ -154,22 +154,23 @@ heads skip it.
 ### 1b. Local CodeRabbit CLI (one pass, branch diff vs `origin/staging`)
 
 After the whole-suite gate is green, after the cursor-head firewall has
-finalized `HEAD`, and **before** `git push`, run **one** mandatory advisory
-local CodeRabbit attempt over the whole committed branch
-diff against `origin/staging`:
+finalized `HEAD`, and **before** `git push`, authenticate the pinned CLI
+(do not print the key), then run **one** mandatory local CodeRabbit
+attempt over the whole committed branch diff against `origin/staging`:
 
 ```powershell
+coderabbit auth login --api-key $env:CODERABBIT_API_KEY
 node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging [--fix-round <n>]
 ```
 
 Pass `--fix-round <n>` from the prior gate output (`fixRound`) when this
 is the same remediation cycle, or pass the leftover record from the PR
-body (`--leftover-record`). On `route`, `fixRound` is the started round
-(1 on the first route), not 0. That cycle survives a new HEAD and a new
-VM. After a successful `git push`, run
+body (`--leftover-record`) to resolve a prior round. `fixRound` is the
+started round (1 on the first blocked-major cycle), not 0. That cycle
+survives a new HEAD and a new VM. After a successful `git push`, run
 `node .cursor/checks/coderabbit-gate.mjs --ack-push` so the saved cycle
 clears only once the publish landed. A failed push keeps the started
-round so the next attempt leftover-pushes instead of routing again.
+round so `--leftover-record` can resolve it on the next attempt.
 
 `/commit` does not run the CLI. Do not run a dirty-tree work-order review
 here. Fetch `origin/staging` first when that ref is missing.
@@ -180,28 +181,33 @@ findings). Severity routing matches `/ready-merge-release` without `--loop`:
 - Critical / Major / unknown → `/sdd-to-tdd` as an immediate fix
 - Minor / Trivial → `/capture`
 
-**One fix round only.** If `action` is `route` and `sddToTdd` is nonempty,
-STOP. Do not push, do not create or edit a PR. Emit the paste-ready
-`/sdd-to-tdd` fences, then `/commit`, then `/push` again. Capture
-Minor/Trivial findings and push in the same pass. Only route or stop when
-there are `/sdd-to-tdd` findings.
+The gate's top-level `action` is `push` or `block`. `route` applies only
+to individual findings (`sdd-to-tdd` or `capture`), never as a gate
+action.
 
-If this is already the second `/push` after that fix round (`action` is
-`push` with leftover findings, `record` is `leftover_after_fix_round`),
-push anyway and list the leftover findings in the PR body (create or
-append-only edit). Do not open a third CLI pass.
+If `action` is `block` and `record` is `blocked_major_findings`, STOP.
+Do not push, do not create or edit a PR. The gate is `ok: false`.
+Emit the paste-ready `/sdd-to-tdd` fences for Critical/Major/unknown,
+then `/commit`, then `/push` again. You may `/capture` Minor/Trivial
+findings in the current pass, but do not push until blocked findings
+are resolved.
 
-If `action` is `block` (`reason` is `timeout` or `missing_complete`),
-STOP. Do not push, and do not describe the attempt as clean. Record the
-incomplete review on the PR body and in this report.
+If `action` is `push` and only Minor/Trivial findings are open, capture
+them and push in the same pass only when no Critical, Major, or unknown
+finding is open.
 
-If the CLI is unavailable for other reasons (no key, error, missing
-`origin/staging`, skipped review, malformed JSONL), `action` is `push`
-and `attemptStatus` is `unavailable`. Push and record that reason on the
-PR body and in this report. Never wait forever for the CLI.
+If `action` is `block` (`reason` is `timeout`, `missing_complete`,
+`missing_binary`, `blocked_cli_unavailable`, or `blocked_major_findings`),
+STOP. Do not push, and do not describe the attempt as clean. A finished
+review with open Majors is `ok: false` / `action: block` — never
+`ok: true`. Record the stop on the PR body and in this report.
 
-A non-zero gate exit and `secret_path` never block the push. Record the
-reason on the PR body and continue. `.env.example` is not a secret path.
+If the CLI is unavailable, times out, or the binary is missing, the gate
+exits non-zero with `action: block`. STOP. Do not push. Never wait
+forever for the CLI.
+
+A `--branch-diff` `secret_path` stays advisory. `.env.example` is not a
+secret path. Record that reason on the PR body and continue.
 
 A missing receipt is non-blocking. Receipts never authorize `git push`.
 
@@ -377,11 +383,14 @@ reason: <reason>
    `/capture`.
    1a. On a `cursor/` head, run the cursor-head firewall and any
    `origin/staging` merge so `HEAD` is final.
-   1b. Run one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass
-   against that finalized `HEAD`. On `action: route`, STOP and hand
-   Critical/Major/unknown to `/sdd-to-tdd` and Minor/Trivial to `/capture`,
-   then `/commit` then `/push`. After one fix round, push anyway and list
-   leftover findings. Unavailable CLI: push and record. Never wait forever.
+   1b. Run `coderabbit auth login --api-key $env:CODERABBIT_API_KEY`, then
+   one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass
+   against that finalized `HEAD`. On `action: block` with
+   `blocked_major_findings`, STOP and hand Critical/Major/unknown to
+   `/sdd-to-tdd`. Capture Minor/Trivial in the current pass, but do
+   not push until blocked findings are resolved. Unavailable CLI,
+   timeout, or a missing binary: STOP (`action: block`, non-zero
+   exit). Never wait forever.
 2. Push the current branch if it has unpushed commits (skip with a note if
    nothing to push, or if a pinned PR's head differs).
 3. Resolve the PR — pinned via the argument, or auto-discovered by current
@@ -454,13 +463,13 @@ Tone: professional and actionable. Length: concise.
 Exactly these sections:
 
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
-2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI routed findings (one fix round)" ; CLI: `clean` | `findings routed` | `leftover listed` | `unavailable recorded`.
+2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI blocked (unavailable / timeout / missing binary / open Majors)" ; CLI: `clean` | `findings blocked` | `unavailable blocked`.
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Review request** — "deferred — PR is draft; CodeRabbit reviews now and `/ready-merge-release <n>` owns readiness" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the ready-for-merge event".
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — wait for its CodeRabbit review, then run `/ready-merge-release <n>`; merge only on `APPROVED FOR OPERATOR MERGE`" | "PR open — run `/ready-merge-release <n>`" | "merge `<PR-URL>` in the GitHub UI only after `/ready-merge-release <n>` returns `APPROVED FOR OPERATOR MERGE` — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: route`: the paste-ready `/sdd-to-tdd` and/or `/capture` fences, then `/commit`, then `/push`.
+8. **Operator next** — "draft PR open — wait for its CodeRabbit review, then run `/ready-merge-release <n>`; merge only on `APPROVED FOR OPERATOR MERGE`" | "PR open — run `/ready-merge-release <n>`" | "merge `<PR-URL>` in the GitHub UI only after `/ready-merge-release <n>` returns `APPROVED FOR OPERATOR MERGE` — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: block` with `blocked_major_findings`: the paste-ready `/sdd-to-tdd` fences, then `/commit`, then `/push`.
    </output_format>
    </instructions>
    </output>

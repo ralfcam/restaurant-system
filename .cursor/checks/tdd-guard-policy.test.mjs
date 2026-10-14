@@ -12,9 +12,11 @@ import {
   detectGhPrMerge,
   detectGitCommit,
   disarm,
+  extractPath,
+  isProtected,
+  PROTECTED_PREFIXES,
   evaluateGateOpen,
   evaluateGitCommitPermission,
-  extractPath,
   getCommitExempt,
   isArmedStateFile,
   isDesignSpecLaneSet,
@@ -214,6 +216,348 @@ test("detectGhPrMerge denies gh pr merge and allows other gh pr commands", () =>
   assert.equal(detectGhPrMerge("gh pr view 1"), null)
   assert.equal(detectGhPrMerge("gh pr edit --add-reviewer foo"), null)
   assert.equal(detectGhPrMerge("gh pr ready 1"), null)
+})
+
+test("detectGhPrMerge denies wrapped and alternate gh pr merge forms", () => {
+  assert.equal(detectGhPrMerge("env FOO=1 gh pr merge").kind, "pr-merge")
+  assert.equal(
+    detectGhPrMerge('bash -c "gh pr merge 12 --squash"').kind,
+    "pr-merge",
+  )
+  assert.equal(detectGhPrMerge("npx gh pr merge").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("alias ghm='gh pr merge'").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("/usr/bin/gh pr merge").kind, "pr-merge")
+  assert.equal(
+    detectGhPrMerge("/opt/homebrew/bin/gh pr merge --squash").kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies gh -R repo pr merge", () => {
+  assert.equal(detectGhPrMerge("gh -R o/r pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("gh -R pr merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies gh --repo before pr merge", () => {
+  assert.equal(detectGhPrMerge("gh --repo o/r pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("gh --repo=o/r pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("gh --repo pr merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies quoted documentation of a merge command in Shell", () => {
+  assert.equal(detectGhPrMerge('echo "gh pr merge"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge('echo "gh -R o/r pr merge"').kind, "pr-merge")
+  assert.equal(
+    detectGhPrMerge('git commit -m "document gh pr merge"').kind,
+    "pr-merge",
+  )
+  assert.equal(
+    detectGhPrMerge('bash -c "gh pr merge 12 --squash"').kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies -R and --repo inside wrapped commands", () => {
+  assert.equal(
+    detectGhPrMerge('bash -c "gh -R o/r pr merge 1"').kind,
+    "pr-merge",
+  )
+  assert.equal(
+    detectGhPrMerge("bash -c 'gh --repo o/r pr merge 1'").kind,
+    "pr-merge",
+  )
+  assert.equal(
+    detectGhPrMerge('sh -c "gh --repo=o/r pr merge 1"').kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies bundled short flags containing c", () => {
+  assert.equal(detectGhPrMerge('bash -lc "gh pr merge 1"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge('sh -ec "gh pr merge 1"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge('zsh -ic "gh pr merge 1"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge('dash -c "gh pr merge 1"').kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies pwsh and powershell wrappers", () => {
+  assert.equal(detectGhPrMerge('pwsh -c "gh pr merge 1"').kind, "pr-merge")
+  assert.equal(
+    detectGhPrMerge('powershell -Command "gh pr merge 1"').kind,
+    "pr-merge",
+  )
+  assert.equal(detectGhPrMerge('pwsh -Command "gh pr merge 1"').kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies EncodedCommand including undecodable payloads", () => {
+  const encoded = Buffer.from("gh pr merge 1", "utf16le").toString("base64")
+  assert.equal(
+    detectGhPrMerge(`powershell -EncodedCommand ${encoded}`).kind,
+    "pr-merge",
+  )
+  assert.equal(
+    detectGhPrMerge("powershell -EncodedCommand !!!not-base64!!!").kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies cmd /c and /k wrappers", () => {
+  assert.equal(detectGhPrMerge('cmd /c "gh pr merge 1"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge('cmd /k "gh pr merge 1"').kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies sudo nohup time pnpm and path launchers", () => {
+  assert.equal(detectGhPrMerge("sudo gh pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("nohup gh pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("time gh pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("npx gh pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pnpm exec gh pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pnpm dlx gh pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge('/bin/bash -c "gh pr merge 1"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge("alias ghm='gh pr merge'").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies nested launchers including -R and --repo", () => {
+  assert.equal(
+    detectGhPrMerge('sudo bash -lc "gh pr merge 1"').kind,
+    "pr-merge",
+  )
+  assert.equal(detectGhPrMerge("nohup env FOO=1 gh pr merge").kind, "pr-merge")
+  assert.equal(
+    detectGhPrMerge('sudo bash -lc "gh -R o/r pr merge 1"').kind,
+    "pr-merge",
+  )
+  assert.equal(
+    detectGhPrMerge('pwsh -c "gh --repo o/r pr merge 1"').kind,
+    "pr-merge",
+  )
+  assert.equal(
+    detectGhPrMerge('cmd /c "gh --repo=o/r pr merge 1"').kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies echo commit and echo-inside-bash documentation", () => {
+  assert.equal(detectGhPrMerge('echo "gh pr merge"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge("echo gh pr merge").kind, "pr-merge")
+  assert.equal(
+    detectGhPrMerge('git commit -m "document gh pr merge"').kind,
+    "pr-merge",
+  )
+  assert.equal(detectGhPrMerge('echo "gh -R o/r pr merge 1"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge('bash -c "echo gh pr merge"').kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies newline-separated tokens", () => {
+  assert.equal(detectGhPrMerge("gh\npr\nmerge").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies single ampersand chain", () => {
+  assert.equal(detectGhPrMerge("true & gh pr merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies env-var prefix", () => {
+  assert.equal(detectGhPrMerge("FOO=1 gh pr merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies subshell", () => {
+  assert.equal(detectGhPrMerge("(gh pr merge 1)").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies command substitution", () => {
+  assert.equal(detectGhPrMerge("echo $(gh pr merge 1)").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies if/then", () => {
+  assert.equal(detectGhPrMerge("if true; then gh pr merge 1; fi").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies repo flag between pr and merge", () => {
+  assert.equal(detectGhPrMerge("gh pr -R o/r merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies PowerShell call operator and abbreviated params", () => {
+  assert.equal(detectGhPrMerge('pwsh -c "& gh pr merge 1"').kind, "pr-merge")
+  assert.equal(detectGhPrMerge('pwsh -com "gh pr merge 1"').kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies exec and command builtins", () => {
+  assert.equal(detectGhPrMerge("exec gh pr merge 1").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("command gh pr merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies split quotes", () => {
+  assert.equal(detectGhPrMerge("g\"h\" p'r' merge").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies pwsh -e encoded payload", () => {
+  const encoded = Buffer.from("gh pr merge 1", "utf16le").toString("base64")
+  assert.equal(detectGhPrMerge(`pwsh -e ${encoded}`).kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies pwsh encoded flags without merge tokens", () => {
+  assert.equal(detectGhPrMerge("pwsh -e x").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pwsh -ec x").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pwsh -enc x").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pwsh -enco x").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pwsh -EncodedCommand x").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pwsh /EncodedCommand x").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("pwsh /ec x").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies mixed-case encoded flags without merge tokens", () => {
+  assert.equal(detectGhPrMerge("pwsh -EnCoDeDcOmMaNd x").kind, "pr-merge")
+  assert.equal(detectGhPrMerge("powershell -E x").kind, "pr-merge")
+})
+
+test("detectGhPrMerge does not treat Command or ExecutionPolicy as encoded", () => {
+  assert.equal(
+    detectGhPrMerge('pwsh -ExecutionPolicy Bypass -Command "echo hello"'),
+    null,
+  )
+  assert.equal(detectGhPrMerge('pwsh -Command "echo hello"'), null)
+  assert.equal(
+    detectGhPrMerge('pwsh -Command "echo gh pr merge"').kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge allows ordinary commands without all three tokens", () => {
+  assert.equal(detectGhPrMerge("gh pr view 1"), null)
+  assert.equal(detectGhPrMerge("gh pr create --base staging"), null)
+  assert.equal(detectGhPrMerge("gh pr ready 1"), null)
+  assert.equal(detectGhPrMerge("git merge"), null)
+  assert.equal(detectGhPrMerge("echo hello"), null)
+  assert.equal(detectGhPrMerge("pnpm test"), null)
+})
+
+test("detectGhPrMerge denies backslash-split gh", () => {
+  assert.equal(detectGhPrMerge("g\\h pr merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies backtick-split gh", () => {
+  assert.equal(detectGhPrMerge("g" + "`" + "h pr merge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies expansion-assembled merge token", () => {
+  assert.equal(detectGhPrMerge("m=mer; gh pr ${m}ge 1").kind, "pr-merge")
+})
+
+test("detectGhPrMerge denies api pulls merge path with method", () => {
+  assert.equal(
+    detectGhPrMerge("gh api -X PUT repos/o/r/pulls/5/merge").kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies api pulls merge path without method", () => {
+  assert.equal(
+    detectGhPrMerge("gh api repos/o/r/pulls/5/merge").kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies api pulls merge path with method equals", () => {
+  assert.equal(
+    detectGhPrMerge("gh api --method=PUT repos/o/r/pulls/5/merge").kind,
+    "pr-merge",
+  )
+})
+
+test("detectGhPrMerge denies gh pr view with dollar expansion", () => {
+  assert.equal(detectGhPrMerge("gh pr view $VAR").kind, "pr-merge")
+})
+
+test("detectGhPrMerge allows api pulls path without merge", () => {
+  assert.equal(detectGhPrMerge("gh api repos/o/r/pulls/5"), null)
+})
+
+test("git-stage-guard denies api pulls merge path and names the Write alternative", async () => {
+  const payload = JSON.stringify({
+    tool_name: "Shell",
+    tool_input: { command: "gh api repos/o/r/pulls/5/merge" },
+  })
+  const { code, out } = await runGuard("git-stage-guard.mjs", payload)
+  assert.equal(code, 0)
+  const body = JSON.parse(out)
+  assert.equal(body.permission, "deny")
+  for (const text of [body.user_message, body.agent_message]) {
+    assert.match(text, /\bgh\b/)
+    assert.match(text, /\bmerge\b/)
+    assert.match(text, /GitHub UI/)
+    assert.match(text, /git commit -F/)
+  }
+})
+
+test("detectGhPrMerge fail-closed on throwing command object", () => {
+  const evil = {
+    toLowerCase() {
+      throw new Error("boom")
+    },
+    replace() {
+      throw new Error("boom")
+    },
+    trim() {
+      throw new Error("boom")
+    },
+  }
+  assert.equal(detectGhPrMerge(evil).kind, "pr-merge")
+})
+
+test("git-stage-guard denies Shell tokens and names the Write alternative", async () => {
+  const payload = JSON.stringify({
+    tool_name: "Shell",
+    tool_input: { command: "gh pr merge 1" },
+  })
+  const { code, out } = await runGuard("git-stage-guard.mjs", payload)
+  assert.equal(code, 0)
+  const body = JSON.parse(out)
+  assert.equal(body.permission, "deny")
+  for (const text of [body.user_message, body.agent_message]) {
+    assert.match(text, /\bgh\b/)
+    assert.match(text, /\bpr\b/)
+    assert.match(text, /\bmerge\b/)
+    assert.match(text, /GitHub UI/)
+    assert.match(text, /git commit -F/)
+  }
+})
+
+test("paths with . and .. are normalised before classification", () => {
+  assert.equal(isProtected("docs/../app/page.tsx"), true)
+  assert.equal(
+    extractPath({ path: "docs/./specs/foo.md" }),
+    "docs/specs/foo.md",
+  )
+  assert.equal(
+    extractPath({ path: "src/../.cursor/hooks/lib/x.mjs" }),
+    ".cursor/hooks/lib/x.mjs",
+  )
+  assert.equal(
+    checkTddWrite("docs/../app/page.tsx", { depth: 0, phase: null })?.kind,
+    "delegation",
+  )
+  assert.equal(
+    checkTddWrite("src/../docs/specs/foo.md", { depth: 1, phase: "green" })
+      ?.kind,
+    "spec",
+  )
+})
+
+test(".cursor/hooks/ is a protected prefix", () => {
+  assert.ok(PROTECTED_PREFIXES.includes(".cursor/hooks/"))
+  assert.equal(isProtected(".cursor/hooks/tdd-guard.mjs"), true)
+  assert.equal(isProtected(".cursor/hooks/lib/tdd-guard-policy.mjs"), true)
+  assert.equal(
+    checkTddWrite(".cursor/hooks/tdd-guard.mjs", { depth: 0, phase: null })
+      ?.kind,
+    "delegation",
+  )
+  assert.equal(
+    checkTddWrite(".cursor/hooks/state/tdd-guard.json", {
+      depth: 0,
+      phase: null,
+    }),
+    null,
+  )
 })
 
 test("red phase denies a lib/ path and allows tests/", () => {

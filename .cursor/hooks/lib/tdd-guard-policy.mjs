@@ -13,7 +13,7 @@
 import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { dirname, join } from "node:path"
+import { dirname, join, posix } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -34,6 +34,7 @@ export const PROTECTED_PREFIXES = [
   "hooks/",
   "src/",
   "supabase/",
+  ".cursor/hooks/",
 ]
 
 /**
@@ -282,24 +283,27 @@ function sameOrSegmentPrefixed(full, part) {
 }
 
 /** True only for the exact resolved statePath() or the repo-relative armed file. */
+function collapseDots(p) {
+  return posix.normalize(String(p || "").replace(/\\/g, "/"))
+}
+
 export function isArmedStateFile(relPath) {
-  const slash = String(relPath || "").replace(/\\/g, "/")
+  if (!relPath) return false
+  const slash = collapseDots(relPath)
   if (!slash) return false
-  const armed = statePath().replace(/\\/g, "/")
-  return (
-    sameOrSegmentPrefixed(slash, armed) || slash === ARMED_STATE_REL
-  )
+  const armed = collapseDots(statePath())
+  return sameOrSegmentPrefixed(slash, armed) || slash === ARMED_STATE_REL
 }
 
 /** Guard state files under `.cursor/hooks/state/` (or a normalized `hooks/state/`). */
 export function isGuardStatePath(relPath) {
-  const slash = String(relPath || "").replace(/\\/g, "/")
+  const slash = collapseDots(relPath)
   return GUARD_STATE_MARKERS.some((marker) => slash.includes(marker))
 }
 
 /** The Linear allow-flag file. Only linear-resolver subagentStart may write it. */
 export function isLinearWriterStateFile(relPath) {
-  const slash = String(relPath || "").replace(/\\/g, "/")
+  const slash = collapseDots(relPath)
   return new RegExp(
     `(?:^|/)(?:\\.cursor/)?hooks/state/${LINEAR_WRITER_BASENAME}$`,
   ).test(slash)
@@ -396,8 +400,12 @@ export function recordDisarm({
 }
 
 /** Deny parent writes while armed until a Task invocation has succeeded.
- *  Escape is the armed-state file only — not linear-writer.json or other state. */
-export function checkTaskAvailabilityWrite(relPath, { armed, taskAvailable }) {
+ *  Escape is the armed-state file only — not linear-writer.json or other state.
+ *  `depth` is ignored: a pre-Task depth>0 claim is not a subagent. */
+export function checkTaskAvailabilityWrite(
+  relPath,
+  { armed, taskAvailable } = {},
+) {
   if (!armed) return null
   if (taskAvailable) return null
   if (isArmedStateFile(relPath)) return null
@@ -737,10 +745,11 @@ export function extractPath(toolInput) {
 }
 
 function normalize(p) {
-  // Strip a leading absolute repo path and normalize slashes to forward slashes.
-  // Prefer the leftmost repo root so a nested spoof (lib/.cursor/...) stays
-  // under that prefix instead of collapsing onto .cursor/hooks/state/.
-  let s = String(p).replace(/\\/g, "/")
+  // Resolve `.` / `..`, then strip a leading absolute repo path and
+  // normalize slashes. Prefer the leftmost repo root so a nested spoof
+  // (lib/.cursor/...) stays under that prefix instead of collapsing onto
+  // .cursor/hooks/state/.
+  let s = posix.normalize(String(p).replace(/\\/g, "/"))
   const roots = [
     ".cursor/",
     "docs/",
@@ -766,17 +775,19 @@ function normalize(p) {
 
 export function isProtected(relPath) {
   if (!relPath) return false
-  return PROTECTED_PREFIXES.some((p) => relPath.startsWith(p))
+  const path = normalize(relPath)
+  return PROTECTED_PREFIXES.some((p) => path.startsWith(p))
 }
 
 export function isSpecPath(relPath) {
   if (!relPath) return false
-  return relPath.startsWith(SPEC_PREFIX) || relPath.startsWith(ADR_PREFIX)
+  const path = normalize(relPath)
+  return path.startsWith(SPEC_PREFIX) || path.startsWith(ADR_PREFIX)
 }
 
 export function isTestsPath(relPath) {
   if (!relPath) return false
-  return relPath.startsWith(TESTS_PREFIX)
+  return normalize(relPath).startsWith(TESTS_PREFIX)
 }
 
 /**
@@ -794,14 +805,16 @@ export function isTestsPath(relPath) {
  * edit. Depth-only deny treated that parent write as a subagent edit.
  */
 export function checkTddWrite(relPath, { depth, phase }) {
-  if (isSpecPath(relPath) && VALID_PHASES.includes(phase)) {
+  const path = normalize(relPath)
+  if (isArmedStateFile(path)) return null
+  if (isSpecPath(path) && VALID_PHASES.includes(phase)) {
     return { deny: true, kind: "spec" }
   }
-  if (!isProtected(relPath)) return null
+  if (!isProtected(path)) return null
   if (depth > 0) {
-    if (phase === "red" && !isTestsPath(relPath))
+    if (phase === "red" && !isTestsPath(path))
       return { deny: true, kind: "phase-red" }
-    if ((phase === "green" || phase === "refactor") && isTestsPath(relPath)) {
+    if ((phase === "green" || phase === "refactor") && isTestsPath(path)) {
       return { deny: true, kind: "phase-tests" }
     }
     return null
@@ -840,20 +853,81 @@ export function detectBlanketGitStage(command) {
   return null
 }
 
-/** Detect `gh pr merge` in a shell command string. Segments on &&/;/|/||
- * so it also catches chained invocations. Returns null when nothing matches. */
+/** Word-tokens after stripping quotes, backslash, and backtick. */
+function stripQuotesAndEscapes(text) {
+  return String(text).replace(/['"\\`]/g, "")
+}
+
+function wordTokens(text) {
+  return stripQuotesAndEscapes(text).toLowerCase().match(/[a-z0-9]+/g) || []
+}
+
+function hasGhPrMergeTokens(text) {
+  const tokens = new Set(wordTokens(text))
+  return tokens.has("gh") && tokens.has("pr") && tokens.has("merge")
+}
+
+function hasExpansionAssembly(raw) {
+  const tokens = new Set(wordTokens(raw))
+  if (!tokens.has("gh")) return false
+  if (!tokens.has("pr") && !tokens.has("api")) return false
+  return /[$%\\`]/.test(String(raw))
+}
+
+function hasApiPullsMerge(raw) {
+  const tokens = new Set(wordTokens(raw))
+  if (!tokens.has("gh") || !tokens.has("api")) return false
+  const parts = String(raw).replace(/['"]/g, "").split(/\s+/).filter(Boolean)
+  return parts.some((part) => {
+    if (!part.includes("/")) return false
+    const segs = part.toLowerCase().split(/\/+/)
+    return segs.includes("pulls") && segs.includes("merge")
+  })
+}
+
+function isEncodedFlag(token) {
+  const t = String(token).toLowerCase()
+  if (!t.startsWith("-") && !t.startsWith("/")) return false
+  const name = t.slice(1)
+  if (name === "ec") return true
+  return name.length >= 1 && "encodedcommand".startsWith(name)
+}
+
+function encodedPowershellDenies(original) {
+  const stripped = String(original).replace(/['"]/g, "")
+  const words = wordTokens(stripped)
+  if (!words.includes("pwsh") && !words.includes("powershell")) return false
+  const parts = stripped.split(/\s+/).filter(Boolean)
+  return parts.some((part) => isEncodedFlag(part))
+}
+
+/** Detect gh + pr + merge word-tokens anywhere in a Shell command. */
 export function detectGhPrMerge(command) {
-  if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
-  for (const rawSeg of segments) {
-    const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
-    const ghIdx = tokens.indexOf("gh")
-    if (ghIdx === -1) continue
-    if (tokens[ghIdx + 1] === "pr" && tokens[ghIdx + 2] === "merge") {
-      return { kind: "pr-merge", segment: rawSeg.trim() }
+  try {
+    const lowered = command.toLowerCase()
+    const stripped = stripQuotesAndEscapes(lowered)
+    if (!stripped.trim()) return null
+    const segment = typeof command === "string" ? command.trim() : stripped.trim()
+    if (encodedPowershellDenies(command)) {
+      return { kind: "pr-merge", segment, reason: "encoded" }
+    }
+    if (hasExpansionAssembly(command)) {
+      return { kind: "pr-merge", segment, reason: "expansion" }
+    }
+    if (hasApiPullsMerge(command)) {
+      return { kind: "pr-merge", segment, reason: "api-merge" }
+    }
+    if (hasGhPrMergeTokens(stripped)) {
+      return { kind: "pr-merge", segment, reason: "tokens" }
+    }
+    return null
+  } catch {
+    return {
+      kind: "pr-merge",
+      segment: typeof command === "string" ? command : "",
+      reason: "parse",
     }
   }
-  return null
 }
 
 /** Detect any `git commit` in a shell command string. Segments on &&/;/|/||

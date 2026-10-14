@@ -66,6 +66,7 @@ function harnessCheckout() {
   }
   rmSync(join(root, ".cursor", "bootstrap-state.json"), { force: true })
   rmSync(join(root, ".cursor", "bootstrap-work"), { recursive: true, force: true })
+  writeFileSync(join(root, ".cursor", "settings.json"), "{}\n")
   const configPath = join(root, ".cursor", "harness.json")
   const config = JSON.parse(readFileSync(configPath, "utf8"))
   writeFileSync(

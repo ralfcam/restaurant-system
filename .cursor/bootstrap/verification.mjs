@@ -68,6 +68,110 @@ export function serializeLocalEnvironment(values) {
   return `${lines.join("\n")}\n`
 }
 
+export function parseEnvAssignments(text) {
+  const values = {}
+  for (const record of tokenizeEnvFile(text)) {
+    if (record.type === "assignment") values[record.key] = record.value
+  }
+  return values
+}
+
+function unescapedQuoteIndex(text, quote, start) {
+  for (let index = start; index < text.length; index += 1) {
+    if (text[index] === "\\") {
+      index += 1
+      continue
+    }
+    if (text[index] === quote) return index
+  }
+  return -1
+}
+
+function quotedValueClosed(value, quote, from = 0) {
+  return unescapedQuoteIndex(value, quote, from) !== -1
+}
+
+function tokenizeEnvFile(text) {
+  const source = String(text || "")
+  const lines = source.split(/\r?\n/)
+  const records = []
+  let index = 0
+  while (index < lines.length) {
+    if (index === lines.length - 1 && lines[index] === "" && /(?:\r?\n)$/.test(source)) {
+      break
+    }
+    const line = lines[index]
+    const trimmed = line.trim()
+    if (!trimmed) {
+      records.push({ type: "blank", raw: line })
+      index += 1
+      continue
+    }
+    if (trimmed.startsWith("#")) {
+      records.push({ type: "comment", raw: line })
+      index += 1
+      continue
+    }
+    const exported = /^(export[ \t]+)([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
+    const plain = exported ? null : /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/.exec(line)
+    const match = exported || plain
+    if (!match) {
+      records.push({ type: "other", raw: line })
+      index += 1
+      continue
+    }
+    const key = exported ? match[2] : match[1]
+    const first = exported ? match[3] : match[2]
+    const quote = first.startsWith('"') ? '"' : first.startsWith("'") ? "'" : ""
+    const rawLines = [line]
+    let end = index
+    if (quote && !quotedValueClosed(first, quote, 1)) {
+      end += 1
+      while (end < lines.length) {
+        rawLines.push(lines[end])
+        if (quotedValueClosed(lines[end], quote, 0)) break
+        end += 1
+      }
+    }
+    records.push({
+      type: "assignment",
+      key,
+      exported: Boolean(exported),
+      value: [first, ...rawLines.slice(1)].join("\n"),
+      raw: rawLines.join("\n"),
+    })
+    index = end + 1
+  }
+  return records
+}
+
+export function mergeLocalEnvironment(existingText, values) {
+  const incoming = parseEnvAssignments(serializeLocalEnvironment(values))
+  if (!String(existingText || "")) {
+    return serializeLocalEnvironment(values)
+  }
+  const seen = new Set()
+  const lines = []
+  for (const record of tokenizeEnvFile(existingText)) {
+    if (record.type !== "assignment") {
+      lines.push(record.raw)
+      continue
+    }
+    seen.add(record.key)
+    if (Object.hasOwn(incoming, record.key)) {
+      lines.push(
+        `${record.exported ? "export " : ""}${record.key}=${incoming[record.key]}`,
+      )
+    } else {
+      lines.push(record.raw)
+    }
+  }
+  for (const [key, value] of Object.entries(incoming)) {
+    if (!seen.has(key)) lines.push(`${key}=${value}`)
+  }
+  return `${lines.join("\n")}\n`
+}
+
 function migrationFiles(directory, output = []) {
   if (!existsSync(directory)) return output
   for (const name of readdirSync(directory).sort()) {
@@ -125,7 +229,10 @@ export async function executeLocalVerification(
   )
   const values = parseSupabaseEnvironment(status)
   const envPath = join(root, ".env.local")
-  writeFileAtomic(envPath, serializeLocalEnvironment(values), { mode: 0o600 })
+  const previous = existsSync(envPath) ? readFileSync(envPath, "utf8") : ""
+  writeFileAtomic(envPath, mergeLocalEnvironment(previous, values), {
+    mode: 0o600,
+  })
   chmodSync(envPath, 0o600)
   run(
     "pnpm",

@@ -64,10 +64,14 @@ export function setAllowed(allowed) {
   saveState({ allowed: Boolean(allowed) })
 }
 
-/** `{ deny: true }` when a guarded Linear writer runs with the flag off. */
+/** `{ deny: true }` when a guarded Linear writer runs with the flag off.
+ *  Unknown server (HP-002b): deny guarded mutations instead of failing open. */
 export function checkLinearWrite(server, toolName, allowed = isAllowed()) {
-  if (!isLinearServer(server)) return null
   if (!isLinearWriteTool(toolName)) return null
-  if (allowed) return null
+  if (isLinearServer(server)) {
+    if (allowed) return null
+    return { deny: true }
+  }
+  if (typeof server === "string" && server.trim()) return null
   return { deny: true }
 }
