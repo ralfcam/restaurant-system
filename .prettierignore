@@ -26,3 +26,13 @@ docs/findings/runs
 
 # harness-lint negative-control fixture (intentionally unformatted)
 .cursor/checks/fixtures/unformatted.md
+
+# files synced byte-for-byte from the realized-dev-harness release tarball;
+# the tarball does not ship them in this repo's Prettier style
+.cursor/agents
+.cursor/bootstrap
+.cursor/checks
+.cursor/commands
+.cursor/hooks
+.cursor/harness.json
+.cursor/harness.schema.json

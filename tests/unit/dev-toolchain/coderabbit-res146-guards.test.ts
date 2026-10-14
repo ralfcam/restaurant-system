@@ -68,9 +68,7 @@ describe("RES-146 CodeRabbit CLI evidence guards", () => {
     expect(push).toContain(
       "Do not publish when the gate returns `action: block`",
     )
-    expect(push).toMatch(
-      /records `attemptStatus: unavailable` and exits zero/,
-    )
+    expect(push).toMatch(/records `attemptStatus: unavailable` and exits zero/)
     const rule = read(".cursor/rules/coderabbit-integration.mdc")
     expect(rule).toMatch(/recorded with exit zero/)
     expect(rule).toMatch(
