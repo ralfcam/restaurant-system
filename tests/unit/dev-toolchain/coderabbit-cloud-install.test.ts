@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest"
 const repoRoot = process.cwd()
 
 const CLOUD_INSTALL =
-  "corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile"
+  "corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh"
 
 function readInstallScript() {
   return readFileSync(
@@ -15,14 +15,11 @@ function readInstallScript() {
 }
 
 describe("Cloud CodeRabbit US pin", () => {
-  it("environment.json install does not invoke the paused CLI helper", () => {
+  it("environment.json install ends with the CLI helper", () => {
     const environment = JSON.parse(
       readFileSync(path.join(repoRoot, ".cursor", "environment.json"), "utf8"),
     ) as { install?: string }
     expect(environment.install).toBe(CLOUD_INSTALL)
-    expect(environment.install).not.toContain(
-      "sh .cursor/cloud-install-coderabbit.sh",
-    )
   })
 
   it("pins CLI 0.9.0, reinstalls on mismatch, and fails closed for US auth", () => {
