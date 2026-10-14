@@ -154,14 +154,21 @@ heads skip it.
 ### 1b. Local CodeRabbit CLI (one pass, branch diff vs `origin/staging`)
 
 After the whole-suite gate is green, after the cursor-head firewall has
-finalized `HEAD`, and **before** `git push`, authenticate the pinned CLI
-(do not print the key), then run **one** mandatory local CodeRabbit
-attempt over the whole committed branch diff against `origin/staging`:
+finalized `HEAD`, and **before** `git push`, verify the pinned CLI is
+already authenticated from environment setup (do not print secrets),
+then run **one** mandatory local CodeRabbit attempt over the whole
+committed branch diff against `origin/staging`:
 
 ```powershell
-coderabbit auth login --api-key $env:CODERABBIT_API_KEY
+coderabbit auth status --agent
 node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging [--fix-round <n>]
 ```
+
+If `auth status --agent` is not authenticated for the US pin, record
+`attemptStatus: unavailable` / reason `unauthenticated` and STOP. Ask
+the operator to provision the Cursor cloud environment login. Never run
+`coderabbit auth login`, never pass a key on the command line, and never
+search for or handle credentials.
 
 Pass `--fix-round <n>` from the prior gate output (`fixRound`) when this
 is the same remediation cycle, or pass the leftover record from the PR
@@ -386,8 +393,10 @@ reason: <reason>
    `/capture`.
    1a. On a `cursor/` head, run the cursor-head firewall and any
    `origin/staging` merge so `HEAD` is final.
-   1b. Run `coderabbit auth login --api-key $env:CODERABBIT_API_KEY`, then
-   one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass
+   1b. Run `coderabbit auth status --agent`. If it is not authenticated,
+   record `unavailable` / `unauthenticated` and STOP for operator
+   environment setup. Never run `auth login` and never pass a key.
+   Then one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass
    against that finalized `HEAD`. On `action: block` with
    `blocked_major_findings`, STOP and hand Critical/Major/unknown to
    `/sdd-to-tdd`. Capture Minor/Trivial in the current pass, but do

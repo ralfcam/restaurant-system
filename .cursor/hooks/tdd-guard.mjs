@@ -140,32 +140,6 @@ switch (cmd) {
       )
       break
     }
-    if (sub === "fingerprint") {
-      const planIdx = process.argv.indexOf("--plan")
-      const toolsIdx = process.argv.indexOf("--tools")
-      const planSlug = planIdx === -1 ? "" : process.argv[planIdx + 1] || ""
-      const tools =
-        toolsIdx === -1
-          ? defaultFingerprintTools()
-          : (process.argv[toolsIdx + 1] || "")
-              .split(",")
-              .map((name) => name.trim())
-              .filter(Boolean)
-      const result = appendRunFileFingerprint({
-        planSlug,
-        tools,
-        taskAvailable: isTaskAvailable(),
-      })
-      if (!result.ok) {
-        console.error(
-          `tdd-guard: cannot write tool-surface fingerprint — ${result.reason}. Expected: fingerprint --plan <slug> [--tools Task,Write,...].`,
-        )
-        process.exitCode = 1
-        break
-      }
-      console.log(result.line)
-      break
-    }
     if (sub === "check") {
       const s = status()
       const criteriaIdx = process.argv.indexOf("--criteria")

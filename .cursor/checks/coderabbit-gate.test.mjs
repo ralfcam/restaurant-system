@@ -420,7 +420,8 @@ describe("coderabbit local/remote CLI fixtures", { concurrency: 1 }, () => {
       "utf8",
     )
     assert.match(pushMd, /--ack-push/)
-    assert.match(pushMd, /coderabbit auth login --api-key \$env:CODERABBIT_API_KEY/)
+    assert.match(pushMd, /coderabbit auth status --agent/)
+    assert.doesNotMatch(pushMd, /coderabbit auth login --api-key/)
     assert.match(
       pushMd,
       /Do not publish when the gate returns `action: block`/,

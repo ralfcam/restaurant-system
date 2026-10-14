@@ -653,15 +653,15 @@ test("hand-written or unchecked PR-body marker is not protected CLI evidence", (
     join(process.cwd(), ".cursor", "commands", "push.md"),
     "utf8",
   )
-  const loginFence = command.match(
-    /```powershell\n[\s\S]*?coderabbit auth login[\s\S]*?```/,
+  const authFence = command.match(
+    /```powershell\n[\s\S]*?coderabbit auth status --agent[\s\S]*?```/,
   )
-  assert.ok(loginFence, "push.md PowerShell login fence")
-  assert.match(
-    loginFence[0],
-    /coderabbit auth login --api-key \$env:CODERABBIT_API_KEY/,
-  )
-  assert.doesNotMatch(loginFence[0], /set -[x]/)
+  assert.ok(authFence, "push.md PowerShell auth-status fence")
+  assert.match(authFence[0], /coderabbit auth status --agent/)
+  assert.doesNotMatch(authFence[0], /auth login/)
+  assert.doesNotMatch(authFence[0], /--api-key/)
+  assert.doesNotMatch(authFence[0], /set -[x]/)
+  assert.doesNotMatch(command, /coderabbit auth login --api-key/)
   assert.doesNotMatch(command, /API key authentication configured/i)
 })
 

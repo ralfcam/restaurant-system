@@ -18,15 +18,20 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 The Cloud flow is `/sdd-to-tdd` → `/commit` → `/push`. `/commit` does not
 run the CLI. `/sdd-to-tdd` STEP 4G does not spawn it either.
 
-`/push` authenticates the pinned CLI, then runs **one** mandatory local
+`/push` verifies the pinned CLI is already authenticated from environment
+setup (`coderabbit auth status --agent`), then runs **one** mandatory local
 CodeRabbit attempt over the whole committed branch diff against
 `origin/staging` after the cursor-head firewall has finalized `HEAD` and
 before `git push`:
 
 ```
-coderabbit auth login --api-key $env:CODERABBIT_API_KEY
+coderabbit auth status --agent
 node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging
 ```
+
+If that status is not authenticated, record `unavailable` /
+`unauthenticated` and STOP for operator environment setup. Never run
+`coderabbit auth login` and never pass a key on the command line.
 
 Critical, Major, and unknown-severity findings are `ok: false` /
 `action: block` (`blocked_major_findings`) and go to `/sdd-to-tdd`. They
@@ -51,9 +56,10 @@ comment. It records `## CodeRabbit CLI evidence` with `Head:` and
 retry (`error`, `version_mismatch`, `timeout`, and the same class),
 `/push` stops with `blocked_cli_unavailable` and does not push. `/push`
 is the agent's only CodeRabbit gate. It opens or updates the PR as a
-draft and does not run `gh pr ready`. Agents, `/conduct`, and Cloud runs
-do not run `/ready-merge-release`, do not post `@coderabbitai review`,
-and do not poll for a remote review. The QA bot `ralfcam` runs UAT,
+draft and does not run `gh pr ready`. `/push` and Cloud feature runs do
+not run `/ready-merge-release`. `/conduct` may pass `--loop` to it, matching
+`linear-automation.mdc` and `staging-accumulator.mdc`. Agents do not post
+`@coderabbitai review` and do not poll for a remote review. The QA bot `ralfcam` runs UAT,
 digests the agent transcript, and does not post a review trigger.
 Readiness is the CLI evidence on the head plus that UAT.
 
