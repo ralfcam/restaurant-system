@@ -66,14 +66,14 @@ identity, and required checks still apply. A 403 on that comment
 the agent report. Actionable findings that do exist, including a
 `COMMENTED` review body with actionable comments, still block into
 `/capture`. Quiet-mode walkthrough bodies are not findings. CLI pin
-`0.9.0` stays in `.cursor/cloud-install-coderabbit.sh`. Release `0.7.6`
-has no `SHA256SUMS.sig`. `/push` also runs that
-helper when the branch-diff pass sees `cli_missing` or
-`version_mismatch`, and again on the one unavailable retry when that
-reason remains. The Cloud `environment.json` install calls the helper
-once at environment setup. When the CLI runs, it must
+`0.9.0` is shared by `.cursor/cloud-install-coderabbit.sh`,
+`.cursor/cloud.Dockerfile` and `PINNED_CLI_VERSION`. Release `0.7.6`
+has no `SHA256SUMS.sig`. The Cloud `environment.json` install calls the
+helper once at environment setup, and that is the only place the CLI logs
+in. When the CLI runs, it must
 authenticate against [app.coderabbit.ai](https://app.coderabbit.ai) with
-`"region":"us"`.
+`"region":"us"`. When it is not authenticated, `/push` records the review
+as `unavailable` (`unauthenticated`) and does not log in.
 
 Repository YAML: [`.coderabbit.yaml`](../../.coderabbit.yaml). Cloud install
 is [`.cursor/environment.json`](../../.cursor/environment.json) ending with
@@ -89,7 +89,7 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 `sh .cursor/cloud-install-coderabbit.sh`. The script:
 
 - Installs CodeRabbit CLI `0.9.0` through the official installer
-  (`curl -fsSL https://cli.coderabbit.ai/install.sh | CI=1 CR_CLI_SKIP_LOGIN=1 CODERABBIT_VERSION=0.9.0 sh`)
+  (`curl -fsSL https://cli.coderabbit.ai/install.sh | env -u CODERABBIT_API_KEY CI=1 CR_CLI_SKIP_LOGIN=1 CODERABBIT_VERSION=0.9.0 sh`)
   and skips the install when `coderabbit --version` already reports `0.9.0`.
   The installer needs `curl`, `unzip` and `openssl`; `cloud.Dockerfile`
   provides all three (`openssl` arrives as a dependency of
