@@ -12,25 +12,20 @@
  * postToolUseFailure (Task): release the pending spawn that never started.
  *   node .cursor/hooks/task-fanout-guard.mjs --failure
  *
- * Fails CLOSED (failClosed: true): a crash or malformed stdin exits
- * non-zero so a raced or broken hook cannot admit another Task.
+ * Fails OPEN (failClosed: false): any error returns {} so TDD Task calls are
+ * never bricked by this hook.
  */
-import { readFileSync } from "node:fs"
 import {
   TASK_FANOUT_INFLIGHT_CAP,
-  applySubagentStart,
-  applySubagentStop,
-  applyTaskFailure,
+  applyReservationMutation,
   isTaskTool,
-  reserveTaskSlot,
+  onSubagentStart,
+  onSubagentStop,
+  onTaskFailure,
+  readStdinJson,
+  tryReserve,
   writeStdoutJson,
 } from "./lib/task-fanout-policy.mjs"
-
-function readPayload() {
-  const text = readFileSync(0, "utf8").replace(/^\uFEFF/, "")
-  if (!text.trim()) return {}
-  return JSON.parse(text)
-}
 
 const DENY = {
   permission: "deny",
@@ -44,23 +39,23 @@ const DENY = {
 
 function main() {
   try {
-    const input = readPayload()
+    const input = readStdinJson()
     const argv = process.argv.slice(2)
     const failure = argv.includes("--failure")
     const action = argv.find((a) => a === "start" || a === "stop")
 
     if (action === "start") {
-      applySubagentStart()
+      applyReservationMutation(onSubagentStart)
       writeStdoutJson({})
       return
     }
     if (action === "stop") {
-      applySubagentStop()
+      applyReservationMutation(onSubagentStop)
       writeStdoutJson({})
       return
     }
     if (failure) {
-      if (isTaskTool(input.tool_name)) applyTaskFailure()
+      if (isTaskTool(input.tool_name)) applyReservationMutation(onTaskFailure)
       writeStdoutJson({})
       return
     }
@@ -70,7 +65,9 @@ function main() {
       return
     }
 
-    const result = reserveTaskSlot()
+    const result = applyReservationMutation((reservations) =>
+      tryReserve(reservations),
+    )
     if (result.deny) {
       writeStdoutJson(DENY)
       return
@@ -78,7 +75,7 @@ function main() {
     writeStdoutJson({})
   } catch (err) {
     console.error("[task-fanout-guard]", err)
-    process.exit(1)
+    writeStdoutJson({})
   }
 }
 

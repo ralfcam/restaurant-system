@@ -79,3 +79,22 @@ RUN echo "ubuntu:ubuntu" | chpasswd
 
 USER ubuntu
 WORKDIR /workspace
+
+# CodeRabbit CLI pin matches PINNED_CLI_VERSION / the /push gate (0.9.0, no
+# leading v). Auth stays runtime-only via CODERABBIT_API_KEY — do not bake a
+# key into the image.
+# 0.9.0 publishes SHA256SUMS.sig; this image still installs the linux-x64 zip
+# and verifies the published SHA256SUMS hash so Cloud setup stays installer-free.
+ENV CI=1
+ENV CODERABBIT_VERSION=0.9.0
+ENV PATH="/home/ubuntu/.local/bin:${PATH}"
+RUN mkdir -p /home/ubuntu/.local/bin /tmp/cr && \
+    curl -fsSL https://cli.coderabbit.ai/releases/0.9.0/coderabbit-linux-x64.zip \
+      -o /tmp/cr/coderabbit-linux-x64.zip && \
+    echo "56e4c99de9d11106c3e6bf31034864db8f746cb97c9eaf9470adcfa6461da66f  /tmp/cr/coderabbit-linux-x64.zip" \
+      | sha256sum -c - && \
+    unzip -o /tmp/cr/coderabbit-linux-x64.zip -d /tmp/cr && \
+    install -m 0755 /tmp/cr/coderabbit /home/ubuntu/.local/bin/coderabbit && \
+    ln -sfn /home/ubuntu/.local/bin/coderabbit /home/ubuntu/.local/bin/cr && \
+    test "$(coderabbit --version 2>/dev/null | tr -d '[:space:]' | sed 's/^v//')" = "0.9.0" && \
+    rm -rf /tmp/cr

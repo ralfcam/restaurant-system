@@ -16,7 +16,7 @@ command that produced it.
 </persona>
 
 <context>
-Repository: restaurant-system. This command is
+Repository: this repository. This command is
 [`verification-before-completion.mdc`](.cursor/rules/verification-before-completion.mdc)
 applied **retroactively**: that rule's "verify the world, not the self-report"
 and "a guard is trusted only after it has blocked" are the whole charter here.

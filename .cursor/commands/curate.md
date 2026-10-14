@@ -12,9 +12,9 @@ the ledger line behind every proposal.
 </persona>
 
 <context>
-Linear workspace: https://linear.app/realized
-Fixed team key: **RES** (issues `RES-###`). The live team display name is
-informational. Version projects are discovered live as RES projects with
+Linear workspace: https://linear.app/example
+Configured Linear team key (issues `<issue-id>`). The live team display name is
+informational. Version projects are discovered live as configured-team projects with
 canonical version key `V-X.X`; there is no hardcoded Linear project default.
 Shared discovery and fail-closed project classification:
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
@@ -64,15 +64,14 @@ operator-created automation run may post one bounded CLARIFY.
 
 Held for you, and not executed here: `curate-terminal`, umbrella parents, and
 keep-or-drop. List those held items so the dispatch digest can include them.
-Do not run `/commit` or `/push`. `/conduct morning` commits ledger edits on
-Mondays after this one-shot returns.
+Do not run `/commit` or `/push`.
 
 ## PHASE 1 — Read (parent only; no subagent fan-out)
 
 Do every read yourself. Do not spawn a subagent to inventory issues or the
 ledger.
 
-1. Resolve the team once and require key `RES`. Call `list_projects` for that
+1. Resolve the team once and require the configured Linear team key. Call `list_projects` for that
    team, paginate until exhausted, extract each display-name canonical version key `V-X.X`, and classify terminal versus nonterminal projects. Stop if a
    page is unavailable.
 2. Call `list_issue_statuses`, `list_issue_labels`, and
@@ -95,7 +94,7 @@ ledger.
    Do not fetch relations for the rest of the backlog.
 5. One pull-request read:
    `gh pr list --state all --limit 100 --json number,title,state,mergedAt,body,url`.
-   Match `RES-###` in the title and body.
+   Match `<issue-id>` in the title and body.
 6. Read open `- [ ]` lines in `docs/findings/security.md`,
    `docs/findings/tech-debt.md`, `docs/findings/test-debt.md`, and
    `docs/findings/product-gaps.md`. List files under `docs/findings/runs/`.
@@ -139,7 +138,7 @@ items. The match key is category label + area/file token + spec path.
     from the 7-day terminal set: remove that relation, or re-point it when
     the terminal issue names a replacement.
 - **Report only** (no execution todo):
-  - No project, or a terminal project: paste a `/dispatch RES-…` line.
+  - No project, or a terminal project: paste a `/dispatch <issue-id>` line.
   - Todo whose `cycleId` is not the current cycle.
   - In Progress with no open PR mentioning the ID.
   - In Review whose mentioning PR is already merged.
@@ -150,7 +149,7 @@ cycle, is labeled `security`, or has High or Urgent priority.
 
 ### Ledger
 
-- **Already tracked.** The line carries a `RES-###` outcome, or the same
+- **Already tracked.** The line carries a `<issue-id>` outcome, or the same
   finding is already in `archive.md`. Remove it from the active file.
 - **Resolved.** A leftover `- [x]` line, or a cited path that does not exist
   and has no same-name file elsewhere. Archive as
@@ -161,7 +160,7 @@ cycle, is labeled `security`, or has High or Urgent priority.
 - **Attach.** A below-floor line matches an open issue on category label +
   area/path (not title words). At most 10 issues this run. One grouped
   comment per issue, REGISTER FINDINGS attach-only (the resolver BLOCKs
-  instead of creating). Then archive the line as `→ RES-### (attached)`.
+  instead of creating). Then archive the line as `→ <issue-id> (attached)`.
 - **Hotspots (report only).** Three or more below-floor lines share an area
   or spec. Show the top 5 and a suggested `/triage` or `/design` route.
 - **TTL.** Stamp each unstamped below-floor line
@@ -210,7 +209,7 @@ PHASE 1.
   register these findings attach-only on the named issue IDs (at most 10).
   BLOCK instead of creating."
 - **`clarify-*`.** Delegate: "Use the linear-resolver subagent to request
-  the approved clarification on <RES-ID>, using this exact bounded comment:
+  the approved clarification on <issue-id>, using this exact bounded comment:
   <body>." Leave current workflow state unchanged.
 - **`curate-ledger`.** One `docs-updater` ledger-apply call per touched
   file: "Use the docs-updater subagent to apply ledger-apply to <path>:
@@ -254,7 +253,7 @@ Format: structured Markdown, evidence-first.
 ## Mode Check
 
 - Plan Mode: YES | NO
-- Team: RES | cannot verify
+- Team: configured | cannot verify
 - Current cycle: <name/number> | cannot verify
 - Open Urgent+High: <N> · WIP filing gate: ACTIVE | clear
 

@@ -72,7 +72,7 @@ describe("G-FO1 Task fan-out atomic fail-closed", () => {
       h.command.includes("task-fanout-guard.mjs"),
     )
     expect(pre?.matcher).toBe("Task")
-    expect(pre?.failClosed).toBe(true)
+    expect(pre?.failClosed).toBe(false)
 
     writeFileSync(FANOUT_STATE, JSON.stringify({ reservations: [] }, null, 2))
 
@@ -101,6 +101,6 @@ describe("G-FO1 Task fan-out atomic fail-closed", () => {
     )
 
     const malformed = runGuard("\uFEFF{not-json")
-    expect(malformed.status).not.toBe(0)
+    expect(malformed.status).toBe(0)
   })
 })

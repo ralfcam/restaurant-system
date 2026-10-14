@@ -20,10 +20,6 @@ import {
   evaluateReadyPr,
   isAllowedReadyPrShape,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
-import {
-  defaultStateDir,
-  loadReceipt,
-} from "../hooks/lib/coderabbit-review-policy.mjs"
 
 const PAGE_SIZE = 100
 const MAX_PAGES = 100
@@ -59,7 +55,6 @@ function emitReadyVerdict(
     allowDraft,
     loop,
     reviewWaitExpired,
-    cliReceipt: loadReceipt(defaultStateDir()),
   })
   if (!result.ok) fail(result.reason, result)
   console.log(JSON.stringify({ ok: true, ...result }, null, 2))
@@ -110,7 +105,7 @@ async function ghJson(url, token) {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${token}`,
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "restaurant-system-coderabbit-pr-gate",
+      "User-Agent": "harness-coderabbit-pr-gate",
     },
   })
   if (!res.ok) {
@@ -155,7 +150,7 @@ async function ghGraphql(token, query, variables) {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "User-Agent": "restaurant-system-coderabbit-pr-gate",
+      "User-Agent": "harness-coderabbit-pr-gate",
     },
     body: JSON.stringify({ query, variables }),
   })
@@ -288,17 +283,8 @@ export async function fetchSnapshot({ owner, repo, number, token }) {
       base: pull.base?.ref,
       head: pull.head?.ref,
       headSha,
-      ...(pull.user
-        ? {
-            user: {
-              login: pull.user.login || "",
-              type: pull.user.type || "",
-            },
-          }
-        : {}),
     },
     headSha,
-    body: pull.body || "",
     reviews,
     issueComments,
     reviewComments,

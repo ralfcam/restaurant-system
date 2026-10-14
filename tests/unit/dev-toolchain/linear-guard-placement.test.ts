@@ -28,10 +28,7 @@ describe("G-LG1 linear guard placement", () => {
     const writePre = pre.find((hook) =>
       hook.command.includes("linear-write-guard.mjs"),
     )
-    expect(writePre?.matcher).toMatch(/MCP:save_issue/)
-    expect(writePre?.matcher).toMatch(/save_comment/)
-    expect(writePre?.matcher).toMatch(/save_status_update/)
-    expect(writePre?.matcher).toMatch(/CallDynamicTool/)
+    expect(writePre?.matcher).toBe("CallDynamicTool")
     expect(
       pre.some((hook) => hook.command.includes("linear-spawn-guard.mjs")),
     ).toBe(false)

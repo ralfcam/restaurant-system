@@ -6,7 +6,7 @@ alwaysApply: false
 # Grilling: elicit decisions one at a time
 
 Adapted from mattpocock/skills' `grilling` technique — credited here, not
-vendored; this is a hand-ported doctrine for Syntex's own commands, not an
+vendored; this is a hand-ported doctrine for this harness's own commands, not an
 installed skill or plugin.
 
 ## The core loop
@@ -46,7 +46,7 @@ selecting between plausible design approaches or drawing a scope boundary
 (`/design`), or any other point where an agent would otherwise have to guess a
 human's intent rather than ask for it.
 
-## Syntex carve-outs (non-negotiable)
+## the prior kit carve-outs (non-negotiable)
 
 - **Never serializes a parallel subagent fan-out, and never excuses bursting
   past the Task cap.** This rule gates only the decision-elicitation step with

@@ -36,6 +36,7 @@ supabase/.temp
 
 # cursor hook runtime state
 .cursor/hooks/state/
+docs/log.md
 
 # CodeGraph local index (SQLite knowledge graph; rebuilt via `codegraph init`)
 .codegraph/

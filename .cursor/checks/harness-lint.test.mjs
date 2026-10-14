@@ -41,6 +41,7 @@ import {
   detectCoderabbitMirrorViolations,
   detectCoderabbitYamlViolations,
   detectCoderabbitWorkflowViolations,
+  agentFrontmatterViolations,
 } from "./harness-lint.mjs"
 import {
   DAILY_QUEUE_MAXIMUM,
@@ -56,6 +57,34 @@ test("harness-lint.mjs exists and exits 0 on this tree", () => {
   assert.equal(existsSync(script), true)
   const r = spawnSync(process.execPath, [script], { encoding: "utf8" })
   assert.equal(r.status, 0, r.stderr || r.stdout)
+})
+
+test("agent frontmatter split accepts CRLF documents", () => {
+  const crlf =
+    "---\r\nname: broken\r\ndescription: >-\r\n  A folded description.\r\n---\r\n\r\n# Body\r\n"
+  const messages = agentFrontmatterViolations(".cursor/agents/crlf.md", crlf)
+  assert.deepEqual(messages, [])
+})
+
+test("harness lint rejects agent frontmatter without a description", () => {
+  const messages = agentFrontmatterViolations(
+    ".cursor/agents/broken.md",
+    "---\nname: broken\ndescription: >-\n---\n\n# Broken\n",
+  )
+  assert.ok(messages.some((m) => /missing description/.test(m)))
+})
+
+test("every .cursor/agents file has YAML name and description", () => {
+  const dir = join(ROOT, ".cursor", "agents")
+  for (const name of readdirSync(dir)) {
+    if (!name.endsWith(".md")) continue
+    const rel = `.cursor/agents/${name}`
+    const messages = agentFrontmatterViolations(
+      rel,
+      readFileSync(join(dir, name), "utf8"),
+    )
+    assert.deepEqual(messages, [], rel)
+  }
 })
 
 test("task-fanout.mdc pins the same cap as the policy constant", () => {

@@ -4,10 +4,10 @@
  * in flight.
  *
  * Reads (list_*, get_*) stay unrestricted. Residual: a concurrent parent
- * write while linear-resolver is in flight also passes. Cloud agents run
- * preToolUse (MCP: / CallDynamicTool matcher), not beforeMCPExecution. On
- * that path, denyUnknownServer rejects guarded write names when the server
- * is missing.
+ * write while linear-resolver is in flight also passes. Cloud agents do
+ * not run beforeMCPExecution hooks; Cloud mutations arrive as
+ * CallDynamicTool on preToolUse (tool_input.namespace / toolName /
+ * arguments / mcpDetails).
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
@@ -21,10 +21,24 @@ export const LINEAR_WRITE_TOOLS = new Set([
   "save_issue",
   "save_comment",
   "save_status_update",
+  "create_attachment",
+  "create_attachment_from_upload",
+  "delete_comment",
+  "delete_attachment",
+  "delete_issue",
+  "delete_status_update",
+  "delete_task",
 ])
 
+const LINEAR_READ_RE = /^(?:list_|get_|search_|whoami|extract_)/
+const LINEAR_MUTATION_RE =
+  /^(?:save_|create_|delete_|update_|remove_|retire_|restore_|merge_|submit_)/
+
 export function isLinearWriteTool(toolName) {
-  return typeof toolName === "string" && LINEAR_WRITE_TOOLS.has(toolName)
+  if (typeof toolName !== "string" || !toolName) return false
+  if (LINEAR_WRITE_TOOLS.has(toolName)) return true
+  if (LINEAR_READ_RE.test(toolName)) return false
+  return LINEAR_MUTATION_RE.test(toolName)
 }
 
 function loadState() {
@@ -50,24 +64,14 @@ export function setAllowed(allowed) {
   saveState({ allowed: Boolean(allowed) })
 }
 
-function isUnknownServer(server) {
-  return typeof server !== "string" || !server.trim()
-}
-
-/** `{ deny: true }` when a guarded Linear writer runs with the flag off. */
-export function checkLinearWrite(
-  server,
-  toolName,
-  allowed = isAllowed(),
-  options = {},
-) {
+/** `{ deny: true }` when a guarded Linear writer runs with the flag off.
+ *  Unknown server (HP-002b): deny guarded mutations instead of failing open. */
+export function checkLinearWrite(server, toolName, allowed = isAllowed()) {
   if (!isLinearWriteTool(toolName)) return null
   if (isLinearServer(server)) {
     if (allowed) return null
     return { deny: true }
   }
-  if (options.denyUnknownServer && isUnknownServer(server)) {
-    return { deny: true }
-  }
-  return null
+  if (typeof server === "string" && server.trim()) return null
+  return { deny: true }
 }

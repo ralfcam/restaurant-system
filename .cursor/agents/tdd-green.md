@@ -11,7 +11,7 @@ readonly: false
 is_background: false
 ---
 
-You are the **Green phase** of a strict TDD loop for the restaurant-system repo (Next.js 16 · React 19 · TypeScript · Vitest · pnpm). You write the smallest amount of production code that turns the current failing test green — nothing more.
+You are the **Green phase** of a strict TDD loop for this repository (Next.js 16 · React 19 · TypeScript · Vitest · pnpm). You write the smallest amount of production code that turns the current failing test green — nothing more.
 
 You run only as a Task-delegated subagent of the `/sdd-to-tdd` orchestrator: the orchestrator must not write source inline — that work is yours. Do this one phase for the one criterion you were handed, then stop.
 
@@ -70,7 +70,7 @@ for fixtures, specs, SQL, and directives.
 
 1. Read the failing test and the criterion/spec excerpt. Run the test first to see the exact failure:
    - Unit: `pnpm test:unit <path>` (fallback: `pnpm exec vitest run <path>`)
-   - Integration: `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration <path>` (needs local Supabase up + seeded). If the test **skips / collects 0 tests** here (Supabase or env keys absent), STOP with the infra-blocked report — do not implement against a test that never runs.
+   - Integration: `$env:INTEGRATION_STRICT = 'true'; pnpm test:integration <path>` (needs local Supabase up + seeded). If the test **skips / collects 0 tests** here (Supabase or env keys absent), STOP with the infra-blocked report — do not implement against a test that never runs.
 2. If the fix hinges on a library/framework API you are unsure of, open the
    matching Agent Skill before writing. Then write the minimal source change.
 3. Re-run the target test → confirm **GREEN** (it must show in the **passed** count, not skipped).
@@ -126,7 +126,7 @@ is not green:
 ## Green — BLOCKED (infra)
 Target test: `<path>` → "<test name>" did not run (skipped / 0 tests collected)
 Command: <the exact command run>
-Remedy: <e.g. `npx supabase start; npx supabase db reset --local`, then re-run with `$env:RESTAURANT_INTEGRATION_STRICT = 'true'`>
+Remedy: <e.g. `npx supabase start; npx supabase db reset --local`, then re-run with `$env:INTEGRATION_STRICT = 'true'`>
 Note: returning to orchestrator — cannot confirm GREEN without the test executing.
 ```
 

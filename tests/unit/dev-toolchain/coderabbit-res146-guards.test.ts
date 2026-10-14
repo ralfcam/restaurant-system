@@ -60,26 +60,23 @@ describe("RES-146 CodeRabbit CLI evidence guards", () => {
   })
 
   it("documents the QA handoff and the evidence block", () => {
-    const release = read(".cursor/commands/ready-merge-release.md")
     const push = read(".cursor/commands/push.md")
     const conduct = read(".cursor/commands/conduct.md")
     const runbook = read("docs/runbooks/coderabbit.md")
-    expect(release).toContain("Owner: operator and QA, not agents")
-    expect(release).toContain("ralfcam")
-    expect(release).toContain("runs UAT")
-    expect(release).toContain("digests the agent transcript")
-    expect(release).not.toMatch(/posts `@coderabbitai review`/)
-    expect(release).toContain("does not invoke this command")
     expect(push).toContain("## CodeRabbit CLI evidence")
-    expect(push).toContain("posts no pull-request comment")
-    expect(push).toContain("agent's only")
     expect(push).toContain("gh pr ready --undo")
-    expect(conduct).not.toContain("/ready-merge-release <PR>")
-    expect(conduct).toContain("ralfcam")
-    expect(runbook).toContain("ralfcam")
-    expect(runbook).toContain("runs UAT")
-    expect(runbook).toContain("digests the agent transcript")
-    expect(runbook).not.toMatch(/posts `@coderabbitai review`/)
+    expect(push).toContain(
+      "Do not publish when the gate returns `action: block`",
+    )
+    expect(push).toMatch(
+      /records `attemptStatus: unavailable` and exits zero/,
+    )
+    const rule = read(".cursor/rules/coderabbit-integration.mdc")
+    expect(rule).toMatch(/recorded with exit zero/)
+    expect(rule).toMatch(
+      /does not publish or mark the PR ready when the\s+review was unavailable/,
+    )
+    expect(conduct).toContain("/ready-merge-release")
     expect(runbook).toContain("only CodeRabbit gate")
   })
 })

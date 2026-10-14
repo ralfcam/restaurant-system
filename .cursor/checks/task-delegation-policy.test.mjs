@@ -69,7 +69,7 @@ test("detectModelOverride allows model on a subagent type with no pin", () => {
 test("detectGeneralPurposeLinearWrite denies a generalPurpose prompt instructing save_comment", () => {
   const hit = detectGeneralPurposeLinearWrite(
     "generalPurpose",
-    "Post this via save_comment on RES-1386",
+    "Post this via save_comment on ISSUE-1386",
   )
   assert.equal(hit.kind, "generalPurpose-linear-write")
 })
@@ -85,13 +85,13 @@ test("detectGeneralPurposeLinearWrite denies a generalPurpose prompt referencing
 test("CLARIFY save_comment cannot be delegated to generalPurpose", () => {
   const hit = detectGeneralPurposeLinearWrite(
     "generalPurpose",
-    "Post the Clarification required body with save_comment on RES-42",
+    "Post the Clarification required body with save_comment on ISSUE-42",
   )
   assert.equal(hit.kind, "generalPurpose-linear-write")
   assert.equal(
     detectGeneralPurposeLinearWrite(
       "linear-resolver",
-      "Request the approved CLARIFY comment on RES-42",
+      "Request the approved CLARIFY comment on ISSUE-42",
     ),
     null,
   )
@@ -166,7 +166,7 @@ test("task-delegation-guard denies a model override from a BOM-prefixed preToolU
       tool_input: {
         subagent_type: "linear-resolver",
         model: "claude-opus-5-thinking-high",
-        prompt: "Start work on RES-1386",
+        prompt: "Start work on ISSUE-1386",
       },
       hook_event_name: "preToolUse",
     })
@@ -184,7 +184,7 @@ test("task-delegation-guard denies a generalPurpose Linear-write prompt from a B
       tool_name: "Task",
       tool_input: {
         subagent_type: "generalPurpose",
-        prompt: "Upload the plan body via save_comment on RES-1386",
+        prompt: "Upload the plan body via save_comment on ISSUE-1386",
       },
       hook_event_name: "preToolUse",
     })

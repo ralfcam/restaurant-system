@@ -3,6 +3,7 @@ import { spawn } from "node:child_process"
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { after, describe, test } from "node:test"
+import { extractMcpCall } from "../hooks/lib/mcp-payload.mjs"
 import {
   checkLinearWrite,
   isAllowed,
@@ -55,10 +56,10 @@ const SAVE_CLARIFICATION =
   JSON.stringify({
     tool_name: "save_comment",
     tool_input: JSON.stringify({
-      issue: "RES-42",
+      issue: "ISSUE-42",
       body: [
         "Clarification required",
-        "Key: clarify:RES-42:booking-rules:BW-9",
+        "Key: clarify:ISSUE-42:booking-rules:BW-9",
         "Decision question: Keep the existing contract?",
       ].join("\n"),
     }),
@@ -92,10 +93,14 @@ function runGuard(payload, extraArgs = []) {
   })
 }
 
-test("linear-write-guard is fail-open beforeMCPExecution; linear-resolver start/stop set the flag", () => {
+test("linear-write-guard is fail-closed beforeMCPExecution; linear-resolver start/stop set the flag", () => {
   const mcp = hookByCommand("beforeMCPExecution", "linear-write-guard.mjs")
   assert.ok(mcp, "linear-write-guard is registered on beforeMCPExecution")
-  assert.equal(mcp.failClosed, false)
+  assert.equal(mcp.failClosed, true)
+  const wrapper = hookByCommand("preToolUse", "linear-write-guard.mjs")
+  assert.ok(wrapper, "linear-write-guard is registered on CallDynamicTool")
+  assert.equal(wrapper.matcher, "CallDynamicTool")
+  assert.equal(wrapper.failClosed, true)
   const start = hookByCommand("subagentStart", "linear-write-guard.mjs")
   assert.ok(start, "linear-write-guard start is registered")
   assert.equal(start.matcher, "linear-resolver")
@@ -118,14 +123,17 @@ test("linear-write-guard is fail-open beforeMCPExecution; linear-resolver start/
   }
 })
 
-test("isLinearWriteTool guards issue, comment, and project-status writers", () => {
+test("isLinearWriteTool guards create, update, and delete mutations", () => {
   assert.equal(isLinearWriteTool("save_issue"), true)
   assert.equal(isLinearWriteTool("save_comment"), true)
   assert.equal(isLinearWriteTool("save_status_update"), true)
+  assert.equal(isLinearWriteTool("delete_comment"), true)
+  assert.equal(isLinearWriteTool("delete_attachment"), true)
+  assert.equal(isLinearWriteTool("create_attachment"), true)
   assert.equal(isLinearWriteTool("list_issues"), false)
   assert.equal(isLinearWriteTool("get_status_updates"), false)
   assert.equal(isLinearWriteTool("get_issue"), false)
-  assert.equal(isLinearWriteTool("save_document"), false)
+  assert.equal(isLinearWriteTool("save_document"), true)
 })
 
 test("checkLinearWrite denies Linear writes unless allowed", () => {
@@ -141,6 +149,39 @@ test("checkLinearWrite denies Linear writes unless allowed", () => {
   assert.equal(
     checkLinearWrite("plugin-vercel-vercel", "save_issue", false),
     null,
+  )
+  assert.equal(checkLinearWrite(LINEAR, "delete_comment", false)?.deny, true)
+  assert.equal(checkLinearWrite(LINEAR, "delete_attachment", false)?.deny, true)
+  assert.equal(checkLinearWrite(LINEAR, "delete_comment", true), null)
+})
+
+test("checkLinearWrite denies guarded mutations when the server is unknown", () => {
+  assert.equal(checkLinearWrite(undefined, "save_issue", false)?.deny, true)
+  assert.equal(checkLinearWrite(null, "save_comment", false)?.deny, true)
+  assert.equal(checkLinearWrite("", "delete_comment", false)?.deny, true)
+  assert.equal(checkLinearWrite(undefined, "save_issue", true)?.deny, true)
+  assert.equal(checkLinearWrite(undefined, "list_issues", false), null)
+  assert.equal(
+    checkLinearWrite("plugin-vercel-vercel", "save_issue", false),
+    null,
+  )
+})
+
+test("extractMcpCall unwraps CallDynamicTool Linear deletes", () => {
+  const extracted = extractMcpCall({
+    tool_name: "CallDynamicTool",
+    tool_input: {
+      namespace: "Linear",
+      toolName: "delete_comment",
+      arguments: { id: "cmt_1" },
+      mcpDetails: { description: "Delete a comment on a Linear issue" },
+    },
+  })
+  assert.equal(extracted.server, "Linear")
+  assert.equal(extracted.toolName, "delete_comment")
+  assert.equal(
+    checkLinearWrite(extracted.server, extracted.toolName, false)?.deny,
+    true,
   )
 })
 
@@ -195,6 +236,63 @@ describe("linear-write spawn-level", { concurrency: 1 }, () => {
     const allowed = await runGuard(SAVE_CLARIFICATION)
     assert.equal(allowed.code, 0)
     assert.deepEqual(JSON.parse(allowed.out), {})
+  })
+
+  test("BOM delete_comment denies when flag is off and allows when on", async () => {
+    const payload =
+      "\uFEFF" +
+      JSON.stringify({
+        tool_name: "delete_comment",
+        tool_input: JSON.stringify({ id: "cmt_1" }),
+        mcp_server_name: LINEAR,
+        hook_event_name: "beforeMCPExecution",
+      })
+    setAllowed(false)
+    const denied = await runGuard(payload)
+    assert.equal(denied.code, 0)
+    assert.equal(JSON.parse(denied.out).permission, "deny")
+    setAllowed(true)
+    const allowed = await runGuard(payload)
+    assert.equal(allowed.code, 0)
+    assert.deepEqual(JSON.parse(allowed.out), {})
+  })
+
+  test("CallDynamicTool delete_attachment denies when flag is off", async () => {
+    const payload =
+      "\uFEFF" +
+      JSON.stringify({
+        tool_name: "CallDynamicTool",
+        tool_input: {
+          namespace: "Linear",
+          toolName: "delete_attachment",
+          arguments: { id: "att_1" },
+          mcpDetails: { description: "Delete an attachment on a Linear issue" },
+        },
+        hook_event_name: "preToolUse",
+      })
+    setAllowed(false)
+    const { code, out } = await runGuard(payload)
+    assert.equal(code, 0)
+    assert.equal(JSON.parse(out).permission, "deny")
+  })
+
+  test("CallDynamicTool list_issues allows when flag is off", async () => {
+    const payload =
+      "\uFEFF" +
+      JSON.stringify({
+        tool_name: "CallDynamicTool",
+        tool_input: {
+          namespace: "Linear",
+          toolName: "list_issues",
+          arguments: { limit: 10 },
+          mcpDetails: { description: "List Linear issues" },
+        },
+        hook_event_name: "preToolUse",
+      })
+    setAllowed(false)
+    const { code, out } = await runGuard(payload)
+    assert.equal(code, 0)
+    assert.deepEqual(JSON.parse(out), {})
   })
 
   test("BOM list_issues allows when flag is off", async () => {

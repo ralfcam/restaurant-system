@@ -1,13 +1,15 @@
 #!/bin/sh
 # Idempotent CodeRabbit CLI install for Cursor Cloud (Linux).
-# Pin: CodeRabbit CLI 0.9.0 (no leading v). The current Linux installer
-# requires SHA256SUMS.sig. Release 0.7.6 has no signature and 404s, so that
-# pin cannot install. Skip installer browser login. Authenticate US Team
-# only via the CODERABBIT_API_KEY Cursor secret — never commit the key.
+# Pin: CodeRabbit CLI 0.9.0 (no leading v). The official installer can pin
+# 0.9.0, but this script uses only the pinned linux-x64 zip plus published
+# SHA-256 so /push and tests stay installer-free. Authenticate US Team only
+# via the CODERABBIT_API_KEY Cursor secret — never commit the key.
 # Missing key, failed login, or non-US status fail setup.
 set -eu
 
 PINNED_VERSION="0.9.0"
+# linux-x64 zip hash from https://cli.coderabbit.ai/releases/0.9.0/SHA256SUMS
+PINNED_LINUX_X64_SHA256="56e4c99de9d11106c3e6bf31034864db8f746cb97c9eaf9470adcfa6461da66f"
 BIN_DIR="${HOME}/.local/bin"
 export PATH="${BIN_DIR}:${PATH}"
 CI=1
@@ -28,9 +30,22 @@ installed_version() {
   fi
 }
 
+install_from_zip() {
+  work="$(mktemp -d)"
+  zip="${work}/coderabbit-linux-x64.zip"
+  curl -fsSL "https://cli.coderabbit.ai/releases/${PINNED_VERSION}/coderabbit-linux-x64.zip" -o "${zip}"
+  echo "${PINNED_LINUX_X64_SHA256}  ${zip}" | sha256sum -c -
+  unzip -o "${zip}" -d "${work}"
+  mkdir -p "${BIN_DIR}"
+  install -m 0755 "${work}/coderabbit" "${BIN_DIR}/coderabbit"
+  ln -sfn "${BIN_DIR}/coderabbit" "${BIN_DIR}/cr"
+  rm -rf "${work}"
+}
+
 current="$(installed_version)"
 if [ "${current}" != "${PINNED_VERSION}" ]; then
-  curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+  # Restaurant pin is 0.9.0. Use the pinned zip plus published SHA-256 only.
+  install_from_zip
   export PATH="${BIN_DIR}:${PATH}"
   current="$(installed_version)"
 fi

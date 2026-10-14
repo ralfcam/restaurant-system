@@ -18,14 +18,6 @@ and [`.cursor/hooks/git-stage-guard.mjs`](.cursor/hooks/git-stage-guard.mjs).
 `hook_event_name`, `cwd`, plus session metadata. `tool_name` is the Cursor
 tool (`Shell`, `Write`, `Task`, …), not an MCP tool.
 
-Cloud managed sessions also deliver MCP writes as `preToolUse`
-`CallDynamicTool` with `tool_input.namespace` (e.g. `Linear`) and
-`tool_input.toolName` (`save_issue`, `save_comment`, `save_status_update`).
-A live Cloud `save_comment` reached Linear (comment created, then deleted)
-both before and after adding `CallDynamicTool` to the matcher in the same
-session. Match `CallDynamicTool` as well; a same-session matcher edit is
-not a recorded live denial.
-
 `beforeMCPExecution` stdin is a JSON object where `tool_name` is the MCP
 tool (`get_issue`, `get_project`, …), `tool_input` is a **JSON string**, and
 `mcp_server_name` (also seen as `command` or `url`) is the server key

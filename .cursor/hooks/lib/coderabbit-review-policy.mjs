@@ -19,7 +19,6 @@ import { fileURLToPath } from "node:url"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export const PINNED_CLI_VERSION = "0.9.0"
-export const PUSH_CLI_FIX_ROUND_CAP = 2
 export const REQUIRED_REGION = "us"
 export const US_APP_ID = 347564
 export const US_BOT_LOGINS = Object.freeze([
@@ -166,28 +165,16 @@ export function parseAuthStatus(raw) {
   return { ok: true, region, authenticated: true }
 }
 
-export function reportedCliVersion(version) {
-  const match = String(version ?? "").match(/v?(\d+\.\d+\.\d+)/i)
-  return match ? match[1] : ""
-}
-
-export function assertPinnedUsAuth({ version, auth, spawnErrorCode } = {}) {
-  const raw = String(version ?? "").trim()
-  if (spawnErrorCode === "ENOENT" || raw === "") {
-    return { ok: false, reason: "cli_missing", version: "" }
-  }
-  const ver = reportedCliVersion(raw)
+export function assertPinnedUsAuth({ version, auth }) {
+  const ver = String(version || "")
+    .trim()
+    .replace(/^v/i, "")
   if (ver !== PINNED_CLI_VERSION) {
-    return { ok: false, reason: "version_mismatch", version: ver || raw }
+    return { ok: false, reason: "version_mismatch", version: ver }
   }
   const parsed = parseAuthStatus(auth)
   if (!parsed.ok) return parsed
   return { ok: true, version: ver, region: parsed.region }
-}
-
-export function shouldReinstallCli(authCheck) {
-  const reason = authCheck?.reason
-  return reason === "cli_missing" || reason === "version_mismatch"
 }
 
 export function parseJsonl(text) {
@@ -571,8 +558,12 @@ export function dirtyPathsFromGit(cwd = process.cwd()) {
   return parseGitPorcelain(gitCapture(["status", "--porcelain", "-uall"], cwd))
 }
 
+function isGateTest(env = process.env) {
+  return env.CODERABBIT_GATE_TEST === "1"
+}
+
 export function resolveDirtyPaths(cwd = process.cwd(), env = process.env) {
-  if (Object.hasOwn(env, "CODERABBIT_STUB_DIRTY")) {
+  if (isGateTest(env) && Object.hasOwn(env, "CODERABBIT_STUB_DIRTY")) {
     return env.CODERABBIT_STUB_DIRTY.split(",")
       .map((s) => posixPath(s.trim()))
       .filter(Boolean)
@@ -617,10 +608,10 @@ export function resolveBranchDiff(
   base = "origin/staging",
   env = process.env,
 ) {
-  if (env.CODERABBIT_STUB_DIFF_FAILED === "1") {
+  if (isGateTest(env) && env.CODERABBIT_STUB_DIFF_FAILED === "1") {
     return { ok: false, paths: [], reason: "diff_failed" }
   }
-  if (Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
+  if (isGateTest(env) && Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
     return {
       ok: true,
       paths: env.CODERABBIT_STUB_BRANCH_DIFF.split(",")
@@ -658,32 +649,27 @@ export function resolvePushPriorRound(
   { branch, head, findingIds = [], fixRound, leftoverRecord } = {},
 ) {
   const explicit = Number(fixRound)
-  if (Number.isFinite(explicit) && explicit > 0) {
-    return Math.min(explicit, PUSH_CLI_FIX_ROUND_CAP)
-  }
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
   if (leftoverRecord && typeof leftoverRecord === "object") {
     const recorded = Number(
       leftoverRecord.round ??
         leftoverRecord.fixRound ??
         leftoverRecord.priorRound,
     )
-    if (
-      leftoverRecord.record === "leftover_after_fix_round" ||
-      leftoverRecord.record === "blocked_major_findings"
-    ) {
-      return PUSH_CLI_FIX_ROUND_CAP
+    if (leftoverRecord.record === "leftover_after_fix_round") {
+      return Math.max(1, Number.isFinite(recorded) ? recorded : 1)
     }
     if (
       leftoverRecord.record === "fix_round" &&
       Number.isFinite(recorded) &&
       recorded > 0
     ) {
-      return Math.min(recorded, PUSH_CLI_FIX_ROUND_CAP)
+      return recorded
     }
   }
   if (!prior || (branch && prior.branch && prior.branch !== branch)) return 0
   const savedRound = Number(prior.round) || 0
-  if (savedRound > 0) return Math.min(savedRound, PUSH_CLI_FIX_ROUND_CAP)
+  if (savedRound > 0) return savedRound
   if (head && prior.head && prior.head !== head) return 0
   const saved = new Set(prior.findingIds || [])
   if (
@@ -702,8 +688,8 @@ export function branchDiffBaseExists(
   base = "origin/staging",
   env = process.env,
 ) {
-  if (env.CODERABBIT_STUB_MISSING_BASE === "1") return false
-  if (env.CODERABBIT_GATE_TEST === "1") return true
+  if (isGateTest(env) && env.CODERABBIT_STUB_MISSING_BASE === "1") return false
+  if (isGateTest(env)) return true
   const result = spawnSync("git", ["rev-parse", "--verify", base], {
     cwd,
     encoding: "utf8",
@@ -713,12 +699,12 @@ export function branchDiffBaseExists(
 }
 
 export function resolveHead(cwd = process.cwd(), env = process.env) {
-  if (env.CODERABBIT_STUB_HEAD) return env.CODERABBIT_STUB_HEAD
+  if (isGateTest(env) && env.CODERABBIT_STUB_HEAD) return env.CODERABBIT_STUB_HEAD
   return currentHead(cwd)
 }
 
 export function resolveManifest(cwd, relPaths, env = process.env) {
-  if (env.CODERABBIT_STUB_MANIFEST) {
+  if (isGateTest(env) && env.CODERABBIT_STUB_MANIFEST) {
     return JSON.parse(env.CODERABBIT_STUB_MANIFEST)
   }
   return hashPathContents(cwd, relPaths)

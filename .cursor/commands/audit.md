@@ -7,8 +7,8 @@ When in doubt, cite the doc over the code — the spec is authoritative.
 </persona>
 
 <context>
-Repository: ralfcam/restaurant-system (branch: main)
-GitHub: https://github.com/ralfcam/restaurant-system
+Repository: this repository (branch: main)
+GitHub: the repository remote from `.cursor/harness.json`
 Stack: Next.js 16 App Router · React 19 · TypeScript · Tailwind v4 · shadcn · pnpm
 Backend: Supabase (SSR + service role via `@supabase/ssr` / `@supabase/supabase-js`)
 Auth: middleware.ts → lib/supabase/proxy.ts (`updateSession`)
@@ -21,9 +21,9 @@ Migrations: supabase/migrations/ (add_scheduling_schema.sql, blocked_dates, book
 Testing (target convention): Vitest (unit + integration) · Playwright e2e
 Lint: `pnpm lint` (eslint)
 
-Linear workspace: https://linear.app/realized
-Team key: `RES` (issue prefix `RES`). The live team display name is informational.
-Version projects: discovered live as nonterminal RES projects with canonical version key `V-X.X` per
+Linear workspace: https://linear.app/example
+Team key: the configured Linear team key (issue prefix from `linear.issuePrefix`). The live team display name is informational.
+Version projects: discovered live as nonterminal configured-team projects with canonical version key `V-X.X` per
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc);
 there is no hardcoded Linear project default.
 Linear issues are operational/release-gate tracking only and are OUT OF SCOPE
@@ -81,7 +81,7 @@ standard or mandatory Blocker controls.
 
 Invocation: `/audit [project-url|project-name] [issue-list]`.
 
-1. Resolve the team once and require key `RES`. Call `list_projects`
+1. Resolve the team once and require the configured Linear team key. Call `list_projects`
    for that team, paginate fully, extract each display-name canonical
    `versionKey` `V-X.X`, exclude terminal projects, reject duplicate canonical
    keys, and classify the rest as ongoing or available from live status.
@@ -116,7 +116,7 @@ Invocation: `/audit [project-url|project-name] [issue-list]`.
    `project` (pinned project only), `issues` (issue list only), or
    `project-issues` (project plus list); the pinned scope project's Linear
    UUID or `none` (complete and issue-only audits use `none`, never a display
-   name or URL slug); and the ordered de-duplicated RES IDs in first-occurrence
+   name or URL slug); and the ordered de-duplicated issue IDs in first-occurrence
    order or `none`.
 
 Execution strategy (wave-ordered — dependencies flow downward):
@@ -126,9 +126,10 @@ Execution strategy (wave-ordered — dependencies flow downward):
   Wave at the Task fan-out cap in `.cursor/rules/task-fanout.mdc`.
   - PART 2 per-spec — one `spec-verifier` Task per spec in the normalized
     audit scope (all specs only for no-argument runs; exclude README.md).
-    `model: inherit`.
+    Use the pin in that agent's frontmatter; never pass `model`.
   - PART 3–6 — one `audit-explorer` Task per part/subsection, handing the
-    part text + report path. `model: inherit`. Do not use anonymous explore.
+    part text + report path. Use the pin in that agent's frontmatter; never
+    pass `model`. Do not use anonymous explore.
 - Wave 2 — Synthesis (after Wave 1 returns): PART 3E booking/reservation
   deviation consolidation and the main-audit Spec–Code Deviations section.
 - Wave 3 — Spec-coverage synthesis (last): run PART 7 yourself.
@@ -203,7 +204,7 @@ Source of truth: every spec in the normalized docs/specs/ audit scope
 For EVERY in-scope spec file (exclude README.md), deploy one `spec-verifier`
 Task. A no-argument run includes every spec; a targeted run includes only the
 derived set and records all others as out of scope. Wave at the fan-out cap.
-`model: inherit`.
+Use the pin in that agent's frontmatter; never pass `model`.
 
 2A. Spec → report mapping (deterministic)
 
@@ -310,7 +311,7 @@ Bar: acceptance criteria in each docs/specs/ file. docs/testing/ is BACKGROUND O
 
 - Integration/RLS tests must run against real local Supabase when they exist —
   skipped suites prove nothing. Cite config.
-- Runs use `RESTAURANT_INTEGRATION_STRICT=true` when integration tests exist.
+- Runs use `INTEGRATION_STRICT=true` when integration tests exist.
 
 5D. NFR test coverage
 
@@ -364,14 +365,14 @@ Tone: technical, direct, zero filler
 
 ---
 
-# Production-Readiness Audit — restaurant-system
+# Production-Readiness Audit — this repository
 
 _Audited: [timestamp of run]_
 
 ## Executive Summary
 
 - Audit scope: complete repository | project `<V-X.X>` | exact issues
-  `<RES-###, ...>` | project + exact issues
+  `<<issue-id>, ...>` | project + exact issues
 - Verdict: shippable as-is | shippable with fixes | not shippable
 - Top 3 risks
 - Most critical spec-vs-code deviation
@@ -448,7 +449,7 @@ check. Run it after PART 8 completes, or after PART 8 is explicitly skipped
 with `ledger=off`.
 
 1. Resolve the target project from live Linear data. Default to the exact
-   project selected during AUDIT SCOPE: an explicit valid RES project with
+   project selected during AUDIT SCOPE: an explicit valid configured-team project with
    canonical version key `V-X.X` first; otherwise the uniquely best ongoing
    project by audited scope match,
    earliest target date, then current-version ordering. Never target the
@@ -461,7 +462,7 @@ with `ledger=off`.
    `audit:<YYYY-MM-DD>:<full HEAD SHA>:scope=<complete|project|issues|project-issues>:project=<Linear project UUID|none>:issues=<ordered de-duplicated RES IDs|none>`.
    Use the pinned scope project's Linear UUID (never display name or URL slug);
    complete and issue-only audits use `project=none`. Preserve first-occurrence
-   issue ordering after de-duplication (`issues=RES-###,...` or `issues=none`).
+   issue ordering after de-duplication (`issues=<issue-id>,...` or `issues=none`).
    Identical normalized scopes on the same date and HEAD share a key; a
    different mode, project UUID, issue set, or issue order is a different key
    and must not overwrite another run.

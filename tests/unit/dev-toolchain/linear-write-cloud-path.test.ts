@@ -54,10 +54,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
       h.command.includes("linear-write-guard.mjs"),
     )
     expect(pre).toBeDefined()
-    expect(pre?.matcher).toMatch(/MCP:save_issue/)
-    expect(pre?.matcher).toMatch(/save_comment/)
-    expect(pre?.matcher).toMatch(/save_status_update/)
-    expect(pre?.matcher).toMatch(/CallDynamicTool/)
+    expect(pre?.matcher).toBe("CallDynamicTool")
 
     setAllowed(false)
 
@@ -205,14 +202,7 @@ describe("G-LG1 Cloud Linear write lock", () => {
     expect(cloudListAllowed.status).toBe(0)
     expect(parseHookStdout(cloudListAllowed.stdout)).toEqual({})
 
-    expect(
-      checkLinearWrite(undefined, "save_issue", false, {
-        denyUnknownServer: true,
-      })?.deny,
-    ).toBe(true)
-    expect(
-      checkLinearWrite("", "save_comment", false, { denyUnknownServer: true })
-        ?.deny,
-    ).toBe(true)
+    expect(checkLinearWrite(undefined, "save_issue", false)?.deny).toBe(true)
+    expect(checkLinearWrite("", "save_comment", false)?.deny).toBe(true)
   })
 })

@@ -8,18 +8,13 @@
         "failClosed": true
       },
       {
-        "command": "node .cursor/hooks/git-stage-guard.mjs",
-        "matcher": "MCP:merge_pull_request|MCP:mergePullRequest|MCP:merge_pr",
-        "failClosed": true
-      },
-      {
-        "command": "node .cursor/hooks/linear-write-guard.mjs",
-        "matcher": "MCP:save_issue|save_comment|save_status_update|CallDynamicTool",
-        "failClosed": false
-      },
-      {
         "command": "node .cursor/hooks/tdd-delegation-guard.mjs",
         "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/task-availability-guard.mjs",
+        "matcher": "Write",
+        "failClosed": true
       },
       {
         "command": "node .cursor/hooks/findings-write-guard.mjs",
@@ -29,12 +24,17 @@
       {
         "command": "node .cursor/hooks/task-fanout-guard.mjs",
         "matcher": "Task",
-        "failClosed": true
+        "failClosed": false
       },
       {
         "command": "node .cursor/hooks/task-delegation-guard.mjs",
         "matcher": "Task",
         "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/linear-write-guard.mjs",
+        "matcher": "CallDynamicTool",
+        "failClosed": true
       }
     ],
     "beforeMCPExecution": [
@@ -48,7 +48,7 @@
       },
       {
         "command": "node .cursor/hooks/linear-write-guard.mjs",
-        "failClosed": false
+        "failClosed": true
       }
     ],
     "postToolUse": [
@@ -59,6 +59,11 @@
       {
         "command": "node .cursor/hooks/repeat-tool-reminder.mjs",
         "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/task-availability-guard.mjs --success",
+        "matcher": "Task",
+        "failClosed": false
       }
     ],
     "postToolUseFailure": [
@@ -68,6 +73,11 @@
       },
       {
         "command": "node .cursor/hooks/task-fanout-guard.mjs --failure",
+        "failClosed": false
+      },
+      {
+        "command": "node .cursor/hooks/task-availability-guard.mjs --failure",
+        "matcher": "Task",
         "failClosed": false
       }
     ],

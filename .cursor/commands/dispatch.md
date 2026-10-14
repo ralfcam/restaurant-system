@@ -11,16 +11,16 @@ ranking signal behind every outcome.
 </persona>
 
 <context>
-Linear workspace: https://linear.app/realized
-Fixed team key: **RES** (issues `RES-###`). The live team display name is
-informational. Version projects are discovered live as RES projects with
+Linear workspace: https://linear.app/example
+Configured Linear team key (issues `<issue-id>`). The live team display name is
+informational. Version projects are discovered live as configured-team projects with
 canonical version key `V-X.X`; there is no hardcoded Linear project default.
 Shared discovery, scope parsing, allocation precedence, and fail-closed
 behavior:
 [.cursor/rules/linear-project-routing.mdc](.cursor/rules/linear-project-routing.mdc).
 
 Invocation: `/dispatch [project-url|project-name] [issue-list]`. No argument
-inventories the live nonterminal RES version-project set. A project URL/name
+inventories the live nonterminal configured-team version-project set. A project URL/name
 pins one exact project; issue IDs/URLs or a multiline Markdown issue list form
 the complete ordered candidate pool; supplying both applies both boundaries.
 Canonicalize a project URL from `/project/<slug>/...`, ignoring layout and
@@ -40,7 +40,7 @@ cycle**. This command has two distinct responsibilities:
    bring the total daily queue to at most 10. The preferred minimum is 5; a
    shortage is reported, never filled with blocked or invented work.
 
-The executable routes are `/design RES-###` and `/sdd-to-tdd RES-###`. Other
+The executable routes are `/design <issue-id>` and `/sdd-to-tdd <issue-id>`. Other
 grounded outcomes are pending `CLARIFY`, organizational container, or
 return-to-`/triage` cleanup.
 
@@ -109,7 +109,7 @@ before classifying any issue.
 
 ## PHASE 1 — Resolve scope and inventory the portfolio
 
-1. Resolve the team once and require key `RES`. Call `list_projects` for that
+1. Resolve the team once and require the configured Linear team key. Call `list_projects` for that
    team, paginate fully, extract each display-name canonical version key
    `V-X.X`, exclude terminal projects, reject duplicate canonical keys, and
    classify the remainder as ongoing or available from live status. Stop if a
@@ -445,7 +445,7 @@ Format: structured Markdown, evidence-first.
 ## Mode Check
 
 - Plan Mode: YES | NO
-- Scope: no argument | project <V-X.X> | exact issues <ordered RES IDs> |
+- Scope: no argument | project <V-X.X> | exact issues <ordered issue IDs> |
   project + exact issues
 - Candidate projects: ongoing <names> · available <names> | cannot verify
 - Current cycle: <name/id> | cannot verify
@@ -454,7 +454,7 @@ Format: structured Markdown, evidence-first.
 
 One row per scoped Backlog issue, with no omissions:
 
-- **[RES-###] title** — `/design` | `/sdd-to-tdd` | pending `CLARIFY` |
+- **[<issue-id>] title** — `/design` | `/sdd-to-tdd` | pending `CLARIFY` |
   organizational container | return to `/triage`
 - Current: state, project, priority, milestone, estimate, cycle
 - Target metadata: project, milestone, priority, optional estimate,
@@ -497,7 +497,7 @@ Execution only:
 
 Per confirmed issue:
 
-- **[RES-###] title** — `/design RES-###` | `/sdd-to-tdd RES-###`
+- **[<issue-id>] title** — `/design <issue-id>` | `/sdd-to-tdd <issue-id>`
 - Priority · milestone · live current cycle
 - Owning spec/decision evidence and write-set
 - Pasteable command only; dispatch does not run it
@@ -506,9 +506,9 @@ Per confirmed issue:
 
 ## Cloud lane
 
-- Briefs written or re-checked: <RES-###> complete | incomplete
-- Eligible now: <RES-###> | none
-- In flight: PR #<n> (<RES-###>) | claimed <RES-###> | none
+- Briefs written or re-checked: <<issue-id>> complete | incomplete
+- Eligible now: <<issue-id>> | none
+- In flight: PR #<n> (<<issue-id>>) | claimed <<issue-id>> | none
 - Digest: `Dispatch run key:` · health `onTrack` | `atRisk` | `offTrack`
 - Needs your decision (at most 5): Cancel | Duplicate | umbrella | keep-or-drop | new issue | none
 
@@ -524,7 +524,7 @@ Only failed reads/resolution; successful empty fields are verified negatives.
 
 ## Operator Next
 
-Choose which confirmed `/design RES-###` and `/sdd-to-tdd RES-###` cards to
+Choose which confirmed `/design <issue-id>` and `/sdd-to-tdd <issue-id>` cards to
 run, and independently decide whether to launch any optional Cloud
 recommendation. This command starts neither.
 </output_format>

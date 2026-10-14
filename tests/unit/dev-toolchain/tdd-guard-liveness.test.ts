@@ -106,10 +106,10 @@ describe("G-TD1 TDD delegation-guard liveness", () => {
         protectedWrite: { status: 0, permission: "deny" },
         disarmEscape: { status: 0, body: {} },
         tddFailClosed: false,
-        fanoutFailClosed: true,
+        fanoutFailClosed: false,
         tddMalformed: { status: 0, body: {} },
       })
-      expect(fanoutMalformed.status).not.toBe(0)
+      expect(fanoutMalformed.status).toBe(0)
     } finally {
       restoreTddState()
     }
