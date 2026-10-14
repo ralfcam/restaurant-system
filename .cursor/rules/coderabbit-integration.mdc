@@ -36,8 +36,9 @@ clears the saved cycle. `runCr` uses an absolute deadline as well as
 inactivity, and records `unavailable` / `timeout` on either expiry. Auth
 `--version` and `auth status --agent` use the same finite timeout. A
 `timeout`, `missing_complete`, missing binary, or other CLI-unavailable
-review is `ok: false` / `action: block` with a non-zero exit — do not
-push. A `--branch-diff` `secret_path` stays advisory. It must never
+review is recorded with exit zero; `ok: false` / `action: block` stay
+JSON metadata and do not stop `/push`. A `--branch-diff` `secret_path`
+stays advisory. It must never
 block forever. A missing binary is `cli_missing`. A reported version
 other than `0.9.0` is `version_mismatch`. The previous pin `0.7.6` is
 that mismatch. Either one, on the branch-diff pass, runs
