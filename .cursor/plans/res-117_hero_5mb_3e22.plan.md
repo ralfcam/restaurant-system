@@ -177,7 +177,7 @@ none at planning time. Findings raised by phases are reported in the final repor
 
 ## First Execution Action
 
-Arm the guard (`node .cursor/hooks/tdd-guard.mjs on`), register criteria with START, launch the `linear-resolver` START Task in the background, apply the spec edit to `docs/specs/branding-cms.md`, then set phase `red` and delegate C3 Red to `tdd-red`.
+Arm the guard (`node .cursor/hooks/tdd-guard.mjs on`), register criteria with START, launch the `linear-resolver` START Task in the background, apply the spec edit to `docs/specs/branding-cms.md`, then set phase `red` and delegate C1 Red to `tdd-red`. Continue in the criteria order C1, C3, C2, C4, C5.
 
 ## Fix round 1 (15 Oct, after the CodeRabbit branch-diff gate)
 
