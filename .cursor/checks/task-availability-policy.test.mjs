@@ -28,10 +28,6 @@ const hooks = JSON.parse(
   readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
 )
 
-function hookByCommand(event, needle) {
-  return (hooks.hooks[event] || []).find((h) => h.command.includes(needle))
-}
-
 test("task-availability-guard is not registered on any hook event", () => {
   for (const [event, entries] of Object.entries(hooks.hooks)) {
     for (const entry of entries) {
