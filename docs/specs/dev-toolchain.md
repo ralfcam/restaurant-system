@@ -494,7 +494,7 @@ latest-head` so `on.pull_request.types` includes `edited`.
        write `{}` / no `permission: "deny"` so a fail-open crash cannot
        brick TDD writes. `task-fanout-guard.mjs` fail-closed behavior
        is G-FO1, not this item.
-    4. While armed, a depth-0 `Write` under `.cursor/hooks/` MUST be
+    4. While armed with the phase unset, a depth-0 `Write` under `.cursor/hooks/` MUST be
        `permission: "deny"`. That includes a guard script and its lib, for
        example `.cursor/hooks/tdd-delegation-guard.mjs` and
        `.cursor/hooks/lib/tdd-guard-policy.mjs`. The single relative path
@@ -1025,12 +1025,16 @@ latest-head` so `on.pull_request.types` includes `edited`.
     active** — while the TDD guard is armed, `git-stage-guard.mjs` MUST deny
     a Shell write (redirect, `tee`, `sed -i`, `cp`, `mv`) whose target is a
     protected path (`PROTECTED_PREFIXES`) unless the write is permitted by
-    the same scope as the `Write` guard: at depth 0 the write is a
-    delegation deny; at depth greater than 0 Red allows only `tests/**`,
-    and Green and Refactor allow everything protected except `tests/**`.
-    At depth greater than 0 with the phase unset (`null`), a protected
-    Shell target MUST be denied (kind `phase-unset`) until the parent sets
-    Red, Green, or Refactor. The armed state file
+    the same scope as the `Write` guard. Whenever a valid phase is set, at
+    any depth, Red allows only `tests/**`, and Green and Refactor allow
+    everything protected except `tests/**`. This holds at depth 0 because
+    on Cursor Cloud `subagentStart` and `subagentStop` never fire and depth
+    stays 0 (temporary relaxation, Jose 2026-10-15 15:35 CEST; QA's
+    transcript and `--agent-id` evidence check is the backstop; revert under
+    REAZED-384 once Cursor fires subagent hooks for `CallDynamicTool`).
+    With the phase unset (`null`), a protected Shell target MUST be denied:
+    at depth 0 as a delegation deny, and at depth greater than 0 as kind
+    `phase-unset`, until the parent sets Red, Green, or Refactor. The armed state file
     `.cursor/hooks/state/tdd-guard.json` MUST stay allowed at any depth and
     phase. A non-protected target such as `docs/**` or `.cursor/plans/**`
     MUST stay allowed at any depth and phase, so close-out delegation
@@ -1043,9 +1047,12 @@ latest-head` so `on.pull_request.types` includes `edited`.
     for `Write`. Binding protected writes to a proven `tdd-*` caller is a
     separate, ledgered finding and is not required here.
     - Regression guard: `.cursor/checks/task-availability-policy.test.mjs`
-      pins `checkProtectedShellWrite` at armed depth 1 phase null for a
-      `lib/` and a `tests/` target, and spawns `git-stage-guard.mjs`
-      armed at depth 1 phase null to observe `permission: "deny"`.
+      pins `checkProtectedShellWrite` at armed depth 1 phase null and at
+      armed depth 0 phase null for a `lib/` and a `tests/` target, and at
+      armed depth 0 for Red (`tests/**` allowed, `src/**` denied) and Green
+      (`src/**` allowed, `tests/**` denied), and spawns `git-stage-guard.mjs`
+      for the same states. `.cursor/checks/tdd-guard-policy.test.mjs` pins
+      the same depth-0 matrix on `checkTddWrite`.
 
 ## Implementation trace (non-normative)
 
