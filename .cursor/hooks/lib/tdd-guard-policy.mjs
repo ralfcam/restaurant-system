@@ -457,7 +457,9 @@ export function extractShellWriteTargets(command) {
  *  guard-state paths while armed. Mirrors the Write guard: the parent
  *  (depth 0) is denied on protected paths, a running subagent follows its
  *  phase scope, and guard-state files are denied at any depth except the
- *  armed-state file. Independent of Task events, which Cloud never fires. */
+ *  armed-state file. A subagent with no phase set is denied every protected
+ *  target until the parent sets Red, Green, or Refactor. Independent of Task
+ *  events, which Cloud never fires. */
 export function checkProtectedShellWrite(
   command,
   { armed, depth = 0, phase = null } = {},
@@ -468,6 +470,9 @@ export function checkProtectedShellWrite(
     if (isArmedStateFile(rel) || isArmedStateFile(target)) continue
     const hit = checkTddWrite(rel, { depth, phase })
     if (hit) return { ...hit, target: rel }
+    if (depth > 0 && !phase && isProtected(rel)) {
+      return { deny: true, kind: "phase-unset", target: rel }
+    }
     if (isGuardStatePath(rel) || isGuardStatePath(target)) {
       return { deny: true, kind: "guard-state-shell", target: rel }
     }

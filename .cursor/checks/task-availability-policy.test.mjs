@@ -201,6 +201,41 @@ test("checkProtectedShellWrite follows depth and phase like the Write guard", ()
   )
 })
 
+test("checkProtectedShellWrite denies protected targets at armed depth>0 with phase unset", () => {
+  const unset = { armed: true, depth: 1, phase: null }
+  for (const command of [
+    "echo ok > lib/foo.ts",
+    "echo ok > tests/foo.test.ts",
+    "cp lib/a.ts lib/b.ts",
+    "sed -i s/a/b/ app/page.tsx",
+    "echo x > .cursor/hooks/state/linear-writer.json",
+  ]) {
+    const hit = checkProtectedShellWrite(command, unset)
+    assert.equal(hit?.deny, true, command)
+  }
+  assert.equal(
+    checkProtectedShellWrite("echo ok > lib/foo.ts", unset)?.kind,
+    "phase-unset",
+  )
+  for (const command of [
+    "echo ok > docs/findings/security.md",
+    "echo ok > .cursor/plans/x.plan.md",
+    "echo ok > docs/verifier-reports/tdd/x.md",
+    "echo disarmed > .cursor/hooks/state/tdd-guard.json",
+    "git status",
+  ]) {
+    assert.equal(checkProtectedShellWrite(command, unset), null, command)
+  }
+  assert.equal(
+    checkProtectedShellWrite("echo ok > lib/foo.ts", {
+      armed: false,
+      depth: 1,
+      phase: null,
+    }),
+    null,
+  )
+})
+
 test("parent linear-writer.json writes are denied unarmed and after Task", () => {
   assert.equal(
     checkLinearWriterParentWrite(".cursor/hooks/state/linear-writer.json")
@@ -715,6 +750,36 @@ describe("task-availability isolated spawn", { concurrency: 1 }, () => {
       statePath,
     )
     assert.equal(JSON.parse(denied.out).permission, "deny")
+  })
+
+  test("Shell redirect to lib/ or tests/ is denied by git-stage-guard at armed depth>0 with phase unset", async () => {
+    writeFileSync(
+      statePath,
+      JSON.stringify({ armed: true, depth: 1, phase: null }),
+      "utf8",
+    )
+    const shell = (command) =>
+      "\uFEFF" + JSON.stringify({ tool_name: "Shell", tool_input: { command } })
+    for (const command of [
+      "echo x > lib/foo.ts",
+      "echo x > tests/foo.test.ts",
+    ]) {
+      const denied = await runIsolated(
+        "git-stage-guard.mjs",
+        shell(command),
+        [],
+        statePath,
+      )
+      assert.equal(denied.code, 0)
+      assert.equal(JSON.parse(denied.out).permission, "deny", command)
+    }
+    const allowed = await runIsolated(
+      "git-stage-guard.mjs",
+      shell("echo x > docs/findings/security.md"),
+      [],
+      statePath,
+    )
+    assert.deepEqual(JSON.parse(allowed.out), {})
   })
 
   test("unarmed Shell redirect to lib/ is not denied by git-stage-guard", async () => {

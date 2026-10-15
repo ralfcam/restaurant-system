@@ -1021,6 +1021,31 @@ latest-head` so `on.pull_request.types` includes `edited`.
     `git push -u origin <feature>` stay allowed.
     - Regression guard:
       `tests/unit/dev-toolchain/protected-branch-push-guard.test.ts`.
+34. **G-SH1 — Armed protected Shell writes are denied until a phase is
+    active** — while the TDD guard is armed, `git-stage-guard.mjs` MUST deny
+    a Shell write (redirect, `tee`, `sed -i`, `cp`, `mv`) whose target is a
+    protected path (`PROTECTED_PREFIXES`) unless the write is permitted by
+    the same scope as the `Write` guard: at depth 0 the write is a
+    delegation deny; at depth greater than 0 Red allows only `tests/**`,
+    and Green and Refactor allow everything protected except `tests/**`.
+    At depth greater than 0 with the phase unset (`null`), a protected
+    Shell target MUST be denied (kind `phase-unset`) until the parent sets
+    Red, Green, or Refactor. The armed state file
+    `.cursor/hooks/state/tdd-guard.json` MUST stay allowed at any depth and
+    phase. A non-protected target such as `docs/**` or `.cursor/plans/**`
+    MUST stay allowed at any depth and phase, so close-out delegation
+    (`docs-updater`, `linear-resolver`) is unaffected. The decision MUST NOT
+    depend on `taskAvailable` or on any Task hook event.
+    This criterion does not claim that shared depth proves which subagent
+    is the caller: no hook payload field that identifies the calling
+    subagent has been observed, so the depth and phase scope is a
+    best-effort stand-in, the same model `tdd-delegation-guard.mjs` uses
+    for `Write`. Binding protected writes to a proven `tdd-*` caller is a
+    separate, ledgered finding and is not required here.
+    - Regression guard: `.cursor/checks/task-availability-policy.test.mjs`
+      pins `checkProtectedShellWrite` at armed depth 1 phase null for a
+      `lib/` and a `tests/` target, and spawns `git-stage-guard.mjs`
+      armed at depth 1 phase null to observe `permission: "deny"`.
 
 ## Implementation trace (non-normative)
 

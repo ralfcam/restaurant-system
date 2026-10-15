@@ -8,7 +8,8 @@
  * sets loopRan, also blocks any `git commit` until /commit opens the gate.
  * While /sdd-to-tdd is armed, also denies Shell writes (redirect, tee,
  * sed -i, cp, mv) to protected source paths and `.cursor/hooks/state/**`
- * (except the armed-state file) per depth/phase, like the Write guard.
+ * (except the armed-state file) per depth/phase, like the Write guard. A
+ * subagent (depth > 0) with no phase set is denied protected targets.
  *
  * failClosed: true in hooks.json — a crash or timeout of this script must not
  * fail-open into a blanket stage or a merge. Matcher is Shell-only so a crash
