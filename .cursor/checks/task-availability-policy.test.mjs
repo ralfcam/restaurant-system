@@ -32,22 +32,16 @@ function hookByCommand(event, needle) {
   return (hooks.hooks[event] || []).find((h) => h.command.includes(needle))
 }
 
-test("task-availability-guard is fail-closed on Write and records Task success/failure", () => {
-  const write = hookByCommand("preToolUse", "task-availability-guard.mjs")
-  assert.ok(write, "task-availability-guard is registered on preToolUse")
-  assert.equal(write.matcher, "Write")
-  assert.equal(write.failClosed, true)
-  const success = hookByCommand("postToolUse", "task-availability-guard.mjs")
-  assert.ok(success)
-  assert.equal(success.matcher, "Task")
-  assert.match(success.command, /--success/)
-  const failure = hookByCommand(
-    "postToolUseFailure",
-    "task-availability-guard.mjs",
-  )
-  assert.ok(failure)
-  assert.equal(failure.matcher, "Task")
-  assert.match(failure.command, /--failure/)
+test("task-availability-guard is not registered on any hook event", () => {
+  for (const [event, entries] of Object.entries(hooks.hooks)) {
+    for (const entry of entries) {
+      assert.doesNotMatch(
+        entry.command,
+        /task-availability-guard/,
+        `${event} must not register task-availability-guard (inert on Cloud CallDynamicTool Task)`,
+      )
+    }
+  }
 })
 
 test("checkTaskAvailabilityWrite denies armed edits until Task succeeds", () => {
@@ -650,7 +644,7 @@ describe("task-availability isolated spawn", { concurrency: 1 }, () => {
     assert.equal(JSON.parse(denied.out).permission, "deny")
   })
 
-  test("Shell redirect to lib/ is denied while armed and Task is down", async () => {
+  test("Shell redirect to lib/ is not denied by git-stage-guard while armed and Task is unmarked", async () => {
     assert.equal((await runIsolated("tdd-guard.mjs", "", ["on"], statePath)).code, 0)
     const payload =
       "\uFEFF" +
@@ -658,16 +652,9 @@ describe("task-availability isolated spawn", { concurrency: 1 }, () => {
         tool_name: "Shell",
         tool_input: { command: "echo x > lib/foo.ts" },
       })
-    const denied = await runIsolated(
-      "git-stage-guard.mjs",
-      payload,
-      [],
-      statePath,
-    )
-    assert.equal(denied.code, 0)
-    const body = JSON.parse(denied.out)
-    assert.equal(body.permission, "deny")
-    assert.match(body.user_message, /BLOCKED \(infra\)/)
+    const out = await runIsolated("git-stage-guard.mjs", payload, [], statePath)
+    assert.equal(out.code, 0)
+    assert.deepEqual(JSON.parse(out.out), {})
   })
 
   test("fingerprint CLI appends a run-file line", async () => {

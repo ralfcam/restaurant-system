@@ -6,9 +6,6 @@
  * Shell command — /commit staging plus the "operator merges in GitHub" rule,
  * enforced deterministically instead of by prose discipline. After a TDD loop
  * sets loopRan, also blocks any `git commit` until /commit opens the gate.
- * While /sdd-to-tdd is armed and Task has not succeeded, also denies Shell
- * writes (redirect, tee, sed -i, cp, mv) to protected source paths and
- * `.cursor/hooks/state/**` except the armed-state file.
  *
  * failClosed: true in hooks.json — a crash or timeout of this script must not
  * fail-open into a blanket stage or a merge. Matcher is Shell-only so a crash
@@ -22,7 +19,6 @@ import {
   readStdinJson,
   writeStdoutJson,
   checkLinearWriterParentShell,
-  checkTaskAvailabilityShell,
   extractShellWriteTargets,
   isArmedStateFile,
   recordDisarm,
@@ -34,7 +30,6 @@ import {
   getCommitExempt,
   isArmed,
   isLoopRan,
-  isTaskAvailable,
   stagedPathsFromGit,
   status,
 } from "./lib/tdd-guard-policy.mjs"
@@ -67,24 +62,6 @@ function main() {
           break
         }
       }
-    }
-    const shellWrite = checkTaskAvailabilityShell(command, {
-      armed: isArmed(),
-      taskAvailable: isTaskAvailable(),
-    })
-    if (shellWrite) {
-      writeStdoutJson({
-        permission: "deny",
-        user_message:
-          "Blocked a Shell write — Task is unavailable. STOP and report BLOCKED (infra).",
-        agent_message:
-          `git-stage guard: "${shellWrite.target}" would write a protected or ` +
-          "guard-state path while Task has not succeeded in this armed /sdd-to-tdd " +
-          "run. Do not edit tests, source, or `.cursor/hooks/state/**` (except " +
-          "tdd-guard.json) via redirect, tee, sed -i, cp, or mv. STOP and report " +
-          "BLOCKED (infra).",
-      })
-      return
     }
     const mergeHit = detectGhPrMerge(command)
     if (mergeHit) {
