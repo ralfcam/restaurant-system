@@ -1,7 +1,7 @@
 # Branding CMS (admin-managed logo)
 
 **Status:** Draft  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-15
 
 ## Scope
 
@@ -18,7 +18,11 @@ restaurant name only.
    go through staff-authenticated server actions (service role).
    `setChefsPicksEnabled` is a settings write: after the SA-8 staff gate it
    uses the service-role client, not the cookie/JWT client. A public
-   `branding` storage bucket holds `logo.{png,jpg,svg,webp}` (max 2MB).
+   `branding` storage bucket holds `logo.{png,jpg,svg,webp}` and
+   `hero.{png,jpg,webp}`. Its `file_size_limit` is 5MB (5242880 bytes), the
+   larger of the logo cap (2MB) and the hero cap (5MB). A dated migration
+   (`supabase/migrations/<timestamp>_branding_bucket_hero_5mb.sql`) raises the
+   existing bucket to that limit and leaves its allowed MIME types unchanged.
 
 2. **BC-2 — Super-admin-only writes** — `uploadRestaurantLogo`,
    `removeRestaurantLogo`, `uploadRestaurantHeroImage`, and
@@ -35,6 +39,21 @@ restaurant name only.
    PNG / JPEG / SVG / WEBP, and files larger than 2MB. Messages:
    "Please choose an image file.", "Please upload a PNG, JPG, SVG, or WEBP
    image.", "Logo image must be smaller than 2MB."
+   The hero image (`validateHeroUpload`) rejects missing files, types other
+   than PNG / JPEG / WEBP, and files larger than 5MB (`MAX_HERO_BYTES` =
+   5242880 bytes; a file of exactly 5MB is accepted). `MAX_HERO_BYTES`, the
+   migrated `branding` bucket `file_size_limit`, and
+   `brandingBucketOptions().fileSizeLimit` are the same value, so a file the
+   app accepts is never rejected by storage. The hero editor on
+   `/admin/settings` checks the chosen file's size before any upload and shows
+   an inline error ("This image is larger than 5 MB. Choose a smaller file.",
+   `errors.branding.heroTooLarge`; the helper text states "up to 5 MB") next
+   to the control. The error is announced through a live region, linked to the
+   file input with `aria-describedby`, and the input is `aria-invalid` while it
+   shows. The upload action is not called and the current hero image stays in
+   place; choosing a valid file clears the error. While an upload is in
+   flight, Save and the file picker are disabled and the editor exposes
+   `aria-busy`.
 
 4. **BC-4 — Persist and display** — A successful upload stores the object,
    writes a cache-busted public URL to `restaurant_settings.logo_url`, and
@@ -54,17 +73,20 @@ restaurant name only.
    to the same editor. Neither page ships leftover `public/test-logo-*.png`
    fixtures.
 
-8. **BC-8 — Upload payload size** — The logo is sent as a base64 string on a
-   Server Action (not multipart). `next.config` sets
-   `experimental.serverActions.bodySizeLimit` to `4mb` so a file at the 2MB
-   validation cap still fits after base64 + RSC framing. The default 1MB
-   limit must not reject a valid logo.
+8. **BC-8 — Upload payload size** — The logo and the hero image are sent as
+   base64 strings on a Server Action (not multipart). `next.config` sets
+   `experimental.serverActions.bodySizeLimit` to `8mb`, shared by all Server
+   Actions, so a logo at the 2MB validation cap and a hero image at the 5MB
+   cap (about 6.7MB as base64, plus RSC framing) both still fit
+   (`HERO_UPLOAD_BODY_SIZE_LIMIT`). The default 1MB limit must not reject a
+   valid logo or hero image.
 
 9. **BC-9 — Type aliases and missing bucket** — `image/jpg` (and other JPEG /
    PNG aliases) and an empty browser `type` with a `.png` / `.jpg` / `.svg` /
    `.webp` file name are accepted. If the public `branding` bucket is missing
-   at upload time, the action creates it (public, 2MB, allowed image MIME
-   types) and then stores the object.
+   at upload time, the action creates it (public, 5MB — the same value as
+   `MAX_HERO_BYTES` and the migrated bucket limit, allowed image MIME types)
+   and then stores the object.
 
 10. **BC-10 — Blank seed is column-aligned** — The seed `INSERT INTO restaurant_settings` for `id = 1` keeps `logo_url` and `hero_image_url` null. The pin binds those nulls to the column names. A trailing `max_cover_capacity` equal to the dining-room seat sum does not violate the blank default. A fixed `VALUES (1, NULL, NULL, NULL, NULL, true)` tuple does not satisfy BC-10.
 

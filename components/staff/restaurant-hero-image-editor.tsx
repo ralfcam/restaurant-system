@@ -11,7 +11,7 @@ import {
   removeRestaurantHeroImage,
   uploadRestaurantHeroImage,
 } from "@/app/actions/branding"
-import { resolveHeroContentType } from "@/lib/branding"
+import { MAX_HERO_BYTES, resolveHeroContentType } from "@/lib/branding"
 import { Button } from "@/components/ui/button"
 
 const ACCEPTED_TYPES = "image/png,image/jpeg,image/webp"
@@ -43,12 +43,15 @@ export function RestaurantHeroImageEditor({
   const { heroImageUrl, mutate } = useRestaurantHeroImage()
   const [preview, setPreview] = React.useState<string | null>(null)
   const [file, setFile] = React.useState<File | null>(null)
+  const [sizeError, setSizeError] = React.useState(false)
   const [isSaving, setIsSaving] = React.useState(false)
   const [isRemoving, setIsRemoving] = React.useState(false)
   const fileInputRef = React.useRef<HTMLInputElement>(null)
+  const sizeErrorId = React.useId()
 
   function resetPicker() {
     setFile(null)
+    setSizeError(false)
     if (preview) URL.revokeObjectURL(preview)
     setPreview(null)
     if (fileInputRef.current) fileInputRef.current.value = ""
@@ -57,13 +60,19 @@ export function RestaurantHeroImageEditor({
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const next = e.target.files?.[0]
     if (!next) return
+    if (next.size > MAX_HERO_BYTES) {
+      setSizeError(true)
+      e.target.value = ""
+      return
+    }
+    setSizeError(false)
     if (preview) URL.revokeObjectURL(preview)
     setFile(next)
     setPreview(URL.createObjectURL(next))
   }
 
   async function handleSave() {
-    if (!file) return
+    if (!file || isSaving) return
     setIsSaving(true)
     try {
       const base64 = await fileToBase64(file)
@@ -112,7 +121,7 @@ export function RestaurantHeroImageEditor({
   const hasCustomHero = Boolean(heroImageUrl) && !preview
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4" aria-busy={isSaving || undefined}>
       <span className="relative flex aspect-[16/9] w-full items-center justify-center overflow-hidden rounded-md border border-border bg-secondary">
         {preview ? (
           // Local blob: URL from the file picker — a plain <img> avoids
@@ -147,14 +156,16 @@ export function RestaurantHeroImageEditor({
           onChange={handleFileChange}
           className="sr-only"
           id="hero-image-upload-input"
-          disabled={!isSuperAdmin}
+          disabled={!isSuperAdmin || isSaving}
+          aria-invalid={sizeError || undefined}
+          aria-describedby={sizeError ? sizeErrorId : undefined}
         />
         <Button
           type="button"
           variant="outline"
           size="sm"
           className="justify-start"
-          disabled={!isSuperAdmin}
+          disabled={!isSuperAdmin || isSaving}
           onClick={() => fileInputRef.current?.click()}
         >
           <ImagePlus className="size-4" />
@@ -165,6 +176,15 @@ export function RestaurantHeroImageEditor({
         {file ? (
           <p className="truncate text-xs text-muted-foreground">{file.name}</p>
         ) : null}
+        {/* Mounted before the message so polite live regions announce the insert.
+            sr-only drops the empty node out of the flex gap. */}
+        <p
+          id={sizeErrorId}
+          aria-live="polite"
+          className={sizeError ? "text-sm text-destructive" : "sr-only"}
+        >
+          {sizeError ? t("errors.branding.heroTooLarge") : null}
+        </p>
       </div>
 
       <div
@@ -179,7 +199,7 @@ export function RestaurantHeroImageEditor({
             variant="ghost"
             className="text-destructive hover:text-destructive"
             onClick={handleRemove}
-            disabled={isRemoving || !isSuperAdmin}
+            disabled={isRemoving || isSaving || !isSuperAdmin}
           >
             {isRemoving ? (
               <Loader2 className="size-4 animate-spin" />

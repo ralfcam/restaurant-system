@@ -6,7 +6,7 @@ export const MAX_LOGO_BYTES = 2 * 1024 * 1024
  * whole app — keep `next.config.mjs` big enough for the larger of the two
  * (see `HERO_UPLOAD_BODY_SIZE_LIMIT`).
  */
-export const MAX_HERO_BYTES = 4 * 1024 * 1024
+export const MAX_HERO_BYTES = 5 * 1024 * 1024
 /**
  * Server Actions default to a 1MB body. A 2MB logo encoded as base64 is
  * ~2.7MB plus RSC framing, so the action limit must be raised to match
@@ -14,7 +14,7 @@ export const MAX_HERO_BYTES = 4 * 1024 * 1024
  */
 export const LOGO_UPLOAD_BODY_SIZE_LIMIT = "4mb"
 /**
- * A 4MB hero photo encoded as base64 is ~5.4MB plus RSC framing. Keep this
+ * A 5MB hero photo encoded as base64 is ~6.7MB plus RSC framing. Keep this
  * in sync with `next.config.mjs` (`experimental.serverActions.bodySizeLimit`
  * is shared across all Server Actions, so it must cover the larger value).
  */

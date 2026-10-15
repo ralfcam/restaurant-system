@@ -132,14 +132,22 @@ describe("validateHeroUpload", () => {
     )
   })
 
-  it("rejects a file larger than 4MB", () => {
+  it("rejects a file larger than 5MB", () => {
     expect(validateHeroUpload({ ...valid, size: MAX_HERO_BYTES + 1 })).toBe(
       "errors.branding.heroTooLarge",
     )
   })
 
-  it("accepts a file at exactly 4MB", () => {
+  it("accepts a file at exactly 5MB", () => {
     expect(validateHeroUpload({ ...valid, size: MAX_HERO_BYTES })).toBeNull()
+  })
+
+  it("hero upload cap is 5 MB (5242880 accepted, 5242881 rejected)", () => {
+    expect(MAX_HERO_BYTES).toBe(5242880)
+    expect(validateHeroUpload({ ...valid, size: 5242880 })).toBeNull()
+    expect(validateHeroUpload({ ...valid, size: 5242881 })).toBe(
+      "errors.branding.heroTooLarge",
+    )
   })
 })
 
@@ -163,7 +171,7 @@ describe("heroStoragePath", () => {
 })
 
 describe("hero upload body size", () => {
-  it("documents an 8mb Server Action limit for a 4MB base64 payload", () => {
+  it("documents an 8mb Server Action limit for a 5MB base64 payload", () => {
     expect(HERO_UPLOAD_BODY_SIZE_LIMIT).toBe("8mb")
   })
 })

@@ -1,6 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import path from "node:path"
 import { describe, expect, it } from "vitest"
+import { brandingBucketOptions, MAX_HERO_BYTES } from "@/lib/branding"
 
 const root = process.cwd()
 
@@ -111,7 +112,7 @@ describe("branding CMS schema and surfaces", () => {
     expect(matching.length).toBeGreaterThan(0)
   })
 
-  it("raises the Server Action body limit so a 4MB hero photo fits as base64", () => {
+  it("raises the Server Action body limit so a 5MB hero photo fits as base64", () => {
     const config = readFileSync(path.join(root, "next.config.mjs"), "utf8")
     expect(config).toMatch(/bodySizeLimit:\s*["']8mb["']/)
   })
@@ -228,4 +229,111 @@ describe("branding CMS schema and surfaces", () => {
     expect(home).toMatch(/useRestaurantHeroImage/)
     expect(home).not.toMatch(/hero-dining\.png/)
   })
+
+  it("branding bucket limit: dated migration, MAX_HERO_BYTES and bucket options agree at 5 MB", () => {
+    const migrationsDir = path.join(root, "supabase/migrations")
+    const heroMigrationName = /^\d{14}_branding_bucket_hero_5mb\.sql$/
+    const newestApplied = "20261008120000"
+
+    const heroMigrations = readdirSync(migrationsDir)
+      .filter((name) => heroMigrationName.test(name))
+      .sort()
+    expect(heroMigrations).toHaveLength(1)
+    const heroMigration = heroMigrations[0]
+    const heroStamp = heroMigration.match(/^(\d{14})_/)?.[1] ?? ""
+    expect(heroStamp > newestApplied).toBe(true)
+
+    const heroSql = readFileSync(
+      path.join(migrationsDir, heroMigration),
+      "utf8",
+    )
+    expect(heroSql).not.toMatch(/allowed_mime_types/)
+
+    const names = readdirSync(migrationsDir)
+      .filter((name) => name.endsWith(".sql"))
+      .sort()
+    let effectiveLimit: number | null = null
+    for (const name of names) {
+      const sql = readFileSync(path.join(migrationsDir, name), "utf8")
+      const hits = brandingBucketFileSizeLimits(sql)
+      if (hits.length > 0) effectiveLimit = hits[hits.length - 1]
+    }
+
+    expect(effectiveLimit).toBe(5242880)
+    expect(effectiveLimit).toBe(MAX_HERO_BYTES)
+    expect(effectiveLimit).toBe(brandingBucketOptions().fileSizeLimit)
+  })
 })
+
+function brandingBucketFileSizeLimits(sql: string): number[] {
+  const source = sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ")
+  const hits: { index: number; limit: number }[] = []
+
+  const updateRe =
+    /UPDATE\s+storage\.buckets\s+SET\s+file_size_limit\s*=\s*(\d+)\s+WHERE\s+id\s*=\s*'branding'/gi
+  for (const match of source.matchAll(updateRe)) {
+    hits.push({ index: match.index ?? 0, limit: Number(match[1]) })
+  }
+
+  const insertRe =
+    /INSERT\s+INTO\s+storage\.buckets\s*\(([^)]*)\)\s*VALUES\s*\(([\s\S]*?)\)/gi
+  for (const match of source.matchAll(insertRe)) {
+    const columns = match[1]
+      .split(",")
+      .map((column) => column.trim().toLowerCase())
+    const limitAt = columns.indexOf("file_size_limit")
+    const idAt = columns.indexOf("id")
+    if (limitAt < 0 || idAt < 0) continue
+    const values = splitSqlValues(match[2])
+    if (values[idAt]?.replace(/'/g, "").trim() !== "branding") continue
+    const literal = values[limitAt]?.trim() ?? ""
+    if (!/^\d+$/.test(literal)) continue
+    hits.push({ index: match.index ?? 0, limit: Number(literal) })
+  }
+
+  hits.sort((a, b) => a.index - b.index)
+  return hits.map((hit) => hit.limit)
+}
+
+function splitSqlValues(raw: string): string[] {
+  const values: string[] = []
+  let current = ""
+  let depth = 0
+  let quote: "'" | '"' | null = null
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i]
+    if (quote) {
+      current += ch
+      if (ch === quote && raw[i + 1] === quote) {
+        current += raw[i + 1]
+        i++
+      } else if (ch === quote) {
+        quote = null
+      }
+      continue
+    }
+    if (ch === "'" || ch === '"') {
+      quote = ch
+      current += ch
+      continue
+    }
+    if (ch === "(" || ch === "[") {
+      depth++
+      current += ch
+      continue
+    }
+    if (ch === ")" || ch === "]") {
+      depth = Math.max(0, depth - 1)
+      current += ch
+      continue
+    }
+    if (ch === "," && depth === 0) {
+      values.push(current.trim())
+      current = ""
+      continue
+    }
+    current += ch
+  }
+  if (current.trim()) values.push(current.trim())
+  return values
+}
