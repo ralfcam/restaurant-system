@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import en from "@/messages/en.json"
+import fr from "@/messages/fr.json"
 import { expectCatalogKey } from "@/tests/unit/i18n/helpers/catalog"
 import {
   MAX_HERO_BYTES,
@@ -604,5 +606,42 @@ describe("branding, marketing, and menu producers return errors.* catalog keys",
       (await toggleMenuItemAvailability("item-1", false)).error,
       KEYS.menuUnmapped,
     )
+  })
+})
+
+const STALE_FOUR_OR_FIVE_MEGABYTE_COPY = /\b(?:4|5)\s?(MB|Mo)\b/i
+
+function stringLeaves(node: unknown, prefix: string): Array<[string, string]> {
+  if (typeof node === "string") return [[prefix, node]]
+  if (node === null || typeof node !== "object" || Array.isArray(node)) {
+    return []
+  }
+  return Object.entries(node).flatMap(([key, value]) =>
+    stringLeaves(value, prefix ? `${prefix}.${key}` : key),
+  )
+}
+
+describe("hero size copy", () => {
+  it("hero size copy names 3 MB in every locale and no 4 MB or 5 MB copy remains", () => {
+    expectCatalogKey("errors.branding.heroTooLarge")
+    expectCatalogKey("staff.branding.heroDescription")
+
+    expect(en.errors.branding.heroTooLarge).toBe(
+      "This image is larger than 3 MB. Choose a smaller file.",
+    )
+    expect(fr.errors.branding.heroTooLarge).toMatch(/3 Mo/)
+    expect(en.staff.branding.heroDescription).toMatch(/up to 3 MB/)
+    expect(fr.staff.branding.heroDescription).toMatch(/jusqu'à 3 Mo/)
+
+    for (const [locale, catalog] of [
+      ["en", en],
+      ["fr", fr],
+    ] as const) {
+      const stale = [
+        ...stringLeaves(catalog.staff.branding, "staff.branding"),
+        ...stringLeaves(catalog.errors.branding, "errors.branding"),
+      ].filter(([, text]) => STALE_FOUR_OR_FIVE_MEGABYTE_COPY.test(text))
+      expect(stale, `${locale} still names 4 MB or 5 MB`).toEqual([])
+    }
   })
 })

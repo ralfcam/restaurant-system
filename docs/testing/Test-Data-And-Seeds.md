@@ -1,7 +1,7 @@
 # Test data & seeds
 
 **Status:** Draft  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-15
 
 ## Current state
 
@@ -75,13 +75,19 @@
   - `menu_items` — 120 rows (sample `lib/menu-catalog.json` catalog)
   - `servers` — 4 rows (Maya, Jon, Priya, Dev) via `INSERT … WHERE NOT EXISTS`
 - **Branding bucket runtime:** Migrations define the public `branding` bucket and
-  storage policies. If storage still reports bucket-not-found on first logo upload,
-  `uploadRestaurantLogo` creates the bucket (public, 2MB, allowed image MIME types)
+  storage policies. `file_size_limit` is 3 MB (3145728) after the forward-only
+  migration `supabase/migrations/20261015144000_branding_bucket_hero_5mb.sql`
+  (`MAX_HERO_BYTES`). The logo validation cap stays 2 MB (`MAX_LOGO_BYTES`).
+  If storage still reports bucket-not-found on first logo upload,
+  `uploadRestaurantLogo` creates the bucket (public, 3 MB, allowed image MIME types)
   via the service role and retries — see BC-9 in
   [../specs/branding-cms.md](../specs/branding-cms.md).
 - **Unit tests:** `tests/unit/branding/` — upload/remove actions (including missing-bucket
-  retry), MIME alias validation, a `next.config.mjs` `bodySizeLimit` schema guard, and
-  `schema.test.ts` pinning seed `logo_url` and `hero_image_url` null by column index (BC-10).
+  retry), MIME alias validation, a `next.config.mjs` `bodySizeLimit` schema guard
+  (`8mb`), hero editor over-limit and uploading tests (including a
+  valid-then-oversized pick that discards the staged file), and
+  `schema.test.ts` pinning seed `logo_url` and `hero_image_url` null by column index (BC-10)
+  plus the last branding `file_size_limit` literal at 3145728.
   `tests/unit/marketing/` — review-email settings persist, send gates, queue-on-complete,
   cron job auth, cron mailer factory, Supabase hourly Edge Function pin, marketing page.
   `tests/unit/auth/` — staff and super-admin claim gates
