@@ -577,6 +577,39 @@ test("green and refactor deny tests/ and allow lib/", () => {
   }
 })
 
+test("depth 0 follows the phase scope while a valid phase is set (Cloud: depth never rises)", () => {
+  assert.equal(
+    checkTddWrite("tests/foo.test.ts", { depth: 0, phase: "red" }),
+    null,
+  )
+  assert.equal(
+    checkTddWrite("src/foo.ts", { depth: 0, phase: "red" })?.kind,
+    "phase-red",
+  )
+  for (const phase of ["green", "refactor"]) {
+    assert.equal(checkTddWrite("src/foo.ts", { depth: 0, phase }), null, phase)
+    assert.equal(
+      checkTddWrite("tests/foo.test.ts", { depth: 0, phase })?.kind,
+      "phase-tests",
+      phase,
+    )
+  }
+})
+
+test("depth 0 with no phase still denies protected writes", () => {
+  for (const path of ["src/foo.ts", "tests/foo.test.ts", "lib/foo.ts"]) {
+    assert.equal(
+      checkTddWrite(path, { depth: 0, phase: null })?.kind,
+      "delegation",
+      path,
+    )
+  }
+  assert.equal(
+    checkTddWrite("src/foo.ts", { depth: 0, phase: "bogus" })?.kind,
+    "delegation",
+  )
+})
+
 test("spec guard denies docs/specs/** while a TDD phase is set", () => {
   const deny = checkTddWrite("docs/specs/REQ-001.md", {
     depth: 1,
@@ -842,6 +875,20 @@ describe("tdd-guard spawn-level", { concurrency: 1 }, () => {
     const body = JSON.parse(out)
     assert.equal(body.permission, "deny")
     assert.match(body.user_message, /Red-phase/)
+  })
+
+  test("tdd-delegation-guard follows the phase at depth 0: green allows lib/, red denies it", async () => {
+    writeTddState({ armed: true, depth: 0, phase: "green" })
+    const green = await runGuard(
+      "tdd-delegation-guard.mjs",
+      WRITE_LIB_BILLING,
+    )
+    assert.equal(green.code, 0)
+    assert.deepEqual(JSON.parse(green.out), {})
+    writeTddState({ armed: true, depth: 0, phase: "red" })
+    const red = await runGuard("tdd-delegation-guard.mjs", WRITE_LIB_BILLING)
+    assert.equal(JSON.parse(red.out).permission, "deny")
+    assert.match(JSON.parse(red.out).user_message, /Red-phase/)
   })
 
   test("tdd-delegation-guard denies a BOM-prefixed Write when armed at depth 0", async () => {

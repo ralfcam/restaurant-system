@@ -809,7 +809,14 @@ export function isTestsPath(relPath) {
  *   spec        — docs/specs/** or docs/ADR/** while a TDD phase is set
  *   phase-red   — red phase writing outside tests/
  *   phase-tests — green/refactor writing under tests/
- *   delegation  — parent orchestrator (depth 0) writing a protected path
+ *   delegation  — depth 0 with no phase set writing a protected path
+ *
+ * TEMPORARY relaxation (Jose 2026-10-15 15:35 CEST, revert under REAZED-384):
+ * a valid phase scopes writes at depth 0 too. On Cursor Cloud subagentStart
+ * and subagentStop never fire for CallDynamicTool Tasks, so depth stays 0 and
+ * the phase set by the parent is the only scope signal. QA's transcript and
+ * --agent-id evidence check is the backstop. Restore `depth > 0` alone once
+ * Cursor fires subagent hooks.
  *
  * Spec deny keys off `phase`, not `depth`. Background START increments depth
  * while phase is still null; the parent must still apply the approved spec
@@ -822,7 +829,7 @@ export function checkTddWrite(relPath, { depth, phase }) {
     return { deny: true, kind: "spec" }
   }
   if (!isProtected(path)) return null
-  if (depth > 0) {
+  if (depth > 0 || VALID_PHASES.includes(phase)) {
     if (phase === "red" && !isTestsPath(path))
       return { deny: true, kind: "phase-red" }
     if ((phase === "green" || phase === "refactor") && isTestsPath(path)) {

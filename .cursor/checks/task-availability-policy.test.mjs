@@ -201,6 +201,25 @@ test("checkProtectedShellWrite follows depth and phase like the Write guard", ()
   )
 })
 
+test("checkProtectedShellWrite follows the phase at depth 0 and denies protected targets with no phase", () => {
+  const at = (command, phase) =>
+    checkProtectedShellWrite(command, { armed: true, depth: 0, phase })
+  assert.equal(at("echo ok > tests/foo.test.ts", "red"), null)
+  assert.equal(at("echo ok > src/foo.ts", "red")?.kind, "phase-red")
+  assert.equal(at("echo ok > src/foo.ts", "green"), null)
+  assert.equal(at("echo ok > src/foo.ts", "refactor"), null)
+  assert.equal(
+    at("echo ok > tests/foo.test.ts", "green")?.kind,
+    "phase-tests",
+  )
+  assert.equal(at("echo ok > src/foo.ts", null)?.kind, "delegation")
+  assert.equal(at("echo ok > tests/foo.test.ts", null)?.kind, "delegation")
+  assert.equal(
+    at("echo x > .cursor/hooks/state/linear-writer.json", "green")?.deny,
+    true,
+  )
+})
+
 test("checkProtectedShellWrite denies protected targets at armed depth>0 with phase unset", () => {
   const unset = { armed: true, depth: 1, phase: null }
   for (const command of [
@@ -780,6 +799,44 @@ describe("task-availability isolated spawn", { concurrency: 1 }, () => {
       statePath,
     )
     assert.deepEqual(JSON.parse(allowed.out), {})
+  })
+
+  test("git-stage-guard follows the phase at armed depth 0 and denies protected writes with no phase", async () => {
+    const shell = (command) =>
+      "\uFEFF" + JSON.stringify({ tool_name: "Shell", tool_input: { command } })
+    const run = async (phase, command) => {
+      writeFileSync(
+        statePath,
+        JSON.stringify({ armed: true, depth: 0, phase }),
+        "utf8",
+      )
+      const out = await runIsolated(
+        "git-stage-guard.mjs",
+        shell(command),
+        [],
+        statePath,
+      )
+      assert.equal(out.code, 0)
+      return JSON.parse(out.out)
+    }
+    assert.deepEqual(await run("red", "echo x > tests/foo.test.ts"), {})
+    assert.equal(
+      (await run("red", "echo x > src/foo.ts")).permission,
+      "deny",
+    )
+    assert.deepEqual(await run("green", "echo x > src/foo.ts"), {})
+    assert.equal(
+      (await run("green", "echo x > tests/foo.test.ts")).permission,
+      "deny",
+    )
+    assert.equal(
+      (await run(null, "echo x > src/foo.ts")).permission,
+      "deny",
+    )
+    assert.equal(
+      (await run(null, "echo x > tests/foo.test.ts")).permission,
+      "deny",
+    )
   })
 
   test("unarmed Shell redirect to lib/ is not denied by git-stage-guard", async () => {
