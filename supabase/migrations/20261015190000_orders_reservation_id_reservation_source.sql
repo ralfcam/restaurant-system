@@ -4,7 +4,16 @@
 
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS reservation_id UUID REFERENCES reservations(id);
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_reservation_id_required;
-ALTER TABLE orders ADD CONSTRAINT orders_reservation_id_required CHECK (reservation_id IS NOT NULL) NOT VALID;
+-- Postgres still evaluates a NOT VALID check on UPDATE, so a pre-migration
+-- order with a null reservation_id could not change status. The cutoff is
+-- this migration's apply time: older rows stay exempt; new rows must set it.
+DO $$
+BEGIN
+  EXECUTE format(
+    'ALTER TABLE orders ADD CONSTRAINT orders_reservation_id_required CHECK (reservation_id IS NOT NULL OR created_at < %L) NOT VALID',
+    now()
+  );
+END $$;
 
 -- RES-167: reservation origin. Not guest-insertable. No backfill.
 ALTER TABLE reservations ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'online';
