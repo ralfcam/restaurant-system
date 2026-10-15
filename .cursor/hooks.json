@@ -12,6 +12,11 @@
         "failClosed": false
       },
       {
+        "command": "node .cursor/hooks/linear-writer-write-guard.mjs",
+        "matcher": "Write",
+        "failClosed": true
+      },
+      {
         "command": "node .cursor/hooks/findings-write-guard.mjs",
         "matcher": "Write",
         "failClosed": false

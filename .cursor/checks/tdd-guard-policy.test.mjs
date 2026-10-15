@@ -169,7 +169,8 @@ test("git-stage-guard.mjs wires both blanket-stage and gh pr merge detectors", (
   )
   assert.match(src, /detectGhPrMerge/)
   assert.match(src, /detectBlanketGitStage/)
-  assert.doesNotMatch(src, /checkTaskAvailabilityShell/)
+  assert.match(src, /checkProtectedShellWrite/)
+  assert.doesNotMatch(src, /checkTaskAvailabilityShell|isTaskAvailable/)
 })
 
 test("commit authorization hooks do not read or mutate CodeRabbit receipts", () => {

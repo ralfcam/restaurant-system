@@ -13,7 +13,7 @@ import { after, describe, test } from "node:test"
 import {
   checkLinearWriterParentShell,
   checkLinearWriterParentWrite,
-  checkTaskAvailabilityShell,
+  checkProtectedShellWrite,
   checkTaskAvailabilityWrite,
   defaultFingerprintTools,
   extractShellWriteTargets,
@@ -27,6 +27,15 @@ import { extractMcpCall } from "../hooks/lib/mcp-payload.mjs"
 const hooks = JSON.parse(
   readFileSync(join(process.cwd(), ".cursor", "hooks.json"), "utf8"),
 )
+
+test("linear-writer-write-guard is a fail-closed Write preToolUse hook", () => {
+  const entry = hooks.hooks.preToolUse.find((h) =>
+    h.command.includes("linear-writer-write-guard.mjs"),
+  )
+  assert.ok(entry, "linear-writer-write-guard is registered on preToolUse")
+  assert.equal(entry.matcher, "Write")
+  assert.equal(entry.failClosed, true)
+})
 
 test("task-availability-guard is not registered on any hook event", () => {
   for (const [event, entries] of Object.entries(hooks.hooks)) {
@@ -118,52 +127,77 @@ test("pre-Task depth>0 claim is still denied; subagent write after Task is allow
   )
 })
 
-test("checkTaskAvailabilityShell denies protected and guard-state writes", () => {
-  const armed = { armed: true, taskAvailable: false }
+test("checkProtectedShellWrite denies armed parent Shell writes without taskAvailable", () => {
+  const parent = { armed: true, depth: 0, phase: null }
+  for (const command of [
+    "echo ok > lib/foo.ts",
+    "echo '{\"allowed\":true}' > .cursor/hooks/state/linear-writer.json",
+    "tee .cursor/hooks/state/linear-writer.json",
+    "sed -i s/a/b/ tests/foo.test.ts",
+    "cp lib/a.ts lib/b.ts",
+    "mv hooks/old.ts hooks/new.ts",
+    "echo x > .cursor/hooks/state/findings-writer.json",
+  ]) {
+    assert.equal(
+      checkProtectedShellWrite(command, parent)?.deny,
+      true,
+      command,
+    )
+  }
   assert.equal(
-    checkTaskAvailabilityShell("echo ok > lib/foo.ts", armed)?.kind,
-    "task-unavailable-shell",
+    checkProtectedShellWrite("echo ok > lib/foo.ts", parent)?.kind,
+    "delegation",
   )
   assert.equal(
-    checkTaskAvailabilityShell(
-      "echo '{\"allowed\":true}' > .cursor/hooks/state/linear-writer.json",
-      armed,
-    )?.kind,
-    "task-unavailable-shell",
-  )
-  assert.equal(
-    checkTaskAvailabilityShell(
-      "tee .cursor/hooks/state/linear-writer.json",
-      armed,
-    )?.kind,
-    "task-unavailable-shell",
-  )
-  assert.equal(
-    checkTaskAvailabilityShell("sed -i s/a/b/ tests/foo.test.ts", armed)?.kind,
-    "task-unavailable-shell",
-  )
-  assert.equal(
-    checkTaskAvailabilityShell("cp lib/a.ts lib/b.ts", armed)?.kind,
-    "task-unavailable-shell",
-  )
-  assert.equal(
-    checkTaskAvailabilityShell("mv hooks/old.ts hooks/new.ts", armed)?.kind,
-    "task-unavailable-shell",
-  )
-  assert.equal(
-    checkTaskAvailabilityShell(
+    checkProtectedShellWrite(
       "echo disarmed > .cursor/hooks/state/tdd-guard.json",
-      armed,
+      parent,
     ),
     null,
   )
-  assert.equal(checkTaskAvailabilityShell("git status", armed), null)
+  assert.equal(checkProtectedShellWrite("git status", parent), null)
   assert.equal(
-    checkTaskAvailabilityShell("echo ok > lib/foo.ts", {
-      armed: true,
-      taskAvailable: true,
+    checkProtectedShellWrite("echo ok > lib/foo.ts", {
+      armed: false,
+      depth: 0,
+      phase: null,
     }),
     null,
+  )
+})
+
+test("checkProtectedShellWrite follows depth and phase like the Write guard", () => {
+  assert.equal(
+    checkProtectedShellWrite("echo ok > lib/foo.ts", {
+      armed: true,
+      depth: 1,
+      phase: "green",
+    }),
+    null,
+  )
+  assert.equal(
+    checkProtectedShellWrite("echo ok > tests/foo.test.ts", {
+      armed: true,
+      depth: 1,
+      phase: "green",
+    })?.kind,
+    "phase-tests",
+  )
+  assert.equal(
+    checkProtectedShellWrite("echo ok > lib/foo.ts", {
+      armed: true,
+      depth: 1,
+      phase: "red",
+    })?.kind,
+    "phase-red",
+  )
+  assert.equal(
+    checkProtectedShellWrite("echo x > .cursor/hooks/state/linear-writer.json", {
+      armed: true,
+      depth: 1,
+      phase: "green",
+    })?.deny,
+    true,
   )
 })
 
@@ -640,7 +674,7 @@ describe("task-availability isolated spawn", { concurrency: 1 }, () => {
     assert.equal(JSON.parse(denied.out).permission, "deny")
   })
 
-  test("Shell redirect to lib/ is not denied by git-stage-guard while armed and Task is unmarked", async () => {
+  test("Shell redirect to lib/ is denied by git-stage-guard while armed at depth 0 without Task", async () => {
     assert.equal((await runIsolated("tdd-guard.mjs", "", ["on"], statePath)).code, 0)
     const payload =
       "\uFEFF" +
@@ -648,9 +682,94 @@ describe("task-availability isolated spawn", { concurrency: 1 }, () => {
         tool_name: "Shell",
         tool_input: { command: "echo x > lib/foo.ts" },
       })
-    const out = await runIsolated("git-stage-guard.mjs", payload, [], statePath)
-    assert.equal(out.code, 0)
+    const denied = await runIsolated(
+      "git-stage-guard.mjs",
+      payload,
+      [],
+      statePath,
+    )
+    assert.equal(denied.code, 0)
+    assert.equal(JSON.parse(denied.out).permission, "deny")
+  })
+
+  test("Shell redirect to lib/ is allowed for an armed subagent (depth>0) and denied for tests/ in green", async () => {
+    writeFileSync(
+      statePath,
+      JSON.stringify({ armed: true, depth: 1, phase: "green" }),
+      "utf8",
+    )
+    const shell = (command) =>
+      "\uFEFF" + JSON.stringify({ tool_name: "Shell", tool_input: { command } })
+    const allowed = await runIsolated(
+      "git-stage-guard.mjs",
+      shell("echo x > lib/foo.ts"),
+      [],
+      statePath,
+    )
+    assert.equal(allowed.code, 0)
+    assert.deepEqual(JSON.parse(allowed.out), {})
+    const denied = await runIsolated(
+      "git-stage-guard.mjs",
+      shell("echo x > tests/foo.test.ts"),
+      [],
+      statePath,
+    )
+    assert.equal(JSON.parse(denied.out).permission, "deny")
+  })
+
+  test("unarmed Shell redirect to lib/ is not denied by git-stage-guard", async () => {
+    writeFileSync(statePath, JSON.stringify({ armed: false }), "utf8")
+    const out = await runIsolated(
+      "git-stage-guard.mjs",
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "Shell",
+          tool_input: { command: "echo x > lib/foo.ts" },
+        }),
+      [],
+      statePath,
+    )
     assert.deepEqual(JSON.parse(out.out), {})
+  })
+
+  test("linear-writer-write-guard denies parent Write unarmed, armed, and after Task", async () => {
+    for (const state of [
+      { armed: false },
+      { armed: true, depth: 0 },
+      { armed: true, depth: 1, phase: "green", taskAvailable: true },
+    ]) {
+      writeFileSync(statePath, JSON.stringify(state), "utf8")
+      const out = await runIsolated(
+        "linear-writer-write-guard.mjs",
+        WRITE_LINEAR_STATE,
+        [],
+        statePath,
+      )
+      assert.equal(out.code, 0)
+      assert.equal(JSON.parse(out.out).permission, "deny", JSON.stringify(state))
+    }
+  })
+
+  test("linear-writer-write-guard allows other Write paths and non-Write tools", async () => {
+    writeFileSync(statePath, JSON.stringify({ armed: false }), "utf8")
+    for (const payload of [
+      WRITE_LIB,
+      WRITE_TDD_GUARD,
+      "\uFEFF" +
+        JSON.stringify({
+          tool_name: "Shell",
+          tool_input: { command: "ls .cursor/hooks/state" },
+        }),
+    ]) {
+      const out = await runIsolated(
+        "linear-writer-write-guard.mjs",
+        payload,
+        [],
+        statePath,
+      )
+      assert.equal(out.code, 0)
+      assert.deepEqual(JSON.parse(out.out), {})
+    }
   })
 
   test("fingerprint CLI appends a run-file line", async () => {

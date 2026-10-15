@@ -6,6 +6,9 @@
  * Shell command — /commit staging plus the "operator merges in GitHub" rule,
  * enforced deterministically instead of by prose discipline. After a TDD loop
  * sets loopRan, also blocks any `git commit` until /commit opens the gate.
+ * While /sdd-to-tdd is armed, also denies Shell writes (redirect, tee,
+ * sed -i, cp, mv) to protected source paths and `.cursor/hooks/state/**`
+ * (except the armed-state file) per depth/phase, like the Write guard.
  *
  * failClosed: true in hooks.json — a crash or timeout of this script must not
  * fail-open into a blanket stage or a merge. Matcher is Shell-only so a crash
@@ -19,6 +22,7 @@ import {
   readStdinJson,
   writeStdoutJson,
   checkLinearWriterParentShell,
+  checkProtectedShellWrite,
   extractShellWriteTargets,
   isArmedStateFile,
   recordDisarm,
@@ -29,6 +33,8 @@ import {
   evaluateGitCommitPermission,
   getCommitExempt,
   isArmed,
+  getDepth,
+  getPhase,
   isLoopRan,
   stagedPathsFromGit,
   status,
@@ -62,6 +68,23 @@ function main() {
           break
         }
       }
+    }
+    const shellWrite = checkProtectedShellWrite(command, {
+      armed: isArmed(),
+      depth: getDepth(),
+      phase: getPhase(),
+    })
+    if (shellWrite) {
+      writeStdoutJson({
+        permission: "deny",
+        user_message: `Blocked a Shell write to "${shellWrite.target}" during sdd-to-tdd — protected paths need the delegated subagent or the Write tool.`,
+        agent_message:
+          `git-stage guard: "${shellWrite.target}" is a protected or guard-state path ` +
+          `(${shellWrite.kind}). While /sdd-to-tdd is armed, the orchestrator must not ` +
+          "write tests, source, or `.cursor/hooks/state/**` (except tdd-guard.json) via " +
+          "redirect, tee, sed -i, cp, or mv. Delegate to a tdd-* subagent.",
+      })
+      return
     }
     const mergeHit = detectGhPrMerge(command)
     if (mergeHit) {
