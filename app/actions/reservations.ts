@@ -59,7 +59,7 @@ import {
   type PersistedTable,
 } from "@/app/actions/operations"
 import { toAssignableTables, type TableMergeRef } from "@/lib/floor/floor-units"
-import { sumOpenOrderTotalsByTableLabel } from "@/lib/floor/table-bills"
+import { sumOpenOrderTotalsByReservationId } from "@/lib/floor/table-bills"
 
 export type ReservationRow = {
   id: string
@@ -257,7 +257,7 @@ export async function seatWalkIn(input: {
   guest_name?: string
   phone?: string
   email?: string | null
-}): Promise<{ error?: string }> {
+}): Promise<{ id?: string; error?: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) {
     const supabase = await createClient()
@@ -333,18 +333,23 @@ export async function seatWalkIn(input: {
     if (conflict) return { error: "errors.reservation.tableOverlap" }
   }
 
-  const { error } = await supabase.from("reservations").insert({
-    status: "seated",
-    table_label: input.table_label,
-    date,
-    time,
-    party_size: input.party_size,
-    guest_name: guestName,
-    phone,
-    email,
-    conf_code: generateConfCode(),
-    seated_at: new Date().toISOString(),
-  })
+  const { data, error } = await supabase
+    .from("reservations")
+    .insert({
+      status: "seated",
+      source: "walk_in",
+      table_label: input.table_label,
+      date,
+      time,
+      party_size: input.party_size,
+      guest_name: guestName,
+      phone,
+      email,
+      conf_code: generateConfCode(),
+      seated_at: new Date().toISOString(),
+    })
+    .select("id")
+    .single()
   if (error) {
     if (
       error.message ===
@@ -354,10 +359,14 @@ export async function seatWalkIn(input: {
     }
     return { error: error.message }
   }
+  const id = data?.id
+  if (typeof id !== "string" || id.length === 0) {
+    return { error: SAVE_FAILED }
+  }
   if (table?.id) {
     await syncTableGroupStatus(input.table_label, "seated")
   }
-  return {}
+  return { id }
 }
 
 export async function importExternalReservations(
@@ -535,7 +544,7 @@ export async function transitionReservationStatus(
   const db = createServiceClient()
   const { data: current, error: readError } = await db
     .from("reservations")
-    .select("status, table_label")
+    .select("status, table_label, email")
     .eq("id", reservationId)
     .single()
   if (readError || !current) return { error: "errors.reservation.notFound" }
@@ -568,7 +577,9 @@ export async function transitionReservationStatus(
     from_status: current.status,
     to_status: nextStatus,
   })
-  if (nextStatus === "completed") {
+  const reviewEmail =
+    typeof current.email === "string" ? current.email.trim() : ""
+  if (nextStatus === "completed" && reviewEmail !== "") {
     const { error: enqueueError } = await db
       .from("review_email_sends")
       .insert({ reservation_id: reservationId })
@@ -751,7 +762,7 @@ export type FloorSnapshot = {
   assigned: PlannedAssignment[]
   merges: PersistedMerge[]
   /**
-   * FP-15: non-cancelled/voided `orders.total` by `table_label` (completed counts).
+   * FP-15: non-cancelled/voided `orders.total` keyed by reservation id (completed counts).
    * Null when the orders read failed (FP-15-UNAVAILABLE).
    */
   tableTotals: Record<string, number> | null
@@ -844,7 +855,7 @@ export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
   // minimality: FP-15 does not date-filter; schema pin is from("orders") + these columns.
   const POSTGREST_MAX_ROWS = 1000
   type OrderPageRow = {
-    table_label: string
+    reservation_id: string | null
     total: number | string
     status: string
   }
@@ -853,7 +864,7 @@ export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
     for (let start = 0; ; start += POSTGREST_MAX_ROWS) {
       const page = await db
         .from("orders")
-        .select("table_label, total, status")
+        .select("reservation_id, total, status")
         .order("id", { ascending: true })
         .range(start, start + POSTGREST_MAX_ROWS - 1)
       if (page.error) return page
@@ -878,9 +889,9 @@ export async function getFloorSnapshot(date: string): Promise<FloorSnapshot> {
     // FP-15-UNAVAILABLE: query error is null totals, never a successful empty map.
     return { tables, reservations, assigned, merges, tableTotals: null }
   }
-  const tableTotals = sumOpenOrderTotalsByTableLabel(
+  const tableTotals = sumOpenOrderTotalsByReservationId(
     (ordersResult.data ?? []).map((row) => ({
-      table_label: row.table_label,
+      reservation_id: row.reservation_id,
       // PostgREST NUMERIC often arrives as string; coerce before the IEEE sum.
       total: Number(row.total),
       status: row.status,

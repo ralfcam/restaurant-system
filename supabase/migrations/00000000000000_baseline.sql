@@ -157,6 +157,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS reservations_external_booking_id_uidx
   ON public.reservations (external_booking_id)
   WHERE external_booking_id IS NOT NULL;
 
+-- RES-167 / WI-9: CREATE TABLE IF NOT EXISTS is a no-op on an older reservations
+-- without source; ADD COLUMN IF NOT EXISTS still applies on db reset.
+-- Not guest-insertable. No backfill.
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'online';
+ALTER TABLE reservations DROP CONSTRAINT IF EXISTS reservations_source_check;
+ALTER TABLE reservations ADD CONSTRAINT reservations_source_check CHECK (source IN ('online','staff','walk_in','external'));
+
 ALTER TABLE reservations ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow public insert reservations" ON reservations;
@@ -168,7 +175,7 @@ CREATE POLICY "Allow public insert reservations"
 -- RES-42 / REAZED-308: RES-PRIV — guest INSERT only on guest-column allowlist
 -- (guest_name, party_size, date, time, phone, email, notes, conf_code). Server-owned
 -- id, status, table_label, created_at, completed_at, cancelled_at, seated_at, email_normalized,
--- allergens (RES-75), and external_booking_id (RES-80 / EI-8) have no guest INSERT privilege.
+-- allergens (RES-75), external_booking_id (RES-80 / EI-8), and source (RES-167) have no guest INSERT privilege.
 -- Drop public SELECT and authenticated FOR ALL (keep DROP IF EXISTS; do not CREATE).
 DROP POLICY IF EXISTS "Allow public read reservations" ON reservations;
 
@@ -924,6 +931,13 @@ CREATE TABLE IF NOT EXISTS orders (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- RES-167: a kitchen order belongs to one visit. NOT VALID leaves rows from
+-- before the change as they are; new rows must carry reservation_id.
+-- Default FK action is NO ACTION (a visit's orders are not cascade-deleted).
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS reservation_id UUID REFERENCES reservations(id);
+ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_reservation_id_required;
+ALTER TABLE orders ADD CONSTRAINT orders_reservation_id_required CHECK (reservation_id IS NOT NULL) NOT VALID;
 
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

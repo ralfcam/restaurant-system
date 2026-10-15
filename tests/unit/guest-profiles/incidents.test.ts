@@ -309,7 +309,10 @@ describe("guest incident ficha", () => {
           if (prop === "insert") {
             return (payload: Record<string, unknown>) => {
               inserted.push(payload)
-              return thenable({ data: null, error: null })
+              return thenable({
+                data: { id: "walk-in-created-id" },
+                error: null,
+              })
             }
           }
           return Reflect.get(target, prop, receiver)

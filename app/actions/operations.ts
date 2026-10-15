@@ -18,6 +18,7 @@ import {
   restartsMergeClock,
   shouldExpireMerge,
 } from "@/lib/floor/table-use"
+import { labelsInSameMerge } from "@/lib/floor/floor-units"
 import {
   clampFloorCell,
   nextFreeCell,
@@ -1054,7 +1055,7 @@ export async function createKitchenOrder(input: {
   table: string
   server: string
   lines: { itemId: string; qty: number; notes?: string }[]
-}) {
+}): Promise<{ id: string; orderNumber: number } | { error: string }> {
   const staffUser = await requireStaffUser()
   if (!staffUser) throw new Error("errors.operations.unauthorized")
   if (!input.lines.length || input.lines.length > 50)
@@ -1090,11 +1091,40 @@ export async function createKitchenOrder(input: {
     .eq("label", input.table)
     .maybeSingle()
   if (!table) throw new Error("errors.floor.tableNotFound")
+  const merge = await loadMergeContext(db, String(table.id))
+  let labels = [input.table]
+  if (merge && merge.tableIds.length > 0) {
+    const { data: memberTables, error: memberTablesError } = await db
+      .from("tables")
+      .select("id, label")
+      .in("id", merge.tableIds)
+    if (memberTablesError) throw new Error("errors.pos.sendFailed")
+    labels = labelsInSameMerge(
+      input.table,
+      (memberTables ?? []).map((row) => ({
+        id: String(row.id),
+        label: String(row.label),
+      })),
+      [{ tableIds: merge.tableIds }],
+    )
+  }
+  const { data: seated, error: seatedError } = await db
+    .from("reservations")
+    .select("id")
+    .eq("status", "seated")
+    .in("table_label", labels)
+  if (seatedError) throw new Error("errors.pos.sendFailed")
+  if ((seated?.length ?? 0) > 1) {
+    return { error: "errors.pos.tableAmbiguousVisit" }
+  }
+  const reservationId = seated?.[0]?.id
+  if (!reservationId) return { error: "errors.pos.tableNotSeated" }
   const { data: order, error } = await db
     .from("orders")
     .insert({
       table_id: table.id,
       table_label: input.table,
+      reservation_id: reservationId,
       server_name: input.server.slice(0, 80),
       subtotal,
       tax,
