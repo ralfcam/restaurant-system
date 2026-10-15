@@ -650,23 +650,25 @@ corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --fr
 ```
 
 The CodeRabbit CLI helper runs last in the Cloud `install`. GitHub review stays
-required. `/push` runs the helper on a missing or mismatched CLI, and again on the one unavailable retry when that reason remains. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
+required. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
 and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 `unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`
 `pnpm.overrides` (pnpm 12 ignores that field). Spec: [../specs/dev-toolchain.md](../specs/dev-toolchain.md)
-G-O1 / G-CR1 / G-CR2 / G-CR3. The helper pins `CODERABBIT_VERSION=0.9.0` (unsigned `0.7.6` 404s).
-`/push` `--branch-diff` runs it when the binary is missing
-(`cli_missing`) or the reported version is not `0.9.0`
-(`version_mismatch`), and again on the one unavailable retry when that reason remains. With the Cursor
-Cloud secret `CODERABBIT_API_KEY` set, the helper runs:
+G-O1 / G-CR1 / G-ENV1. One CLI pin, `0.9.0`, is shared by the helper
+(`PINNED_VERSION`), `.cursor/cloud.Dockerfile` (`CODERABBIT_VERSION`) and the
+gate's `PINNED_CLI_VERSION` (unsigned `0.7.6` 404s). Both installers run with
+`env -u CODERABBIT_API_KEY`, so the key never reaches the remote script. Login
+happens only here, at environment setup. With the Cursor Cloud secret
+`CODERABBIT_API_KEY` set, the helper runs:
 
 ```sh
 coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-A missing key only warns (exit 0). A failed login or non-US `"region"` fails
-the helper. `install` ends with the helper:
+A missing key only warns (exit 0) and leaves the CLI unauthenticated; `/push`
+then records the review as `unavailable` (`unauthenticated`) and never logs in.
+A failed login or non-US `"region"` fails the helper. `install` is exactly:
 
 ```
 corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
