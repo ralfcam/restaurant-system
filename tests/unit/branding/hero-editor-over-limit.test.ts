@@ -145,7 +145,7 @@ describe("RestaurantHeroImageEditor", () => {
     document.body.replaceChildren()
   })
 
-  it("hero editor rejects a just-over-5MB file inline and keeps the current hero", async () => {
+  it("hero editor rejects a just-over-3MB file inline and keeps the current hero", async () => {
     stubObjectUrls()
     renderEditor()
 
@@ -162,7 +162,7 @@ describe("RestaurantHeroImageEditor", () => {
     })
 
     const error = liveError()
-    expect(error?.textContent ?? "").toContain("5 MB")
+    expect(error?.textContent ?? "").toContain("3 MB")
     expect(error?.textContent ?? "").toContain(HERO_TOO_LARGE)
     expect(input.getAttribute("aria-invalid")).toBe("true")
     expect(input.getAttribute("aria-describedby")).toBe(error?.id)
@@ -193,5 +193,51 @@ describe("RestaurantHeroImageEditor", () => {
     expect(
       document.querySelector(`img[alt="${HERO_PREVIEW_ALT}"]`),
     ).not.toBeNull()
+  })
+
+  it("hero editor discards a previously chosen valid file when a later pick is over the limit", async () => {
+    stubObjectUrls()
+    mocks.uploadRestaurantHeroImage.mockClear()
+    renderEditor()
+
+    const input = fileInput()
+    const earlier = fileOfSize("earlier.png", 1024)
+    await act(async () => {
+      selectFile(input, earlier)
+    })
+
+    expect(
+      document.querySelector(`img[alt="${HERO_PREVIEW_ALT}"]`),
+    ).not.toBeNull()
+    expect(saveButton().disabled).toBe(false)
+
+    vi.mocked(URL.revokeObjectURL).mockClear()
+
+    const overLimit = fileOfSize("too-big.png", MAX_HERO_BYTES + 1)
+    await act(async () => {
+      selectFile(input, overLimit)
+    })
+
+    const error = liveError()
+    expect(error?.textContent ?? "").toContain("3 MB")
+    expect(input.getAttribute("aria-invalid")).toBe("true")
+
+    const save = saveButton()
+    expect(save.disabled).toBe(true)
+    expect(document.querySelector(`img[alt="${HERO_PREVIEW_ALT}"]`)).toBeNull()
+    expect(
+      document.querySelector(`img[alt="${HERO_BACKGROUND_ALT}"]`),
+    ).not.toBeNull()
+    expect(
+      [...document.querySelectorAll("p")].some((element) =>
+        element.textContent?.includes(earlier.name),
+      ),
+    ).toBe(false)
+
+    await act(async () => {
+      save.click()
+    })
+    expect(mocks.uploadRestaurantHeroImage).not.toHaveBeenCalled()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:hero-preview")
   })
 })

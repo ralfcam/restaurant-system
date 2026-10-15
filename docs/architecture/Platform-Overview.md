@@ -74,12 +74,13 @@ unauthenticated → `/auth/login`, authenticated non-staff → `/`. Spec:
 
 Custom logo and hero uploads use base64 on a Server Action (not multipart).
 `next.config.mjs` sets `experimental.serverActions.bodySizeLimit` to `8mb`
-(`HERO_UPLOAD_BODY_SIZE_LIMIT` in `lib/branding.ts`) so a hero at the 5 MB cap
-(`MAX_HERO_BYTES` = 5242880; ~6.7 MB base64) still fits. The logo cap stays 2 MB
-(`MAX_LOGO_BYTES`). The public `branding` bucket `file_size_limit` is 5 MB
-(5242880), raised by the forward-only migration
+(`HERO_UPLOAD_BODY_SIZE_LIMIT` in `lib/branding.ts`) so a hero at the 3 MB cap
+(`MAX_HERO_BYTES` = 3145728; ~4.2 MB base64) still fits under Vercel's 4.5 MB
+Function request-body cap. The logo cap stays 2 MB
+(`MAX_LOGO_BYTES`). The public `branding` bucket `file_size_limit` is 3 MB
+(3145728), set by the forward-only migration
 `supabase/migrations/20261015144000_branding_bucket_hero_5mb.sql`.
-If storage reports the bucket missing, the action creates it at that 5 MB limit
+If storage reports the bucket missing, the action creates it at that 3 MB limit
 and retries. Spec: [../specs/branding-cms.md](../specs/branding-cms.md) (BC-1, BC-3, BC-8, BC-9).
 
 ## Supabase clients

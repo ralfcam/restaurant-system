@@ -19,10 +19,12 @@ restaurant name only.
    `setChefsPicksEnabled` is a settings write: after the SA-8 staff gate it
    uses the service-role client, not the cookie/JWT client. A public
    `branding` storage bucket holds `logo.{png,jpg,svg,webp}` and
-   `hero.{png,jpg,webp}`. Its `file_size_limit` is 5MB (5242880 bytes), the
-   larger of the logo cap (2MB) and the hero cap (5MB). A dated migration
-   (`supabase/migrations/<timestamp>_branding_bucket_hero_5mb.sql`) raises the
-   existing bucket to that limit and leaves its allowed MIME types unchanged.
+   `hero.{png,jpg,webp}`. Its `file_size_limit` is 3MB (3145728 bytes), the
+   larger of the logo cap (2MB) and the hero cap (3MB). A dated migration
+   (`supabase/migrations/<timestamp>_branding_bucket_hero_5mb.sql`; the file
+   name keeps the suffix from the original ticket brief, the limit it sets is
+   3MB) raises the existing bucket to that limit and leaves its allowed MIME
+   types unchanged.
 
 2. **BC-2 — Super-admin-only writes** — `uploadRestaurantLogo`,
    `removeRestaurantLogo`, `uploadRestaurantHeroImage`, and
@@ -40,18 +42,20 @@ restaurant name only.
    "Please choose an image file.", "Please upload a PNG, JPG, SVG, or WEBP
    image.", "Logo image must be smaller than 2MB."
    The hero image (`validateHeroUpload`) rejects missing files, types other
-   than PNG / JPEG / WEBP, and files larger than 5MB (`MAX_HERO_BYTES` =
-   5242880 bytes; a file of exactly 5MB is accepted). `MAX_HERO_BYTES`, the
+   than PNG / JPEG / WEBP, and files larger than 3MB (`MAX_HERO_BYTES` =
+   3145728 bytes; a file of exactly 3MB is accepted). `MAX_HERO_BYTES`, the
    migrated `branding` bucket `file_size_limit`, and
    `brandingBucketOptions().fileSizeLimit` are the same value, so a file the
    app accepts is never rejected by storage. The hero editor on
    `/admin/settings` checks the chosen file's size before any upload and shows
-   an inline error ("This image is larger than 5 MB. Choose a smaller file.",
-   `errors.branding.heroTooLarge`; the helper text states "up to 5 MB") next
+   an inline error ("This image is larger than 3 MB. Choose a smaller file.",
+   `errors.branding.heroTooLarge`; the helper text states "up to 3 MB") next
    to the control. The error is announced through a live region, linked to the
    file input with `aria-describedby`, and the input is `aria-invalid` while it
    shows. The upload action is not called and the current hero image stays in
-   place; choosing a valid file clears the error. While an upload is in
+   place; choosing a valid file clears the error. An over-limit pick also
+   discards any valid file chosen earlier, so Save stays disabled and the
+   earlier file cannot be uploaded while the error shows. While an upload is in
    flight, Save and the file picker are disabled and the editor exposes
    `aria-busy`.
 
@@ -76,15 +80,17 @@ restaurant name only.
 8. **BC-8 — Upload payload size** — The logo and the hero image are sent as
    base64 strings on a Server Action (not multipart). `next.config` sets
    `experimental.serverActions.bodySizeLimit` to `8mb`, shared by all Server
-   Actions, so a logo at the 2MB validation cap and a hero image at the 5MB
-   cap (about 6.7MB as base64, plus RSC framing) both still fit
-   (`HERO_UPLOAD_BODY_SIZE_LIMIT`). The default 1MB limit must not reject a
+   Actions, so a logo at the 2MB validation cap and a hero image at the 3MB
+   cap (about 4.2MB as base64, plus RSC framing) both still fit
+   (`HERO_UPLOAD_BODY_SIZE_LIMIT`). The 3MB hero cap also keeps the base64
+   request under the 4.5MB Vercel Function request-body limit; a larger hero
+   needs a direct-to-storage upload, which is out of scope here. The default 1MB limit must not reject a
    valid logo or hero image.
 
 9. **BC-9 — Type aliases and missing bucket** — `image/jpg` (and other JPEG /
    PNG aliases) and an empty browser `type` with a `.png` / `.jpg` / `.svg` /
    `.webp` file name are accepted. If the public `branding` bucket is missing
-   at upload time, the action creates it (public, 5MB — the same value as
+   at upload time, the action creates it (public, 3MB — the same value as
    `MAX_HERO_BYTES` and the migrated bucket limit, allowed image MIME types)
    and then stores the object.
 

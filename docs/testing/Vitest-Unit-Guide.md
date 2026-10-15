@@ -9,10 +9,11 @@
 - Setup: `tests/unit/setup.ts`
 - Tests: `tests/unit/**/*.test.ts`
 - Branding logo and hero upload: `tests/unit/branding/` (actions, validation,
-  `next.config.mjs` `bodySizeLimit` `8mb` schema guard, hero editor over-limit
-  and uploading). BC-10 seed pin: `tests/unit/branding/schema.test.ts`
+  `next.config.mjs` `bodySizeLimit` `8mb` schema guard, hero editor over-limit,
+  uploading, and a valid-then-oversized pick that discards the staged file).
+  BC-10 seed pin: `tests/unit/branding/schema.test.ts`
   (null `logo_url` and `hero_image_url` by column index; branding bucket
-  `file_size_limit` 5242880)
+  `file_size_limit` 3145728)
 - Post-visit review email: `tests/unit/marketing/` (settings persist, send gates,
   queue-on-complete, cron job auth, cron mailer factory, Supabase hourly
   Edge Function pin, marketing page, PV-ISO schema isolation scan)

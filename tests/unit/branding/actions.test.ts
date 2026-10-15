@@ -136,11 +136,11 @@ describe("uploadRestaurantLogo", () => {
     const result = await uploadRestaurantLogo(pngUpload)
     expect(result.error).toBeUndefined()
     // The branding bucket also holds hero photos, so its size limit covers
-    // the larger of the two asset types (hero: 5MB) rather than the logo's
+    // the larger of the two asset types (hero: 3MB) rather than the logo's
     // own 2MB cap.
     expect(mocks.createBucket).toHaveBeenCalledWith(
       "branding",
-      expect.objectContaining({ public: true, fileSizeLimit: 5 * 1024 * 1024 }),
+      expect.objectContaining({ public: true, fileSizeLimit: 3 * 1024 * 1024 }),
     )
     expect(mocks.upload).toHaveBeenCalledTimes(2)
   })
@@ -332,7 +332,7 @@ describe("uploadRestaurantHeroImage", () => {
     expect(result.error).toBeUndefined()
     expect(mocks.createBucket).toHaveBeenCalledWith(
       "branding",
-      expect.objectContaining({ public: true, fileSizeLimit: 5 * 1024 * 1024 }),
+      expect.objectContaining({ public: true, fileSizeLimit: 3 * 1024 * 1024 }),
     )
     expect(mocks.upload).toHaveBeenCalledTimes(2)
   })

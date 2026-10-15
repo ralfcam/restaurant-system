@@ -178,3 +178,18 @@ none at planning time. Findings raised by phases are reported in the final repor
 ## First Execution Action
 
 Arm the guard (`node .cursor/hooks/tdd-guard.mjs on`), register criteria with START, launch the `linear-resolver` START Task in the background, apply the spec edit to `docs/specs/branding-cms.md`, then set phase `red` and delegate C3 Red to `tdd-red`.
+
+## Fix round 1 (15 Oct, after the CodeRabbit branch-diff gate)
+
+Jose's decisions (15 Oct 18:05 CEST):
+
+- Bucket migration Major: keep the forward-only migration; do not edit the original bucket migration. Accepted as a captured Major.
+- Vercel upload-size Major: cap the hero at 3 MB (3145728 bytes) now (migration, `MAX_HERO_BYTES`, en/fr copy, spec BC-1/3/8/9). Direct-to-storage upload is out of scope and listed as a follow-up for a new ticket.
+- Minor (oversized pick after a valid staged file leaves the first uploadable): fix with Red, Green, Refactor.
+
+| #   | Criterion                                                                                                                | Risk | Layer | Test file(s)                                                                                                                 | Depends on |
+| --- | ------------------------------------------------------------------------------------------------------------------------ | ---- | ----- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| C6  | Hero cap is 3 MB: `MAX_HERO_BYTES`, bucket migration, `brandingBucketOptions()`, en/fr copy, pinned with literal 3145728 | P0   | unit  | `tests/unit/branding/{validation,schema,actions,message-keys}.test.ts`, `tests/unit/branding/hero-editor-over-limit.test.ts` | none       |
+| C7  | An over-limit pick discards a previously chosen valid file (Save disabled, preview gone, no upload)                      | P2   | unit  | `tests/unit/branding/hero-editor-over-limit.test.ts`                                                                         | C6         |
+
+The migration file name keeps the `_hero_5mb` suffix from the ticket brief; the limit it sets is 3145728. Order: C6 then C7.

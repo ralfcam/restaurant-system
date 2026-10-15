@@ -609,7 +609,7 @@ describe("branding, marketing, and menu producers return errors.* catalog keys",
   })
 })
 
-const STALE_FOUR_MEGABYTE_COPY = /\b4\s?(MB|Mo)\b/i
+const STALE_FOUR_OR_FIVE_MEGABYTE_COPY = /\b(?:4|5)\s?(MB|Mo)\b/i
 
 function stringLeaves(node: unknown, prefix: string): Array<[string, string]> {
   if (typeof node === "string") return [[prefix, node]]
@@ -622,16 +622,16 @@ function stringLeaves(node: unknown, prefix: string): Array<[string, string]> {
 }
 
 describe("hero size copy", () => {
-  it("hero size copy names 5 MB in every locale and no 4 MB copy remains", () => {
+  it("hero size copy names 3 MB in every locale and no 4 MB or 5 MB copy remains", () => {
     expectCatalogKey("errors.branding.heroTooLarge")
     expectCatalogKey("staff.branding.heroDescription")
 
     expect(en.errors.branding.heroTooLarge).toBe(
-      "This image is larger than 5 MB. Choose a smaller file.",
+      "This image is larger than 3 MB. Choose a smaller file.",
     )
-    expect(fr.errors.branding.heroTooLarge).toMatch(/5 Mo/)
-    expect(en.staff.branding.heroDescription).toMatch(/up to 5 MB/)
-    expect(fr.staff.branding.heroDescription).toMatch(/5 Mo/)
+    expect(fr.errors.branding.heroTooLarge).toMatch(/3 Mo/)
+    expect(en.staff.branding.heroDescription).toMatch(/up to 3 MB/)
+    expect(fr.staff.branding.heroDescription).toMatch(/jusqu'à 3 Mo/)
 
     for (const [locale, catalog] of [
       ["en", en],
@@ -640,8 +640,8 @@ describe("hero size copy", () => {
       const stale = [
         ...stringLeaves(catalog.staff.branding, "staff.branding"),
         ...stringLeaves(catalog.errors.branding, "errors.branding"),
-      ].filter(([, text]) => STALE_FOUR_MEGABYTE_COPY.test(text))
-      expect(stale, `${locale} still names 4 MB`).toEqual([])
+      ].filter(([, text]) => STALE_FOUR_OR_FIVE_MEGABYTE_COPY.test(text))
+      expect(stale, `${locale} still names 4 MB or 5 MB`).toEqual([])
     }
   })
 })

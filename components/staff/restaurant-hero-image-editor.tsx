@@ -61,8 +61,8 @@ export function RestaurantHeroImageEditor({
     const next = e.target.files?.[0]
     if (!next) return
     if (next.size > MAX_HERO_BYTES) {
+      resetPicker()
       setSizeError(true)
-      e.target.value = ""
       return
     }
     setSizeError(false)

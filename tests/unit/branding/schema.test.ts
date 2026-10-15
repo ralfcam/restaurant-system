@@ -112,7 +112,7 @@ describe("branding CMS schema and surfaces", () => {
     expect(matching.length).toBeGreaterThan(0)
   })
 
-  it("raises the Server Action body limit so a 5MB hero photo fits as base64", () => {
+  it("raises the Server Action body limit so a 3MB hero photo fits as base64", () => {
     const config = readFileSync(path.join(root, "next.config.mjs"), "utf8")
     expect(config).toMatch(/bodySizeLimit:\s*["']8mb["']/)
   })
@@ -230,7 +230,7 @@ describe("branding CMS schema and surfaces", () => {
     expect(home).not.toMatch(/hero-dining\.png/)
   })
 
-  it("branding bucket limit: dated migration, MAX_HERO_BYTES and bucket options agree at 5 MB", () => {
+  it("branding bucket limit: dated migration, MAX_HERO_BYTES and bucket options agree at 3 MB", () => {
     const migrationsDir = path.join(root, "supabase/migrations")
     const heroMigrationName = /^\d{14}_branding_bucket_hero_5mb\.sql$/
     const newestApplied = "20261008120000"
@@ -259,7 +259,7 @@ describe("branding CMS schema and surfaces", () => {
       if (hits.length > 0) effectiveLimit = hits[hits.length - 1]
     }
 
-    expect(effectiveLimit).toBe(5242880)
+    expect(effectiveLimit).toBe(3145728)
     expect(effectiveLimit).toBe(MAX_HERO_BYTES)
     expect(effectiveLimit).toBe(brandingBucketOptions().fileSizeLimit)
   })
