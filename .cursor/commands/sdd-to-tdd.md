@@ -1222,9 +1222,10 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `pnpm test:e2e:chromium <path>`). If a phase returns `BLOCKED (infra)`, STOP
   and report the remedy.
 - If you cannot delegate (Task tool unavailable in this mode), STOP and report
-  `BLOCKED (infra)` — do not self-implement. The fail-closed Write guard
-  (`task-availability-guard.mjs`) denies edits until a Task invocation has
-  succeeded in this armed run. Before that STOP, log the tool-surface
+  `BLOCKED (infra)` — do not self-implement. (`task-availability-guard.mjs`
+  is disabled and unregistered; this STOP is prose-enforced and checked by
+  QA's transcript review. Armed parent Write and Shell edits to protected
+  paths stay denied by `tdd-delegation-guard.mjs` and `git-stage-guard.mjs`.) Before that STOP, log the tool-surface
   fingerprint to the findings run file:
   `node .cursor/hooks/tdd-guard.mjs fingerprint --plan <plan-slug> --tools Task,Write,Shell,CallDynamicTool`
   (use `blocked-infra` when no plan slug exists yet). Do not call Linear

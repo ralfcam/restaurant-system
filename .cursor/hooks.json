@@ -12,7 +12,7 @@
         "failClosed": false
       },
       {
-        "command": "node .cursor/hooks/task-availability-guard.mjs",
+        "command": "node .cursor/hooks/linear-writer-write-guard.mjs",
         "matcher": "Write",
         "failClosed": true
       },
@@ -59,11 +59,6 @@
       {
         "command": "node .cursor/hooks/repeat-tool-reminder.mjs",
         "failClosed": false
-      },
-      {
-        "command": "node .cursor/hooks/task-availability-guard.mjs --success",
-        "matcher": "Task",
-        "failClosed": false
       }
     ],
     "postToolUseFailure": [
@@ -73,11 +68,6 @@
       },
       {
         "command": "node .cursor/hooks/task-fanout-guard.mjs --failure",
-        "failClosed": false
-      },
-      {
-        "command": "node .cursor/hooks/task-availability-guard.mjs --failure",
-        "matcher": "Task",
         "failClosed": false
       }
     ],
