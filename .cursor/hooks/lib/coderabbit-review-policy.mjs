@@ -5,14 +5,20 @@
  * Never executes finding.codegenInstructions. Never passes --use-credits.
  */
 import { createHash } from "node:crypto"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs"
 import { spawnSync } from "node:child_process"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-export const PINNED_CLI_VERSION = "0.7.6"
+export const PINNED_CLI_VERSION = "0.9.0"
 export const REQUIRED_REGION = "us"
 export const US_APP_ID = 347564
 export const US_BOT_LOGINS = Object.freeze([
@@ -33,6 +39,17 @@ export const YAML_REL = ".coderabbit.yaml"
 export const RECEIPT_FILENAME = "coderabbit-receipt.json"
 export const WAIVERS_FILENAME = "coderabbit-waivers.json"
 export const DEFAULT_REVIEW_TIMEOUT_MS = 480_000
+
+export function isCrRunExpired(now, { startedAt, lastEvent, timeoutMs } = {}) {
+  const started = Number(startedAt)
+  const last = Number(lastEvent)
+  const limit = Number(timeoutMs)
+  if (!Number.isFinite(started) || !Number.isFinite(limit) || limit <= 0) {
+    return true
+  }
+  if (now - started > limit) return true
+  return Number.isFinite(last) && now - last > limit
+}
 
 const SECRET_PATH_RE =
   /(?:^|\/)(?:\.env(?:\..*)?|.*credentials.*|.*secret.*|id_rsa|id_ed25519)(?:$)|(?:^|\/)[^/]+\.(?:pem|key|p12|pfx)$/i
@@ -70,6 +87,7 @@ export function isSecretPath(relPath) {
   const p = posixPath(relPath)
   if (!p) return false
   if (p.startsWith(".cursor/hooks/state/")) return false
+  if (/(?:^|\/)\.env\.example$/.test(p)) return false
   return SECRET_PATH_RE.test(p)
 }
 
@@ -540,8 +558,12 @@ export function dirtyPathsFromGit(cwd = process.cwd()) {
   return parseGitPorcelain(gitCapture(["status", "--porcelain", "-uall"], cwd))
 }
 
+function isGateTest(env = process.env) {
+  return env.CODERABBIT_GATE_TEST === "1"
+}
+
 export function resolveDirtyPaths(cwd = process.cwd(), env = process.env) {
-  if (Object.hasOwn(env, "CODERABBIT_STUB_DIRTY")) {
+  if (isGateTest(env) && Object.hasOwn(env, "CODERABBIT_STUB_DIRTY")) {
     return env.CODERABBIT_STUB_DIRTY.split(",")
       .map((s) => posixPath(s.trim()))
       .filter(Boolean)
@@ -549,13 +571,140 @@ export function resolveDirtyPaths(cwd = process.cwd(), env = process.env) {
   return dirtyPathsFromGit(cwd)
 }
 
+export const PUSH_ROUND_FILENAME = "coderabbit-push-round.json"
+
+export function pushRoundPath(stateDir = defaultStateDir()) {
+  return join(stateDir, PUSH_ROUND_FILENAME)
+}
+
+export function loadPushRound(stateDir = defaultStateDir()) {
+  const path = pushRoundPath(stateDir)
+  if (!existsSync(path)) return { round: 0 }
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf8"))
+    if (!raw || typeof raw !== "object") return { round: 0 }
+    const round = Number(raw.round)
+    return {
+      ...raw,
+      round: Number.isFinite(round) && round > 0 ? round : 0,
+    }
+  } catch {
+    return { round: 0 }
+  }
+}
+
+export function savePushRound(stateDir, record) {
+  mkdirSync(stateDir, { recursive: true })
+  writeFileSync(pushRoundPath(stateDir), JSON.stringify(record, null, 2))
+}
+
+export function clearPushRound(stateDir = defaultStateDir()) {
+  const path = pushRoundPath(stateDir)
+  if (existsSync(path)) unlinkSync(path)
+}
+
+export function resolveBranchDiff(
+  cwd = process.cwd(),
+  base = "origin/staging",
+  env = process.env,
+) {
+  if (isGateTest(env) && env.CODERABBIT_STUB_DIFF_FAILED === "1") {
+    return { ok: false, paths: [], reason: "diff_failed" }
+  }
+  if (isGateTest(env) && Object.hasOwn(env, "CODERABBIT_STUB_BRANCH_DIFF")) {
+    return {
+      ok: true,
+      paths: env.CODERABBIT_STUB_BRANCH_DIFF.split(",")
+        .map((s) => posixPath(s.trim()))
+        .filter(Boolean),
+    }
+  }
+  const result = spawnSync("git", ["diff", "--name-only", `${base}...HEAD`], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  })
+  if (result.status !== 0) {
+    return { ok: false, paths: [], reason: "diff_failed" }
+  }
+  return {
+    ok: true,
+    paths: String(result.stdout || "")
+      .split(/\r?\n/)
+      .map((s) => posixPath(s.trim()))
+      .filter(Boolean),
+  }
+}
+
+export function resolveBranchDiffPaths(
+  cwd = process.cwd(),
+  base = "origin/staging",
+  env = process.env,
+) {
+  return resolveBranchDiff(cwd, base, env).paths
+}
+
+export function resolvePushPriorRound(
+  prior,
+  { branch, head, findingIds = [], fixRound, leftoverRecord } = {},
+) {
+  const explicit = Number(fixRound)
+  if (Number.isFinite(explicit) && explicit > 0) return explicit
+  if (leftoverRecord && typeof leftoverRecord === "object") {
+    const recorded = Number(
+      leftoverRecord.round ??
+        leftoverRecord.fixRound ??
+        leftoverRecord.priorRound,
+    )
+    if (leftoverRecord.record === "leftover_after_fix_round") {
+      return Math.max(1, Number.isFinite(recorded) ? recorded : 1)
+    }
+    if (
+      leftoverRecord.record === "fix_round" &&
+      Number.isFinite(recorded) &&
+      recorded > 0
+    ) {
+      return recorded
+    }
+  }
+  if (!prior || (branch && prior.branch && prior.branch !== branch)) return 0
+  const savedRound = Number(prior.round) || 0
+  if (savedRound > 0) return savedRound
+  if (head && prior.head && prior.head !== head) return 0
+  const saved = new Set(prior.findingIds || [])
+  if (
+    saved.size > 0 &&
+    findingIds.length > 0 &&
+    (saved.size !== findingIds.length ||
+      findingIds.some((id) => !saved.has(id)))
+  ) {
+    return 0
+  }
+  return savedRound
+}
+
+export function branchDiffBaseExists(
+  cwd = process.cwd(),
+  base = "origin/staging",
+  env = process.env,
+) {
+  if (isGateTest(env) && env.CODERABBIT_STUB_MISSING_BASE === "1") return false
+  if (isGateTest(env)) return true
+  const result = spawnSync("git", ["rev-parse", "--verify", base], {
+    cwd,
+    encoding: "utf8",
+    shell: process.platform === "win32",
+  })
+  return result.status === 0
+}
+
 export function resolveHead(cwd = process.cwd(), env = process.env) {
-  if (env.CODERABBIT_STUB_HEAD) return env.CODERABBIT_STUB_HEAD
+  if (isGateTest(env) && env.CODERABBIT_STUB_HEAD) return env.CODERABBIT_STUB_HEAD
   return currentHead(cwd)
 }
 
 export function resolveManifest(cwd, relPaths, env = process.env) {
-  if (env.CODERABBIT_STUB_MANIFEST) {
+  if (isGateTest(env) && env.CODERABBIT_STUB_MANIFEST) {
     return JSON.parse(env.CODERABBIT_STUB_MANIFEST)
   }
   return hashPathContents(cwd, relPaths)
@@ -585,9 +734,17 @@ export function resolveCrBinary(
   return "coderabbit"
 }
 
-export function reviewCommandArgs({ owningSpec, base, extraConfig = [] }) {
+export function reviewCommandArgs({
+  owningSpec,
+  base,
+  extraConfig = [],
+  branchDiff = false,
+} = {}) {
   const configs = [owningSpec, POLICY_REL, ...extraConfig].filter(Boolean)
-  const args = ["review", "--agent", "--uncommitted", "--include-untracked"]
+  const args = ["review", "--agent"]
+  if (!branchDiff) {
+    args.push("--uncommitted", "--include-untracked")
+  }
   for (const file of configs) {
     args.push("-c", file)
   }

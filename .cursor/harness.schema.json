@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://realized.dev/schemas/harness.schema.json",
+  "title": "Harness configuration",
+  "description": "Project values for the generic SDD/TDD harness. Keep placeholders empty in the public distribution.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schemaVersion",
+    "harnessVersion",
+    "initialized",
+    "git",
+    "linear",
+    "supabase",
+    "conductor",
+    "coderabbit",
+    "prAuthoring",
+    "docs"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "harnessVersion": { "type": "string" },
+    "initialized": { "type": "boolean" },
+    "project": {
+      "type": "object",
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "repository": { "type": ["string", "null"] }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "nodeMinimum": { "const": "22.22.0" },
+        "pnpmVersion": { "type": "string" }
+      }
+    },
+    "git": {
+      "type": "object",
+      "required": [
+        "defaultBranch",
+        "accumulatorBranch",
+        "prBase",
+        "featurePrefix",
+        "cloudHeadPattern"
+      ],
+      "properties": {
+        "defaultBranch": { "type": "string", "default": "main" },
+        "accumulatorBranch": { "type": "string", "default": "staging" },
+        "prBase": { "type": "string", "default": "staging" },
+        "featurePrefix": { "type": "string", "default": "sdd/" },
+        "cloudHeadPattern": {
+          "type": "string",
+          "default": "cursor/<slug>-<4 hex>"
+        }
+      }
+    },
+    "linear": {
+      "type": "object",
+      "properties": {
+        "teamKey": {
+          "type": "string",
+          "description": "Linear team key such as ENG. Empty in the public kit."
+        },
+        "issuePrefix": {
+          "type": "string",
+          "description": "Issue prefix; defaults to teamKey when empty."
+        },
+        "routingMode": { "enum": ["versionKey", "namedProjects"] },
+        "versionKeyPattern": { "type": "string", "default": "V-X.X" },
+        "namedProjects": { "type": "array", "items": { "type": "string" } },
+        "conductorAllowlist": { "type": "array", "items": { "type": "string" } },
+        "excludedMilestones": { "type": "array", "items": { "type": "string" } },
+        "excludedLabels": { "type": "array", "items": { "type": "string" } },
+        "statusWrites": { "enum": ["comment-only", "github-automation"] }
+      }
+    },
+    "supabase": {
+      "type": "object",
+      "properties": {
+        "guardedProjectRefs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Remote project refs the harness must not target unless explicitly listed."
+        },
+        "migrations": {
+          "enum": ["validate-only", "auto-apply-on-staging-push"]
+        },
+        "localReset": { "type": "boolean" }
+      }
+    },
+    "conductor": {
+      "type": "object",
+      "properties": {
+        "file": { "const": ".cursor/conductor.json" },
+        "enabled": { "type": "boolean", "default": false },
+        "morningMode": { "enum": ["activate", "report-only"] }
+      }
+    },
+    "p0Surfaces": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Closed list of high-risk surfaces. Empty means no extra closed list."
+    },
+    "coderabbit": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "teamKey": { "type": "string" },
+        "baseBranches": { "type": "array", "items": { "type": "string" } },
+        "drafts": { "type": "boolean" },
+        "pauseAfterReviewedCommits": { "type": "integer", "minimum": 1 },
+        "requestChangesWorkflow": { "type": "boolean" },
+        "missingReview": { "enum": ["block", "ready_no_coderabbit_review"] },
+        "specRoot": { "type": "string" }
+      }
+    },
+    "prAuthoring": {
+      "type": "object",
+      "properties": {
+        "mode": { "type": "string", "default": "service-account-automation" },
+        "botLogin": { "const": "cursor[bot]" }
+      }
+    },
+    "docs": {
+      "type": "object",
+      "properties": {
+        "root": { "type": "string" },
+        "okfVersion": { "type": "string" },
+        "specsRoot": { "type": "string" },
+        "runbooksRoot": { "type": "string" },
+        "findingsRoot": { "type": "string" }
+      }
+    },
+    "dispatch": {
+      "type": "object",
+      "properties": {
+        "minimumActive": { "type": "integer", "minimum": 1 },
+        "maximumActive": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

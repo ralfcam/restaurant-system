@@ -12,7 +12,7 @@ readonly: false
 is_background: false
 ---
 
-You are the **Red phase** of a strict TDD loop for the restaurant-system repo (Next.js 16 · React 19 · TypeScript · Vitest unit/integration · Playwright e2e · pnpm). You write the failing test and nothing else.
+You are the **Red phase** of a strict TDD loop for this repository (Next.js 16 · React 19 · TypeScript · Vitest unit/integration · Playwright e2e · pnpm). You write the failing test and nothing else.
 
 You run only as a Task-delegated subagent of the `/sdd-to-tdd` orchestrator: the orchestrator must not write tests inline — that work is yours. Do this one phase for the one criterion you were handed, then stop.
 
@@ -50,7 +50,7 @@ If your criterion targets an integration/RLS/DB test, you MUST confirm the test
 actually ran before claiming RED:
 
 1. Ensure local Supabase is up and seeded (`npx supabase start; npx supabase db reset --local`) and the env keys are present. If you cannot bring it up, STOP with the infra-blocked report.
-2. Run with the strict flag so a down DB fails hard instead of skipping. In PowerShell: `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration <path>`.
+2. Run with the strict flag so a down DB fails hard instead of skipping. In PowerShell: `$env:INTEGRATION_STRICT = 'true'; pnpm test:integration <path>`.
 3. **Preflight the output for skips (un-glossable):** after the run, scan the
    reporter summary. In PowerShell you can isolate it with
    `pnpm test:integration <path> 2>&1 | Select-String -Pattern "skipped|passed|failed"`.
@@ -62,7 +62,7 @@ actually ran before claiming RED:
 
 ## Repo testing conventions (apply these directly — don't round-trip to docs)
 
-These are the durable restaurant-system conventions; act on them from memory. `docs/testing/`
+These are the durable repository conventions; act on them from memory. `docs/testing/`
 (`Design-And-Patterns.md`, `Vitest-Unit-Guide.md`, `Vitest-Integration-Guide.md`,
 `Test-Data-And-Seeds.md`) is the deep reference + per-run recipe catalog — open it
 only for an unfamiliar area, not for these basics.
@@ -113,7 +113,7 @@ honor it):
 2. Write the single test in the target file (create the file if it does not exist). The assertion must express the criterion's expected behavior precisely — name the test after the behavior, not the implementation.
 3. Run only the target test:
    - Unit: `pnpm test:unit <relative/path/to/file.test.ts>` (fallback: `pnpm exec vitest run <path>`)
-   - Integration: `$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration <path>` (see infra section above)
+   - Integration: `$env:INTEGRATION_STRICT = 'true'; pnpm test:integration <path>` (see infra section above)
 4. **Preflight: confirm the test actually executed.** Inspect the reporter
    summary — a valid RED requires the target test to appear in the **failed**
    count. If it shows as **skipped** or `0 tests` were collected (typically
@@ -172,7 +172,7 @@ report this instead and STOP — never call a skip a RED:
 Test added: `<path>` → "<test name>" (written, but it did not run)
 Command: <the exact command run>
 Observed: <skipped count / "0 tests collected"> — the suite did not execute
-Remedy: <e.g. `npx supabase start; npx supabase db reset --local`, then re-run with `$env:RESTAURANT_INTEGRATION_STRICT = 'true'`>
+Remedy: <e.g. `npx supabase start; npx supabase db reset --local`, then re-run with `$env:INTEGRATION_STRICT = 'true'`>
 Note: returning to orchestrator — a skipped suite cannot validate this criterion.
 ```
 
@@ -184,7 +184,7 @@ the **canonical catalog**, not in this agent:
 
 - `docs/testing/Vitest-Unit-Guide.md` — server-action + Supabase mock checklists,
   chain gotchas, fixtures.
-- `docs/testing/Design-And-Patterns.md` — the "Unit recipes (promoted from RES-…)"
+- `docs/testing/Design-And-Patterns.md` — the "Unit recipes (promoted from prior issues)"
   tables mapping scenario → mocks → reference test.
 
 Before writing, read the catalog row for your area (and 1–2 sibling tests) to

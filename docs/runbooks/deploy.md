@@ -1,7 +1,7 @@
 # Deploy runbook
 
 **Status:** Draft  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-10
 
 ## Vercel
 
@@ -513,6 +513,14 @@ try to replay history the remote has diverged from.
    and `has_function_privilege('authenticated', 'public.validate_reservation_availability()', 'EXECUTE')`
    are false; `enforce_booking_rules` remains enabled.
 
+   This file recreates the function in `public`. The later forward
+   `20261008120000_private_validate_reservation_availability.sql` moves it to
+   schema `private` and rebinds `enforce_booking_rules` to
+   `private.validate_reservation_availability()`. After that file has run,
+   confirm EXECUTE is false for `anon` and `authenticated` on
+   `private.validate_reservation_availability()`, and that
+   `public.validate_reservation_availability()` is gone.
+
 ### Apply `20260902214500_restaurant_settings_privilege.sql` on an already-baselined remote
 
 **UAT freshness:** 2026-09-02 — apply this file on `tilcqrudqxznnpepxjqq` when
@@ -638,27 +646,30 @@ Use `--local` instead of `--linked` when testing against the local stack.
 `.cursor/environment.json` `install` is exactly:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
-The CodeRabbit CLI helper is paused and is not invoked. GitHub review stays
-required. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
+The CodeRabbit CLI helper runs last in the Cloud `install`. GitHub review stays
+required. `/push` runs the helper on a missing or mismatched CLI, and again on the one unavailable retry when that reason remains. `package.json` `packageManager` is `pnpm@12.3.4`. The `hono` `4.12.25` override
 and `allowBuilds` (`@parcel/watcher`, `@swc/core`, `esbuild`, `msw`, `sharp`,
 `unrs-resolver`) live in `pnpm-workspace.yaml`, not `package.json`
 `pnpm.overrides` (pnpm 12 ignores that field). Spec: [../specs/dev-toolchain.md](../specs/dev-toolchain.md)
-G-O1 / G-CR1 / G-CR2 / G-CR3. The unused helper still pins `CODERABBIT_VERSION=0.7.6`, requires the Cursor
-Cloud secret `CODERABBIT_API_KEY`, and when resumed always runs:
+G-O1 / G-CR1 / G-CR2 / G-CR3. The helper pins `CODERABBIT_VERSION=0.9.0` (unsigned `0.7.6` 404s).
+`/push` `--branch-diff` runs it when the binary is missing
+(`cli_missing`) or the reported version is not `0.9.0`
+(`version_mismatch`), and again on the one unavailable retry when that reason remains. With the Cursor
+Cloud secret `CODERABBIT_API_KEY` set, the helper runs:
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-Missing key, failed login, or non-US `"region"` fails the helper. Resume
-appends the helper to `install`:
+A missing key only warns (exit 0). A failed login or non-US `"region"` fails
+the helper. `install` ends with the helper:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
 US CodeRabbit CLI (Agentic key as Cursor Cloud secret `CODERABBIT_API_KEY`

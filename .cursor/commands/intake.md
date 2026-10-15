@@ -34,21 +34,21 @@ carries no `Fixes RES-###` — without a trailer the issue never closes.
 **Cloud-PR identity:** the head pattern `cursor/<slug>-<4 hex>`
 (`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`). Never identify a cloud
 PR by author. Historical cloud PRs are authored by the operator
-(`ralfcam`, `is_bot: false`) — that account is on every human PR too and
-carries no signal. Never invent a `cursor/RES-###` identity.
+(the operator's GitHub account, `is_bot: false`) — that account is on every human PR too and
+carries no signal. Never invent a `cursor/<issue-id>` identity.
 
 **Re-check `.cursor/environment.json` on the default branch:**
 [.cursor/environment.json](.cursor/environment.json) pins the cloud
 install command:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
-The CodeRabbit CLI helper is paused and is not invoked from `install`.
-`.cursor/cloud-install-coderabbit.sh` still pins `CODERABBIT_VERSION=0.7.6`
-and fail-closed US auth for a later resume. Cloud builds clone the
-**default branch**, so the file only takes effect once it is on `main`.
+`.cursor/cloud-install-coderabbit.sh` installs CodeRabbit CLI `0.9.0` (the
+gate pin) and logs in with the `CODERABBIT_API_KEY` secret; a missing key
+only warns. Cloud builds clone the **default branch**, so the file only
+takes effect once it is on `main`.
 Re-check rather than trusting this line — the state moves. Use
 `git ls-tree -r origin/main -- .cursor/environment.json`;
 without `-r` and `--` the nested path resolves to nothing and the file
@@ -94,7 +94,7 @@ thinking: { type: "adaptive", effort: "medium" }
     `cursor/` heads matching the cloud-PR pattern that have **no**
     OPEN PR (`git ls-remote --heads origin 'cursor/*'`; skip any
     head already listed by `gh pr list --state open`). Per orphan:
-    `<head> @ <oid-short> — no OPEN PR — RES-### | cannot verify`.
+    `<head> @ <oid-short> — no OPEN PR — <issue-id> | cannot verify`.
     Scan that head's tip commit subject only
     (`git log -1 --format=%s <oid>`) for `RES-\d+` — never invent
     from the slug. Do **not** `gh pr create`. If none, omit the extra
@@ -104,9 +104,9 @@ thinking: { type: "adaptive", effort: "medium" }
     `gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`)
     to surface its Linear ID — `cannot verify` per PR if none is found,
     never invented. STOP and list every candidate as `#<n> <head> →
-    <base> — RES-### | cannot verify`. If two or more candidates
+    <base> — <issue-id> | cannot verify`. If two or more candidates
     share the same ID, append one line: "duplicate cloud dispatch on
-    RES-### — reconcile (close or delete the redundant branch)
+    <issue-id> — reconcile (close or delete the redundant branch)
     before pinning." The operator still must pin `/intake <n>`.
 - Do **not** create a PR. Do **not** `git push`. This command only
   intakes an existing OPEN cloud PR.
@@ -184,9 +184,9 @@ path instead of `sdd/RES-###`.
 ```powershell
 git fetch origin
 git fetch origin pull/<n>/head
-git worktree add C:\Users\joser\.cursor\worktrees\restaurant-system\intake-<n> FETCH_HEAD
-cd C:\Users\joser\.cursor\worktrees\restaurant-system\intake-<n>
-Copy-Item C:\Users\joser\PycharmProjects\restaurant-system\.env, C:\Users\joser\PycharmProjects\restaurant-system\.env.local .
+git worktree add C:\src\worktrees\<repo>\intake-<n> FETCH_HEAD
+cd C:\src\worktrees\<repo>\intake-<n>
+Copy-Item C:\src\<repo>\.env, C:\src\<repo>\.env.local .
 pnpm install
 pnpm lint; pnpm typecheck; pnpm test:unit
 ```
@@ -215,7 +215,7 @@ collapse this into a generic "fix lint + typecheck + test:unit".
 | `lint`               | mechanical-first                                                      | `pnpm exec next lint --fix` → `/commit` (gate-remediation) if dirty → `/intake`. If still red after fix, or the output is a non-fixable rule: `/sdd-to-tdd "bug: lint: <rule> in <file>"` then `/commit` then `/intake`. |
 | `typecheck`          | product/type                                                          | `/sdd-to-tdd "bug: typecheck: <file>(<line>): <message>"` then `/commit` then `/intake`.                                                                                                                                 |
 | `test:unit:coverage` | subclass from Vitest output — do **not** treat the label as one class | See the three bullets below.                                                                                                                                                                                             |
-| `dependency-audit`   | product (AC-1315-1)                                                   | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/intake`.                                                                                                                                     |
+| `dependency-audit`   | product                                                               | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/intake`.                                                                                                                                     |
 
 `test:unit:coverage` subclass (read this run's Vitest output):
 
@@ -233,8 +233,8 @@ for a gate red.
 On green: tear down the worktree, then continue.
 
 ```powershell
-$wt = "C:\Users\joser\.cursor\worktrees\restaurant-system\intake-<n>"
-cd C:\Users\joser\PycharmProjects\restaurant-system
+$wt = "C:\src\worktrees\<repo>\intake-<n>"
+cd C:\src\<repo>
 # Expect exit 255 "Directory not empty" when node_modules is present.
 # The worktree is still unregistered from `git worktree list`.
 git worktree remove $wt
@@ -258,23 +258,23 @@ A cloud PR was not produced by `/commit`, so it usually has no
 
 1. Scan the PR title, body, and commits
    (`gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`)
-   for `RES-\d+`. Also accept an existing
-   `^(Fixes|Closes|Resolves)\s+(RES-\d+)` line (case-insensitive on the
+   for `<issue-id>`. Also accept an existing
+   `^(Fixes|Closes|Resolves)\s+(<issue-id>)` line (case-insensitive on the
    keyword). De-duplicate IDs.
 2. If **no** ID can be identified: report `cannot verify` and **skip**
    — do not guess from the slug, the author, or a Linear search.
 3. If the title or body already closing-links every identified ID:
    skip — already linked.
 4. Otherwise append (never overwrite) via
-   `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, RES-###]\n"`.
+   `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, <issue-id>]\n"`.
    Preserve the existing body verbatim above this block. Re-fetch and
    confirm the edit landed.
 
 No Linear MCP. Do not invent an ID.
 
 When the title/body is missing owning spec/criteria, fresh executed-test
-evidence from this worktree gate, or optional audit-only CodeRabbit 4G
-`attemptStatus`/`reason` metadata, append those facts in the same edit (never
+evidence from this worktree gate, or optional audit-only CodeRabbit
+`/push` CLI `attemptStatus`/`reason` metadata, append those facts in the same edit (never
 overwrite). Handoff is draft CodeRabbit review →
 `/ready-merge-release <PR#>` → operator merge.
 
@@ -370,7 +370,7 @@ Tone: professional and actionable. Length: concise.
 
 Exactly these sections:
 
-1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" (include any Step 1 orphan list: `<head> @ <oid-short> — no OPEN PR — RES-### | cannot verify`) | "stopped — multiple open cloud PRs; pin `/intake <n>`" (include the per-candidate `#<n> <head> — RES-### | cannot verify` breakdown and any duplicate-dispatch line from Step 1) | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
+1. **PR** — number, title, `<head> → <base>`, state | "stopped — no open cloud PR" (include any Step 1 orphan list: `<head> @ <oid-short> — no OPEN PR — <issue-id> | cannot verify`) | "stopped — multiple open cloud PRs; pin `/intake <n>`" (include the per-candidate `#<n> <head> — <issue-id> | cannot verify` breakdown and any duplicate-dispatch line from Step 1) | "stopped — PR #<n> is <merged|closed>" | "stopped — `origin/staging` is absent" | "stopped — head `<head>` is not `cursor/<slug>-<4 hex>`; use `/push`".
 2. **Cloud-PR gate** — "MATCH — `<head>`" | "stopped — NO-MATCH (not this command)".
 3. **Base firewall** — "already on staging — ancestry held; no edit" | "retargeted — `<old-base>` → staging; descendant + drag-in checks held" | "stopped — head is not a descendant of `origin/staging`; rebase onto staging, then `/intake`" | "stopped — retarget would drag `origin/staging..origin/main` (<N> commits); rebase onto staging, then `/intake`" | "stopped — cannot verify ancestry".
 4. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed, isolated worktree intake-<n>)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run. On stop, remaining sections are `n/a — stopped at whole-suite gate`. Tear-down: `removed` | `failed — <why>`.

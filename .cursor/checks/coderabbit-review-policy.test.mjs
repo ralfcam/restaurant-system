@@ -14,6 +14,13 @@ import {
   parseGitPorcelain,
   parseJsonl,
   resolveCrBinary,
+  resolveBranchDiff,
+  resolveBranchDiffPaths,
+  resolveDirtyPaths,
+  dirtyPathsFromGit,
+  resolveHead,
+  isCrRunExpired,
+  resolvePushPriorRound,
   reviewCommandArgs,
   unrelatedDirtyPaths,
 } from "../hooks/lib/coderabbit-review-policy.mjs"
@@ -50,6 +57,7 @@ test("unrelatedDirtyPaths and secret paths fail the work-order", () => {
   )
   assert.equal(isSecretPath(".env"), true)
   assert.equal(isSecretPath(".env.local"), true)
+  assert.equal(isSecretPath(".env.example"), false)
   assert.equal(isSecretPath("id_rsa"), true)
   assert.equal(isSecretPath("tls.pem"), true)
   assert.equal(isSecretPath("lib/example.ts"), false)
@@ -158,26 +166,53 @@ test("malformed, missing complete, mismatch, rate limit, billing, skipped, unkno
   }
 })
 
+test("cloud.Dockerfile installs the pinned CodeRabbit CLI via the official installer", () => {
+  const dockerfile = readFileSync(
+    join(process.cwd(), ".cursor", "cloud.Dockerfile"),
+    "utf8",
+  )
+  assert.match(dockerfile, /cli\.coderabbit\.ai\/install\.sh/)
+  assert.match(
+    dockerfile,
+    new RegExp(`CODERABBIT_VERSION=${PINNED_CLI_VERSION.replaceAll(".", "\\.")}`),
+  )
+  assert.doesNotMatch(dockerfile, /0\.7\.6/)
+})
+
+test("cloud-install-coderabbit.sh pins the same CLI version as the gate", () => {
+  const script = readFileSync(
+    join(process.cwd(), ".cursor", "cloud-install-coderabbit.sh"),
+    "utf8",
+  )
+  assert.match(script, new RegExp(`PINNED_VERSION="${PINNED_CLI_VERSION}"`))
+  assert.match(script, /https:\/\/cli\.coderabbit\.ai\/install\.sh/)
+  assert.match(script, /CI=1 CR_CLI_SKIP_LOGIN=1 CODERABBIT_VERSION=/)
+})
+
 test("pinned US auth rejects version and region mismatch", () => {
+  assert.equal(PINNED_CLI_VERSION, "0.9.0")
   const good = assertPinnedUsAuth({
-    version: "0.7.6",
+    version: PINNED_CLI_VERSION,
     auth: { authenticated: true, region: "us" },
   })
   assert.equal(good.ok, true)
   assert.equal(
     assertPinnedUsAuth({
-      version: "v0.7.6",
+      version: `v${PINNED_CLI_VERSION}`,
       auth: { authenticated: true, region: "us" },
     }).ok,
     true,
   )
-  assert.equal(
-    assertPinnedUsAuth({
-      version: "0.7.5",
-      auth: { authenticated: true, region: "us" },
-    }).reason,
-    "version_mismatch",
-  )
+  for (const stale of ["0.7.6", "0.7.5", "0.9.1"]) {
+    assert.equal(
+      assertPinnedUsAuth({
+        version: stale,
+        auth: { authenticated: true, region: "us" },
+      }).reason,
+      "version_mismatch",
+      stale,
+    )
+  }
   assert.equal(
     assertPinnedUsAuth({
       version: PINNED_CLI_VERSION,
@@ -208,6 +243,72 @@ test("review command is uncommitted+untracked with policy config and never --use
   assert.ok(args.includes(".cursor/rules/coderabbit-integration.mdc"))
   assert.ok(args.includes("docs/specs/dev-toolchain.md"))
   assert.ok(!args.includes("--use-credits"))
+  const branch = reviewCommandArgs({
+    owningSpec: "docs/specs/dev-toolchain.md",
+    base: "origin/staging",
+    branchDiff: true,
+  })
+  assert.deepEqual(branch.slice(0, 2), ["review", "--agent"])
+  assert.ok(!branch.includes("--uncommitted"))
+  assert.ok(!branch.includes("--include-untracked"))
+  assert.ok(branch.includes("origin/staging"))
+  assert.deepEqual(
+    resolveBranchDiffPaths(process.cwd(), "origin/staging", {
+      CODERABBIT_GATE_TEST: "1",
+      CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts,app/b.ts",
+    }),
+    ["lib/a.ts", "app/b.ts"],
+  )
+  assert.deepEqual(
+    resolveBranchDiff(process.cwd(), "origin/staging", {
+      CODERABBIT_GATE_TEST: "1",
+      CODERABBIT_STUB_DIFF_FAILED: "1",
+      CODERABBIT_STUB_BRANCH_DIFF: "lib/a.ts",
+    }),
+    { ok: false, paths: [], reason: "diff_failed" },
+  )
+  assert.deepEqual(
+    resolveDirtyPaths(process.cwd(), { CODERABBIT_STUB_DIRTY: "fake/stub.ts" }),
+    dirtyPathsFromGit(process.cwd()),
+  )
+  assert.notEqual(
+    resolveHead(process.cwd(), { CODERABBIT_STUB_HEAD: "not-a-real-head" }),
+    "not-a-real-head",
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "sdd/<issue-id>1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/<issue-id>1", head: "bbb", findingIds: ["c2"] },
+    ),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "sdd/<issue-id>1", head: "aaa", round: 1, findingIds: ["c1"] },
+      { branch: "sdd/<issue-id>1", head: "aaa", findingIds: ["c1"] },
+    ),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(null, {
+      branch: "sdd/<issue-id>1",
+      head: "bbb",
+      findingIds: ["c2"],
+      fixRound: 1,
+    }),
+    1,
+  )
+  assert.equal(
+    resolvePushPriorRound(
+      { branch: "other", head: "aaa", round: 0 },
+      {
+        branch: "sdd/<issue-id>1",
+        head: "bbb",
+        leftoverRecord: { record: "fix_round", round: 1 },
+      },
+    ),
+    1,
+  )
   const src = readFileSync(
     join(
       process.cwd(),
@@ -220,6 +321,33 @@ test("review command is uncommitted+untracked with policy config and never --use
   )
   assert.match(src, /Never executes finding\.codegenInstructions/)
   assert.doesNotMatch(src, /\beval\(/)
+})
+
+test("isCrRunExpired fires on absolute deadline even when stdout is recent", () => {
+  assert.equal(
+    isCrRunExpired(1_000, {
+      startedAt: 100,
+      lastEvent: 990,
+      timeoutMs: 800,
+    }),
+    true,
+  )
+  assert.equal(
+    isCrRunExpired(500, {
+      startedAt: 100,
+      lastEvent: 480,
+      timeoutMs: 800,
+    }),
+    false,
+  )
+  assert.equal(
+    isCrRunExpired(1_000, {
+      startedAt: 100,
+      lastEvent: 100,
+      timeoutMs: 800,
+    }),
+    true,
+  )
 })
 
 test("resolveCrBinary prefers CODERABBIT_BIN then Windows install path", () => {
@@ -238,7 +366,7 @@ test("resolveCrBinary prefers CODERABBIT_BIN then Windows install path", () => {
 test("gate open is receipt-independent while exemption paths stay bounded", () => {
   const manifest = { "lib/example.ts": "abc" }
   const receipt = buildReceipt({
-    branch: "sdd/RES-1",
+    branch: "sdd/<issue-id>1",
     base: "staging",
     head: "deadbeef",
     manifest,
@@ -297,7 +425,7 @@ test("git commit ignores audit receipts but preserves TDD and exemption guards",
   const manifest = { "lib/example.ts": "abc" }
   const receipt = {
     ...buildReceipt({
-      branch: "sdd/RES-1",
+      branch: "sdd/<issue-id>1",
       base: "staging",
       head: "deadbeef",
       manifest,

@@ -322,7 +322,7 @@ base `staging`) — lighter; `/push` does not promotion-prep it:
 
 1. Run `/push` from `staging` (or `/push <promotion-PR-URL>` if discovery is
    ambiguous) — confirm the `## Linear close-out` block /
-   `Fixes RES-###[, RES-###, ...]` line is present on **that** PR (not
+   `Fixes RES-###[, <issue-id>, ...]` line is present on **that** PR (not
    just buried in staging commits).
 2. Run `/ready-merge-release <PR#>` and require
    `APPROVED FOR OPERATOR MERGE`. The check

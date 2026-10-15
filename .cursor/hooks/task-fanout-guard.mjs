@@ -17,13 +17,12 @@
  */
 import {
   TASK_FANOUT_INFLIGHT_CAP,
+  applyReservationMutation,
   isTaskTool,
-  loadReservations,
   onSubagentStart,
   onSubagentStop,
   onTaskFailure,
   readStdinJson,
-  saveReservations,
   tryReserve,
   writeStdoutJson,
 } from "./lib/task-fanout-policy.mjs"
@@ -38,11 +37,6 @@ const DENY = {
     "do not serialize to one-at-a-time.",
 }
 
-function persist(next) {
-  saveReservations(next)
-  return next
-}
-
 function main() {
   try {
     const input = readStdinJson()
@@ -51,18 +45,17 @@ function main() {
     const action = argv.find((a) => a === "start" || a === "stop")
 
     if (action === "start") {
-      persist(onSubagentStart(loadReservations()))
+      applyReservationMutation(onSubagentStart)
       writeStdoutJson({})
       return
     }
     if (action === "stop") {
-      persist(onSubagentStop(loadReservations()))
+      applyReservationMutation(onSubagentStop)
       writeStdoutJson({})
       return
     }
     if (failure) {
-      if (isTaskTool(input.tool_name))
-        persist(onTaskFailure(loadReservations()))
+      if (isTaskTool(input.tool_name)) applyReservationMutation(onTaskFailure)
       writeStdoutJson({})
       return
     }
@@ -72,8 +65,9 @@ function main() {
       return
     }
 
-    const result = tryReserve(loadReservations())
-    persist(result.reservations)
+    const result = applyReservationMutation((reservations) =>
+      tryReserve(reservations),
+    )
     if (result.deny) {
       writeStdoutJson(DENY)
       return

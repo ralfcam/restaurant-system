@@ -846,6 +846,35 @@ describe("G-CR3 US-only allow-list", () => {
     })
   })
 
+  it("incremental pause plus in-progress on head is review_in_progress", () => {
+    const snapshot = JSON.parse(
+      readFileSync(
+        path.join(
+          repoRoot,
+          ".cursor",
+          "checks",
+          "fixtures",
+          "coderabbit",
+          "remote-incremental-paused-in-progress.json",
+        ),
+        "utf8",
+      ),
+    )
+    const result = evaluateReadyPr(snapshot)
+    expect({ ok: result.ok, reason: result.reason }).toEqual({
+      ok: false,
+      reason: "review_in_progress",
+    })
+    const spec = readFileSync(
+      path.join(repoRoot, "docs", "specs", "dev-toolchain.md"),
+      "utf8",
+    )
+    const gcr3 = spec
+      .slice(spec.indexOf("9. **G-CR3"), spec.indexOf("10. **G-TD1"))
+      .replace(/\s+/g, " ")
+    expect(gcr3).toContain("in-progress-on-head before `incremental_paused`")
+  })
+
   it("incremental pause requires positive US status identity", () => {
     const staleBase = JSON.parse(
       readFileSync(

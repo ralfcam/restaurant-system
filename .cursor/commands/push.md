@@ -74,7 +74,7 @@ the current branch is `staging` or the default branch, **STOP**. Do not
 commit, push, or open a PR from either branch in a managed VM. Any other
 runtime continues with the steps below.
 
-### 1. Whole-suite gate (`pnpm lint; pnpm typecheck; pnpm test:unit`, AC-1312-1 / AC-1312-2)
+### 1. Whole-suite gate (`pnpm lint; pnpm typecheck; pnpm test:unit`)
 
 Execute `pnpm lint; pnpm typecheck; pnpm test:unit` this turn (format:check, lint, typecheck, whole
 `tests/unit/**` with coverage, prod dependency audit). A skipped or remembered
@@ -87,9 +87,9 @@ red branch.
 On any non-zero exit: **STOP**. Do not `git push`, do not create or edit a PR,
 do not request review, do not instruct the operator to merge. Do **not** edit
 the working tree (no `pnpm format`, no `next lint --fix`) — classify and hand
-off (AC-1312-2). Remote `gh pr checks` do **not** substitute — local
+off. Remote `gh pr checks` do **not** substitute — local
 lint + typecheck + test:unit is the hard gate (independent of GitHub Actions availability;
-RES-668 having QA disabled does not lower the bar).
+<issue-id> having QA disabled does not lower the bar).
 
 **Classify the failed step, then emit a paste-ready next command.**
 `scripts/qa-shared.mjs` `runFast()` exits on the first red step and prints
@@ -105,7 +105,7 @@ collapse this into a generic "fix lint + typecheck + test:unit".
 | `lint`               | mechanical-first                                                      | `pnpm exec next lint --fix` → `/commit` (gate-remediation) if dirty → `/push`. If still red after fix, or the output is a non-fixable rule: `/sdd-to-tdd "bug: lint: <rule> in <file>"` then `/commit` then `/push`. |
 | `typecheck`          | product/type                                                          | `/sdd-to-tdd "bug: typecheck: <file>(<line>): <message>"` then `/commit` then `/push`.                                                                                                                               |
 | `test:unit:coverage` | subclass from Vitest output — do **not** treat the label as one class | See the three bullets below.                                                                                                                                                                                         |
-| `dependency-audit`   | product (AC-1315-1)                                                   | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/push`.                                                                                                                                   |
+| `dependency-audit`   | product                                                               | `/sdd-to-tdd "bug: prod audit: <advisory> <package>"` then `/commit` then `/push`.                                                                                                                                   |
 
 `test:unit:coverage` subclass (read this run's Vitest output):
 
@@ -116,11 +116,119 @@ collapse this into a generic "fix lint + typecheck + test:unit".
   — not TDD. Report the BLOCKED shape and the remedy (bring the suite up);
   Operator next is that remedy, then re-run `/push`.
 
-**Forbidden Operator-next strings** (AC-1312-2): `fix lint+typecheck+test:unit, then re-run /push`;
+**Forbidden Operator-next strings**: `fix lint+typecheck+test:unit, then re-run /push`;
 `/sdd-to-tdd` with no argument; `/capture …`; `/audit` as the default for a
 gate red. Product-code agents already live under `/sdd-to-tdd` (`tdd-red` /
-`tdd-green` / `tdd-refactor`) — pass a valid `bug:` (or `RES-###`) argument;
+`tdd-green` / `tdd-refactor`) — pass a valid `bug:` (or `<issue-id>`) argument;
 do not invent a classifier agent.
+
+### 1a. Cursor-head firewall
+
+When the current branch matches
+`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`:
+
+1. `git fetch origin staging` and `git fetch origin main`.
+2. Descendant check: `git merge-base --is-ancestor origin/staging HEAD`.
+   - Exit 0: continue.
+   - Exit 1: drift. `git merge origin/staging`. Never rebase. Never
+     force-push. If the merge fails, STOP. After that merge, rerun
+     `pnpm lint; pnpm typecheck; pnpm test:unit` on the new HEAD
+     before writing gate evidence. STOP if that rerun fails.
+   - Exit 128 / missing refs: STOP — `cannot verify` ancestry.
+3. Drag-in check: if
+   `git rev-list --count origin/staging..origin/main` is greater than 0 and
+   `git merge-base --is-ancestor origin/main HEAD` exits 0, STOP. Merging
+   `origin/staging` cannot drop those commits, and rebase is forbidden.
+4. After the checks (and any merge), build the `## Gate evidence` block with
+   the CLI. Pass the current PR body on stdin, or an empty stdin when
+   creating. `Head:` is the full `HEAD` SHA. `Result:` is `pass` or
+   `merged origin/staging`.
+
+   ```powershell
+   node .cursor/checks/gate-evidence.mjs replace --head <sha> --result <pass|merged origin/staging>
+   ```
+
+This step finalizes `HEAD` before the local CodeRabbit pass. Non-`cursor/`
+heads skip it.
+
+### 1b. Local CodeRabbit CLI (one pass, branch diff vs `origin/staging`)
+
+After the whole-suite gate is green, after the cursor-head firewall has
+finalized `HEAD`, and **before** `git push`, verify the pinned CLI is
+already authenticated from environment setup (do not print secrets),
+then run **one** mandatory local CodeRabbit attempt over the whole
+committed branch diff against `origin/staging`:
+
+```powershell
+coderabbit auth status --agent
+node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging [--fix-round <n>]
+```
+
+If `auth status --agent` is not authenticated for the US pin, record
+`attemptStatus: unavailable` / reason `unauthenticated` and STOP. Ask
+the operator to provision the Cursor cloud environment login. Never run
+`coderabbit auth login`, never pass a key on the command line, and never
+search for or handle credentials.
+
+Pass `--fix-round <n>` from the prior gate output (`fixRound`) when this
+is the same remediation cycle, or pass the leftover record from the PR
+body (`--leftover-record`) to resolve a prior round. `fixRound` is the
+started round (1 on the first blocked-major cycle), not 0. That cycle
+survives a new HEAD and a new VM. After a successful `git push`, run
+`node .cursor/checks/coderabbit-gate.mjs --ack-push` so the saved cycle
+clears only once the publish landed. A failed push keeps the started
+round so `--leftover-record` can resolve it on the next attempt.
+
+`/commit` does not run the CLI. Do not run a dirty-tree work-order review
+here. Fetch `origin/staging` first when that ref is missing.
+
+Read the JSON stdout (`attemptStatus`, `reason`, `action`, leftover
+findings). Severity routing matches `/ready-merge-release` without `--loop`:
+
+- Critical / Major / unknown → `/sdd-to-tdd` as an immediate fix
+- Minor / Trivial → `/capture`
+
+The gate's top-level `action` is `push` or `block`. `route` applies only
+to individual findings (`sdd-to-tdd` or `capture`), never as a gate
+action.
+
+If `action` is `block` and `record` is `blocked_major_findings`, STOP.
+Do not push, do not create or edit a PR. The gate is `ok: false`.
+Emit the paste-ready `/sdd-to-tdd` fences for Critical/Major/unknown,
+then `/commit`, then `/push` again. You may `/capture` Minor/Trivial
+findings in the current pass, but do not push until blocked findings
+are resolved.
+
+If `action` is `push` and only Minor/Trivial findings are open, capture
+them and push in the same pass only when no Critical, Major, or unknown
+finding is open.
+
+If `action` is `block` (`reason` is `timeout`, `missing_complete`,
+`missing_binary`, `blocked_cli_unavailable`, or `blocked_major_findings`),
+the gate exits zero. Record `attemptStatus`, `reason`, `action`,
+`record`, and leftover findings on the PR body and in this report. Do
+not describe the attempt as clean. Emit the paste-ready `/sdd-to-tdd`
+fences for Critical/Major/unknown. Never wait forever for the CLI. Do
+not mark the PR ready and do not publish when the gate returns
+`action: block`.
+
+If the CLI is unavailable, times out, or the binary is missing, the gate
+records `attemptStatus: unavailable` and exits zero. Record that
+reason on the PR body. Do not publish when the gate returns `action: block`.
+
+A `--branch-diff` `secret_path` stays advisory. `.env.example` is not a
+secret path. Record that reason on the PR body and continue.
+
+A missing receipt is non-blocking. Receipts never authorize `git push`.
+
+Record this block for the finalized head:
+
+```
+## CodeRabbit CLI evidence
+Head: <full HEAD sha>
+attemptStatus: clean|findings|unavailable
+reason: <reason>
+```
 
 ### 2. Push
 
@@ -138,30 +246,6 @@ do not invent a classifier agent.
 - If a PR argument was given whose head is a **different** branch than the
   current one, also skip the push here (note why) — you push only the current
   branch; the pinned PR's own commits are already on its head.
-
-### 2b. Cursor-head firewall
-
-When the current branch matches
-`^cursor/[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{4}$`:
-
-1. `git fetch origin staging` and `git fetch origin main`.
-2. Descendant check: `git merge-base --is-ancestor origin/staging HEAD`.
-   - Exit 0: continue.
-   - Exit 1: drift. `git merge origin/staging`. Never rebase. Never
-     force-push. If the merge fails, STOP.
-   - Exit 128 / missing refs: STOP — `cannot verify` ancestry.
-3. Drag-in check: if
-   `git rev-list --count origin/staging..origin/main` is greater than 0 and
-   `git merge-base --is-ancestor origin/main HEAD` exits 0, STOP. Merging
-   `origin/staging` cannot drop those commits, and rebase is forbidden.
-4. After the checks (and any merge), build the `## Gate evidence` block with
-   the CLI. Pass the current PR body on stdin, or an empty stdin when
-   creating. `Head:` is the full `HEAD` SHA. `Result:` is `pass` or
-   `merged origin/staging`.
-
-   ```powershell
-   node .cursor/checks/gate-evidence.mjs replace --head <sha> --result <pass|merged origin/staging>
-   ```
 
 ### 3. Resolve the PR
 
@@ -204,17 +288,18 @@ When the current branch matches
          derive title and body from `git log origin/<default-branch>...HEAD`
          (Summary + Test plan). Include Linear issue URL(s), owning spec path
          and criterion IDs, fresh executed-test evidence from this turn's
-         whole-suite gate, and optional audit-only CodeRabbit 4G
+         whole-suite gate, and optional audit-only CodeRabbit CLI
          `attemptStatus`/`reason` metadata when present. A missing receipt is
-         non-blocking.
+         non-blocking. List leftover CLI findings after one fix round.
        - If `<current-branch>` is any other non-default head: `--base staging`;
          derive title and body from `git log origin/staging...HEAD` (never
          `staging...HEAD` — a fresh worktree has no local `staging` branch).
          Include the same Linear URL, owning spec/criteria, executed-test
-         evidence, and optional audit-only 4G attempt metadata.
+         evidence, optional audit-only CLI attempt metadata, and leftover
+         CLI findings after one fix round.
        - **Duplicate issue PR.** When `<current-branch>` matches
-         `cursor/res-<n>-<4 hex>`, list open PRs and **STOP** if another
-         open PR's `headRefName` starts with `cursor/res-<n>-`. Do not open
+         `cursor/<n>-<4 hex>`, list open PRs and **STOP** if another
+         open PR's `headRefName` starts with `cursor/<n>-`. Do not open
          a second PR for the same issue.
        - `gh pr create --draft --base <that-base> --head <current-branch> --title "..." --body "..."`
          The body includes the block the gate-evidence CLI printed.
@@ -239,21 +324,22 @@ When the current branch matches
      `gh api repos/{owner}/{repo}/pulls/<n>/commits --jq '.[].commit.message'`.
      Scan for lines matching `^(Fixes|Closes|Resolves)\s+(RES-\d+)`
      (case-insensitive on the keyword), across all commits. De-duplicate the
-     issue IDs into one line: `Fixes RES-###[, RES-###, ...]`. If none are
+     issue IDs into one line: `Fixes RES-###[, <issue-id>, ...]`. If none are
      found, report that plainly and continue — some PRs carry no
      tracked-issue work, which is not necessarily an error.
   2. **Inject the link into the PR description (idempotent, append-only).** If
      the PR title or body already contains every aggregated ID paired with a
      closing word, skip — already correctly linked. Otherwise, append (never
      overwrite) a clearly delimited block via
-     `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, RES-###]\n"`.
+     `gh pr edit <n> --body "<existing body>\n\n## Linear close-out\n\nFixes RES-###[, <issue-id>]\n"`.
      Preserve the existing body verbatim above this block. Re-fetch and
      confirm the edit landed before proceeding.
 
 ### 5. Request review if none requested yet
 
 - **If `isDraft` is true: skip this step entirely.** Do **not** request a
-  human review and do **not** run `gh pr ready <n>`. CodeRabbit reviews the
+  human review and do **not** run `gh pr ready <n>`. If the resolved PR is
+  not a draft, run `gh pr ready --undo <n>`. CodeRabbit reviews the
   draft automatically; `/ready-merge-release <n>` owns the clean-pass
   readiness transition and final check re-read.
 - If the PR is **not** a draft and `reviewRequests` is empty:
@@ -276,7 +362,7 @@ When the current branch matches
 - Otherwise `gh pr checks <n>` — report status. This is **advisory** — it
   does not block this command, but warn plainly if checks are red or pending
   before the operator merges. Local `pnpm lint; pnpm typecheck; pnpm test:unit` (Step 1) is the hard gate;
-  remote checks do not substitute while QA is disabled (RES-668).
+  remote checks do not substitute while QA is disabled (<issue-id>).
 - If the PR carries only a lightweight check set by design (see
   [docs/testing/Pyramid-Overview.md](docs/testing/Pyramid-Overview.md)'s
   local-first policy — full pyramid runs on `main` push, not necessarily as a
@@ -295,16 +381,28 @@ When the current branch matches
   **`/ready-merge-release <n>`** and merge in the GitHub UI only on
   `APPROVED FOR OPERATOR MERGE`. The GitHub check
   `CodeRabbit US latest-head gate` is paused and not required. Remote review never
-  substitutes for the mandatory advisory local JSONL attempt.
+  substitutes for the mandatory advisory local CodeRabbit attempt on `/push`.
 
 ### Reasoning protocol
 
 1. Run `pnpm lint; pnpm typecheck; pnpm test:unit` this turn. On any non-zero: STOP (no push, no PR
    create/edit, no review request, no merge instruction, no tree mutation).
-   Parse `[qa-local] <label> failed`, classify per the Step 1 table
-   (AC-1312-2), and emit a paste-ready Operator next with a required
+   Parse `[qa-local] <label> failed`, classify per the Step 1 table,
+   and emit a paste-ready Operator next with a required
    argument — never a generic "fix lint + typecheck + test:unit", empty `/sdd-to-tdd`, or
    `/capture`.
+   1a. On a `cursor/` head, run the cursor-head firewall and any
+   `origin/staging` merge so `HEAD` is final.
+   1b. Run `coderabbit auth status --agent`. If it is not authenticated,
+   record `unavailable` / `unauthenticated` and STOP for operator
+   environment setup. Never run `auth login` and never pass a key.
+   Then one `coderabbit-gate.mjs --branch-diff --base origin/staging` pass
+   against that finalized `HEAD`. On `action: block` with
+   `blocked_major_findings`, STOP and hand Critical/Major/unknown to
+   `/sdd-to-tdd`. Capture Minor/Trivial in the current pass, but do
+   not push until blocked findings are resolved. Unavailable CLI,
+   timeout, or a missing binary: STOP (`action: block`, non-zero
+   exit). Never wait forever.
 2. Push the current branch if it has unpushed commits (skip with a note if
    nothing to push, or if a pinned PR's head differs).
 3. Resolve the PR — pinned via the argument, or auto-discovered by current
@@ -332,8 +430,8 @@ When the current branch matches
 - **No `gh pr ready`, ever.** Readiness belongs exclusively to
   `/ready-merge-release <PR#>` after a clean CodeRabbit draft review.
 - **DO NOT `git push`, `gh pr create`/`edit`, or instruct merge unless
-  `pnpm lint; pnpm typecheck; pnpm test:unit` executed green this turn** (AC-1312-1).
-- **On lint + typecheck + test:unit red, classify-and-handoff only** (AC-1312-2). Do not run
+  `pnpm lint; pnpm typecheck; pnpm test:unit` executed green this turn**.
+- **On lint + typecheck + test:unit red, classify-and-handoff only**. Do not run
   `pnpm format` / `next lint --fix`, do not commit, do not invent a
   remediator agent. Operator next MUST be the paste-ready recipe for the
   classified label (command + required argument + then `/push`). **Forbidden
@@ -377,13 +475,13 @@ Tone: professional and actionable. Length: concise.
 Exactly these sections:
 
 1. **Whole-suite gate** — `pnpm lint; pnpm typecheck; pnpm test:unit` `green (executed)` | `stopped — lint+typecheck+test:unit red: <label> (<class>)` plus the owning files / tests / advisories from this run (Prettier list, lint rule+file, typecheck location, failing test, coverage path+metric, or GHSA+package). On stop, remaining sections are `n/a — stopped at whole-suite gate`.
-2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch".
+2. **Push** — commits pushed (branch, commit count) | "already up to date" | "skipped — pinned PR's head is a different branch" | "stopped — CodeRabbit CLI blocked (unavailable / timeout / missing binary / open Majors)" ; CLI: `clean` | `findings blocked` | `unavailable blocked`.
 3. **PR** — number, title, `<head> → <base>`, state, draft | `created — draft #N, title, <head> → <base>` | "stopped — head is the default branch; cannot open a self-PR" | "stopped — `origin/staging` is absent" | "stopped — feature PR #<n> bases to the default branch (`<head> → <default>`); this command does not promotion-prep a main-based feature PR" | "stopped — `gh pr create` failed: <error>".
 4. **Promotion prep** — "ran — <aggregated `Fixes RES-###[, ...]` line, or "none found in this PR's commits">; link status: already linked | injected — <diff summary> | not applicable — no trailers to inject" | "skipped — base is not the default branch (feature PR into staging closes on merge)" | "n/a — no PR" (only if Step 3 stopped).
 5. **Review request** — "deferred — PR is draft; CodeRabbit reviews now and `/ready-merge-release <n>` owns readiness" | "fired — requested `<reviewer>`" | "already present — skipped" | "no PR to request review on" | "skipped — GitHub rejects naming the PR author, no other reviewer available; In Review will come from operator review activity or the ready-for-merge event".
 6. **Checks** (advisory; omit if no PR) — "none — draft PR; CodeRabbit review may still be in progress and remaining checks start after readiness" | each observed check `green` | `pending` | `failing` — never blocks this command, but warn if not all green. Local lint + typecheck + test:unit is Step 1, not this section.
 7. **Linear expectations** — In Progress fires from the draft/open PR this command creates or updates (until then the issue may remain Todo); In Review on review request/activity or ready-for-merge; Done only after operator merge of a closing-linked PR — no state write performed by this command.
-8. **Operator next** — "draft PR open — wait for its CodeRabbit review, then run `/ready-merge-release <n>`; merge only on `APPROVED FOR OPERATOR MERGE`" | "PR open — run `/ready-merge-release <n>`" | "merge `<PR-URL>` in the GitHub UI only after `/ready-merge-release <n>` returns `APPROVED FOR OPERATOR MERGE` — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push`.
+8. **Operator next** — "draft PR open — wait for its CodeRabbit review, then run `/ready-merge-release <n>`; merge only on `APPROVED FOR OPERATOR MERGE`" | "PR open — run `/ready-merge-release <n>`" | "merge `<PR-URL>` in the GitHub UI only after `/ready-merge-release <n>` returns `APPROVED FOR OPERATOR MERGE` — this command never merges" | "fix create failure / move work off the default branch / restore `origin/staging` / retarget the main-based feature PR onto `staging`, then re-run `/push`" (only when Step 3 stopped) | on Step 1 stop: the **paste-ready recipe for the classified class** from the Step 1 table (command + required argument + then `/push`) — never `fix lint+typecheck+test:unit, then re-run /push` | on Step 1b `action: block` with `blocked_major_findings`: the paste-ready `/sdd-to-tdd` fences, then `/commit`, then `/push`.
    </output_format>
    </instructions>
    </output>

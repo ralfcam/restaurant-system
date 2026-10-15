@@ -9,7 +9,7 @@ the single source of truth; the code serves the spec, never the reverse.
 </persona>
 
 <context>
-Repository: restaurant-system — Next.js 15.5 App Router · React 19 · TypeScript · pnpm.
+Repository: this repository — Next.js 15.5 App Router · React 19 · TypeScript · pnpm.
 Tests: Vitest unit (`tests/unit/**`, `pnpm test:unit`) · Vitest integration
 (`tests/integration/**`, `pnpm test:integration`) · Playwright e2e
 (`tests/e2e/**`, `pnpm test:e2e`). Gates: `pnpm lint` (--max-warnings 0),
@@ -33,7 +33,7 @@ Repo rules that govern this loop:
 
 - `.cursor/rules/supabase-migrations.mdc` — DB changes extend canonical baselines.
 - `.cursor/rules/powershell.mdc` — shell commands use PowerShell syntax.
-- `.cursor/rules/linear-project-routing.mdc` — fixed RES team key, dynamic RES
+- `.cursor/rules/linear-project-routing.mdc` — configured Linear team key, dynamic configured-team
   projects with canonical version key `V-X.X`, fail-closed allocation, and
   work-type M1–M9 routing.
 
@@ -44,11 +44,11 @@ Invocation forms:
 
 - `/sdd-to-tdd @path/to/SPEC.md` → FEATURE mode: decompose an existing spec document.
 - `/sdd-to-tdd "new spec details…"` → FEATURE mode: draft a new spec from the inline details.
-- `/sdd-to-tdd <Linear issue URL or ID>` (e.g. `RES-320` or a `linear.app/.../issue/...` URL)
+- `/sdd-to-tdd <Linear issue URL or ID>` (e.g. `<issue-id>` or a `linear.app/.../issue/...` URL)
   → FIX mode: triage a bug/missing edge case, update the spec first, then write a regression test.
 - `/sdd-to-tdd "bug: <symptom / repro>"` → FIX mode from a free-text defect when there is no issue.
   A `/push` whole-suite red is a valid FIX trigger **only** in this form
-  (`bug: <classified failure>`) or as `RES-###` — never an empty `/sdd-to-tdd`.
+  (`bug: <classified failure>`) or as `<issue-id>` — never an empty `/sdd-to-tdd`.
   The trailing input after the command name is the argument.
 
 ## GOLDEN RULE (applies to every mode, fixes especially)
@@ -73,7 +73,7 @@ drop them. At close-out, register each open entry as a tracked Linear issue via
 
 **During a run, the ledger lives in a run-scoped scratch file:**
 `docs/findings/runs/<plan-slug>.md` (`<plan-slug>` = this plan file's basename,
-e.g. `sg-580_admin_accounts_f2a0c6c3`), with a category section per bucket
+e.g. `<plan-slug>`), with a category section per bucket
 (`## security` · `## tech-debt` · `## test-debt` · `## product-gaps`). This
 isolates one run's findings and survives an interrupted loop. The **categorized
 files** `docs/findings/{security,tech-debt,test-debt,product-gaps}.md` (see the
@@ -90,7 +90,7 @@ code/test/product/security issue**. Do **NOT** record TDD-process/meta notes
 ("Green pre-empted Red", "fake timers hang", "criterion X covers this") and do
 **NOT** record anything you resolve within the run — those belong in your prose,
 not the durable files. Each entry: `[category]` · one-line title · file:line/area
-· why it matters · severity · `(found: <RES-###>/<criterion>/<phase>)`.
+· why it matters · severity · `(found: <<issue-id>>/<criterion>/<phase>)`.
 
 **Curate continuously, merge + prune at close-out (active ledger = open only).**
 Every phase subagent ends its report with a mandatory `## Residual findings`
@@ -208,7 +208,7 @@ subagent's own shell loads the env. A non-zero exit is `BLOCKED (infra)`.
 
 **Classify the input first:**
 
-- **FIX mode** — a Linear issue URL/ID (`RES-###`, `linear.app/.../issue/...`) or
+- **FIX mode** — a Linear issue URL/ID (`<issue-id>`, `linear.app/.../issue/...`) or
   text starting with `bug:`/describing a defect → do **Step 1B** first, then
   continue.
 - **FEATURE mode** — a spec file or new requirement details → continue here.
@@ -225,9 +225,9 @@ Route by the work being performed, not by command name:
   launch-critical/security/money, and maintenance map to M5, M6, M7, M8, and
   M9 respectively.
 
-Do not impose a blanket M4+ rule on `/sdd-to-tdd`. When a tracked `RES-###`
+Do not impose a blanket M4+ rule on `/sdd-to-tdd`. When a tracked `<issue-id>`
 issue is supplied, resolve the team once, paginate `list_projects`,
-retain nonterminal RES projects with canonical version key `V-X.X`, and
+retain nonterminal configured-team projects with canonical version key `V-X.X`, and
 validate its current/target project
 and existing milestone against this work type. Apply the allocation precedence
 from
@@ -252,10 +252,10 @@ The comment uses the resolver's fixed schema: source command, exact spec
 evidence, one conflict/missing fact, one decision question, bounded options,
 recommended default, route after resolution, and milestone hint. The tracked
 issue remains with its current workflow state unchanged and is not dispatchable.
-An unresolved run emits only a `clarify-<RES-id>` execution todo:
+An unresolved run emits only a `clarify-<issue-id>` execution todo:
 "Invoke the `linear-resolver` subagent to request the approved clarification
-on <RES-ID>, using this exact bounded comment: <body>." It emits no spec/TDD,
-START, commit, or push todos. Re-run `/sdd-to-tdd <RES-ID>` after the human
+on <issue-id>, using this exact bounded comment: <body>." It emits no spec/TDD,
+START, commit, or push todos. Re-run `/sdd-to-tdd <issue-id>` after the human
 answer; do not continue in the comment-posting turn.
 
 **Prefer existing specs (progressive disclosure).** Before treating input as new,
@@ -285,7 +285,7 @@ Read the trailing argument:
 - **Nothing given** → stop and ask the operator for a spec file, Linear ID,
   or inline details. Empty remains invalid. A `/push` whole-suite red is a
   valid FIX trigger **only** as `/sdd-to-tdd "bug: <classified failure>"`
-  (or `RES-###`); do not treat a bare `/sdd-to-tdd` after lint + typecheck + test:unit red as
+  (or `<issue-id>`); do not treat a bare `/sdd-to-tdd` after lint + typecheck + test:unit red as
   input.
 
 **Spec writes require explicit permission.** Creating a new spec file or editing
@@ -360,7 +360,7 @@ tests before code.**
    case, a missing invariant, an incorrect state transition. Name the owning
    spec via the STEP 1 hub walk (`docs/specs/domains/<domain>/index.md` →
    concept → `req_ids:` / folded→`canonical:`; e.g. billing → payments-billing
-   hub then `RES-174`/`ADR-RES-177`; job FSM → jobs-requests hub). Do **not**
+   hub then `<issue-id>`/`ADR-<issue-id>`; job FSM → jobs-requests hub). Do **not**
    describe the fix as "change line X"; describe it as "the spec must require
    Y". A **pre-mortem** ("assume the bug already shipped and caused harm —
    which spec rule, had it existed, would have stopped it?") is the structured
@@ -495,10 +495,10 @@ write. Do not call `save_issue` / `save_comment` / `save_document` while
 producing the plan.
 
 When FIX mode was invoked with a Linear ID/URL, **or** FEATURE mode's plan has
-`linear_issue: RES-###` (not `none`): as the **first execution action**, before
+`linear_issue: <issue-id>` (not `none`): as the **first execution action**, before
 the approved spec edit (FIX) or Criterion 1 Red (FEATURE), delegate:
 
-"Use the `linear-resolver` subagent to start work on <RES-###> (plan: <plan-slug>), posting this bounded summary as the `Work started:` comment:" + the plan's `## Linear Plan Digest` block. Invoke that Task with `run_in_background: true`. Do **not** wait, poll, or `AwaitShell` for its report before the approved spec edit or Criterion 1 Red. In the _emitted_ plan, replace `<plan-slug>` with this plan file's basename; this command file keeps the placeholder.
+"Use the `linear-resolver` subagent to start work on <<issue-id>> (plan: <plan-slug>), posting this bounded summary as the `Work started:` comment:" + the plan's `## Linear Plan Digest` block. Invoke that Task with `run_in_background: true`. Do **not** wait, poll, or `AwaitShell` for its report before the approved spec edit or Criterion 1 Red. In the _emitted_ plan, replace `<plan-slug>` with this plan file's basename; this command file keeps the placeholder.
 
 **One payload (`linear-resolver` posts it verbatim; never the plan file itself):**
 
@@ -527,7 +527,9 @@ FEATURE when `linear_issue` is `none`.
 
 **The summary is unconditional whenever the issue exists.** A non-BLOCKED START
 always posts this run's bounded summary to the corresponding issue — In Review
-and terminal included. START does **not** write workflow state. **In Progress**
+and terminal included. A "Do not change status" prompt (or equivalent) does
+**not** skip START: still delegate `linear-resolver` START; still do **not**
+call `save_issue`. START does **not** write workflow state. **In Progress**
 is derived from a linked draft/open PR (see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc));
 until that PR exists, the issue may remain Todo.
@@ -602,13 +604,11 @@ belongs in the tdd log or findings run file, not in a longer return message.
 This mirrors `/audit`'s per-dispatch-params pattern (hand only the spec/report
 path or part text + report path, never the full brief) — the same discipline
 applies to every phase dispatch here. The model for each named subagent is
-pinned in that agent's frontmatter under `.cursor/agents/` (`tdd-red` /
-`tdd-green` / `tdd-refactor` → `model: grok-4.5[fast=false]`; `docs-updater` /
-`linear-resolver` → `model: inherit[fast=false]`). **Never pass `model` on
-the Task call.** Omitting `model` is what lets the agent frontmatter apply;
-passing the parent chat's model (e.g. Claude Sonnet) overrides the pin and is
-forbidden. Pass `model` only if the operator explicitly requested a one-off
-override for this run.
+pinned only in that agent's frontmatter under `.cursor/agents/<type>.md`.
+**Never pass `model` on the Task call.** Omitting `model` is what lets the
+agent frontmatter apply; passing the parent chat's model overrides the pin
+and is forbidden. Pass `model` only if the operator explicitly requested a
+one-off override for this run.
 
 **Run a findings revision pass after EVERY phase — to the run file,
 immediately.** Each `tdd-red`/`tdd-green`/`tdd-refactor` report ends with a
@@ -639,7 +639,7 @@ pass, before the next Task call).** Parse that phase's report for its
 `Suggested review order:` and `Reusable pattern:` lines (verbatim). Append a
 `### <criterion-id>` section to `docs/verifier-reports/tdd/<plan-slug>.md`
 (create the file on first refactor; `<plan-slug>` = this plan file's basename,
-e.g. `sg-580_admin_accounts_f2a0c6c3`). Do not Prettier this log —
+e.g. `<plan-slug>`). Do not Prettier this log —
 `docs/verifier-reports` is prettierignored. This log is the durable source
 Steps 4D/4E and `/commit` read — do not rely on transcript memory. Red/Green
 phases do not append to this log (Refactor only). After the approved spec
@@ -675,23 +675,23 @@ After the loop completes for the feature (all criteria green through Refactor),
 run close-out steps **in this order** — do not delegate `docs-updater` until
 Steps 4D and 4E have written to the tdd log and the Docs sync packet is assembled:
 
-| #   | Step                                                 | Owner                                           | Writes to                                                                            |
-| --- | ---------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| 1   | **4D** — Collate review trail                        | Orchestrator                                    | `docs/verifier-reports/tdd/<plan-slug>.md`                                           |
-| 2   | **4E** — Traceability final + pattern list           | Orchestrator                                    | Same tdd log                                                                         |
-| 3   | **Packet** — Assemble Docs sync packet               | Orchestrator                                    | Thread (markdown block)                                                              |
-| 4   | **4** — Docs sync                                    | `docs-updater`                                  | `docs/**` + thread report                                                            |
-| 5   | **4C** — Findings merge + register                   | `docs-updater` ledger-apply + `linear-resolver` | `docs/findings/**`                                                                   |
-| 6   | **4B** — Linear close-out                            | `linear-resolver`                               | Linear (FIX only)                                                                    |
-| 7   | **Format** — Prettier this run's dirty paths         | Orchestrator                                    | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`)    |
-| 8   | **4G** — Mandatory advisory local CodeRabbit attempt | Orchestrator                                    | Ignored audit receipt under `.cursor/hooks/state/` (never the tdd log)               |
-| 9   | **4F** — Commit / push handoff                       | Orchestrator                                    | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
+| #   | Step                                            | Owner                                           | Writes to                                                                            |
+| --- | ----------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1   | **4D** — Collate review trail                   | Orchestrator                                    | `docs/verifier-reports/tdd/<plan-slug>.md`                                           |
+| 2   | **4E** — Traceability final + pattern list      | Orchestrator                                    | Same tdd log                                                                         |
+| 3   | **Packet** — Assemble Docs sync packet          | Orchestrator                                    | Thread (markdown block)                                                              |
+| 4   | **4** — Docs sync                               | `docs-updater`                                  | `docs/**` + thread report                                                            |
+| 5   | **4C** — Findings merge + register              | `docs-updater` ledger-apply + `linear-resolver` | `docs/findings/**`                                                                   |
+| 6   | **4B** — Linear close-out                       | `linear-resolver`                               | Linear (FIX only)                                                                    |
+| 7   | **Format** — Prettier this run's dirty paths    | Orchestrator                                    | `git status --porcelain` paths (`pnpm exec prettier --write <path> …`; never `.`)    |
+| 8   | **4G** — CLI lives on `/push` (do not run here) | Orchestrator                                    | none — `/push` runs `coderabbit-gate.mjs --branch-diff`                              |
+| 9   | **4F** — Commit / push handoff                  | Orchestrator                                    | Local: operator `/commit`. Managed Cloud: execute commit.md; on PASS execute push.md |
 
 Keep `docs-updater` `is_background: true`, but **do not hand off to `/commit`
 (local) or execute `.cursor/commands/commit.md` (managed Cloud) until
 the docs-updater report appears in the thread** (wait/poll the Task) **and** the
-close-out format pass (step 7) **and** the local CodeRabbit attempt (step 8) have
-run. A missing docs-updater report → `/commit`
+close-out format pass (step 7) has run. STEP 4G does not run the CLI —
+continue to STEP 4F. A missing docs-updater report → `/commit`
 → CHANGES-REQUESTED.
 
 ## STEP 4D — ASSEMBLE THE REVIEW TRAIL (hand off to `/commit`)
@@ -729,12 +729,12 @@ Before docs sync, capture what's reusable and durable:
 ```markdown
 ## Traceability (final)
 
-Run: <YYYY-MM-DD> · plan: <plan-slug> · issue: RES-### | none
+Run: <YYYY-MM-DD> · plan: <plan-slug> · issue: <issue-id> | none
 
 | Criterion | Spec ref     | Test file::name                          | Source file(s) | Risk | Status     |
 | --------- | ------------ | ---------------------------------------- | -------------- | ---- | ---------- |
-| AC-605-1  | REQ-051.2 §… | apply-admin-job-board-filters.test.ts::… | lib/admin/…    | P1   | shipped    |
-| C10-theme | REQ-005 §…   | —                                        | —              | P3   | manual-uat |
+| AC-1      | REQ-001 §…   | <test-file>::…                           | <source-file>  | P1   | shipped    |
+| C10-theme | REQ-001 §…   | —                                        | —              | P3   | manual-uat |
 ```
 
 Set `traceability_log` in the packet to this file path.
@@ -778,17 +778,17 @@ After 4E, paste this block in the thread and pass it to `docs-updater`:
 - plan_slug: <plan-basename>
 - spec: docs/specs/<file>.md
 - mode: FEATURE | FIX
-- linear_issue: RES-### | none
-- criteria_shipped: [AC-605-1, AC-605-2]
+- linear_issue: <issue-id> | none
+- criteria_shipped: [AC-1, AC-2]
 - criteria_manual_uat: [C10-light-theme] | none
-- req_ids: [REQ-051.2]
-- source_paths: [lib/admin/apply-admin-job-board-filters.ts, app/portal/admin/page.tsx]
-- test_paths: [tests/unit/lib/admin/apply-admin-job-board-filters.test.ts]
-- architecture_touch: [Job-Lifecycle] | none
-- uat_flows_to_stamp: [RES-84-Admin-Console-UAT-Flow (Design-And-Patterns map row)] | none
-- patterns_to_promote: ["Wire admin page to applyAdminJobBoardFilters…"] | none
+- req_ids: [REQ-001]
+- source_paths: [<source-path>]
+- test_paths: [<test-path>]
+- architecture_touch: [<concept>] | none
+- uat_flows_to_stamp: [<issue-id>-<flow-name> (Design-And-Patterns map row)] | none
+- patterns_to_promote: ["<pattern>"] | none
 - traceability_log: docs/verifier-reports/tdd/<plan-slug>.md
-- drift_flagged: none | ["REQ-051.2 rule X vs lib/foo.ts:42"]
+- drift_flagged: none | ["REQ-001 rule X vs <file>:<line>"]
 - skip_reason: none | docs-only | no-implementation-impact
 ```
 
@@ -809,9 +809,9 @@ subagent in the background:
 - **Do not** commit doc edits yourself; `docs-updater` leaves `docs/` dirty for
   human review.
 - **Wait** for the docs-updater report in-thread before proceeding to 4C/4B.
-  After 4C/4B, run the format pass, then STEP 4G (mandatory advisory local
-  CodeRabbit attempt), then STEP 4F (local: point to `/commit`; managed Cloud:
-  execute commit then push on PASS).
+  After 4C/4B, run the format pass, then STEP 4G (do not run
+  `coderabbit-gate.mjs` here), then STEP 4F (local: point to `/commit`; managed Cloud:
+  execute commit then push on PASS). The CLI lives on `/push`.
 
 ## STEP 4C — MERGE + REGISTER OUT-OF-SCOPE FINDINGS (any mode)
 
@@ -826,7 +826,7 @@ category file yourself.
 from the `docs/specs/README.md` catalog,
 or folded→`canonical:` (leading `/` = bundle root `docs/`, so
 `/specs/X.md` → `docs/specs/X.md`) — e.g.
-`· spec: docs/specs/REQ-045-admin-user-management.md`. Sharpen run-file lines before
+`· spec: docs/specs/<spec-file>.md`. Sharpen run-file lines before
 merge if the spec path is missing.
 After the merge the category files hold this run's still-open findings alongside
 the standing backlog, and are the single set `linear-resolver` reads below. (The
@@ -882,7 +882,7 @@ so dispatch can schedule without guessing.
   no local file writes). After it reports, delegate **ledger-apply** to prune:
   "Use the docs-updater subagent to apply ledger-apply to the named category
   files: archive each filed or attached line into `docs/findings/archive.md`
-  with its outcome (`→ RES-### (filed)` or `→ RES-### (attached)`), then delete
+  with its outcome (`→ <issue-id> (filed)` or `→ <issue-id> (attached)`), then delete
   `docs/findings/runs/<plan-slug>.md`." Never truncate the run file. Entries
   reported "left on ledger" (below floor or cap overflow) stay in the category
   file untouched — do not archive them; `/curate` owns their eventual fate
@@ -924,7 +924,7 @@ it** — not a state write by any agent. The sequence: `/commit` re-verifies
 the gates ran green-and-executed, reviews the shipped diff against the
 criteria, emits a `PASS`/`CHANGES-REQUESTED`/`FAIL` verdict, and on `PASS`
 **commits the run's work locally** with a Linear **closing magic word**
-(`Fixes` / `Closes` / `Resolves RES-###`) in the message. `/push` then
+(`Fixes` / `Closes` / `Resolves <issue-id>`) in the message. `/push` then
 publishes that commit: if it lands directly on a PR to the default branch,
 the automation fires once the operator merges it, with no further prep. If
 it lands on an accumulator branch (e.g. `staging`) that gets promoted later
@@ -940,37 +940,21 @@ operator to `/commit`. **Managed Cloud:** after the format pass, execute
 **Combine with finding registration.** If Step 4C already registered findings,
 reference the spun-off issue IDs in the close-out comment. Do not re-register.
 
-## STEP 4G — MANDATORY ADVISORY LOCAL CODERABBIT ATTEMPT
+## STEP 4G — LOCAL CODERABBIT CLI LIVES ON `/push`
 
-After 4C/4B and the close-out format pass, and **before** STEP 4F, run the
-scoped JSONL review:
+After 4C/4B and the close-out format pass, do not run coderabbit-gate.mjs
+here. The mandatory advisory local CodeRabbit attempt is `/push`'s job:
+one committed-branch pass against `origin/staging` before `git push`.
+`/commit` does not run the CLI.
 
-1. Write a work-order JSON whose `expectedPaths` are this run's dirty
-   non-ignored paths (from `git status --porcelain`) and whose `owningSpec`
-   is the spec from the Docs sync packet. Do not stash, reset, or silently
-   review a wider set. If any dirty path is unrelated to the work-order, STOP
-   and return to the TDD/ledger path.
-2. Run
-   `node .cursor/checks/coderabbit-gate.mjs --owning-spec <spec> --work-order <work-order.json>`
-   with additional instructions
-   [`.cursor/rules/coderabbit-integration.mdc`](.cursor/rules/coderabbit-integration.mdc).
-   Outside test mode the gate records `unavailable` / `cli_paused` and does
-   not spawn the CLI. GitHub review stays required.
-3. Always record the result (`clean`, `findings`, or `unavailable`) and
-   continue to STEP 4F. Findings at every severity, authentication/setup
-   failure, rate limit, billing, timeout, skipped review, malformed/partial
-   JSONL, and reviewed-file/scope mismatch are advisory metadata; they do not
-   reopen the loop or block `/commit`.
-4. Do **not** write the receipt or fingerprint into
-   `docs/verifier-reports/tdd/<plan-slug>.md` after review — that
-   self-invalidates the surface. The ignored receipt under
-   `.cursor/hooks/state/` and later PR bodies carry the audit summary.
-5. Missing/malformed work order, secret paths, unrelated dirt, no reviewable
-   paths, and changed bytes remain hard safety failures. Re-hash after every
-   scoped attempt and STOP on changed bytes. Do not substitute a manual review
-   for the attempt; an unavailable attempt is represented by its audit receipt.
+1. Do **not** write a work-order or spawn the CLI during close-out.
+2. Do **not** write the receipt or fingerprint into
+   `docs/verifier-reports/tdd/<plan-slug>.md`.
+3. Continue to STEP 4F (`/commit`, then `/push` on managed Cloud).
+   `/push` records `clean`, `findings`, or `unavailable` on its ignored
+   receipt and, when needed, on the PR body.
 
-## STEP 4F — COMMIT / PUSH HANDOFF (after format pass and CodeRabbit attempt)
+## STEP 4F — COMMIT / PUSH HANDOFF (after format pass; CLI on `/push`)
 
 After 4C/4B, the close-out format pass, and STEP 4G:
 
@@ -1017,7 +1001,7 @@ todos** (`<crit>-red`, `<crit>-green`, `<crit>-refactor`) plus `start-linear`
 Linear/review-trail/retrospective todos — one todo per phase, _every_ criterion,
 no matter how many there are or how alike they look. `start-linear` MUST be the
 **first** execution todo when FIX has a Linear ID/URL or FEATURE `linear_issue`
-is set: "Invoke the `linear-resolver` subagent to start work on <RES-###> (plan:
+is set: "Invoke the `linear-resolver` subagent to start work on <<issue-id>> (plan:
 <plan-slug>), handing the executing session's plan-file path (do not inline
 the body; do not bake the path into this todo text) and posting this digest;
 Task `run_in_background: true`; do not wait for its report before spec/C1"
@@ -1055,7 +1039,7 @@ enumerate all three phases of **every** criterion as explicit
   Task, and must **not** wait before those next todos. The `4-format` todo
   MUST specify **INPUT:** this run's dirty paths from `git status --porcelain`;
   **OUTPUT:** `pnpm exec prettier --write <path> …` (never `.`); it runs after
-  4C/4B and before STEP 4G (mandatory advisory local CodeRabbit attempt) then STEP 4F (`/commit` handoff or managed-Cloud continuation).
+  4C/4B and before STEP 4G (do not run `coderabbit-gate.mjs` here; continue to STEP 4F) then STEP 4F (`/commit` handoff or managed-Cloud continuation). The CLI lives on `/push`.
   </instructions>
 
 <constraints>
@@ -1164,7 +1148,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `prettier --write .`. This is not a substitute for `tdd-*` implementation
   writes.
 - Docs sync = `docs-updater` (background). **Wait for its report in-thread**
-  before 4C. After 4C/4B, run the format pass, then STEP 4G, then STEP 4F. Linear
+  before 4C. After 4C/4B, run the format pass, then STEP 4G (do not run the CLI), then STEP 4F. Linear
   START (one bounded `Work started:` summary comment on the invoked issue —
   no In Progress/In Review/Done write), close-out (resolution comment only), AND
   out-of-scope finding registration = `linear-resolver`. Do not do their work
@@ -1175,7 +1159,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   launches only START (nothing else to continue).
 - **Clarification is a separate stop path.** Before START/spec/Red, an
   unresolved tracked route/spec decision emits and executes only the approved
-  `clarify-<RES-id>` `linear-resolver` CLARIFY todo. The resolver may use only
+  `clarify-<issue-id>` `linear-resolver` CLARIFY todo. The resolver may use only
   `list_comments` and `save_comment`; no state/scope write is allowed. Stop
   after the comment result and wait for a later human answer plus command
   re-run. A clarification comment is a Slack visibility trigger only, never an
@@ -1195,7 +1179,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 - **Close-out sequence (mandatory):** 4D → 4E → Docs sync packet → Step 4
   (docs-updater) → 4C → 4B (FIX) → **format pass** (`pnpm exec prettier --write`
   on this run's dirty paths from `git status --porcelain`; never `.`) → **STEP 4G
-  (mandatory advisory local CodeRabbit attempt; ignored audit receipt; do not write the
+  (do not run `coderabbit-gate.mjs` here; the CLI lives on `/push`; do not write the
   receipt into the tdd log)** → then
   STEP 4F (**local:** point to `/commit`; **managed Cloud:** execute
   `.cursor/commands/commit.md`, and on PASS execute
@@ -1237,8 +1221,15 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `pnpm exec playwright test <path> --project=chromium-desktop` (or
   `pnpm test:e2e:chromium <path>`). If a phase returns `BLOCKED (infra)`, STOP
   and report the remedy.
-- If you cannot delegate (Task tool unavailable in this mode), STOP and report —
-  do not self-implement. Managed Cloud one-shot does not waive this STOP.
+- If you cannot delegate (Task tool unavailable in this mode), STOP and report
+  `BLOCKED (infra)` — do not self-implement. The fail-closed Write guard
+  (`task-availability-guard.mjs`) denies edits until a Task invocation has
+  succeeded in this armed run. Before that STOP, log the tool-surface
+  fingerprint to the findings run file:
+  `node .cursor/hooks/tdd-guard.mjs fingerprint --plan <plan-slug> --tools Task,Write,Shell,CallDynamicTool`
+  (use `blocked-infra` when no plan slug exists yet). Do not call Linear
+  writers from this orchestrator in that missing-Task run. Managed Cloud
+  one-shot does not waive this STOP.
 - **Managed Cloud one-shot:** after the work-order exists at
   `.cursor/plans/<plan-slug>.plan.md`, execute immediately. Do not wait for a
   second plan accept. Do not auto-confirm new Linear finding issues. After a
@@ -1250,10 +1241,19 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
   `gh pr merge`.
 - If the delegation-guard hook is installed, arm it as your FIRST execution
   action (`node .cursor/hooks/tdd-guard.mjs on`) and disarm it as your LAST
-  (`node .cursor/hooks/tdd-guard.mjs off`). Before each phase's Task call, set
-  the active phase (`node .cursor/hooks/tdd-guard.mjs phase red|green|refactor`)
-  so the guard enforces that phase's write scope on the subagent — Red confined
-  to `tests/**`, Green/Refactor blocked from touching `tests/**`; clear it
+  (`node .cursor/hooks/tdd-guard.mjs off`). Immediately after arming, register
+  the shipped criteria (`node .cursor/hooks/tdd-guard.mjs evidence require
+  <id>,<id> [--start]`). START (when STEP 2B applies) and Red, Green, and
+  Refactor per criterion are **non-skippable** — do not skip a phase because
+  source already exists or a test already passes.   After launching START, run
+  `node .cursor/hooks/tdd-guard.mjs evidence start`. After each successful
+  phase, run `node .cursor/hooks/tdd-guard.mjs evidence <criterion-id>
+  red|green|refactor --agent-id <Task agentId>` using the Task subagent id
+  from that phase's Task result. `/commit` refuses a post-TDD commit without
+  that evidence or when a phase row has no Task `agentId`. Before each phase's Task call, set the active phase
+  (`node .cursor/hooks/tdd-guard.mjs phase red|green|refactor`) so the guard
+  enforces that phase's write scope on the subagent — Red confined to
+  `tests/**`, Green/Refactor blocked from touching `tests/**`; clear it
   (`phase clear`) once the criterion's Refactor exits green.
 
 ## Mode Check
@@ -1265,8 +1265,8 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 
 ## Project & Milestone Route
 
-- Team: key `RES` (display name informational)
-- Project: existing/allocated RES project with canonical version key `V-X.X` +
+- Team: the configured Linear team key (display name informational)
+- Project: existing/allocated configured-team project with canonical version key `V-X.X` +
   precedence evidence | untracked hint |
   cannot verify
 - Work type: contract clarification | implementation | test/audit | beta |
@@ -1279,7 +1279,7 @@ You are the **orchestrator**, not an implementer. When this plan is executed:
 
 ## Issue & Root Cause (FIX mode only — omit for FEATURE)
 
-- Issue: `<RES-### / URL>` or free-text defect — observed vs. expected (1–2 lines).
+- Issue: `<<issue-id> / URL>` or free-text defect — observed vs. expected (1–2 lines).
 - Missing constraint (root cause): the spec rule that was absent/wrong.
 - Spec update proposed: `docs/specs/<file>` → the new rule/edge case/criterion
   to add (the FIRST execution action; local: pending permission; managed Cloud:
@@ -1421,7 +1421,7 @@ Close-out todos: `4d-review-trail`, `4e-traceability`, `4-docs-packet`,
 
 `4-format` is last delegated todo: after 4C/4B, `pnpm exec prettier --write`
 this run's dirty paths (`git status --porcelain`; never `.`), then STEP 4G
-(mandatory advisory local CodeRabbit attempt; ignored audit receipt; do not write the
+(do not run `coderabbit-gate.mjs` here; the CLI lives on `/push`; do not write the
 receipt into the tdd log), then STEP 4F
 (local: point to `/commit`; managed Cloud: execute
 `.cursor/commands/commit.md`, and on PASS execute
@@ -1437,13 +1437,13 @@ delegate `docs-updater` (background) with that packet, or state explicit
 - plan_slug: <plan-basename>
 - spec: docs/specs/<file>.md
 - mode: FEATURE | FIX
-- linear_issue: RES-### | none
-- criteria_shipped: [AC-605-1, AC-605-2]
+- linear_issue: <issue-id> | none
+- criteria_shipped: [AC-1, AC-2]
 - criteria_manual_uat: [C10-light-theme] | none
-- req_ids: [REQ-051.2]
+- req_ids: [REQ-001]
 - source_paths: [...]
 - test_paths: [...]
-- architecture_touch: [Job-Lifecycle] | none
+- architecture_touch: [<concept>] | none
 - uat_flows_to_stamp: [...] | none
 - patterns_to_promote: [...] | none
 - traceability_log: docs/verifier-reports/tdd/<plan-slug>.md
@@ -1475,6 +1475,8 @@ Discoveries surfaced during this run but deliberately NOT in scope. Each:
   `run_in_background: true`; do not wait for its report before spec/C1. If
   that `Work started:` comment already carries this plan slug, skip START
   (idempotent update is local-orchestrator STEP 2B, not a cloud re-entry).
+  A "Do not change status" prompt does not skip this comment and does not
+  authorize `save_issue`.
   In Progress is derived from a linked draft/open PR; until then the issue
   may remain Todo. Artifacts: unconditional on any resolved issue (In Review
   and terminal included). Skip for free-text `bug:` with no ID, and FEATURE
@@ -1535,7 +1537,7 @@ Collated into **`## Suggested Review Order (collated)`** in
 
 - **Local Plan Mode:** the single concrete action to take on approval. When
   STEP 2B applies, a **local** session resolves the plan file and delegates:
-  "Invoke the `linear-resolver` subagent to start work on <RES-###> (plan:
+  "Invoke the `linear-resolver` subagent to start work on <<issue-id>> (plan:
   <plan-slug>), posting this digest." Task `run_in_background: true`. Do
   **not** wait for that report before spec/C1. Fill `<plan-slug>` with this
   plan file's basename in the emitted todo. A reader who only has this Linear

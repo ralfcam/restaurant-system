@@ -30,7 +30,9 @@ unless a tracked issue already owns the work. On docs-artifact PASS, use
 
 **You never push.** Publishing the branch, opening/updating the PR, and
 requesting review are **`/push`'s** job — always run it next on PASS. `/commit`
-stops at a local commit on the current branch.
+stops at a local commit on the current branch. **This command does not run
+the CodeRabbit CLI.** The mandatory advisory local attempt lives on `/push`
+(`coderabbit-gate.mjs --branch-diff` against `origin/staging`).
 
 **Ground truth — Linear↔GitHub automation:** see
 [.cursor/rules/linear-automation.mdc](.cursor/rules/linear-automation.mdc) for
@@ -126,7 +128,7 @@ artifact here — content is owned by `/audit` (via `docs-updater`),
 On PASS: stage the allowlisted dirty paths explicitly (never blanket-add);
 commit with `docs(<audit|findings|verifier-reports>): <summary>`; **no
 closing magic word** (an artifact commit resolves no tracked issue; use
-`Refs RES-###` only when the operator names one); skip §5a (no trailer to
+`Refs <issue-id>` only when the operator names one); skip §5a (no trailer to
 aggregate) but still report the branch; never push; next is always `/push`.
 Over-engineering: `Lean already. Ship.`
 
@@ -184,7 +186,7 @@ enforce.
 
 - Re-run (or confirm from the run) the criteria's tests **at the layer the plan
   named**, the broader relevant suite, lint, and typecheck. Whole-suite
-  `pnpm lint; pnpm typecheck; pnpm test:unit` is `/push`'s job (AC-1312-1), not this gate's. See
+  `pnpm lint; pnpm typecheck; pnpm test:unit` is `/push`'s job, not this gate's. See
   [.cursor/rules/test-execution-integrity.mdc](.cursor/rules/test-execution-integrity.mdc)
   for why integration/RLS suites silently skip; require execution with
   `pnpm test:integration <path>` and treat a skipped
@@ -212,6 +214,13 @@ enforce.
   do not hand the write to the operator; do not `/sdd-to-tdd`. If the
   re-check is still red, **FAIL (format)** (prettier did not converge).
   Empty dirty set: skip.
+- **Phase evidence (post-TDD):** run
+  `node .cursor/hooks/tdd-guard.mjs evidence check --criteria <ids from the plan>`
+  and add `--require-start` when STEP 2B applied. Missing START, any
+  Red/Green/Refactor row, or a phase row without the Task subagent
+  `agentId` for a shipped criterion is **CHANGES-REQUESTED
+  (skipped phase)** — do not PASS. Docs-artifact, gate-remediation, and
+  design-spec skip this check.
 - A criterion the plan classified `manual-UAT` is **out of scope for this gate's automated
   bar** — note it as deferred-to-manual, do not fail the gate for lacking an automated test.
 
@@ -222,6 +231,7 @@ missing item → **CHANGES-REQUESTED** (unless noted as note-only):
 
 | Check                                                                                                                                | Resolution                                                 |
 | ------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| `node .cursor/hooks/tdd-guard.mjs evidence check` exits 0 for every shipped criterion (START when required; Red/Green/Refactor always, each with a Task `agentId`) | Else CHANGES-REQUESTED (skipped phase)                     |
 | Thread has **Docs sync packet** + **docs-updater report**, OR explicit `skip_reason` in packet/thread                                | Else CHANGES-REQUESTED                                     |
 | `docs/verifier-reports/tdd/<plan-slug>.md` exists (`plan_slug` from packet or thread)                                                | Else CHANGES-REQUESTED                                     |
 | **`## Traceability (final)`** has a row per `criteria_shipped`                                                                       | Else CHANGES-REQUESTED                                     |
@@ -296,7 +306,7 @@ Gate-remediation PASS uses the §0 staging and `style:`/`chore:` message rules
 (no `Fixes` trailer unless a tracked issue already owns it), then skips to
 §5a. Docs-artifact PASS uses the §0 staging and
 `docs(<audit|findings|verifier-reports>):` message rules (no closing magic
-word; `Refs RES-###` only when the operator names one), skips §5a (no trailer
+word; `Refs <issue-id>` only when the operator names one), skips §5a (no trailer
 to aggregate) but still reports the branch, then continues to §6. Post-TDD
 PASS continues below.
 
@@ -318,7 +328,7 @@ writes Git history, and it happens **only on PASS** (never on CHANGES-REQUESTED
   (post-TDD) first — a TDD loop sets `loopRan`, and the git-stage guard denies
   `git commit` until this command clears it after this command's PASS.
   CodeRabbit receipts are audit-only and are not read by `gate open` or
-  `git commit`. Docs-artifact: `gate open --exempt docs-artifact`.
+  `git commit`. `/commit` does not run the CodeRabbit CLI. Docs-artifact: `gate open --exempt docs-artifact`.
   Gate-remediation: `gate open --exempt gate-remediation`.
   Design-spec: `gate open --exempt design-spec`. Only this command may
   open the TDD gate. The exemption lanes remain path-bounded at commit time.
@@ -345,7 +355,7 @@ writes Git history, and it happens **only on PASS** (never on CHANGES-REQUESTED
 
 <1–3 lines: what changed and why; the criterion / spec rule it satisfies>
 
-Fixes RES-###[, RES-###]
+Fixes RES-###[, <issue-id>]
 ```
 
 **Require** a closing magic word (`Fixes` / `Closes` / `Resolves`) when the change
@@ -391,7 +401,7 @@ ready-to-paste aggregated line as a fallback:
   so the operator has one ready-to-paste line as a fallback:
   `git log origin/<default>..HEAD -E --grep='^(Fixes|Closes|Resolves) ' --format='%B'`
   and scan matching lines for `RES-\d+`; de-duplicate those issue IDs into a single
-  `Fixes RES-###[, RES-###, ...]` line. Report it. `/push` (run from `staging`,
+  `Fixes RES-###[, <issue-id>, ...]` line. Report it. `/push` (run from `staging`,
   or pointed at the promotion PR's URL) injects this line itself once its
   base resolves to the default branch — this fallback line just covers the
   case where discovery is ambiguous.
@@ -435,8 +445,8 @@ This gate is one turn of the `/audit → /triage → /dispatch → (/sdd-to-tdd 
   (or approves the back-loop) so `tdd-red`/`tdd-green`/`tdd-refactor` address the named
   criterion, then re-run `/commit`.
 - **FAIL:** name the blocking gate and the remediation before any re-run.
-  Whole-suite `pnpm lint; pnpm typecheck; pnpm test:unit` classification is `/push`'s job (AC-1312-1 /
-  AC-1312-2) — do not dump a `/commit` FAIL to empty `/sdd-to-tdd` or
+  Whole-suite `pnpm lint; pnpm typecheck; pnpm test:unit` classification is `/push`'s job
+  — do not dump a `/commit` FAIL to empty `/sdd-to-tdd` or
   `/capture`. **FAIL (format)** after a same-turn write+re-check is still
   red: listed files did not converge — do not hand another write to the
   operator.
@@ -522,7 +532,7 @@ thinking: { type: "adaptive", effort: "high" }
   gate-remediation) instead of mixing.
 - **Docs-artifact: never put a closing magic word** (`Fixes` / `Closes` /
   `Resolves`) on the commit. An artifact commit resolves no tracked issue.
-  `Refs RES-###` only when the operator names one.
+  `Refs <issue-id>` only when the operator names one.
 - **Docs-artifact: never author or "fix" report/ledger content in this
   lane.** Content is owned by `/audit` (via `docs-updater`), `/capture`, and
   `/triage`; CHANGES-REQUESTED routes back to the owning command.
@@ -547,7 +557,7 @@ Exactly these sections:
    then re-check; still red → **FAIL (format)** (list the files). Gate-remediation: `n/a — gate-remediation (lint+typecheck+test:unit re-runs on the subsequent /push)`. Docs-artifact: `n/a — docs-artifact (ledger prettier --check only)`.
 4. **Docs close-out** — packet + docs-updater report present (or explicit skip); traceability rows; UAT stamps; drift flags — `ok` | `CHANGES-REQUESTED: <missing>`. Gate-remediation: `n/a — gate-remediation`. Docs-artifact: `n/a — docs-artifact`.
 5. **Findings** — must-fixes (with the precise criterion + the phase agent to route each back to), or "none". Always include a required **Over-engineering (delete-list)** subsection (§3.5): the tagged `delete:`/`stdlib:`/`native:`/`yagni:`/`shrink:` list (or "Lean already. Ship.") + `net: -N lines possible`; note which items (if any) drove CHANGES-REQUESTED vs. which are advisory/residual for `/triage`. Docs-artifact: report the artifact-shape review (`ok` | `CHANGES-REQUESTED: <path>`) and `Lean already. Ship.`; no delete-list of code.
-6. **Commit** — on PASS: the staged file list + the Linear-convention message (with closing magic word), the resulting `<SHA>` (committed), optional audit-only CodeRabbit 4G `attemptStatus`/`reason` metadata when present, and the branch it landed on + whether that branch is the repo's default branch. A missing receipt is non-blocking. Gate-remediation PASS: `style:` / `chore:` message, no `Fixes` unless a tracked issue already owns it. Docs-artifact PASS: `docs(<audit|findings|verifier-reports>):` message, no closing magic word. Otherwise "not committed — <verdict reason>" (or "safety stop — <reason>" if PASS but staging couldn't be scoped).
+6. **Commit** — on PASS: the staged file list + the Linear-convention message (with closing magic word), the resulting `<SHA>` (committed), and the branch it landed on + whether that branch is the repo's default branch. A missing receipt is non-blocking. `/commit` does not run the CodeRabbit CLI. Gate-remediation PASS: `style:` / `chore:` message, no `Fixes` unless a tracked issue already owns it. Docs-artifact PASS: `docs(<audit|findings|verifier-reports>):` message, no closing magic word. Otherwise "not committed — <verdict reason>" (or "safety stop — <reason>" if PASS but staging couldn't be scoped).
 7. **Linear** — on PASS + tracked issue(s): closing magic word recorded. If the commit landed on the default branch: "issue(s) move to **Done** via the `On PR merge → Done` automation once the operator merges the PR that `/push` opens/updates — no state write by this gate." If it landed on `staging`: explicit note that this **direct commit** alone will **not** trigger the automation on later promotion (cite the re-merge behavior), plus the aggregated `Fixes RES-###[, ...]` line and an instruction to run `/push` from `staging` (or `/push <promotion-PR-URL>`) before the operator merges that promotion PR. If it landed on a feature branch: "issue(s) move to **Done** when the operator merges the feature PR into `staging` — no promotion-PR fallback line; `/push` opens `<head> → staging`." If untracked or gate-remediation without a tracked owner: "no Linear issue — commit only." Docs-artifact: "no Linear issue — artifact commit only." Otherwise "not committed — <verdict reason>; issue(s) unchanged by this gate."
 8. **Next in the cycle** — PASS: `→ /push` (publishes the branch, resolves the PR, preps promotion when applicable, requests review), then `→ /ready-merge-release <PR#>` and operator merge, then `→ /dispatch` (or `→ /sdd-to-tdd <next issue>` when already on the local lane) then `/commit`. PASS on `staging`: `/push` from this branch auto-preps the open promotion PR; once prepped, **`/ready-merge-release <PR#>` then operator merge** in GitHub. PASS on a feature branch: `/push` opens `<head> → staging`; **`/ready-merge-release <PR#>` then operator merge** of that PR. PASS (gate-remediation): `→ /push` only. PASS (docs-artifact): `→ /push`, then the cycle position the operator was already in (`/triage` after an `/audit`, `/dispatch` after a `/triage`). After a burndown batch (post-merge): `→ /triage` to re-groom and `→ /audit` to re-verify RESOLVED + catch REGRESSIONs. CHANGES-REQUESTED: `→ /sdd-to-tdd` back-loop on the named criterion (docs-artifact: re-run the owning `/audit` / `/triage` / `/capture`). FAIL (format): files still red after this turn's write+re-check — name them; do not hand a write to the operator. FAIL: the blocking gate + remediation — whole-suite lint + typecheck + test:unit classification is `/push`'s job, never empty `/sdd-to-tdd`.
    </output_format>

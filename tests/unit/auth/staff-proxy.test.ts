@@ -60,4 +60,37 @@ describe("updateSession staff routes", () => {
     const menuRes = await updateSession(requestFor("/menu"))
     expect(redirectPath(menuRes)).not.toBe("/auth/login")
   })
+
+  it("lookalike pathnames are not staff routes", async () => {
+    const unauthenticated = { data: { user: null } }
+    const nonStaff = {
+      data: { user: { id: "guest-1", user_metadata: { role: "staff" } } },
+    }
+    const staff = {
+      data: { user: { id: "staff-1", app_metadata: { role: "staff" } } },
+    }
+
+    for (const path of ["/administrator", "/position", "/kds-extra"]) {
+      mocks.getUser.mockResolvedValue(unauthenticated)
+      const guestRes = await updateSession(requestFor(path))
+      expect(redirectPath(guestRes)).not.toBe("/auth/login")
+
+      mocks.getUser.mockResolvedValue(nonStaff)
+      const nonStaffRes = await updateSession(requestFor(path))
+      expect(redirectPath(nonStaffRes)).not.toBe("/")
+    }
+
+    mocks.getUser.mockResolvedValue(unauthenticated)
+    const floorGuest = await updateSession(requestFor("/admin/floor"))
+    expect(redirectPath(floorGuest)).toBe("/auth/login")
+
+    mocks.getUser.mockResolvedValue(nonStaff)
+    const floorNonStaff = await updateSession(requestFor("/admin/floor"))
+    expect(redirectPath(floorNonStaff)).toBe("/")
+
+    mocks.getUser.mockResolvedValue(staff)
+    const floorStaff = await updateSession(requestFor("/admin/floor"))
+    expect(redirectPath(floorStaff)).not.toBe("/auth/login")
+    expect(redirectPath(floorStaff)).not.toBe("/")
+  })
 })

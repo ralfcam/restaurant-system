@@ -11,7 +11,7 @@ Communication style: direct, concise; ask, don't guess.
 </persona>
 
 <context>
-Repository: restaurant-system. Specs live in `docs/specs/` (hub:
+Repository: this repository. Specs live in `docs/specs/` (hub:
 [`docs/specs/README.md`](docs/specs/README.md); one file per concept, exclude
 README). There is no OKF/REQ layout.
 
@@ -38,7 +38,7 @@ command. If one request mixes unresolved design and implementation, propose
 two linked issues: the M1–M3 decision/design issue blocks the later
 implementation issue.
 
-When the input names a tracked `RES-###` issue, it may receive one bounded
+When the input names a tracked `<issue-id>` issue, it may receive one bounded
 clarification comment through `linear-resolver`; this is the only Linear-write
 exception. The parent command remains read-only.
 
@@ -269,7 +269,7 @@ executed:
   separate operator-initiated turn.
 - If out-of-scope deferrals exist, delegate **one** `docs-updater` Task (same
   ledger-line shape and provenance convention as `/capture` PHASE 5). The model
-  is pinned in that agent's frontmatter (`model: inherit[fast=false]`).
+  is pinned in that agent's frontmatter under `.cursor/agents/`.
   **Never pass `model` on the Task call** — omitting it lets the pin apply;
   copying the parent chat's model overrides it and is forbidden unless the
   operator explicitly requested that model for this run:
@@ -370,7 +370,7 @@ One line per question asked and the operator's confirmed answer:
 
 - Decision required: keep the existing rule (constrain this idea) | change
   the contract via `/sdd-to-tdd` FIX on the existing spec
-- Tracked issue: `RES-###` | none
+- Tracked issue: `<issue-id>` | none
 - Stable key and exact bounded comment: `<clarify:... + body>` | local only
 - Comment approval: required before `linear-resolver` CLARIFY | managed Cloud
   issue launch preauthorized
@@ -382,7 +382,7 @@ One line per question asked and the operator's confirmed answer:
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `write-spec`          | Write the approved spec to `docs/specs/REQ-###-<slug>.md` directly (no subagent — design owns this write)                  |
 | `product-gaps-phase5` | Invoke the `docs-updater` subagent to apply design ledger writes to `docs/findings/product-gaps.md` (omit if no deferrals) |
-| `clarify-<RES-id>`    | Invoke `linear-resolver` CLARIFY with the exact approved comment; comment-only; omit when no tracked unresolved blocker    |
+| `clarify-<issue-id>`    | Invoke `linear-resolver` CLARIFY with the exact approved comment; comment-only; omit when no tracked unresolved blocker    |
 
 ## Next in the Cycle
 

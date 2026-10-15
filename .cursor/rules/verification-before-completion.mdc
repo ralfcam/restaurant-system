@@ -58,10 +58,10 @@ passes against a guard that never blocked anything proves nothing.
 
 ```powershell
 # Re-verify a unit suite before citing it as green
-pnpm test:unit tests/unit/lib/admin/apply-admin-job-board-filters.test.ts
+pnpm test:unit tests/unit/<area>/<name>.test.ts
 
 # Re-verify an integration suite (fail-closed: a skip or down DB must fail hard)
-pnpm test:integration tests/integration/jobs/accept-offer.integ.test.ts
+pnpm test:integration tests/integration/<area>/<name>.integ.test.ts
 
 # Re-verify types and lint before a commit/PR-prep completion claim
 pnpm typecheck

@@ -1,12 +1,26 @@
 import assert from "node:assert/strict"
+import { spawnSync } from "node:child_process"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import { test } from "node:test"
+import { describe, test } from "node:test"
 import {
+  NO_FORMAL_REVIEW_BODY_HEADING,
+  NO_FORMAL_REVIEW_OPERATOR_COMMENT,
   US_APP_ID,
   US_LATEST_HEAD_CHECK_NAME,
+  appendOperatorNoteToPrBody,
   classifyFindingRouting,
+  cliEvidenceOutputHash,
+  cliOutputAttemptStatus,
+  commentLooksReviewInProgress,
+  decidePushCliAction,
   evaluateReadyPr,
+  hasCodeRabbitReviewInProgress,
+  isQuietModeWalkthroughBody,
+  protectedCliEvidenceStatus,
+  qaDraftEvidenceVerdict,
+  renderCliEvidenceBlock,
+  resolveOperatorNotePlacement,
 } from "../hooks/lib/coderabbit-pr-policy.mjs"
 
 const FIX = join(process.cwd(), ".cursor", "checks", "fixtures", "coderabbit")
@@ -30,7 +44,7 @@ const CASES = [
   ["remote-rate-limit.json", false, "rate_limited"],
   ["remote-billing.json", false, "billing"],
   ["remote-override.json", false, "explicit_override"],
-  ["remote-pending.json", false, "pending"],
+  ["remote-pending.json", true, "ready_no_coderabbit_review"],
   ["remote-draft.json", false, "draft"],
   ["remote-wrong-bot.json", false, "wrong_bot"],
 ]
@@ -182,6 +196,601 @@ test("in-scope findings route to /sdd-to-tdd; residuals to /capture", () => {
   )
 })
 
+function commentedBodySnapshot(
+  body,
+  { state = "COMMENTED", sha = "abc123" } = {},
+) {
+  return {
+    isDraft: false,
+    headSha: sha,
+    pull: {
+      number: 12,
+      isDraft: false,
+      base: "main",
+      head: "staging",
+      headSha: sha,
+    },
+    reviews: [
+      {
+        user: { login: "coderabbitai[bot]" },
+        state,
+        commit_id: sha,
+        body,
+      },
+    ],
+    threads: [],
+    issueComments: [],
+    reviewComments: [],
+    checkRuns: [],
+  }
+}
+
+test("in-progress CodeRabbit check, status, or comment is review_in_progress", () => {
+  for (const file of [
+    "remote-review-in-progress-check.json",
+    "remote-review-in-progress-status.json",
+    "remote-review-in-progress-comment.json",
+  ]) {
+    const snapshot = load(file)
+    assert.equal(hasCodeRabbitReviewInProgress(snapshot), true, file)
+    const result = evaluateReadyPr(snapshot, { allowDraft: true })
+    assert.equal(result.ok, false, file)
+    assert.equal(result.reason, "review_in_progress", file)
+  }
+
+  const none = evaluateReadyPr(load("remote-pending.json"), {
+    allowDraft: true,
+  })
+  assert.equal(
+    hasCodeRabbitReviewInProgress(load("remote-pending.json")),
+    false,
+  )
+  assert.equal(none.reason, "ready_no_coderabbit_review")
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /review_in_progress/)
+  assert.match(command, /no blind wait/)
+})
+
+test("older-head CHANGES_REQUESTED plus in-progress on head is review_in_progress", () => {
+  const snapshot = load("remote-review-stale-plus-in-progress.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), true)
+  const result = evaluateReadyPr(snapshot, { allowDraft: true })
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "review_in_progress")
+})
+
+test("incremental pause plus in-progress on head is review_in_progress", () => {
+  const snapshot = load("remote-incremental-paused-in-progress.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), true)
+  const result = evaluateReadyPr(snapshot)
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "review_in_progress")
+
+  const expired = evaluateReadyPr(snapshot, { reviewWaitExpired: true })
+  assert.equal(expired.ok, true)
+  assert.equal(expired.reason, "incremental_paused")
+})
+
+test("review-wait-expired maps review_in_progress to ready_no_coderabbit_review", () => {
+  const inProgress = load("remote-review-in-progress-check.json")
+  const mapped = evaluateReadyPr(inProgress, {
+    allowDraft: true,
+    reviewWaitExpired: true,
+  })
+  assert.equal(mapped.ok, true)
+  assert.equal(mapped.reason, "ready_no_coderabbit_review")
+
+  const stalePlus = load("remote-review-stale-plus-in-progress.json")
+  const stillFormal = evaluateReadyPr(stalePlus, {
+    allowDraft: true,
+    reviewWaitExpired: true,
+  })
+  assert.equal(stillFormal.ok, false)
+  assert.equal(stillFormal.reason, "stale_approval")
+
+  const gate = spawnSync(
+    process.execPath,
+    [
+      join(process.cwd(), ".cursor", "checks", "coderabbit-pr-gate.mjs"),
+      "--snapshot",
+      join(
+        process.cwd(),
+        ".cursor",
+        "checks",
+        "fixtures",
+        "coderabbit",
+        "remote-review-in-progress-check.json",
+      ),
+      "--allow-draft",
+      "--review-wait-expired",
+    ],
+    { encoding: "utf8" },
+  )
+  assert.equal(gate.status, 0, gate.stderr)
+  assert.equal(JSON.parse(gate.stdout).reason, "ready_no_coderabbit_review")
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /--review-wait-expired/)
+})
+
+test("progress comment tied to a different commit is not the current head", () => {
+  const headSha = "abc123def456"
+  const oldSha = "fff111aaa222bbb333ccc444ddd555eee666ffff"
+  assert.equal(
+    commentLooksReviewInProgress(
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: oldSha,
+        body: "Review in progress",
+      },
+      headSha,
+    ),
+    false,
+  )
+  assert.equal(
+    commentLooksReviewInProgress(
+      {
+        user: { login: "coderabbitai[bot]" },
+        commit_id: headSha,
+        body: "Review in progress",
+      },
+      headSha,
+    ),
+    true,
+  )
+
+  const snapshot = load("remote-review-stale-progress-comment.json")
+  assert.equal(hasCodeRabbitReviewInProgress(snapshot), false)
+  const result = evaluateReadyPr(snapshot, { allowDraft: true })
+  assert.equal(result.ok, true)
+  assert.equal(result.reason, "ready_no_coderabbit_review")
+})
+
+test("push CLI action blocks open Majors and leftover-pushes only capture findings", () => {
+  const critical = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 0,
+  })
+  assert.equal(critical.action, "block")
+  assert.equal(critical.record, "blocked_major_findings")
+  assert.notEqual(critical.action, "route")
+  assert.equal(critical.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const major = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "major", id: "m1" }],
+    priorRound: 0,
+  })
+  assert.equal(major.action, "block")
+  assert.equal(major.record, "blocked_major_findings")
+  assert.notEqual(major.action, "route")
+  assert.equal(major.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const unknown = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "nope", id: "u1" }],
+    priorRound: 0,
+  })
+  assert.equal(unknown.action, "block")
+  assert.equal(unknown.sddToTdd[0].command, "/sdd-to-tdd")
+
+  const minor = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n1" }],
+    priorRound: 0,
+  })
+  assert.equal(minor.action, "push")
+  assert.equal(minor.record, "capture_and_push")
+  assert.equal(minor.capture[0].command, "/capture")
+
+  const inScopeMinor = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "minor", id: "n2", inScope: true }],
+    priorRound: 0,
+  })
+  assert.equal(inScopeMinor.action, "push")
+  assert.equal(inScopeMinor.record, "capture_and_push")
+  assert.equal(inScopeMinor.capture[0].command, "/capture")
+  assert.equal(inScopeMinor.sddToTdd.length, 0)
+
+  const emptyRouted = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(emptyRouted.action, "push")
+  assert.equal(emptyRouted.sddToTdd.length, 0)
+
+  const leftover = decidePushCliAction({
+    attemptStatus: "findings",
+    findings: [{ severity: "critical", id: "c1" }],
+    priorRound: 1,
+  })
+  assert.equal(leftover.action, "block")
+  assert.equal(leftover.record, "blocked_major_findings")
+  assert.notEqual(leftover.action, "push")
+  assert.notEqual(leftover.action, "route")
+  assert.equal(leftover.leftover.length, 1)
+
+  const unavailable = decidePushCliAction({
+    attemptStatus: "unavailable",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(unavailable.action, "block")
+  assert.equal(unavailable.record, "blocked_cli_unavailable")
+
+  const clean = decidePushCliAction({
+    attemptStatus: "clean",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(clean.action, "push")
+  assert.deepEqual(clean.leftover, [])
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "push.md"),
+    "utf8",
+  )
+  assert.match(command, /`--leftover-record`/)
+  assert.match(
+    command,
+    /top-level `action` is `push` or `block`/,
+  )
+  assert.match(
+    command,
+    /`route` applies only\s+to individual findings/,
+  )
+  assert.match(
+    command,
+    /do not push until blocked findings\s+are resolved/,
+  )
+  assert.match(
+    command,
+    /only when no Critical, Major, or unknown\s+finding is open/,
+  )
+  assert.doesNotMatch(command, /leftover-pushes instead of routing again/)
+  assert.doesNotMatch(command, /must not return `route`/)
+  assert.doesNotMatch(
+    command,
+    /Capture Minor\/Trivial findings and push\r?\n in the same pass/,
+  )
+})
+
+test("timeout, incomplete, or missing-binary CLI review blocks push", () => {
+  const timeout = decidePushCliAction({
+    attemptStatus: "unavailable",
+    reason: "timeout",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(timeout.action, "block")
+  assert.equal(timeout.record, "timeout")
+  assert.notEqual(timeout.action, "push")
+
+  const incomplete = decidePushCliAction({
+    attemptStatus: "unavailable",
+    reason: "missing_complete",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(incomplete.action, "block")
+  assert.equal(incomplete.record, "missing_complete")
+
+  const missingBinary = decidePushCliAction({
+    attemptStatus: "unavailable",
+    reason: "missing_binary",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(missingBinary.action, "block")
+  assert.equal(missingBinary.record, "missing_binary")
+
+  const error = decidePushCliAction({
+    attemptStatus: "unavailable",
+    reason: "error",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(error.action, "block")
+  assert.equal(error.record, "blocked_cli_unavailable")
+
+  const advisory = decidePushCliAction({
+    attemptStatus: "unavailable",
+    reason: "missing_base",
+    findings: [],
+    priorRound: 0,
+  })
+  assert.equal(advisory.action, "push")
+  assert.equal(advisory.record, "unavailable")
+})
+
+test("hand-written or unchecked PR-body marker is not protected CLI evidence", () => {
+  const head = "a".repeat(40)
+  const realJsonl =
+    '{"type":"review_context","reviewedFiles":["lib/example.ts"]}\n{"type":"complete","findings":0,"reviewedFiles":["lib/example.ts"]}\n'
+  const realHash = cliEvidenceOutputHash(realJsonl)
+  const forged = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: "0".repeat(64),
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(forged, head, { cliOutput: realJsonl }),
+    null,
+  )
+  const unmarked = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(unmarked, head, { cliOutput: realJsonl }),
+    null,
+  )
+  const matching = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: realHash,
+  })
+  assert.equal(protectedCliEvidenceStatus(matching, head), null)
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: matching,
+    }).ok,
+    false,
+  )
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: matching,
+    }).reason,
+    "missing_head_evidence",
+  )
+  assert.equal(
+    protectedCliEvidenceStatus(matching, head, { cliOutput: realJsonl }),
+    "clean",
+  )
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: matching,
+      cliOutput: realJsonl,
+    }).ok,
+    true,
+  )
+
+  const findingsJsonl = `${readFileSync(join(FIX, "local-major.jsonl"), "utf8")}`
+  const findingsHash = cliEvidenceOutputHash(findingsJsonl)
+  const lyingClean = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: findingsHash,
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(lyingClean, head, { cliOutput: findingsJsonl }),
+    null,
+  )
+  assert.equal(
+    qaDraftEvidenceVerdict({
+      isDraft: true,
+      headSha: head,
+      body: lyingClean,
+      cliOutput: findingsJsonl,
+    }).ok,
+    false,
+  )
+  const honestFindings = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "findings",
+    hash: findingsHash,
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(honestFindings, head, {
+      cliOutput: findingsJsonl,
+    }),
+    "findings",
+  )
+
+  const incompleteJsonl =
+    '{"type":"review_context","reviewedFiles":["lib/example.ts"]}\n{"type":"finding","id":"cr-major-1","severity":"major","fileName":"lib/example.ts","comment":"logic bug"}\n'
+  assert.equal(cliOutputAttemptStatus(incompleteJsonl), "unavailable")
+  const incompleteHash = cliEvidenceOutputHash(incompleteJsonl)
+  for (const claim of ["findings", "clean", "unavailable"]) {
+    const incompleteBody = renderCliEvidenceBlock({
+      head,
+      attemptStatus: claim,
+      hash: incompleteHash,
+    })
+    assert.equal(
+      protectedCliEvidenceStatus(incompleteBody, head, {
+        cliOutput: incompleteJsonl,
+      }),
+      null,
+      `incomplete JSONL must not count as ${claim} evidence`,
+    )
+    assert.equal(
+      qaDraftEvidenceVerdict({
+        isDraft: true,
+        headSha: head,
+        body: incompleteBody,
+        cliOutput: incompleteJsonl,
+      }).ok,
+      false,
+    )
+  }
+
+  const policySrc = readFileSync(
+    join(process.cwd(), ".cursor", "hooks", "lib", "coderabbit-pr-policy.mjs"),
+    "utf8",
+  )
+  assert.doesNotMatch(policySrc, /expectedHash/)
+  const forgedByOverride = renderCliEvidenceBlock({
+    head,
+    attemptStatus: "clean",
+    hash: "0".repeat(64),
+  })
+  assert.equal(
+    protectedCliEvidenceStatus(forgedByOverride, head, {
+      cliOutput: realJsonl,
+      expectedHash: "0".repeat(64),
+    }),
+    null,
+  )
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "push.md"),
+    "utf8",
+  )
+  const authFence = command.match(
+    /```powershell\n[\s\S]*?coderabbit auth status --agent[\s\S]*?```/,
+  )
+  assert.ok(authFence, "push.md PowerShell auth-status fence")
+  assert.match(authFence[0], /coderabbit auth status --agent/)
+  assert.doesNotMatch(authFence[0], /auth login/)
+  assert.doesNotMatch(authFence[0], /--api-key/)
+  assert.doesNotMatch(authFence[0], /set -[x]/)
+  assert.doesNotMatch(command, /coderabbit auth login --api-key/)
+  assert.doesNotMatch(command, /API key authentication configured/i)
+})
+
+test("no formal review on latest head is ready_no_coderabbit_review with operator comment", () => {
+  const none = evaluateReadyPr(load("remote-pending.json"))
+  assert.equal(none.ok, true)
+  assert.equal(none.reason, "ready_no_coderabbit_review")
+  assert.equal(none.operatorComment, NO_FORMAL_REVIEW_OPERATOR_COMMENT)
+  assert.match(none.operatorComment, /@coderabbitai full review/)
+
+  const draft = evaluateReadyPr(load("remote-draft.json"), { allowDraft: true })
+  assert.equal(draft.ok, true)
+  assert.equal(draft.reason, "ready_no_coderabbit_review")
+  assert.equal(draft.operatorComment, NO_FORMAL_REVIEW_OPERATOR_COMMENT)
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /ready_no_coderabbit_review/)
+  assert.match(command, /gh pr comment/)
+  assert.match(command, /operator comment/)
+})
+
+test("COMMENTED review with actionable findings blocks into /capture", () => {
+  const result = evaluateReadyPr(
+    commentedBodySnapshot(
+      `| _Critical_ | **Leaked secret**\n<!-- cr-comment:v1:body-critical -->\n`,
+    ),
+  )
+  assert.equal(result.ok, false)
+  assert.equal(result.reason, "commented_review_findings")
+  assert.equal(result.findings.length, 1)
+  assert.equal(result.findings[0].command, "/capture")
+  assert.equal(result.findings[0].route, "capture")
+  assert.equal(result.findings[0].title, "Leaked secret")
+})
+
+test("quiet-mode walkthrough body is ignored", () => {
+  assert.equal(isQuietModeWalkthroughBody("walkthrough"), true)
+  assert.equal(
+    isQuietModeWalkthroughBody(
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\n<!-- walkthrough_start -->\nSummary only.\n<!-- walkthrough_end -->\n**Actionable comments posted: 0**\n",
+    ),
+    true,
+  )
+  assert.equal(
+    isQuietModeWalkthroughBody(
+      `| _Minor_ | **Real finding**\n<!-- cr-comment:v1:not-quiet -->\n`,
+    ),
+    false,
+  )
+
+  const quiet = evaluateReadyPr(
+    commentedBodySnapshot(
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\nQuiet summary.\n**Actionable comments posted: 0**\n",
+    ),
+  )
+  assert.equal(quiet.ok, true)
+  assert.equal(quiet.reason, "ready_no_coderabbit_review")
+  assert.equal(quiet.findings, undefined)
+
+  const wordOnly = evaluateReadyPr(commentedBodySnapshot("walkthrough"))
+  assert.equal(wordOnly.ok, true)
+  assert.equal(wordOnly.reason, "ready_no_coderabbit_review")
+})
+
+test("operator comment 403 is non-fatal and still readies", () => {
+  const ready = evaluateReadyPr(load("remote-pending.json"))
+  assert.equal(ready.ok, true)
+  assert.equal(ready.reason, "ready_no_coderabbit_review")
+
+  const outcome = resolveOperatorNotePlacement({
+    commentPosted: false,
+    commentStatus: 403,
+    commentError: "HTTP 403: Resource not accessible by integration",
+  })
+  assert.equal(outcome.fatal, false)
+  assert.equal(outcome.ready, true)
+  assert.deepEqual(outcome.recordIn, ["pr_body", "report"])
+  assert.match(outcome.log, /403/)
+  assert.match(outcome.log, /issues: write/)
+
+  const posted = resolveOperatorNotePlacement({ commentPosted: true })
+  assert.equal(posted.fatal, false)
+  assert.equal(posted.ready, true)
+  assert.deepEqual(posted.recordIn, ["issue_comment"])
+
+  const body = appendOperatorNoteToPrBody(
+    "## Summary\n\nFeature work.",
+    ready.operatorComment,
+  )
+  assert.match(body, new RegExp(NO_FORMAL_REVIEW_BODY_HEADING))
+  assert.match(body, /No formal CodeRabbit review/)
+  assert.equal(appendOperatorNoteToPrBody(body, ready.operatorComment), body)
+
+  const command = readFileSync(
+    join(process.cwd(), ".cursor", "commands", "ready-merge-release.md"),
+    "utf8",
+  )
+  assert.match(command, /non-fatal/)
+  assert.match(command, /403/)
+  assert.match(command, /PR body/)
+  assert.match(command, /issues: write/)
+})
+
+test("changes_requested_meta_only still passes for walkthrough-only formal reviews", () => {
+  const meta = evaluateReadyPr(
+    commentedBodySnapshot(
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\nMeta only.\n",
+      { state: "CHANGES_REQUESTED" },
+    ),
+  )
+  assert.equal(meta.ok, true)
+  assert.equal(meta.reason, "changes_requested_meta_only")
+
+  const fixtureStyle = evaluateReadyPr(
+    commentedBodySnapshot("walkthrough", { state: "CHANGES_REQUESTED" }),
+  )
+  assert.equal(fixtureStyle.ok, true)
+  assert.equal(fixtureStyle.reason, "changes_requested_meta_only")
+
+  const real = evaluateReadyPr(
+    commentedBodySnapshot("", { state: "CHANGES_REQUESTED" }),
+  )
+  assert.equal(real.ok, false)
+  assert.equal(real.reason, "changes_requested")
+})
+
 test("main-gate workflow is read-only, staging→main, and named US latest-head", () => {
   const yml = readFileSync(WORKFLOW, "utf8")
   assert.match(yml, /name: CodeRabbit US latest-head gate/)
@@ -222,4 +831,217 @@ test("main-gate workflow is read-only, staging→main, and named US latest-head"
   assert.doesNotMatch(yml, /github\.event\.pull_request\.base\.sha/)
   assert.doesNotMatch(yml, /--use-credits/)
   assert.doesNotMatch(yml, /gh pr merge/)
+})
+
+describe("G-CR4 loop capture_only_findings and body findings", () => {
+  test("loop exempt plan thread plus body minor is capture_only_findings", () => {
+    const snapshot = load("remote-loop-exempt-plan-body-minor.json")
+    const looped = evaluateReadyPr(snapshot, { allowDraft: true, loop: true })
+    assert.equal(looped.reason, "capture_only_findings")
+    assert.equal(looped.ok, true)
+    assert.equal(typeof looped.roundsUsed, "number")
+    assert.equal(looped.roundCap, 3)
+    assert.equal(looped.findings.length, 2)
+    assert.ok(
+      looped.findings.every((finding) => finding.command === "/capture"),
+    )
+    const plan = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:38d764802c7598c99a1a6827",
+    )
+    assert.equal(plan.process, true)
+    assert.equal(plan.path, ".cursor/plans/issue-124_example_plan_b839.plan.md")
+    assert.equal(plan.severity, "major")
+    const minor = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:ffc449232d7947fca6bb62c8",
+    )
+    assert.equal(minor.path, "app/actions/guest-profiles.ts")
+    assert.equal(minor.line, 66)
+    assert.equal(minor.severity, "minor")
+    assert.notEqual(minor.process, true)
+    assert.equal(
+      looped.findings.some(
+        (finding) => finding.id === "cr-comment:v1:footer-should-ignore",
+      ),
+      false,
+    )
+    const plain = evaluateReadyPr(snapshot, { allowDraft: true })
+    assert.equal(plain.ok, false)
+    assert.equal(plain.reason, "changes_requested")
+  })
+
+  test("exempt plan thread only is capture_only_findings and walkthrough precedence is explicit", () => {
+    const exempt = load("remote-loop-exempt-plan-only.json")
+    const looped = evaluateReadyPr(exempt, { allowDraft: true, loop: true })
+    assert.equal(looped.reason, "capture_only_findings")
+    assert.equal(looped.ok, true)
+    assert.equal(looped.findings.length, 1)
+    assert.equal(looped.findings[0].process, true)
+    assert.equal(looped.findings[0].command, "/capture")
+
+    const quietBody =
+      "<!-- This is an auto-generated comment: summarize by coderabbit.ai -->\n## Walkthrough\nMeta only.\n"
+    const walkthrough = commentedBodySnapshot(quietBody, {
+      state: "CHANGES_REQUESTED",
+    })
+    assert.equal(
+      evaluateReadyPr(walkthrough, { allowDraft: true, loop: true }).reason,
+      "changes_requested_meta_only",
+    )
+    assert.equal(
+      evaluateReadyPr(walkthrough, { allowDraft: true }).reason,
+      "changes_requested_meta_only",
+    )
+
+    const withPlan = commentedBodySnapshot(quietBody, {
+      state: "CHANGES_REQUESTED",
+    })
+    withPlan.threads = JSON.parse(JSON.stringify(exempt.threads))
+    assert.equal(
+      evaluateReadyPr(withPlan, { allowDraft: true, loop: true }).reason,
+      "capture_only_findings",
+    )
+  })
+
+  test("outdated plan thread is not a finding and a critical body finding blocks", () => {
+    const outdated = load("remote-loop-exempt-plan-body-minor.json")
+    outdated.threads[0].isOutdated = true
+    const dropped = evaluateReadyPr(outdated, {
+      allowDraft: true,
+      loop: true,
+    })
+    assert.equal(dropped.reason, "capture_only_findings")
+    assert.equal(
+      dropped.findings.some(
+        (finding) =>
+          finding.path === ".cursor/plans/issue-124_example_plan_b839.plan.md",
+      ),
+      false,
+    )
+    assert.equal(
+      dropped.findings.some(
+        (finding) => finding.id === "cr-comment:v1:ffc449232d7947fca6bb62c8",
+      ),
+      true,
+    )
+
+    const critical = evaluateReadyPr(load("remote-loop-body-critical.json"), {
+      allowDraft: true,
+      loop: true,
+    })
+    assert.equal(critical.ok, false)
+    assert.equal(critical.reason, "changes_requested_body_findings")
+    assert.equal(critical.findings[0].command, "/sdd-to-tdd")
+    assert.equal(critical.findings[0].path, "app/actions/guest-profiles.ts")
+
+    const product = {
+      headSha: "a".repeat(40),
+      isDraft: false,
+      reviews: [
+        {
+          user: { login: "coderabbitai[bot]" },
+          commit_id: "a".repeat(40),
+          state: "CHANGES_REQUESTED",
+        },
+      ],
+      threads: [
+        {
+          isResolved: false,
+          isOutdated: false,
+          path: "lib/example.ts",
+          comments: [
+            {
+              author: { login: "coderabbitai[bot]" },
+              path: "lib/example.ts",
+              body: "| _Major_ | **Example**\n<!-- cr-comment:v1:product -->\n",
+            },
+          ],
+        },
+      ],
+    }
+    const open = evaluateReadyPr(product, { allowDraft: true, loop: true })
+    assert.equal(open.reason, "unresolved_threads")
+  })
+
+  test("commands document capture_only_findings and changes_requested_body_findings", () => {
+    const docs = [
+      ".cursor/commands/ready-merge-release.md",
+      ".cursor/commands/conduct.md",
+      ".cursor/rules/coderabbit-integration.mdc",
+      "docs/runbooks/coderabbit.md",
+    ]
+    for (const rel of docs) {
+      const text = readFileSync(join(process.cwd(), rel), "utf8")
+      assert.equal(
+        text.includes("capture_only_findings"),
+        true,
+        `${rel} capture_only_findings`,
+      )
+      assert.equal(
+        text.includes("changes_requested_body_findings"),
+        true,
+        `${rel} changes_requested_body_findings`,
+      )
+    }
+    const gateSource = readFileSync(
+      join(process.cwd(), ".cursor", "checks", "coderabbit-pr-gate.mjs"),
+      "utf8",
+    )
+    const headerEnd = gateSource.indexOf("*/")
+    const header = headerEnd === -1 ? "" : gateSource.slice(0, headerEnd)
+    assert.match(header, /capture_only_findings/)
+    assert.match(header, /adapter never/)
+    assert.match(header, /\bcomments\b/)
+    assert.match(header, /\breadies\b/)
+    assert.match(header, /\bmerges\b/)
+  })
+
+  test("walkthrough plus mixed severities in one file block keeps each finding", () => {
+    const body = `<!-- This is an auto-generated comment: summarize by coderabbit.ai -->
+## Walkthrough
+Meta only.
+Actionable comments posted: 0
+
+<details>
+<summary>app/actions/guest-profiles.ts (2)</summary>
+<blockquote>
+
+\`10-10\`: **Stability** | **🟡 Minor** | **Quick win**
+
+**First finding.**
+
+<!-- cr-comment:v1:mixed-minor -->
+
+\`20-20\`: **Stability** | **🔴 Critical** | **Quick win**
+
+**Second finding.**
+
+<!-- cr-comment:v1:mixed-critical -->
+
+</blockquote></details>`
+    const snapshot = commentedBodySnapshot(body, {
+      state: "CHANGES_REQUESTED",
+    })
+    const looped = evaluateReadyPr(snapshot, { allowDraft: true, loop: true })
+    assert.equal(looped.reason, "changes_requested_body_findings")
+    assert.equal(looped.ok, false)
+    assert.equal(looped.findings.length, 2)
+    const minor = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:mixed-minor",
+    )
+    assert.equal(minor.path, "app/actions/guest-profiles.ts")
+    assert.equal(minor.line, 10)
+    assert.equal(minor.severity, "minor")
+    assert.equal(minor.command, "/capture")
+    const critical = looped.findings.find(
+      (finding) => finding.id === "cr-comment:v1:mixed-critical",
+    )
+    assert.equal(critical.path, "app/actions/guest-profiles.ts")
+    assert.equal(critical.line, 20)
+    assert.equal(critical.severity, "critical")
+    assert.equal(critical.command, "/sdd-to-tdd")
+    assert.equal(
+      evaluateReadyPr(snapshot, { allowDraft: true }).reason,
+      "changes_requested",
+    )
+  })
 })

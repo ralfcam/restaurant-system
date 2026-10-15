@@ -86,6 +86,79 @@ function stripFences(text) {
   return out.join("\n")
 }
 
+/** Minimal YAML-frontmatter split for agent name/description. No yaml dep. */
+export function splitFrontmatter(text) {
+  const normalized = String(text).replace(/\r\n/g, "\n")
+  if (!normalized.startsWith("---\n")) {
+    return { data: null, body: normalized, error: null }
+  }
+  const end = normalized.indexOf("\n---\n", 4)
+  if (end === -1) {
+    return { data: null, body: normalized, error: "unclosed frontmatter" }
+  }
+  const raw = normalized.slice(4, end)
+  const data = {}
+  let currentKey = null
+  let folded = null
+  for (const line of raw.split("\n")) {
+    const keyMatch = /^([A-Za-z0-9_]+):\s*(.*)$/.exec(line)
+    if (keyMatch && !line.startsWith(" ") && !line.startsWith("\t")) {
+      if (currentKey && folded !== null) {
+        data[currentKey] = folded.join(" ").trim()
+      }
+      currentKey = keyMatch[1]
+      const value = keyMatch[2]
+      if (value === ">-" || value === ">" || value === "|" || value === "|-") {
+        data[currentKey] = ""
+        folded = []
+      } else {
+        data[currentKey] = value
+        folded = null
+        currentKey = null
+      }
+      continue
+    }
+    if (currentKey && folded !== null && /^(?: {2}|\t)\s*(.*)$/.test(line)) {
+      folded.push(line.trim())
+    }
+  }
+  if (currentKey && folded !== null) {
+    data[currentKey] = folded.join(" ").trim()
+  }
+  return { data, body: normalized.slice(end + 5), error: null }
+}
+
+export function agentFrontmatterViolations(rel, text) {
+  const document = splitFrontmatter(text)
+  if (document.error) return [`${rel}: ${document.error}`]
+  const data = document.data
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return [`${rel}: missing YAML frontmatter`]
+  }
+  const violations = []
+  if (typeof data.name !== "string" || !data.name.trim()) {
+    violations.push(`${rel}: missing name`)
+  }
+  if (typeof data.description !== "string" || !data.description.trim()) {
+    violations.push(`${rel}: missing description`)
+  }
+  return violations
+}
+
+function checkAgentFrontmatter() {
+  const dir = join(ROOT, ".cursor", "agents")
+  if (!existsSync(dir)) return
+  for (const path of walk(dir, ".md")) {
+    const rel = path.slice(ROOT.length + 1).replaceAll("\\", "/")
+    for (const message of agentFrontmatterViolations(
+      rel,
+      readFileSync(path, "utf8"),
+    )) {
+      fail("agent-frontmatter", message)
+    }
+  }
+}
+
 function checkLinks() {
   const files = [
     ...walk(join(ROOT, ".cursor", "rules"), ".mdc"),
@@ -487,15 +560,15 @@ export const CODERABBIT_REQUIRED_FILES = [
 export const CODERABBIT_MIRROR_NEEDLES = {
   ".cursor/commands/sdd-to-tdd.md": [
     "STEP 4G",
-    "coderabbit-gate.mjs",
+    "do not run coderabbit-gate.mjs",
     "Do **not** write the receipt",
-    "mandatory advisory local CodeRabbit attempt",
     "continue to STEP 4F",
   ],
   ".cursor/commands/commit.md": [
     "gate open",
     "CodeRabbit receipts are audit-only",
     "A missing receipt is non-blocking",
+    "does not run the CodeRabbit CLI",
     "--exempt docs-artifact",
     "--exempt gate-remediation",
     "--exempt design-spec",
@@ -505,10 +578,17 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "A missing receipt is",
     "non-blocking",
     "CodeRabbit US latest-head gate",
+    "coderabbit-gate.mjs",
+    "origin/staging",
+    "one fix round",
+    "mandatory advisory local CodeRabbit attempt",
+    "cursor-head firewall",
+    "secret_path",
+    "--fix-round",
   ],
   ".cursor/commands/intake.md": [
     "/ready-merge-release",
-    "audit-only CodeRabbit 4G",
+    "audit-only CodeRabbit",
   ],
   ".cursor/commands/capture.md": ["coderabbit/<local|PR>/<head>/<finding-id>"],
   ".cursor/commands/ready-merge-release.md": [
@@ -523,9 +603,13 @@ export const CODERABBIT_MIRROR_NEEDLES = {
     "APPROVED FOR OPERATOR MERGE",
     "`gh pr ready`",
     "`gh pr merge`",
+    "review_in_progress",
+    "no blind wait",
+    "expired-wait",
+    "--review-wait-expired",
   ],
   ".cursor/rules/coderabbit-integration.mdc": [
-    "0.7.6",
+    "0.9.0",
     "347564",
     "mandatory advisory local attempts",
     "Remote G-CR3 enforcement below remains fail-closed and unchanged",
@@ -1424,6 +1508,7 @@ export function runHarnessLint() {
   checkClarificationLoop()
   checkReviewFixContracts()
   checkCoderabbitContracts()
+  checkAgentFrontmatter()
 
   if (violations.length) {
     for (const v of violations) console.error(v)

@@ -2,7 +2,10 @@
 /**
  * Read-only GitHub adapter for the US latest-head CodeRabbit gate.
  * The release command may opt into draft verification, but this adapter never
- * comments, writes Linear, readies, commits, pushes, or merges.
+ * comments, writes Linear, readies, commits, pushes, or merges. Under
+ * `--loop`, `capture_only_findings` is a clean verdict for that command.
+ * A missing formal US review is `ready_no_coderabbit_review` for the command
+ * to ready and comment; this adapter still does not post that comment.
  *
  * Usage:
  *   node .cursor/checks/coderabbit-pr-gate.mjs
@@ -45,10 +48,14 @@ function assertBranchShape(snapshot, promotionOnly) {
 
 function emitReadyVerdict(
   snapshot,
-  { allowDraft, promotionOnly, loop = false },
+  { allowDraft, promotionOnly, loop = false, reviewWaitExpired = false },
 ) {
   assertBranchShape(snapshot, promotionOnly)
-  const result = evaluateReadyPr(snapshot, { allowDraft, loop })
+  const result = evaluateReadyPr(snapshot, {
+    allowDraft,
+    loop,
+    reviewWaitExpired,
+  })
   if (!result.ok) fail(result.reason, result)
   console.log(JSON.stringify({ ok: true, ...result }, null, 2))
 }
@@ -98,7 +105,7 @@ async function ghJson(url, token) {
       Accept: "application/vnd.github+json",
       Authorization: `Bearer ${token}`,
       "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "restaurant-system-coderabbit-pr-gate",
+      "User-Agent": "harness-coderabbit-pr-gate",
     },
   })
   if (!res.ok) {
@@ -143,7 +150,7 @@ async function ghGraphql(token, query, variables) {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      "User-Agent": "restaurant-system-coderabbit-pr-gate",
+      "User-Agent": "harness-coderabbit-pr-gate",
     },
     body: JSON.stringify({ query, variables }),
   })
@@ -292,6 +299,7 @@ async function main() {
   const snapshotPath = argValue("--snapshot")
   const allowDraft = process.argv.includes("--allow-draft")
   const loop = process.argv.includes("--loop")
+  const reviewWaitExpired = process.argv.includes("--review-wait-expired")
   const promotionOnly =
     process.argv.includes("--promotion-only") ||
     process.env.CODERABBIT_PR_PROMOTION_ONLY === "1"
@@ -301,6 +309,7 @@ async function main() {
       allowDraft,
       promotionOnly,
       loop,
+      reviewWaitExpired,
     })
     return
   }
@@ -320,6 +329,7 @@ async function main() {
     allowDraft,
     promotionOnly,
     loop,
+    reviewWaitExpired,
   })
 }
 

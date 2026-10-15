@@ -5,7 +5,7 @@ alwaysApply: false
 
 # Test execution integrity: a skipped suite is never a pass
 
-Restaurant integration suites under `tests/integration/**` wrap in
+Project integration suites under `tests/integration/**` wrap in
 `describe.skipIf(!authEnvReady)` (see `tests/integration/helpers/env.ts`).
 When local Supabase env is missing, the suite **skips and reports green**.
 That is not a pass.
@@ -15,13 +15,13 @@ That is not a pass.
 `authEnvReady` requires the public Supabase URL/anon key plus
 `SUPABASE_SERVICE_ROLE_KEY`. Absent keys → skip, 0 failures. Connection
 errors (`ECONNREFUSED`, `ENOTFOUND`) MUST fail the run when
-`RESTAURANT_INTEGRATION_STRICT=true` — never convert an unreachable
+`INTEGRATION_STRICT=true` — never convert an unreachable
 Postgres into a skip.
 
 ## The integration command (always fail-closed)
 
 ```powershell
-$env:RESTAURANT_INTEGRATION_STRICT = 'true'; pnpm test:integration <path>
+$env:INTEGRATION_STRICT = 'true'; pnpm test:integration <path>
 ```
 
 A skipped `describe.skipIf(!authEnvReady)` suite is never green.

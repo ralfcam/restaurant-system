@@ -24,12 +24,12 @@ itself. Agents read this rule rather than restating the split in a command.
 Human-created feature branches use **`sdd/RES-###`** (the Linear identifier
 in the branch name). `/dispatch` does not create that branch, a worktree, or
 any other execution environment; it emits confirmed command cards only.
-Do not invent a `cursor/RES-*` intake identity — that pattern matches nothing
+Do not invent a `cursor/*` intake identity — that pattern matches nothing
 this repo has shipped.
 
 **Cloud-agent heads:** observed `origin` shape is `cursor/<slug>-<4 hex>`
-(never `cursor/RES-###`). A cloud PR is identified by that **head pattern**,
-not by author and not by an `RES-###` in the branch name. `/intake` is the
+(never `cursor/<issue-id>`). A cloud PR is identified by that **head pattern**,
+not by author and not by an `<issue-id>` in the branch name. `/intake` is the
 inbound firewall for those PRs.
 
 ## Done-on-staging
@@ -90,6 +90,6 @@ target `staging`.
 No command, including `/conduct`, assigns or delegates an issue to the Cursor
 integration or writes a spawn-triggering integration mention (`@Cursor`). No
 command other than `/conduct` creates a branch or worktree or invokes an
-agent. `/conduct` may create its `cursor/morning-` and `cursor/res-` branches
-and may run `/sdd-to-tdd` and `/design`. Dashboard → Cloud Agents → Base
-Branch stays `staging`.
+agent. `/conduct` may create its `cursor/morning-` and `cursor/res-`
+branches and may run `/sdd-to-tdd` and `/design`. Dashboard → Cloud Agents →
+Base Branch stays `staging`.

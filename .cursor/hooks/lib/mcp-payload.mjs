@@ -31,12 +31,20 @@ export function parseToolInput(raw) {
   }
 }
 
-/** CallMcpTool, preToolUse MCP:<name>, and beforeMCPExecution payloads. */
+const DYNAMIC_WRAPPERS = new Set(["CallMcpTool", "CallDynamicTool"])
+
+/** CallMcpTool, CallDynamicTool, preToolUse MCP:<name>, and beforeMCPExecution. */
 export function extractMcpCall(input) {
   const rawName = typeof input.tool_name === "string" ? input.tool_name : ""
   const ti = parseToolInput(input.tool_input)
-  if (rawName === "CallMcpTool") {
-    return { server: ti.server, toolName: ti.toolName, args: ti.arguments }
+  if (DYNAMIC_WRAPPERS.has(rawName)) {
+    const toolName = ti.toolName ?? ti.tool_name ?? ti.name
+    if (!toolName) return null
+    return {
+      server: ti.namespace ?? ti.server ?? input.mcp_server_name,
+      toolName,
+      args: ti.arguments ?? ti.args ?? {},
+    }
   }
   const toolName = rawName.startsWith("MCP:") ? rawName.slice(4) : rawName
   if (!toolName) return null

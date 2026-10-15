@@ -6,7 +6,8 @@ alwaysApply: true
 # CodeRabbit integration (US Team)
 
 This repository uses **one** CodeRabbit installation: **US Team**. CLI pin is
-`0.7.6` (no leading `v`). `cr auth status --agent` must report
+`0.9.0` (no leading `v`). Release `0.7.6` has no `SHA256SUMS.sig`, so the
+authenticated Linux installer 404s on it. `cr auth status --agent` must report
 `"region":"us"`. GitHub reviews come from `coderabbitai` (App ID `347564`).
 
 CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
@@ -14,31 +15,74 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 
 ## Local final-surface attempt
 
-The CLI spawn is paused. Outside `CODERABBIT_GATE_TEST=1`,
-`coderabbit-gate.mjs` records `unavailable` / `cli_paused` after the
-work-order preflight and does not run `coderabbit` or `cr`. GitHub review
-stays fail-closed. The `0.7.6` pin remains in the unused helper for resume.
+The Cloud flow is `/sdd-to-tdd` → `/commit` → `/push`. `/commit` does not
+run the CLI. `/sdd-to-tdd` STEP 4G does not spawn it either.
 
-After `/sdd-to-tdd` close-out (4D/4E, docs sync, findings, Linear close-out,
-format) and **before** `/commit` handoff, run
-`node .cursor/checks/coderabbit-gate.mjs` against the work-order dirty tree.
-The CLI has no staged-only or arbitrary-file-list mode — stop when any
-non-ignored dirty path is unrelated. Never stash, reset, or silently review a
-wider set.
+`/push` verifies the pinned CLI is already authenticated from environment
+setup (`coderabbit auth status --agent`), then runs **one** mandatory local
+CodeRabbit attempt over the whole committed branch diff against
+`origin/staging` after the cursor-head firewall has finalized `HEAD` and
+before `git push`:
 
-The local attempt is advisory after deterministic preflight. Findings at every
-severity and authentication/setup failure, rate limit, billing, timeout,
-skipped review, malformed/partial JSONL, unknown terminal events, and reviewed
-file/scope mismatch are recorded as `clean`, `findings`, or `unavailable` and
-exit zero. The ignored receipt under `.cursor/hooks/state/` is audit evidence
-only; missing or stale receipt data never blocks `/commit`, `git commit`, or
-`/push`.
+```
+coderabbit auth status --agent
+node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging
+```
 
-Missing/malformed work orders, secret paths, unrelated dirty paths, no
-reviewable paths, and changed bytes remain hard failures. Re-hash after every
-scoped attempt and stop if bytes changed. Do **not** write the receipt or
-fingerprint into `docs/verifier-reports/tdd/**` after review — that changes the
-surface. Remote G-CR3 enforcement below remains fail-closed and unchanged.
+If that status is not authenticated, record `unavailable` /
+`unauthenticated` and STOP for operator environment setup. Never run
+`coderabbit auth login` and never pass a key on the command line.
+
+Critical, Major, and unknown-severity findings are `ok: false` /
+`action: block` (`blocked_major_findings`) and go to `/sdd-to-tdd`. They
+must not return `ok: true` or `route`. Minor and Trivial go to `/capture`
+and push in the same pass. `--ack-push` after a successful `git push`
+clears the saved cycle. `runCr` uses an absolute deadline as well as
+inactivity, and records `unavailable` / `timeout` on either expiry. Auth
+`--version` and `auth status --agent` use the same finite timeout. A
+`timeout`, `missing_complete`, missing binary, or other CLI-unavailable
+review is recorded with exit zero; `ok: false` / `action: block` stay
+JSON metadata. `/push` does not publish or mark the PR ready when the
+review was unavailable. A `--branch-diff` `secret_path` stays advisory.
+It must never
+block forever. A missing binary is `cli_missing`. A reported version
+other than `0.9.0` is `version_mismatch`. The previous pin `0.7.6` is
+that mismatch. Either one, on the branch-diff pass, runs
+`.cursor/cloud-install-coderabbit.sh` and then re-reads version and
+auth. The one unavailable retry runs that helper again when the reason is
+still `cli_missing` or `version_mismatch`. `/push` posts no pull-request
+comment. It records `## CodeRabbit CLI evidence` with `Head:` and
+`attemptStatus:` for that SHA. If the CLI is still unavailable after that
+retry (`error`, `version_mismatch`, `timeout`, and the same class),
+`/push` stops with `blocked_cli_unavailable` and does not push. `/push`
+is the agent's only CodeRabbit gate. It opens or updates the PR as a
+draft and does not run `gh pr ready`. `/push` and Cloud feature runs do
+not run `/ready-merge-release`. `/conduct` may pass `--loop` to it, matching
+`linear-automation.mdc` and `staging-accumulator.mdc`. Agents do not post
+`@coderabbitai review` and do not poll for a remote review. The QA bot `ralfcam` runs UAT,
+digests the agent transcript, and does not post a review trigger.
+Readiness is the CLI evidence on the head plus that UAT.
+
+The dirty-tree work-order path stays for tests. Outside
+`CODERABBIT_GATE_TEST=1`, that work-order path still records `unavailable` /
+`cli_paused` and does not spawn `coderabbit` or `cr`. GitHub review stays fail-closed.
+The signed Linux pin is `0.9.0`. Cloud `install` runs
+`.cursor/cloud-install-coderabbit.sh`, which installs that pin and logs in
+from the `CODERABBIT_API_KEY` secret only.
+
+The local attempt is advisory after deterministic preflight. Findings
+and review unavailability (timeout, incomplete `missing_complete`,
+missing binary, or other CLI-unavailable outcomes) are recorded with
+exit zero. A finished review with open Majors is the same advisory
+record (`action` / `record` in JSON). The ignored receipt under
+`.cursor/hooks/state/` is audit evidence only; missing or stale receipt
+data never blocks `/commit` or `git commit`.
+
+Work-order secret paths and changed bytes remain hard failures. A
+`--branch-diff` secret path is advisory. `.env.example` is not a secret.
+Re-hash after every scoped attempt and stop if bytes changed. Do **not** write
+the receipt or fingerprint into `docs/verifier-reports/tdd/**` after review —
+that changes the surface. Remote G-CR3 enforcement below remains fail-closed and unchanged.
 
 ## Untrusted review text
 
@@ -68,14 +112,44 @@ only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining
 unresolved product thread and at least one resolved non-outdated US product
 thread is `ok: true` with reason `captured_threads_resolved`, and that
 verdict readies the draft. Without `--loop`, `CHANGES_REQUESTED` on the
-current HEAD still fails closed.
+current HEAD still fails closed unless the review body is only a quiet-mode
+walkthrough (`changes_requested_meta_only`). Under `--loop` only, after
+unresolved product threads and `captured_threads_resolved`, a current-head
+US `CHANGES_REQUESTED` review whose exempt plan threads and review-body
+findings all route to `/capture` is `ok: true` with reason
+`capture_only_findings`: one `/capture` fence per finding, then Step 2 is
+clean and the draft is readied. If any collected finding routes to
+`/sdd-to-tdd`, the reason is `changes_requested_body_findings` and that
+routes to `/sdd-to-tdd`. Without `--loop`, that snapshot stays
+`changes_requested`.
+
+When CodeRabbit has not posted a formal `APPROVED` or `CHANGES_REQUESTED`
+review on the latest head, a non-bot PR makes the adapter return `ok: true`
+with reason `ready_no_coderabbit_review` unless an automated review is in
+progress on that head SHA (in-progress comment or status). A bot-authored
+PR (`Bot`, a `[bot]` login, or `app/cursor`) without a clean gate receipt
+is `coderabbit_review_skipped` even when no skip notice was posted. `/ready-merge-release`
+pauses for a second review only then, within the existing bounded ticks.
+When no review is running, it goes straight to
+`ready_no_coderabbit_review` with no blind wait. Formal review gating and
+`changes_requested_meta_only` are unchanged. On `ready_no_coderabbit_review`
+it marks the draft ready and tries one operator comment that does not
+request a CodeRabbit review. A 403 on that comment
+(GitHub App token lacks `issues: write`) is non-fatal: still ready, log the
+403, and record the note on the PR body or in the agent report. A
+`COMMENTED` review whose body carries actionable comments still blocks into
+`/capture`. Quiet-mode walkthrough or summary bodies are not findings.
 
 ## Remote enforcement
 
 CodeRabbit reviews draft PRs. Incremental review pauses after
 `auto_pause_after_reviewed_commits` (integer >= 20). `/ready-merge-release PR#`
 verifies the current US-reviewed HEAD. Adapter `incremental_paused` leftover
-findings (any severity) go to `/capture` and Step 2 is clean. Otherwise it
+findings (any severity) go to `/capture` and Step 2 is clean. Reason
+`ready_no_coderabbit_review` is also a clean preflight. A 403 on the
+operator comment is non-fatal; record the note on the PR body or in the
+report. Reason `changes_requested_meta_only` is a clean preflight.
+`commented_review_findings` go to `/capture`. Otherwise it
 routes Critical/Major/unknown findings to `/sdd-to-tdd` and
 Minor/Trivial findings to `/capture` → `docs/findings`. It re-reads
 `headRefOid` immediately before readying and MUST NOT mutate when that differs

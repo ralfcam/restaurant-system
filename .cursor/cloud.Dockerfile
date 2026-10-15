@@ -79,3 +79,14 @@ RUN echo "ubuntu:ubuntu" | chpasswd
 
 USER ubuntu
 WORKDIR /workspace
+
+# CodeRabbit CLI pin matches PINNED_CLI_VERSION / the /push gate (0.9.0, no
+# leading v). Auth stays runtime-only via CODERABBIT_API_KEY — do not bake a
+# key into the image. The official installer authenticates the signed release
+# with openssl (a dependency of ca-certificates) and extracts it with unzip.
+# The key is stripped from the installer environment.
+ENV CI=1
+ENV CODERABBIT_VERSION=0.9.0
+ENV PATH="/home/ubuntu/.local/bin:${PATH}"
+RUN curl -fsSL https://cli.coderabbit.ai/install.sh | env -u CODERABBIT_API_KEY CR_CLI_SKIP_LOGIN=1 sh && \
+    test "$(coderabbit --version 2>/dev/null | tr -d '[:space:]' | sed 's/^v//')" = "0.9.0"

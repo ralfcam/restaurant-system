@@ -10,13 +10,20 @@
  * State is a single JSON file so the CLI control (`tdd-guard.mjs on/off`), the
  * subagent depth tracker, and the preToolUse guard all share it.
  */
+import { createHash } from "node:crypto"
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs"
 import { spawnSync } from "node:child_process"
-import { dirname, join } from "node:path"
+import { dirname, join, posix } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const STATE_PATH = join(__dirname, "..", "state", "tdd-guard.json")
+
+function statePath() {
+  return (
+    process.env.TDD_GUARD_STATE ||
+    join(__dirname, "..", "state", "tdd-guard.json")
+  )
+}
 
 /** Paths the orchestrator may NOT edit directly while armed (delegate instead). */
 export const PROTECTED_PREFIXES = [
@@ -27,6 +34,7 @@ export const PROTECTED_PREFIXES = [
   "hooks/",
   "src/",
   "supabase/",
+  ".cursor/hooks/",
 ]
 
 /**
@@ -72,6 +80,50 @@ const VALID_PHASES = ["red", "green", "refactor"]
 
 const VALID_EXEMPTIONS = ["docs-artifact", "gate-remediation", "design-spec"]
 
+const ARMED_STATE_REL = ".cursor/hooks/state/tdd-guard.json"
+const LINEAR_WRITER_BASENAME = "linear-writer.json"
+const GUARD_STATE_MARKERS = [".cursor/hooks/state/", "hooks/state/"]
+const DEFAULT_FINGERPRINT_TOOLS = [
+  "Task",
+  "Write",
+  "Shell",
+  "CallDynamicTool",
+]
+
+export function emptyPhaseEvidence() {
+  return { start: false, criteria: {} }
+}
+
+function normalizeCriteria(ids) {
+  if (!Array.isArray(ids)) return []
+  return ids
+    .filter((id) => typeof id === "string" && id.trim())
+    .map((id) => id.trim())
+}
+
+function readPhaseEvidence(raw) {
+  const src = raw && typeof raw === "object" ? raw : {}
+  const criteria = {}
+  const incoming =
+    src.criteria && typeof src.criteria === "object" ? src.criteria : {}
+  for (const [id, row] of Object.entries(incoming)) {
+    if (!id || !row || typeof row !== "object") continue
+    criteria[id] = {
+      red: row.red === true,
+      green: row.green === true,
+      refactor: row.refactor === true,
+      redAgentId: typeof row.redAgentId === "string" ? row.redAgentId.trim() : "",
+      greenAgentId:
+        typeof row.greenAgentId === "string" ? row.greenAgentId.trim() : "",
+      refactorAgentId:
+        typeof row.refactorAgentId === "string"
+          ? row.refactorAgentId.trim()
+          : "",
+    }
+  }
+  return { start: src.start === true, criteria }
+}
+
 function defaultState() {
   return {
     armed: false,
@@ -79,13 +131,19 @@ function defaultState() {
     phase: null,
     loopRan: false,
     commitExempt: null,
+    taskAvailable: false,
+    phaseEvidence: emptyPhaseEvidence(),
+    requiredCriteria: [],
+    requireStart: false,
+    tddRun: false,
   }
 }
 
 function loadState() {
   try {
-    if (!existsSync(STATE_PATH)) return defaultState()
-    const s = JSON.parse(readFileSync(STATE_PATH, "utf8"))
+    const path = statePath()
+    if (!existsSync(path)) return defaultState()
+    const s = JSON.parse(readFileSync(path, "utf8"))
     return {
       armed: Boolean(s.armed),
       depth: Number(s.depth) || 0,
@@ -94,6 +152,11 @@ function loadState() {
       commitExempt: VALID_EXEMPTIONS.includes(s.commitExempt)
         ? s.commitExempt
         : null,
+      taskAvailable: s.taskAvailable === true,
+      phaseEvidence: readPhaseEvidence(s.phaseEvidence),
+      requiredCriteria: normalizeCriteria(s.requiredCriteria),
+      requireStart: s.requireStart === true,
+      tddRun: s.tddRun === true,
     }
   } catch {
     return defaultState()
@@ -101,8 +164,9 @@ function loadState() {
 }
 
 function saveState(state) {
-  mkdirSync(dirname(STATE_PATH), { recursive: true })
-  writeFileSync(STATE_PATH, JSON.stringify(state, null, 2), "utf8")
+  const path = statePath()
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, JSON.stringify(state, null, 2), "utf8")
 }
 
 export function arm() {
@@ -112,6 +176,11 @@ export function arm() {
     phase: null,
     loopRan: false,
     commitExempt: null,
+    taskAvailable: false,
+    phaseEvidence: emptyPhaseEvidence(),
+    requiredCriteria: [],
+    requireStart: false,
+    tddRun: true,
   })
 }
 
@@ -123,7 +192,13 @@ export function disarm() {
     phase: null,
     loopRan: s.loopRan,
     commitExempt: s.commitExempt,
+    taskAvailable: false,
+    phaseEvidence: s.phaseEvidence,
+    requiredCriteria: s.requiredCriteria,
+    requireStart: s.requireStart,
+    tddRun: s.tddRun,
   })
+  recordDisarm({ source: "tdd-guard.mjs off" })
 }
 
 export function isArmed() {
@@ -185,6 +260,333 @@ export function getCommitExempt() {
 
 export function isLoopRan() {
   return loadState().loopRan
+}
+
+export function markTaskAvailable() {
+  const s = loadState()
+  saveState({ ...s, taskAvailable: true })
+}
+
+export function markTaskUnavailable() {
+  const s = loadState()
+  saveState({ ...s, taskAvailable: false })
+}
+
+export function isTaskAvailable() {
+  return loadState().taskAvailable === true
+}
+
+function sameOrSegmentPrefixed(full, part) {
+  if (!full || !part) return false
+  if (full === part) return true
+  return full.endsWith(`/${part}`)
+}
+
+/** True only for the exact resolved statePath() or the repo-relative armed file. */
+function collapseDots(p) {
+  return posix.normalize(String(p || "").replace(/\\/g, "/"))
+}
+
+export function isArmedStateFile(relPath) {
+  if (!relPath) return false
+  const slash = collapseDots(relPath)
+  if (!slash) return false
+  const armed = collapseDots(statePath())
+  return sameOrSegmentPrefixed(slash, armed) || slash === ARMED_STATE_REL
+}
+
+/** Guard state files under `.cursor/hooks/state/` (or a normalized `hooks/state/`). */
+export function isGuardStatePath(relPath) {
+  const slash = collapseDots(relPath)
+  return GUARD_STATE_MARKERS.some((marker) => slash.includes(marker))
+}
+
+/** The Linear allow-flag file. Only linear-resolver subagentStart may write it. */
+export function isLinearWriterStateFile(relPath) {
+  const slash = collapseDots(relPath)
+  return new RegExp(
+    `(?:^|/)(?:\\.cursor/)?hooks/state/${LINEAR_WRITER_BASENAME}$`,
+  ).test(slash)
+}
+
+/** Deny parent Write/StrReplace of linear-writer.json at all times. */
+export function checkLinearWriterParentWrite(relPath) {
+  if (!isLinearWriterStateFile(relPath)) return null
+  return { deny: true, kind: "linear-writer-parent" }
+}
+
+/** Deny parent Shell writes of linear-writer.json at all times. */
+export function checkLinearWriterParentShell(command) {
+  for (const target of extractShellWriteTargets(command)) {
+    const rel = normalize(target)
+    if (isLinearWriterStateFile(rel) || isLinearWriterStateFile(target)) {
+      return { deny: true, kind: "linear-writer-parent-shell", target: rel }
+    }
+  }
+  return null
+}
+
+export function formatDisarmLogLine({ source, at = new Date() } = {}) {
+  const day = (at instanceof Date ? at : new Date()).toISOString().slice(0, 10)
+  const detail = String(source || "disarm").trim() || "disarm"
+  return {
+    day,
+    bullet: `* **tdd-guard disarm:** ${detail}`,
+    stderr: `[tdd-guard] DISARM ${detail}`,
+  }
+}
+
+function disarmLogPath() {
+  if (process.env.DISARM_LOG_PATH) return process.env.DISARM_LOG_PATH
+  if (process.env.TDD_GUARD_STATE) return null
+  return join(process.cwd(), "docs", "log.md")
+}
+
+function appendDisarmBullet(file, day, bullet) {
+  mkdirSync(dirname(file), { recursive: true })
+  const heading = `## ${day}`
+  const existing = existsSync(file) ? readFileSync(file, "utf8") : ""
+  if (!existing) {
+    writeFileSync(
+      file,
+      `# Project Knowledge Update Log\n\n${heading}\n\n${bullet}\n`,
+      "utf8",
+    )
+    return
+  }
+  const headingAt = existing.indexOf(heading)
+  if (headingAt === -1) {
+    const title = "# Project Knowledge Update Log"
+    const titleAt = existing.indexOf(title)
+    if (titleAt !== -1) {
+      const afterTitle = existing.indexOf("\n", titleAt)
+      const insertAt = afterTitle === -1 ? existing.length : afterTitle + 1
+      writeFileSync(
+        file,
+        `${existing.slice(0, insertAt)}\n${heading}\n\n${bullet}\n${existing.slice(insertAt)}`,
+        "utf8",
+      )
+      return
+    }
+    writeFileSync(
+      file,
+      `${existing.trimEnd()}\n\n${heading}\n\n${bullet}\n`,
+      "utf8",
+    )
+    return
+  }
+  const lineEnd = existing.indexOf("\n", headingAt)
+  const insertAt = lineEnd === -1 ? existing.length : lineEnd + 1
+  writeFileSync(
+    file,
+    `${existing.slice(0, insertAt)}\n${bullet}\n${existing.slice(insertAt)}`,
+    "utf8",
+  )
+}
+
+/** Visible disarm: stderr always; docs/log.md unless tests isolated the state. */
+export function recordDisarm({
+  source,
+  at,
+  logPath,
+  stderr = console.error,
+} = {}) {
+  const { day, bullet, stderr: line } = formatDisarmLogLine({ source, at })
+  stderr(line)
+  const path = logPath === undefined ? disarmLogPath() : logPath
+  if (!path) return { ok: true, logged: false, line, bullet }
+  appendDisarmBullet(path, day, bullet)
+  return { ok: true, logged: true, line, bullet, path }
+}
+
+/** Deny parent writes while armed until a Task invocation has succeeded.
+ *  Escape is the armed-state file only — not linear-writer.json or other state.
+ *  `depth` is ignored: a pre-Task depth>0 claim is not a subagent. */
+export function checkTaskAvailabilityWrite(
+  relPath,
+  { armed, taskAvailable } = {},
+) {
+  if (!armed) return null
+  if (taskAvailable) return null
+  if (isArmedStateFile(relPath)) return null
+  return { deny: true, kind: "task-unavailable" }
+}
+
+/** Redirect / tee / sed -i / cp / mv destinations in a Shell command. Residual
+ *  gaps (python/node writers, PowerShell, editors, git checkout, `$FILE`) are
+ *  documented in docs/specs/generic-harness-upstream.md. */
+export function extractShellWriteTargets(command) {
+  if (typeof command !== "string" || !command.trim()) return []
+  const targets = []
+  for (const rawSeg of command.split(/&&|\|\||;|\|/)) {
+    const seg = rawSeg.trim()
+    if (!seg) continue
+    for (const match of seg.matchAll(
+      /(?:^|[\s])(?:\d*)>>?\s*(?!&)(['"]?)([^'\s;|&]+)\1/g,
+    )) {
+      targets.push(match[2])
+    }
+    const tokens = seg.split(/\s+/).filter(Boolean)
+    const teeIdx = tokens.indexOf("tee")
+    if (teeIdx !== -1) {
+      for (const token of tokens.slice(teeIdx + 1)) {
+        if (!token.startsWith("-")) targets.push(token)
+      }
+    }
+    const copyIdx = tokens.findIndex((token) => token === "cp" || token === "mv")
+    if (copyIdx !== -1) {
+      const dest = tokens.slice(copyIdx).filter((token) => !token.startsWith("-")).at(-1)
+      if (dest && dest !== "cp" && dest !== "mv") targets.push(dest)
+    }
+    const sedIdx = tokens.indexOf("sed")
+    if (
+      sedIdx !== -1 &&
+      tokens.some((token) => token === "-i" || /^-[a-zA-Z]*i/.test(token))
+    ) {
+      const dest = tokens
+        .slice(sedIdx)
+        .filter((token) => token !== "sed" && !token.startsWith("-"))
+        .at(-1)
+      if (dest) targets.push(dest)
+    }
+  }
+  return targets.map((target) => target.replace(/^['"]|['"]$/g, ""))
+}
+
+/** Deny Shell writes to protected source and guard-state paths while Task is down. */
+export function checkTaskAvailabilityShell(
+  command,
+  { armed, taskAvailable } = {},
+) {
+  if (!armed || taskAvailable) return null
+  for (const target of extractShellWriteTargets(command)) {
+    const rel = normalize(target)
+    if (isArmedStateFile(rel) || isArmedStateFile(target)) continue
+    if (isProtected(rel) || isGuardStatePath(rel) || isGuardStatePath(target)) {
+      return { deny: true, kind: "task-unavailable-shell", target: rel }
+    }
+  }
+  return null
+}
+
+/** START comment stays required on a tracked issue. "Do not change status"
+ *  forbids save_issue, not the Work started: comment. */
+export function shouldPostStartComment({
+  hasTrackedIssue,
+  prompt = "",
+} = {}) {
+  if (!hasTrackedIssue) return false
+  void prompt
+  return true
+}
+
+export function defaultFingerprintTools() {
+  return [...DEFAULT_FINGERPRINT_TOOLS]
+}
+
+export function toolSurfaceFingerprint(toolNames) {
+  const names = [...new Set((toolNames || []).filter(Boolean))].sort()
+  return createHash("sha256").update(names.join("\n")).digest("hex").slice(0, 16)
+}
+
+export function runFileFingerprintLine({
+  planSlug,
+  tools = DEFAULT_FINGERPRINT_TOOLS,
+  taskAvailable = false,
+} = {}) {
+  const fp = toolSurfaceFingerprint(tools)
+  return `- [ ] tool-surface · plan ${planSlug} · taskAvailable=${taskAvailable} · fingerprint ${fp}`
+}
+
+export function appendRunFileFingerprint({
+  cwd = process.cwd(),
+  planSlug,
+  tools = DEFAULT_FINGERPRINT_TOOLS,
+  taskAvailable = false,
+} = {}) {
+  if (!planSlug) return { ok: false, reason: "missing_plan" }
+  const line = runFileFingerprintLine({ planSlug, tools, taskAvailable })
+  const runDir = join(cwd, "docs", "findings", "runs")
+  mkdirSync(runDir, { recursive: true })
+  const path = join(runDir, `${planSlug}.md`)
+  const existing = existsSync(path) ? readFileSync(path, "utf8") : ""
+  if (!existing.includes(`fingerprint ${toolSurfaceFingerprint(tools)}`)) {
+    writeFileSync(
+      path,
+      existing ? `${existing.trimEnd()}\n${line}\n` : `${line}\n`,
+      "utf8",
+    )
+  }
+  return { ok: true, path, line }
+}
+
+export function recordStartEvidence() {
+  const s = loadState()
+  saveState({
+    ...s,
+    phaseEvidence: { ...s.phaseEvidence, start: true },
+  })
+}
+
+export function recordPhaseEvidence(criterionId, phase, agentId) {
+  if (typeof criterionId !== "string" || !criterionId.trim()) {
+    return { ok: false, reason: "missing_criterion" }
+  }
+  if (!VALID_PHASES.includes(phase)) {
+    return { ok: false, reason: "invalid_phase" }
+  }
+  if (typeof agentId !== "string" || !agentId.trim()) {
+    return { ok: false, reason: "missing_agent_id" }
+  }
+  const s = loadState()
+  const id = criterionId.trim()
+  const criteria = { ...s.phaseEvidence.criteria }
+  criteria[id] = {
+    ...(criteria[id] || {}),
+    [phase]: true,
+    [`${phase}AgentId`]: agentId.trim(),
+  }
+  saveState({
+    ...s,
+    phaseEvidence: { ...s.phaseEvidence, criteria },
+  })
+  return { ok: true }
+}
+
+export function setRequiredCriteria(ids, requireStart = false) {
+  const s = loadState()
+  saveState({
+    ...s,
+    requiredCriteria: normalizeCriteria(ids),
+    requireStart: Boolean(requireStart),
+  })
+}
+
+export function evaluatePhaseEvidence({
+  criteria = [],
+  evidence = emptyPhaseEvidence(),
+  requireStart = false,
+} = {}) {
+  const ids = normalizeCriteria(criteria)
+  if (ids.length === 0) {
+    return { ok: false, reason: "missing_required_criteria" }
+  }
+  if (requireStart && !evidence?.start) {
+    return { ok: false, reason: "missing_start" }
+  }
+  for (const id of ids) {
+    const row = evidence?.criteria?.[id]
+    for (const phase of VALID_PHASES) {
+      if (!row?.[phase]) {
+        return { ok: false, reason: "missing_phase", criterion: id, phase }
+      }
+      const agentId = row?.[`${phase}AgentId`]
+      if (typeof agentId !== "string" || !agentId.trim()) {
+        return { ok: false, reason: "missing_agent_id", criterion: id, phase }
+      }
+    }
+  }
+  return { ok: true }
 }
 
 export function isDocsArtifactPath(relPath) {
@@ -267,13 +669,42 @@ function designSpecCommitOk(stagedPaths, addedPaths) {
   return Boolean(spec) && (addedPaths || []).includes(spec)
 }
 
+function hasRecordedPhaseEvidence(evidence) {
+  if (!evidence || typeof evidence !== "object") return false
+  if (evidence.start === true) return true
+  const rows = evidence.criteria
+  return Boolean(rows && typeof rows === "object" && Object.keys(rows).length)
+}
+
 export function evaluateGitCommitPermission({
   loopRan,
   exemption,
   stagedPaths,
   addedPaths,
+  requiredCriteria = [],
+  phaseEvidence,
+  requireStart = false,
+  tddRun = false,
 }) {
   if (loopRan) return { ok: false, reason: "loopRan", deny: "tdd" }
+  if (!exemption) {
+    const ids = normalizeCriteria(requiredCriteria)
+    const inTdd =
+      tddRun ||
+      requireStart ||
+      hasRecordedPhaseEvidence(phaseEvidence) ||
+      ids.length > 0
+    if (inTdd) {
+      const evidence = evaluatePhaseEvidence({
+        criteria: ids,
+        evidence: phaseEvidence ?? emptyPhaseEvidence(),
+        requireStart,
+      })
+      if (!evidence.ok) {
+        return { ok: false, reason: evidence.reason, deny: "phase-evidence" }
+      }
+    }
+  }
   if (exemption === "docs-artifact") {
     if (!stagedPaths?.length || !stagedPaths.every(isDocsArtifactPath)) {
       return { ok: false, reason: "exempt_path_mismatch", deny: "tdd" }
@@ -314,27 +745,49 @@ export function extractPath(toolInput) {
 }
 
 function normalize(p) {
-  // Strip a leading absolute repo path and normalize slashes to forward slashes.
-  let s = String(p).replace(/\\/g, "/")
-  const marker = "/restaurant-system/"
-  const idx = s.indexOf(marker)
-  if (idx !== -1) s = s.slice(idx + marker.length)
+  // Resolve `.` / `..`, then strip a leading absolute repo path and
+  // normalize slashes. Prefer the leftmost repo root so a nested spoof
+  // (lib/.cursor/...) stays under that prefix instead of collapsing onto
+  // .cursor/hooks/state/.
+  let s = posix.normalize(String(p).replace(/\\/g, "/"))
+  const roots = [
+    ".cursor/",
+    "docs/",
+    "tests/",
+    "app/",
+    "src/",
+    "lib/",
+    "components/",
+    "hooks/",
+    "supabase/",
+  ]
+  for (const root of roots) {
+    if (s.startsWith(root)) return s.replace(/^\.?\//, "")
+  }
+  let best = -1
+  for (const root of roots) {
+    const idx = s.indexOf(`/${root}`)
+    if (idx !== -1 && (best === -1 || idx < best)) best = idx
+  }
+  if (best !== -1) s = s.slice(best + 1)
   return s.replace(/^\.?\//, "")
 }
 
 export function isProtected(relPath) {
   if (!relPath) return false
-  return PROTECTED_PREFIXES.some((p) => relPath.startsWith(p))
+  const path = normalize(relPath)
+  return PROTECTED_PREFIXES.some((p) => path.startsWith(p))
 }
 
 export function isSpecPath(relPath) {
   if (!relPath) return false
-  return relPath.startsWith(SPEC_PREFIX) || relPath.startsWith(ADR_PREFIX)
+  const path = normalize(relPath)
+  return path.startsWith(SPEC_PREFIX) || path.startsWith(ADR_PREFIX)
 }
 
 export function isTestsPath(relPath) {
   if (!relPath) return false
-  return relPath.startsWith(TESTS_PREFIX)
+  return normalize(relPath).startsWith(TESTS_PREFIX)
 }
 
 /**
@@ -352,14 +805,16 @@ export function isTestsPath(relPath) {
  * edit. Depth-only deny treated that parent write as a subagent edit.
  */
 export function checkTddWrite(relPath, { depth, phase }) {
-  if (isSpecPath(relPath) && VALID_PHASES.includes(phase)) {
+  const path = normalize(relPath)
+  if (isArmedStateFile(path)) return null
+  if (isSpecPath(path) && VALID_PHASES.includes(phase)) {
     return { deny: true, kind: "spec" }
   }
-  if (!isProtected(relPath)) return null
+  if (!isProtected(path)) return null
   if (depth > 0) {
-    if (phase === "red" && !isTestsPath(relPath))
+    if (phase === "red" && !isTestsPath(path))
       return { deny: true, kind: "phase-red" }
-    if ((phase === "green" || phase === "refactor") && isTestsPath(relPath)) {
+    if ((phase === "green" || phase === "refactor") && isTestsPath(path)) {
       return { deny: true, kind: "phase-tests" }
     }
     return null
@@ -398,20 +853,81 @@ export function detectBlanketGitStage(command) {
   return null
 }
 
-/** Detect `gh pr merge` in a shell command string. Segments on &&/;/|/||
- * so it also catches chained invocations. Returns null when nothing matches. */
+/** Word-tokens after stripping quotes, backslash, and backtick. */
+function stripQuotesAndEscapes(text) {
+  return String(text).replace(/['"\\`]/g, "")
+}
+
+function wordTokens(text) {
+  return stripQuotesAndEscapes(text).toLowerCase().match(/[a-z0-9]+/g) || []
+}
+
+function hasGhPrMergeTokens(text) {
+  const tokens = new Set(wordTokens(text))
+  return tokens.has("gh") && tokens.has("pr") && tokens.has("merge")
+}
+
+function hasExpansionAssembly(raw) {
+  const tokens = new Set(wordTokens(raw))
+  if (!tokens.has("gh")) return false
+  if (!tokens.has("pr") && !tokens.has("api")) return false
+  return /[$%\\`]/.test(String(raw))
+}
+
+function hasApiPullsMerge(raw) {
+  const tokens = new Set(wordTokens(raw))
+  if (!tokens.has("gh") || !tokens.has("api")) return false
+  const parts = String(raw).replace(/['"]/g, "").split(/\s+/).filter(Boolean)
+  return parts.some((part) => {
+    if (!part.includes("/")) return false
+    const segs = part.toLowerCase().split(/\/+/)
+    return segs.includes("pulls") && segs.includes("merge")
+  })
+}
+
+function isEncodedFlag(token) {
+  const t = String(token).toLowerCase()
+  if (!t.startsWith("-") && !t.startsWith("/")) return false
+  const name = t.slice(1)
+  if (name === "ec") return true
+  return name.length >= 1 && "encodedcommand".startsWith(name)
+}
+
+function encodedPowershellDenies(original) {
+  const stripped = String(original).replace(/['"]/g, "")
+  const words = wordTokens(stripped)
+  if (!words.includes("pwsh") && !words.includes("powershell")) return false
+  const parts = stripped.split(/\s+/).filter(Boolean)
+  return parts.some((part) => isEncodedFlag(part))
+}
+
+/** Detect gh + pr + merge word-tokens anywhere in a Shell command. */
 export function detectGhPrMerge(command) {
-  if (typeof command !== "string" || !command.trim()) return null
-  const segments = command.split(/&&|\|\||;|\|/)
-  for (const rawSeg of segments) {
-    const tokens = rawSeg.trim().split(/\s+/).filter(Boolean)
-    const ghIdx = tokens.indexOf("gh")
-    if (ghIdx === -1) continue
-    if (tokens[ghIdx + 1] === "pr" && tokens[ghIdx + 2] === "merge") {
-      return { kind: "pr-merge", segment: rawSeg.trim() }
+  try {
+    const lowered = command.toLowerCase()
+    const stripped = stripQuotesAndEscapes(lowered)
+    if (!stripped.trim()) return null
+    const segment = typeof command === "string" ? command.trim() : stripped.trim()
+    if (encodedPowershellDenies(command)) {
+      return { kind: "pr-merge", segment, reason: "encoded" }
+    }
+    if (hasExpansionAssembly(command)) {
+      return { kind: "pr-merge", segment, reason: "expansion" }
+    }
+    if (hasApiPullsMerge(command)) {
+      return { kind: "pr-merge", segment, reason: "api-merge" }
+    }
+    if (hasGhPrMergeTokens(stripped)) {
+      return { kind: "pr-merge", segment, reason: "tokens" }
+    }
+    return null
+  } catch {
+    return {
+      kind: "pr-merge",
+      segment: typeof command === "string" ? command : "",
+      reason: "parse",
     }
   }
-  return null
 }
 
 /** Detect any `git commit` in a shell command string. Segments on &&/;/|/||

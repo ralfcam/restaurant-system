@@ -32,8 +32,9 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isStaffPath = STAFF_PATHS.some((p) =>
-    request.nextUrl.pathname.startsWith(p),
+  const pathname = request.nextUrl.pathname
+  const isStaffPath = STAFF_PATHS.some(
+    (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
   )
 
   if (isStaffPath && !isStaffUser(user)) {

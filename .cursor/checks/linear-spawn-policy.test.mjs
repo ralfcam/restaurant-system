@@ -57,7 +57,7 @@ test("detectLinearSpawn denies @Cursor in a comment body", () => {
 
 test("detectLinearSpawn denies @Cursor injected only via a patch op", () => {
   const hit = detectLinearSpawn(LINEAR, "save_issue", {
-    id: "RES-1",
+    id: "ISSUE-1",
     patch: [{ op: "append", text: "@Cursor please look" }],
   })
   assert.equal(hit.kind, "mention")
@@ -76,7 +76,7 @@ test("detectLinearSpawn denies @Cursor even when surrounding prose negates it", 
 test("detectLinearSpawn allows a state-only save_issue", () => {
   assert.equal(
     detectLinearSpawn(LINEAR, "save_issue", {
-      id: "RES-1",
+      id: "ISSUE-1",
       state: "In Progress",
     }),
     null,
@@ -95,7 +95,7 @@ test("detectLinearSpawn allows an ordinary comment", () => {
 test("CLARIFY comments remain subject to the Cursor-mention spawn guard", () => {
   const unsafe = [
     "Clarification required",
-    "Key: clarify:RES-42:booking-rules:BW-9",
+    "Key: clarify:ISSUE-42:booking-rules:BW-9",
     "Decision question: Should @Cursor choose option A?",
   ].join("\n")
   assert.equal(
@@ -141,7 +141,7 @@ test("detectLinearSpawn denies @Cursor in a save_document title", () => {
 
 test("detectLinearSpawn denies @Cursor in save_document content", () => {
   const hit = detectLinearSpawn(LINEAR, "save_document", {
-    title: "Plan — sg-1",
+    title: "Plan — issue-1",
     content: "Do not mention @Cursor in the plan.",
   })
   assert.equal(hit.kind, "mention")
@@ -160,9 +160,9 @@ test("detectLinearSpawn denies @Cursor injected only via a save_document patch o
 test("detectLinearSpawn allows a clean save_document", () => {
   assert.equal(
     detectLinearSpawn(LINEAR, "save_document", {
-      title: "Plan — sg-1",
+      title: "Plan — issue-1",
       content: "Mode: FIX\nOwning spec: docs/specs/foo.md",
-      issue: "RES-1",
+      issue: "ISSUE-1",
     }),
     null,
   )
@@ -179,7 +179,7 @@ test("detectLinearSpawn does not scan save_project (knowingly out of scope)", ()
 })
 
 test("detectLinearSpawn allows get_issue (read-only; not a spawn door)", () => {
-  assert.equal(detectLinearSpawn(LINEAR, "get_issue", { id: "RES-1" }), null)
+  assert.equal(detectLinearSpawn(LINEAR, "get_issue", { id: "ISSUE-1" }), null)
 })
 
 test("detectLinearSpawn does not scan save_comment.patch (schema has no patch)", () => {
@@ -229,7 +229,7 @@ test("linear-spawn-guard denies assignee from a BOM-prefixed beforeMCPExecution 
     "\uFEFF" +
     JSON.stringify({
       tool_name: "save_issue",
-      tool_input: JSON.stringify({ id: "RES-1", assignee: "Cursor" }),
+      tool_input: JSON.stringify({ id: "ISSUE-1", assignee: "Cursor" }),
       mcp_server_name: "linear",
       command: "linear",
       hook_event_name: "beforeMCPExecution",
@@ -244,7 +244,7 @@ test("linear-spawn-guard allows get_issue from a BOM-prefixed beforeMCPExecution
     "\uFEFF" +
     JSON.stringify({
       tool_name: "get_issue",
-      tool_input: JSON.stringify({ id: "RES-360" }),
+      tool_input: JSON.stringify({ id: "ISSUE-360" }),
       mcp_server_name: "linear",
       command: "linear",
       hook_event_name: "beforeMCPExecution",

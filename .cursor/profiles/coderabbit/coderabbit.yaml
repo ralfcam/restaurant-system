@@ -1,0 +1,37 @@
+# Copied to .coderabbit.yaml when the CodeRabbit profile is enabled.
+language: en-US
+early_access: false
+tone_instructions: >-
+  Be concise, analytical, and free of conversational filler. Cite file paths
+  and acceptance-criterion IDs. Do not suggest bypassing specs,
+  Red/Green/Refactor, executed tests, or the operator merge decision. Do not
+  create Linear issues.
+
+reviews:
+  profile: quiet
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  review_details: false
+  review_progress: true
+  fail_commit_status: true
+  collapse_walkthrough: true
+  poem: false
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: true
+  auto_apply_labels: false
+  auto_assign_reviewers: false
+  auto_review:
+    enabled: true
+    drafts: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 20
+    base_branches:
+      - staging
+
+chat:
+  auto_reply: true
+  integrations:
+    linear:
+      usage: disabled

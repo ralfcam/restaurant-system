@@ -3,7 +3,11 @@
  * identity, no unresolved CodeRabbit threads except `.cursor/plans/`
  * work-orders, outdated leftovers, or incremental-pause leftovers, no
  * rate-limit/billing/override markers, and deterministic severity routing
- * for active findings.
+ * for active findings. A head with no formal US review is
+ * `ready_no_coderabbit_review`. A quiet-mode walkthrough with no tagged
+ * finding outside the walkthrough is still not a finding. A tagged
+ * `cr-comment` outside the walkthrough section is still collected. A
+ * COMMENTED review body with actionable comments still blocks.
  */
 import {
   US_APP_ID,
@@ -11,6 +15,8 @@ import {
   eventLooksBilling,
   eventLooksRateLimited,
   isUsBotLogin,
+  parseJsonl,
+  sha256Hex,
 } from "./coderabbit-review-policy.mjs"
 
 export { US_APP_ID }
@@ -163,11 +169,12 @@ export function collectOverrideTexts(snapshot) {
   return blobs.filter(Boolean)
 }
 
+const TABLE_SEVERITY =
+  /\|\s*_[^_\r\n]*?(Critical|Major|Minor|Trivial)[^_\r\n]*_/i
+
 export function parseCodeRabbitSeverity(body) {
   const header = String(body || "").split(/\r?\n/, 1)[0]
-  const match = header.match(
-    /\|\s*_[^_\r\n]*?(Critical|Major|Minor|Trivial)[^_\r\n]*_/i,
-  )
+  const match = header.match(TABLE_SEVERITY)
   return match ? match[1].toLowerCase() : null
 }
 
@@ -186,6 +193,412 @@ export function codeRabbitFindingId(comment, thread = {}) {
 }
 
 export const LOOP_ROUND_CAP = 3
+export const PUSH_CLI_FIX_ROUND_CAP = 1
+
+const IN_PROGRESS_CHECK_STATES = new Set([
+  "queued",
+  "in_progress",
+  "pending",
+  "waiting",
+  "requested",
+])
+
+const IN_PROGRESS_STATUS_STATES = new Set(["pending", "queued"])
+
+const IN_PROGRESS_COMMENT_RE =
+  /review\s+in\s+progress|currently\s+reviewing|\bis\s+reviewing\b|generating (?:your |a )?review|review is (?:being )?generated/i
+
+export function checkLooksInProgress(run) {
+  const conclusion = String(run?.conclusion || "").toLowerCase()
+  if (conclusion && conclusion !== "null") return false
+  return IN_PROGRESS_CHECK_STATES.has(String(run?.status || "").toLowerCase())
+}
+
+function isPausedLatestHeadGate(run) {
+  return String(run?.name || "") === US_LATEST_HEAD_CHECK_NAME
+}
+
+function isCodeRabbitCheck(run) {
+  if (isPausedLatestHeadGate(run)) return false
+  const label = run?.name || run?.app?.name
+  if (!isCodeRabbitShaped(label) && !isCodeRabbitShaped(checkAppSlug(run))) {
+    return false
+  }
+  return isUsApp(run)
+}
+
+export function statusLooksInProgress(status) {
+  const state = String(status?.state || "").toLowerCase()
+  if (!IN_PROGRESS_STATUS_STATES.has(state)) return false
+  const login = status?.creator?.login
+  if (login && !isUsBotLogin(login)) return false
+  const context = status?.context || ""
+  return context === REQUIRED_US_STATUS_CONTEXT || isCodeRabbitShaped(context)
+}
+
+function commentMentionsHead(comment, headSha) {
+  const body = String(comment?.body || "")
+  const commentSha =
+    comment?.commit_id || comment?.commitId || comment?.commit?.oid || ""
+  if (commentSha) return Boolean(headSha && commentSha === headSha)
+  if (!headSha) return !/\b[0-9a-f]{7,40}\b/i.test(body)
+  const sha = String(headSha)
+  if (body.toLowerCase().includes(sha.toLowerCase())) return true
+  if (sha.length >= 7) {
+    const short = sha.slice(0, 7).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    if (new RegExp(`\\b${short}\\b`, "i").test(body)) return true
+  }
+  return !/\b[0-9a-f]{7,40}\b/i.test(body)
+}
+
+export function commentLooksReviewInProgress(comment, headSha) {
+  const login = commentAuthorLogin(comment)
+  if (!isUsBotLogin(login) && !isCodeRabbitShaped(login)) return false
+  if (!IN_PROGRESS_COMMENT_RE.test(String(comment?.body || ""))) return false
+  return commentMentionsHead(comment, headSha)
+}
+
+export function hasCodeRabbitReviewInProgress(snapshot) {
+  const headSha = String(
+    snapshot?.headSha ||
+      snapshot?.pull?.headSha ||
+      snapshot?.pull?.head?.sha ||
+      "",
+  )
+  const runs = [
+    ...(snapshot?.checkRuns || snapshot?.check_runs || []),
+    ...(snapshot?.checkSuites || snapshot?.check_suites || []),
+  ]
+  if (runs.some((run) => isCodeRabbitCheck(run) && checkLooksInProgress(run))) {
+    return true
+  }
+  const statuses = snapshot?.statuses || snapshot?.status?.statuses || []
+  if (statuses.some(statusLooksInProgress)) return true
+  const comments = [
+    ...(snapshot?.issueComments || []),
+    ...(snapshot?.reviewComments || []),
+  ]
+  return comments.some((comment) =>
+    commentLooksReviewInProgress(comment, headSha),
+  )
+}
+
+export const INCOMPLETE_CLI_REASONS = Object.freeze([
+  "timeout",
+  "missing_complete",
+  "missing_binary",
+])
+
+export const PUSH_CLI_PREFLIGHT_REASONS = Object.freeze([
+  "secret_path",
+  "diff_failed",
+  "missing_base",
+])
+
+export function isIncompleteCliAttempt(reason) {
+  return INCOMPLETE_CLI_REASONS.includes(String(reason || ""))
+}
+
+export function decidePushCliAction({
+  attemptStatus,
+  reason,
+  findings = [],
+} = {}) {
+  if (attemptStatus === "clean") {
+    return {
+      action: "push",
+      leftover: [],
+      sddToTdd: [],
+      capture: [],
+      record: "clean",
+    }
+  }
+  if (attemptStatus === "unavailable") {
+    if (PUSH_CLI_PREFLIGHT_REASONS.includes(String(reason || ""))) {
+      return {
+        action: "push",
+        leftover: findings,
+        record: "unavailable",
+      }
+    }
+    return {
+      action: "block",
+      leftover: findings,
+      record: isIncompleteCliAttempt(reason)
+        ? String(reason)
+        : "blocked_cli_unavailable",
+    }
+  }
+  const routed = (findings || []).map((finding) => ({
+    ...finding,
+    ...classifyFindingRouting({
+      severity: finding.severity,
+      body: finding.body,
+    }),
+  }))
+  const sddToTdd = routed.filter((finding) => finding.route === "sdd-to-tdd")
+  const capture = routed.filter((finding) => finding.route === "capture")
+  if (sddToTdd.length) {
+    return {
+      action: "block",
+      leftover: routed,
+      sddToTdd,
+      capture,
+      record: "blocked_major_findings",
+    }
+  }
+  return {
+    action: "push",
+    leftover: routed,
+    sddToTdd,
+    capture,
+    record: capture.length ? "capture_and_push" : "push",
+  }
+}
+
+export const CLI_EVIDENCE_HEADING = "## CodeRabbit CLI evidence"
+
+export function renderCliEvidenceBlock({
+  head,
+  attemptStatus,
+  reason,
+  hash,
+} = {}) {
+  const lines = [
+    CLI_EVIDENCE_HEADING,
+    `Head: ${head}`,
+    `attemptStatus: ${attemptStatus}`,
+  ]
+  if (reason) lines.push(`reason: ${reason}`)
+  if (head && attemptStatus && hash) {
+    lines.push(
+      `<!-- coderabbit-cli-evidence:${head}:${attemptStatus}:${hash} -->`,
+    )
+  }
+  return `${lines.join("\n")}\n`
+}
+
+/** Hash the real CLI JSONL. Never hash `"<sha>:<status>"` by hand. */
+export function cliEvidenceOutputHash(cliOutput) {
+  return sha256Hex(String(cliOutput ?? ""))
+}
+
+export function cliOutputAttemptStatus(cliOutput) {
+  const parsed = parseJsonl(String(cliOutput ?? ""))
+  if (!parsed.ok) return "unavailable"
+  if (!parsed.events.some((event) => event.type === "complete")) {
+    return "unavailable"
+  }
+  if (parsed.events.some((event) => event.type === "finding")) return "findings"
+  return "clean"
+}
+
+// Parses the human PR-body record. This is not authorization.
+export function cliEvidenceStatusForHead(body, headSha) {
+  const want = String(headSha || "")
+  const re =
+    /## CodeRabbit CLI evidence\r?\nHead:\s*(\S+)\r?\nattemptStatus:\s*(clean|findings|unavailable)\b/g
+  let status = null
+  let match
+  while ((match = re.exec(String(body || "")))) {
+    if (match[1] === want) status = match[2]
+  }
+  return status
+}
+
+function cliEvidenceSectionBounds(text) {
+  const escaped = CLI_EVIDENCE_HEADING.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  const match = new RegExp(`^${escaped}[ \\t]*$`, "m").exec(text)
+  if (!match) return null
+  const start = match.index
+  const rest = text.slice(start + CLI_EVIDENCE_HEADING.length)
+  const next = rest.search(/\n## [^#]/)
+  const end =
+    next === -1 ? text.length : start + CLI_EVIDENCE_HEADING.length + next
+  return { start, end }
+}
+
+export function protectedCliEvidenceStatus(body, headSha, { cliOutput } = {}) {
+  const want = String(headSha || "")
+  const text = String(body || "")
+  const bounds = cliEvidenceSectionBounds(text)
+  if (!bounds) return null
+  if (cliOutput == null) return null
+  const parsed = parseJsonl(String(cliOutput))
+  if (!parsed.ok || !parsed.events.some((event) => event.type === "complete")) {
+    return null
+  }
+  const expected = cliEvidenceOutputHash(cliOutput)
+  const realStatus = cliOutputAttemptStatus(cliOutput)
+  const section = text.slice(bounds.start, bounds.end)
+  const re = /<!-- coderabbit-cli-evidence:([^:\s]+):([^:\s]+):([^:\s]+) -->/g
+  let status = null
+  let match
+  while ((match = re.exec(section))) {
+    if (match[1] !== want) continue
+    if (match[3] !== expected) continue
+    if (match[2] !== realStatus) continue
+    status = match[2]
+  }
+  return status
+}
+
+export function replaceProtectedCliEvidence(body, block) {
+  const text = String(body || "")
+  const rendered = `${String(block || "").trim()}\n`
+  const bounds = cliEvidenceSectionBounds(text)
+  if (!bounds) {
+    const base = text.trimEnd()
+    return base ? `${base}\n\n${rendered}` : rendered
+  }
+  const prefix = text.slice(0, bounds.start)
+  const suffix = text.slice(bounds.end).replace(/^\n/, "")
+  return `${prefix}${rendered}${suffix}`
+}
+
+export function qaDraftEvidenceVerdict({
+  isDraft,
+  headSha,
+  body,
+  cliOutput,
+} = {}) {
+  const status = protectedCliEvidenceStatus(body, headSha, {
+    cliOutput,
+  })
+  if (isDraft && status == null) {
+    return { ok: false, reason: "missing_head_evidence" }
+  }
+  return { ok: true, reason: status }
+}
+
+export const NO_FORMAL_REVIEW_OPERATOR_COMMENT =
+  "No formal CodeRabbit review ran on this head. The draft is marked ready. Comment `@coderabbitai full review` if you want a review, or merge without one."
+
+export const NO_FORMAL_REVIEW_BODY_HEADING = "## CodeRabbit note"
+
+export function resolveOperatorNotePlacement({
+  commentPosted = false,
+  commentStatus = null,
+  commentError = "",
+} = {}) {
+  if (commentPosted === true) {
+    return { fatal: false, ready: true, recordIn: ["issue_comment"] }
+  }
+  const status = Number(commentStatus)
+  const errorText = String(commentError || "")
+  const is403 =
+    status === 403 ||
+    /\b403\b/.test(errorText) ||
+    /Resource not accessible by integration/i.test(errorText)
+  if (is403) {
+    return {
+      fatal: false,
+      ready: true,
+      recordIn: ["pr_body", "report"],
+      log: "operator comment failed with 403 (GitHub App token lacks issues: write); recording the note on the PR body and in the agent report",
+    }
+  }
+  const statusPart =
+    commentStatus == null || commentStatus === "" || !Number.isFinite(status)
+      ? ""
+      : ` with ${status}`
+  return {
+    fatal: false,
+    ready: true,
+    recordIn: ["report"],
+    log: `operator comment failed${statusPart}; recording the note in the agent report`,
+  }
+}
+
+export function appendOperatorNoteToPrBody(existingBody, note) {
+  const body = String(existingBody || "").trimEnd()
+  const text = String(note || "").trim()
+  const block = text
+    ? `${NO_FORMAL_REVIEW_BODY_HEADING}\n\n${text}`
+    : NO_FORMAL_REVIEW_BODY_HEADING
+  if (
+    (text && body.includes(text)) ||
+    body.includes(NO_FORMAL_REVIEW_BODY_HEADING)
+  ) {
+    return body || block
+  }
+  return body ? `${body}\n\n${block}` : block
+}
+
+const QUIET_WALKTHROUGH_MARKERS = [
+  /auto-generated comment:\s*summarize by coderabbit\.ai/i,
+  /<!--\s*walkthrough_start\s*-->/i,
+  /<!--\s*walkthrough_end\s*-->/i,
+  /^##\s+Walkthrough\b/m,
+  /^walkthrough$/i,
+]
+
+export function actionableCommentsPosted(body) {
+  const match = String(body || "").match(/Actionable comments posted:\s*(\d+)/i)
+  return match ? Number(match[1]) : null
+}
+
+export function isQuietModeWalkthroughBody(body) {
+  const text = String(body || "")
+  if (!text.trim()) return false
+  if (!QUIET_WALKTHROUGH_MARKERS.some((re) => re.test(text))) return false
+  const posted = actionableCommentsPosted(text)
+  if (posted != null && posted > 0) return false
+  return !parseCodeRabbitSeverity(text)
+}
+
+export function reviewBodyHasActionableFindings(body) {
+  const text = String(body || "")
+  if (!text.trim() || isQuietModeWalkthroughBody(text)) return false
+  if (parseCodeRabbitSeverity(text)) return true
+  const posted = actionableCommentsPosted(text)
+  return posted != null && posted > 0
+}
+
+function collectCommentedReviewBodyFindings(
+  snapshot,
+  headSha,
+  { loop = false } = {},
+) {
+  const findings = []
+  for (const review of snapshot?.reviews || []) {
+    if (!isUsBotLogin(reviewAuthorLogin(review))) continue
+    if (reviewCommitId(review) !== headSha) continue
+    if (reviewState(review) !== "COMMENTED") continue
+    const body = String(review.body || "")
+    if (!reviewBodyHasActionableFindings(body)) continue
+    const severity = parseCodeRabbitSeverity(body)
+    const id = codeRabbitFindingId(
+      {
+        body,
+        id: review.id || review.node_id,
+        databaseId: review.id,
+      },
+      {},
+    )
+    const routing = classifyFindingRouting({ severity, body }, { loop })
+    findings.push({
+      id,
+      path: "",
+      title: parseCodeRabbitTitle(body),
+      ...routing,
+      route: "capture",
+      command: "/capture",
+    })
+  }
+  return findings
+}
+
+function readyMetadata(headSha, isDraft, extra = {}) {
+  return {
+    headSha,
+    isDraft,
+    usAppId: US_APP_ID,
+    checkName: US_LATEST_HEAD_CHECK_NAME,
+    statusContext: REQUIRED_US_STATUS_CONTEXT,
+    ...extra,
+  }
+}
 
 export function countCodeRabbitReviewedHeads(snapshot) {
   const heads = new Set()
@@ -306,9 +719,172 @@ function withLoopMeta(result, snapshot, loop) {
   }
 }
 
+function parseLoopSeverity(text) {
+  const fromHeader = parseCodeRabbitSeverity(text)
+  if (fromHeader) return fromHeader
+  const source = String(text || "")
+  const bold = source.match(
+    /\*\*[^*\r\n]*?(Critical|Major|Minor|Trivial)[^*\r\n]*\*\*/i,
+  )
+  if (bold) return bold[1].toLowerCase()
+  const scored = source.match(TABLE_SEVERITY)
+  return scored ? scored[1].toLowerCase() : null
+}
+
+function parseBacktickLineStart(text) {
+  const match = String(text || "").match(/`(\d+)(?:\s*-\s*\d+)?`/)
+  return match ? Number(match[1]) : null
+}
+
+function withoutPromptToFixDetails(body) {
+  return String(body || "").replace(
+    /<details\b[^>]*>\s*<summary\b[^>]*>[^<]*Prompt to fix review comments[^<]*<\/summary>[\s\S]*?<\/details>/gi,
+    "",
+  )
+}
+
+function withoutWalkthroughDetails(body) {
+  let text = String(body || "")
+  const re = /<summary\b[^>]*>([^<]*)<\/summary>/gi
+  let match
+  while ((match = re.exec(text))) {
+    const label = match[1].trim()
+    if (/\(\d+\)\s*$/.test(label) || !/walkthrough/i.test(label)) continue
+    const detailsOpen = text.lastIndexOf("<details", match.index)
+    if (detailsOpen < 0) continue
+    const end = match.index + detailsBlockFrom(text, match.index).length
+    text = text.slice(0, detailsOpen) + text.slice(end)
+    re.lastIndex = detailsOpen
+  }
+  return text
+}
+
+function withoutWalkthroughSections(body) {
+  return withoutWalkthroughDetails(
+    String(body || "").replace(
+      /<!--\s*walkthrough_start\s*-->[\s\S]*?<!--\s*walkthrough_end\s*-->/gi,
+      "",
+    ),
+  ).replace(
+    /^##[ \t]+Walkthrough\b[^\n]*(?:\n(?!<details\b|##[ \t]+)[^\n]*)*/gim,
+    "",
+  )
+}
+
+function findingSlice(block, tagIndex) {
+  const idRe = /<!--\s*cr-comment:v1:[^\s>]+\s*-->/gi
+  let start = 0
+  let match
+  while ((match = idRe.exec(block))) {
+    if (match.index >= tagIndex) break
+    start = match.index + match[0].length
+  }
+  return block.slice(start, tagIndex)
+}
+
+function enclosingFileSummary(body, index) {
+  const before = body.slice(0, index)
+  const re = /<summary\b[^>]*>([^<]*)<\/summary>/gi
+  let found = null
+  let match
+  while ((match = re.exec(before))) {
+    if (/\(\d+\)\s*$/.test(match[1].trim())) found = match
+  }
+  return found
+}
+
+function detailsBlockFrom(body, summaryIndex) {
+  // Scan starts at <summary>, already inside one open <details>.
+  let depth = 1
+  const re = /<details\b[^>]*>|<\/details>/gi
+  re.lastIndex = summaryIndex
+  let match
+  while ((match = re.exec(body))) {
+    depth += match[0].toLowerCase().startsWith("</") ? -1 : 1
+    if (depth === 0) return body.slice(summaryIndex, re.lastIndex)
+  }
+  return body.slice(summaryIndex)
+}
+
+function collectExemptPlanFindings(threads) {
+  const findings = []
+  for (const thread of threads || []) {
+    if (thread?.isResolved === true || thread?.isOutdated === true) continue
+    if (!threadHasCodeRabbit(thread) || !isWorkOrderPlanThread(thread)) continue
+    for (const comment of threadComments(thread)) {
+      if (!isUsBotLogin(commentAuthorLogin(comment))) continue
+      const body = String(comment?.body || "")
+      const severity = parseLoopSeverity(body)
+      const line = parseBacktickLineStart(body)
+      findings.push({
+        id: codeRabbitFindingId(comment, thread),
+        path: comment?.path || thread?.path || "",
+        title: parseCodeRabbitTitle(body),
+        ...(line != null ? { line } : {}),
+        ...(severity ? { severity } : {}),
+        process: true,
+        route: "capture",
+        command: "/capture",
+      })
+    }
+  }
+  return findings
+}
+
+function collectChangesRequestedBodyFindings(body) {
+  const stripped = withoutWalkthroughSections(
+    withoutPromptToFixDetails(String(body || "")),
+  )
+  const findings = []
+  const idRe = /<!--\s*cr-comment:v1:([^\s>]+)\s*-->/gi
+  let match
+  while ((match = idRe.exec(stripped))) {
+    const summary = enclosingFileSummary(stripped, match.index)
+    const summaryText = summary ? summary[1].trim() : ""
+    const path = summaryText.replace(/\s+\(\d+\)\s*$/, "")
+    const blockStart = summary ? summary.index : 0
+    const block = summary ? detailsBlockFrom(stripped, summary.index) : stripped
+    const slice = findingSlice(block, match.index - blockStart)
+    const severity = parseLoopSeverity(slice)
+    const line = parseBacktickLineStart(slice)
+    const base = {
+      id: `cr-comment:v1:${match[1]}`,
+      path,
+      title: parseCodeRabbitTitle(slice),
+      ...(line != null ? { line } : {}),
+    }
+    if (path.startsWith(".cursor/plans/")) {
+      findings.push({
+        ...base,
+        ...(severity ? { severity } : {}),
+        process: true,
+        route: "capture",
+        command: "/capture",
+      })
+      continue
+    }
+    findings.push({
+      ...base,
+      ...classifyFindingRouting({ severity, body: slice }, { loop: true }),
+    })
+  }
+  return findings
+}
+
+function collectLoopChangesRequestedFindings(latest, threads) {
+  const byId = new Map()
+  for (const finding of [
+    ...collectExemptPlanFindings(threads),
+    ...collectChangesRequestedBodyFindings(latest?.body),
+  ]) {
+    if (!byId.has(finding.id)) byId.set(finding.id, finding)
+  }
+  return [...byId.values()]
+}
+
 function evaluateReadyPrCore(
   snapshot,
-  { allowDraft = false, loop = false } = {},
+  { allowDraft = false, loop = false, reviewWaitExpired = false } = {},
 ) {
   if (!snapshot || typeof snapshot !== "object") {
     return { ok: false, reason: "malformed_snapshot" }
@@ -409,21 +985,45 @@ function evaluateReadyPrCore(
     if (!usReviews.length && otherApproval) {
       return { ok: false, reason: "wrong_bot" }
     }
+    if (hasCodeRabbitReviewInProgress(snapshot) && !reviewWaitExpired) {
+      return {
+        ok: false,
+        reason: "review_in_progress",
+        ...readyMetadata(headSha, isDraft),
+      }
+    }
     if (incrementalPaused) {
       return {
         ok: true,
         reason: "incremental_paused",
-        headSha,
-        isDraft,
-        findings: captureRoutedFindings(snapshot),
-        usAppId: US_APP_ID,
-        checkName: US_LATEST_HEAD_CHECK_NAME,
-        statusContext: REQUIRED_US_STATUS_CONTEXT,
+        ...readyMetadata(headSha, isDraft, {
+          findings: captureRoutedFindings(snapshot),
+        }),
       }
     }
+    const commentedFindings = collectCommentedReviewBodyFindings(
+      snapshot,
+      headSha,
+      { loop },
+    )
+    if (commentedFindings.length) {
+      return {
+        ok: false,
+        reason: "commented_review_findings",
+        findings: commentedFindings,
+      }
+    }
+    const formalElsewhere = usReviews.some((review) =>
+      ["APPROVED", "CHANGES_REQUESTED"].includes(reviewState(review)),
+    )
+    if (formalElsewhere) {
+      return { ok: false, reason: "stale_approval" }
+    }
     return {
-      ok: false,
-      reason: usReviews.length > 0 ? "stale_approval" : "pending",
+      ok: true,
+      reason: "ready_no_coderabbit_review",
+      operatorComment: NO_FORMAL_REVIEW_OPERATOR_COMMENT,
+      ...readyMetadata(headSha, isDraft),
     }
   }
   const latest = ranked[ranked.length - 1]
@@ -437,12 +1037,40 @@ function evaluateReadyPrCore(
       return {
         ok: true,
         reason: "captured_threads_resolved",
-        headSha,
-        commitId: reviewCommitId(latest),
-        isDraft,
-        usAppId: US_APP_ID,
-        checkName: US_LATEST_HEAD_CHECK_NAME,
-        statusContext: REQUIRED_US_STATUS_CONTEXT,
+        ...readyMetadata(headSha, isDraft, {
+          commitId: reviewCommitId(latest),
+        }),
+      }
+    }
+    if (loop && reviewState(latest) === "CHANGES_REQUESTED") {
+      const findings = collectLoopChangesRequestedFindings(latest, threads)
+      if (findings.some((finding) => finding.command === "/sdd-to-tdd")) {
+        return {
+          ok: false,
+          reason: "changes_requested_body_findings",
+          findings,
+        }
+      }
+      if (findings.length > 0) {
+        return {
+          ok: true,
+          reason: "capture_only_findings",
+          findings,
+          ...readyMetadata(headSha, isDraft),
+        }
+      }
+    }
+    if (
+      reviewState(latest) === "CHANGES_REQUESTED" &&
+      isQuietModeWalkthroughBody(latest.body) &&
+      collectChangesRequestedBodyFindings(latest.body).length === 0
+    ) {
+      return {
+        ok: true,
+        reason: "changes_requested_meta_only",
+        ...readyMetadata(headSha, isDraft, {
+          commitId: reviewCommitId(latest),
+        }),
       }
     }
     return {
@@ -458,12 +1086,9 @@ function evaluateReadyPrCore(
   return {
     ok: true,
     reason: "clean",
-    headSha,
-    commitId: reviewCommitId(latest),
-    isDraft,
-    usAppId: US_APP_ID,
-    checkName: US_LATEST_HEAD_CHECK_NAME,
-    statusContext: REQUIRED_US_STATUS_CONTEXT,
+    ...readyMetadata(headSha, isDraft, {
+      commitId: reviewCommitId(latest),
+    }),
   }
 }
 

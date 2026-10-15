@@ -1,22 +1,137 @@
 # CodeRabbit runbook (US Team)
 
 **Status:** Draft  
-**Last updated:** 2026-10-05
+**Last updated:** 2026-10-14
 
-This repository uses **one** CodeRabbit installation: **US Team**. The CLI
-spawn and the Cloud `install` helper are paused. Pull request reviews still
-come from **`coderabbitai`** (App ID `347564`) and stay required. CLI pin
-`0.7.6` remains in the unused helper. When the CLI runs again, it must
+This repository uses **one** CodeRabbit installation: **US Team**. The
+Cloud `install` runs the CLI helper (see [Cloud environment setup](#cloud-environment-setup)). `/push` runs the local CLI over
+the committed branch diff against `origin/staging` after the cursor-head
+firewall has finalized `HEAD` and before `git push`. An unavailable CLI
+result retries once.
+
+`/commit` and `/sdd-to-tdd` STEP 4G do not spawn the CLI. Pull request
+reviews still come from **`coderabbitai`** (App ID `347564`) when a formal
+review runs. `/push` posts no pull-request comment. A missing binary is
+`cli_missing` and a reported version other than the pin is
+`version_mismatch`; the branch-diff pass runs
+`.cursor/cloud-install-coderabbit.sh` and then re-reads version and
+auth. An unavailable CLI result retries once, and that retry runs the
+helper again when the reason is still `cli_missing` or `version_mismatch`.
+If it is still unavailable, `/push` stops with `blocked_cli_unavailable`
+and does not push. The PR body records `## CodeRabbit CLI evidence` with `Head:` and
+`attemptStatus:` for that SHA. `/push` is the agent's only CodeRabbit gate:
+Critical, Major, and unknown findings go to `/sdd-to-tdd`, Minor and
+Trivial go to `/capture`. `--fix-round` is a counter capped at 2, so three
+CLI passes at most. Pass 1 routes every finding. Pass 2 routes only
+Critical, Major, and unknown findings; Minor and Trivial on that pass are
+captured and the branch pushes with no third pass. Pass 3 does not push
+when a Critical, Major, or unknown finding is still open: it stops and
+reports `blocked_major_findings`. Those findings are not leftovers and
+are not ledgered. Only Minor and Trivial may be captured and pushed.
+The PR is left a **draft**, and that draft has already passed this CLI
+gate for the head that was pushed.
+Agents, `/conduct`, and Cloud runs do not call `/ready-merge-release`, do
+not run `gh pr ready`, do not post `@coderabbitai review`, and do not poll
+for a remote review. The QA bot `ralfcam` runs UAT, digests the agent transcript, and does not post a review trigger. Readiness is a clean gate
+receipt for that head plus that UAT. `/ready-merge-release` is that
+operator/QA command. It does not post a review trigger. On 2026-10-09 the
+cursor GitHub App token received HTTP 403 `Resource not accessible by
+integration` creating an issue comment on pull request 201, so an agent
+trigger never reached CodeRabbit and was dropped. Nobody posts one. The
+verdicts in the rest of this section belong to that operator/QA command.
+Agents do not poll and do not wait on them.
+`/ready-merge-release` pauses for a second review only when
+an automated review is in progress on a non-bot draft's latest commit.
+When no review is running and there is no bot-skip notice, a non-bot PR
+goes straight to `ready_no_coderabbit_review` with no blind wait: it marks the
+draft ready and tries an operator comment that does not request a
+CodeRabbit review. A bot-skip notice ("Review skipped" and "Bot user
+detected") does not expect a formal review, and only when that notice
+names the head SHA. A notice with no SHA matches no head.
+`ready_cli_evidence` is the ignored gate receipt for that same head with
+`attemptStatus: clean`. PR body text, including `findings` and
+`unavailable`, is not that receipt. A matching bot skip without the
+clean receipt stays blocking `coderabbit_review_skipped`. A bot-authored
+PR (`Bot`, a `[bot]` login, or `app/cursor`) without a skip notice is the
+same block unless that clean receipt is present. That decision
+is made before `stale_approval`. Non-bot `stale_approval` still becomes
+`ready_cli_evidence` only when that same receipt is `clean`.
+An expired `review_in_progress` wait is carried as
+`ready_no_coderabbit_review` only when there is no bot-skip notice. With
+a skip notice it becomes `coderabbit_review_skipped` or
+`ready_cli_evidence`. Step 4 does not start a second unbounded wait.
+Formal reviews that already exist on a non-bot PR, threads, HEAD
+identity, and required checks still apply. A 403 on that comment
+(missing `issues: write`) is non-fatal; the note goes on the PR body or in
+the agent report. Actionable findings that do exist, including a
+`COMMENTED` review body with actionable comments, still block into
+`/capture`. Quiet-mode walkthrough bodies are not findings. CLI pin
+`0.9.0` stays in `.cursor/cloud-install-coderabbit.sh`. Release `0.7.6`
+has no `SHA256SUMS.sig`. `/push` also runs that
+helper when the branch-diff pass sees `cli_missing` or
+`version_mismatch`, and again on the one unavailable retry when that
+reason remains. The Cloud `environment.json` install calls the helper
+once at environment setup. When the CLI runs, it must
 authenticate against [app.coderabbit.ai](https://app.coderabbit.ai) with
 `"region":"us"`.
 
 Repository YAML: [`.coderabbit.yaml`](../../.coderabbit.yaml). Cloud install
-is [`.cursor/environment.json`](../../.cursor/environment.json) without
+is [`.cursor/environment.json`](../../.cursor/environment.json) ending with
 [`.cursor/cloud-install-coderabbit.sh`](../../.cursor/cloud-install-coderabbit.sh).
 Do not commit API keys or `.env*` files.
 
 CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 `/triage`, and the operator merge decision. It does not replace them.
+
+## Cloud environment setup
+
+`.cursor/environment.json` `install` ends with
+`sh .cursor/cloud-install-coderabbit.sh`. The script:
+
+- Installs CodeRabbit CLI `0.9.0` through the official installer
+  (`curl -fsSL https://cli.coderabbit.ai/install.sh | CI=1 CR_CLI_SKIP_LOGIN=1 CODERABBIT_VERSION=0.9.0 sh`)
+  and skips the install when `coderabbit --version` already reports `0.9.0`.
+  The installer needs `curl`, `unzip` and `openssl`; `cloud.Dockerfile`
+  provides all three (`openssl` arrives as a dependency of
+  `ca-certificates`).
+- Logs in with `coderabbit auth login --api-key "$CODERABBIT_API_KEY"`. The
+  key is an Agentic API key (US region unless `--region eu` is passed) and
+  is read only from the `CODERABBIT_API_KEY` Cursor secret. It is never
+  typed, logged or echoed, login output is suppressed, and the script never
+  enables shell tracing.
+- With no `CODERABBIT_API_KEY`, prints a warning and exits 0; the gate then
+  reports CodeRabbit unavailable at review time.
+- Verifies with `coderabbit --version` and `coderabbit auth status --agent`.
+  Setup requires an authenticated **US-region** session (`authenticated` true
+  and `region` `us`, matching the `/push` gate). A failed login, an
+  unauthenticated status, or any other region (a saved EU session is not
+  valid for this repository) exits non-zero.
+- Runs the installer with `CODERABBIT_API_KEY` removed from its environment
+  (`env -u CODERABBIT_API_KEY`), in both the script and `cloud.Dockerfile`, so
+  the remote script never receives the key.
+
+Rerun by hand: `sh .cursor/cloud-install-coderabbit.sh`.
+
+### Residual supply-chain risk
+
+The harness contract (REAZED-383) uses the official `curl -fsSL https://cli.coderabbit.ai/install.sh | sh`
+flow, so the installer script itself is fetched over TLS and executed without
+an independently pinned checksum or signature. The installer authenticates the
+CLI release it then downloads (signature over `SHA256SUMS`, checked with
+`openssl`), but a compromise of `cli.coderabbit.ai` or of the installer could
+still run arbitrary code as the build user. Stripping the key from the
+installer environment keeps the secret out of that process, but it does not
+protect the rest of the build: after login the key is stored in
+`~/.coderabbit` inside the environment snapshot, and the CLI binary that runs
+with it is the one the installer fetched. Mitigations if this risk becomes
+unacceptable: vendor the installer at a reviewed hash, or install the pinned
+release zip and verify its published SHA-256 as the earlier script did.
+
+The `/push` gate pins `PINNED_CLI_VERSION` `0.9.0` in
+`.cursor/hooks/lib/coderabbit-review-policy.mjs`, and `assertPinnedUsAuth`
+rejects any other CLI version as `version_mismatch`. The install script,
+`cloud.Dockerfile` and the gate share that one pin; change all three
+together (a policy test fails when they drift).
 
 ## Keep only the US installation
 
@@ -26,7 +141,7 @@ CodeRabbit complements specs, Red/Green/Refactor, executed tests, `/audit`,
 2. In the US dashboard
    ([app.coderabbit.ai](https://app.coderabbit.ai)), confirm this
    repository is connected and billed on the **Team** plan with a seat.
-3. Local CLI: `cr --version` must print `0.7.6`. `cr auth status --agent`
+3. Local CLI: `cr --version` must print `0.9.0`. `cr auth status --agent`
    must report `"region":"us"`. If it does not, re-authenticate to US.
 4. GitHub App identity on this repository is US `coderabbitai`
    (`347564`). YAML does not prove the live App. Check a recent commit:
@@ -51,11 +166,12 @@ connected.
 
 Install is per-user; administrator rights are not required.
 
-Pin the Windows installer to CodeRabbit CLI v0.7.6 (`cr --version`
-prints `0.7.6`; do not set `CODERABBIT_VERSION=v0.7.6`):
+Pin the Windows installer to CodeRabbit CLI 0.9.0 (`cr --version`
+prints `0.9.0`; do not set a leading `v`. Release `0.7.6` has no
+`SHA256SUMS.sig`):
 
 ```powershell
-$env:CODERABBIT_VERSION = '0.7.6'
+$env:CODERABBIT_VERSION = '0.9.0'
 irm https://cli.coderabbit.ai/install.ps1 | iex
 Remove-Item Env:CODERABBIT_VERSION
 ```
@@ -91,9 +207,13 @@ Exit `0` is schema-valid. Exit `1` is missing, unreadable, or invalid YAML.
 
 ## Agentic API key (Cloud / headless)
 
-The CLI is paused. Cloud `install` does not run the helper, and the local
-gate records `cli_paused` without spawning `coderabbit`. The notes below
-are the resume path.
+Cloud `install` runs the helper (see
+[Cloud environment setup](#cloud-environment-setup)). The dirty-tree
+work-order path still records `cli_paused` without spawning `coderabbit`.
+`/push` `--branch-diff` actually runs the CLI when a key is present; if the
+CLI is still unavailable after one retry, `/push` stops with
+`blocked_cli_unavailable` and does not push. The notes below are the
+auth path.
 
 Browser OAuth does not persist into Cursor Cloud. Provision an **Agentic**
 API key (not a user API key) from the **US** account:
@@ -105,30 +225,32 @@ on the [Cloud Agents dashboard](https://cursor.com/dashboard/cloud-agents)
 (Secrets tab). Never put it in `.cursor/environment.json`,
 `.coderabbit.yaml`, git, or chat.
 
-Cloud `install` is exactly the paused command (the helper is not invoked):
+Cloud `install` ends by invoking the helper:
 
 ```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile
+corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
 ```
 
-The helper sets `CI=1` so the installer skips the interactive login prompt,
-pins `CODERABBIT_VERSION=0.7.6` (reinstalls when `coderabbit --version` is
-not `0.7.6`), and always runs:
+The helper installs CLI `0.9.0` through the official installer with
+`CI=1 CR_CLI_SKIP_LOGIN=1` and `CODERABBIT_API_KEY` removed from the installer
+environment, skips the install when `coderabbit --version` already reports
+`0.9.0`, and, when the key is set, runs:
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
-Missing `CODERABBIT_API_KEY`, failed login, or a status that is not
-`"authenticated":true` with `"region":"us"` fails the Cloud install. Do not
-skip login when the key is absent, and do not use
+A missing or empty `CODERABBIT_API_KEY` only prints a warning and the install
+exits 0 without logging in; the gate then records the review as unavailable.
+A failed login, or a status that is not `"authenticated":true` with
+`"region":"us"`, fails the Cloud install. Do not use
 `coderabbit auth status --agent || true`.
 
 Headless login on any Linux runner (same commands as the helper):
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
@@ -189,16 +311,17 @@ Missing `CODERABBIT_API_KEY`, failed login, or non-US status:
 2. Store it as the Cursor Cloud secret named **`CODERABBIT_API_KEY`** at
    [https://cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents)
    (Secrets tab).
-3. Resume the paused helper by making `install` this command:
+3. Rebuild the environment so `install` re-runs the helper, or rerun it in
+   the agent VM:
 
-```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+```sh
+sh .cursor/cloud-install-coderabbit.sh
 ```
 
 The helper equivalent is:
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
@@ -213,7 +336,7 @@ cr auth status --agent
 ```
 
 On Cloud / headless Linux, use
-`coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"`
+`coderabbit auth login --api-key "$CODERABBIT_API_KEY"`
 then `coderabbit auth status --agent`. Confirm the Agentic key was created
 under the US org. User API keys are rejected by the CLI.
 
@@ -227,15 +350,17 @@ creator when present) or an `isUsApp` check-run or check-suite on HEAD
 (CodeRabbit label `name` or `app.name`) without a new
 review is `incremental_paused`: leftover threads go to `/capture` and
 `/ready-merge-release` may PASS. If CodeRabbit reports a rate limit, wait for the reset time
-before relying on another review. Local 4G records `unavailable` and
-continues; G-CR3 remains blocked. Do **not** substitute a manual review, and
+before relying on another review. The `/push` CLI pass retries once and,
+if still unavailable, stops with `blocked_cli_unavailable` and does not
+push; G-CR3 remains blocked. Do **not** substitute a manual review, and
 do **not** treat a passing **Review rate limited** GitHub check as approval.
 
 ### Billing confirmation
 
 If the CLI or GitHub check asks for a billing/usage confirmation, resolve
-billing in the US dashboard, then re-run. Local 4G records `unavailable` and
-continues; G-CR3 remains blocked. Do not report billing as a clean review.
+billing in the US dashboard, then re-run. The `/push` CLI pass retries once and,
+if still unavailable, stops with `blocked_cli_unavailable` and does not
+push; G-CR3 remains blocked. Do not report billing as a clean review.
 
 ### Missing `cr` on Windows
 
@@ -245,10 +370,10 @@ installer rather than copying the exe by hand.
 
 ### Wrong CLI version
 
-`coderabbit --version` / `cr --version` must print `0.7.6`. Reinstall:
+`coderabbit --version` / `cr --version` must print `0.9.0`. Reinstall:
 
 ```powershell
-$env:CODERABBIT_VERSION = '0.7.6'
+$env:CODERABBIT_VERSION = '0.9.0'
 irm https://cli.coderabbit.ai/install.ps1 | iex
 Remove-Item Env:CODERABBIT_VERSION
 ```
@@ -256,25 +381,27 @@ Remove-Item Env:CODERABBIT_VERSION
 Linux / Cloud:
 
 ```sh
-CODERABBIT_VERSION=0.7.6 curl -fsSL https://cli.coderabbit.ai/install.sh | sh
+CODERABBIT_VERSION=0.9.0 curl -fsSL https://cli.coderabbit.ai/install.sh | sh
 ```
 
-`CODERABBIT_VERSION=v0.7.6` 404s on `cli.coderabbit.ai`.
+`CODERABBIT_VERSION=v0.9.0` and unsigned `0.7.6` 404 on `cli.coderabbit.ai`.
+The helper passes `CI=1 CR_CLI_SKIP_LOGIN=1` so the installer never starts a
+browser login.
 
 ### Cloud Build has CLI but reviews fail with 401
 
-The CLI install is paused, so this does not apply to the current snapshot.
-On resume, the secret was missing at install time, or the key is not a US
-Agentic key. Set `CODERABBIT_API_KEY` and re-run:
+The secret was missing at install time (the helper only warned), or the key
+is not a US Agentic key. Set `CODERABBIT_API_KEY` and rebuild the
+environment, or re-run
 
-```
-corepack enable && corepack prepare --activate && pnpm install --frozen-lockfile && sh .cursor/cloud-install-coderabbit.sh
+```sh
+sh .cursor/cloud-install-coderabbit.sh
 ```
 
 or run
 
 ```sh
-coderabbit auth login --region us --api-key "$CODERABBIT_API_KEY"
+coderabbit auth login --api-key "$CODERABBIT_API_KEY"
 coderabbit auth status --agent
 ```
 
@@ -288,7 +415,7 @@ Do not infer these from YAML. Re-run the commands.
 
 | Check                    | Command / where                                                          | Required                                                                           |
 | ------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| CLI pin                  | `cr --version`                                                           | `0.7.6`                                                                            |
+| CLI pin                  | `cr --version`                                                           | `0.9.0`                                                                            |
 | YAML                     | `cr config validate`                                                     | exit 0                                                                             |
 | Local region             | `cr auth status --agent`                                                 | `"region":"us"`                                                                    |
 | US hosts                 | `cr doctor`                                                              | `app.coderabbit.ai` / `ide.coderabbit.ai`                                          |
@@ -299,15 +426,34 @@ Do not infer these from YAML. Re-run the commands.
 
 ## Factory gates
 
-Local close-out (`/sdd-to-tdd` STEP 4G) must run
-`node .cursor/checks/coderabbit-gate.mjs` and write an ignored audit receipt
-under `.cursor/hooks/state/`. The attempt records `attemptStatus` as `clean`,
-`findings`, or `unavailable` with a stable `reason`. Findings at every severity
-and authentication/setup failure, rate limit, billing, timeout, skipped
-review, malformed/partial JSONL, and reviewed-file/scope mismatch are advisory:
-the attempt exits zero and close-out continues. File-list aliases
+`/push` must run
+`node .cursor/checks/coderabbit-gate.mjs --branch-diff --base origin/staging`
+and write an ignored audit receipt under `.cursor/hooks/state/`. The attempt
+records `attemptStatus` as `clean`, `findings`, or `unavailable` with a
+stable `reason`. Critical, Major, and unknown findings route to
+`/sdd-to-tdd`; Minor and Trivial route to `/capture` by severity, including
+in-scope Minor and Trivial. `--fix-round` is a counter capped at 2.
+Pass 1 routes every finding. Pass 2 routes only when `/sdd-to-tdd`
+findings remain; Minor and Trivial on that pass capture-and-push with no
+third pass. Pass 3 stops with `blocked_major_findings` when a Critical,
+Major, or unknown finding is still open and does not push those. Only
+Minor and Trivial capture-and-push. The counter is kept
+across its fix commits via `--fix-round` or the leftover record. On
+`route`, printed `fixRound` is the started round. After a successful
+`git push`, `--ack-push` clears the saved cycle. `runCr` uses an absolute
+deadline as well as inactivity and records `unavailable` / `timeout` on
+either expiry. Auth `--version` and `auth status --agent` use the same
+finite timeout. A failed `git diff` for
+`--branch-diff` records `unavailable` / `diff_failed` and still pushes. A
+`--branch-diff` `secret_path` and a non-zero gate exit still push.
+`.env.example` is not a secret. A successful empty diff stays `clean`.
+An unavailable CLI result (`error`, `version_mismatch`, `timeout`, and the
+same class) retries once, reinstalling pinned `0.9.0` when the reason is
+`cli_missing` or `version_mismatch`. If it is still unavailable, `/push`
+stops with `blocked_cli_unavailable` and does not push. File-list aliases
 (`reviewedFiles`, `files`, `filesToReview`) are still inspected independently
-so parsing failures remain visible in the receipt.
+so parsing failures remain visible in the receipt. `/sdd-to-tdd` STEP 4G
+and `/commit` do not run the CLI.
 
 Missing/malformed work orders, secret paths, unrelated dirty paths, no
 reviewable paths, and changed bytes are hard failures. The command re-hashes
@@ -325,7 +471,10 @@ before unresolved-thread routing. Unresolved US threads whose path is
 under `.cursor/plans/` or whose `isOutdated` is boolean `true` are
 process-meta; they do not fail as
 `unresolved_threads` and do not appear in routed findings. An unresolved
-non-outdated US thread on any other path still fails closed. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. `/conduct` posts one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and runs `/ready-merge-release <PR> --loop` again. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
+non-outdated US thread on any other path still fails closed. When current
+HEAD has no ranked US review, in-progress-on-head is checked before
+`incremental_paused` and before `stale_approval`. `--review-wait-expired` maps `review_in_progress` to
+`ready_no_coderabbit_review`. Under `/ready-merge-release --loop` only, a current-HEAD US `CHANGES_REQUESTED` review with no remaining unresolved product thread and at least one resolved non-outdated US product thread is reason `captured_threads_resolved` and is a clean preflight. Under `--loop` only, exempt `.cursor/plans/` threads and review-body findings that all route to `/capture` are reason `capture_only_findings` (one `/capture` fence per finding, then Step 2 is clean and the draft is readied). A collected finding that routes to `/sdd-to-tdd` is reason `changes_requested_body_findings` and routes to `/sdd-to-tdd`. A QA operator running `/ready-merge-release` treats `capture_only_findings` as a clean loop preflight. That operator may post one ledger reply on each open product thread only when that finding is already an open `docs/findings/` line, using `addPullRequestReviewThreadReply` and `resolveReviewThread`, does not post a `@coderabbitai` command, and may run `/ready-merge-release <PR> --loop` again. `/conduct` does not. Without `--loop`, `CHANGES_REQUESTED` on the current HEAD still fails closed. `eu_bot_activity` is retired. Pin
 the exact `wrong_bot` reason, not only `ok: false`. Run
 `/ready-merge-release PR#`. Adapter `incremental_paused` leftovers (any
 severity) go to `/capture` and Step 2 is clean. Otherwise Critical/Major
@@ -424,8 +573,10 @@ Operator-owned; YAML does not create GitHub rulesets. Direct pushes to
    use that config change as the protected second promotion canary. The
    read-only adapter review remains: it fail-closes `wrong_bot` on non-US
    CodeRabbit-shaped identity, fails stale HEAD or unresolved US threads
-   (except `.cursor/plans/` work-orders or outdated leftovers), and passes
-   only on clean US approval of current HEAD. The Actions job
+   (except `.cursor/plans/` work-orders or outdated leftovers), treats a
+   missing formal review as `ready_no_coderabbit_review`, ignores quiet-mode
+   walkthrough bodies, and passes on clean US approval of current HEAD or on
+   `changes_requested_meta_only`. The Actions job
    `CodeRabbit US latest-head gate` is paused (`if: false`) and is not a
    required check. `/ready-merge-release` returns
    `APPROVED FOR OPERATOR MERGE` from that adapter review. The paused job

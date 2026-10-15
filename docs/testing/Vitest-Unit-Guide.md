@@ -1,7 +1,7 @@
 # Vitest unit guide
 
 **Status:** Reference  
-**Last updated:** 2026-10-06
+**Last updated:** 2026-10-10
 
 ## Layout
 
@@ -16,6 +16,7 @@
   Edge Function pin, marketing page, PV-ISO schema isolation scan)
 - Staff authorization: `tests/unit/auth/` (`requireStaffUser` /
   `requireSuperAdminUser` claims, staff-route proxy, login landing gate,
+  callback `next` same-origin path in `callback-next.test.ts`,
   local signup TOML, seed `raw_app_meta_data` for staff and super-admin);
   SA-11 service-role module fence: `tests/unit/supabase/service-boundary.test.ts`
 - Site chrome / template identity: `tests/unit/site-chrome.test.ts` (no bundled
@@ -52,7 +53,12 @@
   `unresolved_threads`; incremental-pause SUCCESS is exact
   `REQUIRED_US_STATUS_CONTEXT` plus `isUsApp` checks, with CodeRabbit label
   `name` or `app.name`; `fetchSnapshot` paginates `GET /commits/{sha}/status`);
-  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`;
+  RES-146 `cli_missing`, one branch-diff reinstall, `/push` as the only
+  agent CodeRabbit gate, and QA `ralfcam` readiness in
+  `tests/unit/dev-toolchain/coderabbit-res146-guards.test.ts`;
+  spawn-proven G-TD1 in `tests/unit/dev-toolchain/tdd-guard-liveness.test.ts`
+  (armed-red deny of the absolute checkout path of `lib/billing/foo.ts`,
+  forward slashes and backslashes);
   G-CAP1 PHASE 5 heading-range chrome-scan and Execution Protocol
   list-item chrome-scan in
   `tests/unit/dev-toolchain/capture-cloud-phase5.test.ts`; G-DES1 PowerShell
@@ -65,7 +71,15 @@
   path-list pin in
   `tests/unit/dev-toolchain/baseline-forward-migration.test.ts`; G-AUD1
   Next pin in `tests/unit/dev-toolchain/next-advisory.test.ts`; G-AUD2
-  brace-expansion pins in `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`)
+  brace-expansion pins in `tests/unit/dev-toolchain/pnpm-overrides-toolchain.test.ts`;
+  G-LG1 Cloud Linear write lock in
+  `tests/unit/dev-toolchain/linear-write-cloud-path.test.ts` and
+  `tests/unit/dev-toolchain/linear-guard-placement.test.ts` (`MCP:save_*`
+  and Cloud `CallDynamicTool`; live Cloud denial pending);
+  G-MRG1 merge bypasses in
+  `tests/unit/dev-toolchain/merge-bypass-guard.test.ts`; G-PUSH1
+  protected-branch push, including quoted `bash -c` inner `;` chains, in
+  `tests/unit/dev-toolchain/protected-branch-push-guard.test.ts`)
 - POS live pickers: `tests/unit/floor/pos-table-picker.test.ts`,
   `tests/unit/floor/pos-server-picker.test.ts`,
   `tests/unit/floor/get-servers.test.ts`,
@@ -117,6 +131,10 @@
   `tests/unit/reservations/staff-list-guest-email.test.ts` (source-scan
   visible `{r.email}` after stripping GP-9 `guestProfileHref`; blank-omit
   `r.email?.trim()` gate)
+- Staff reservations date navigation (scheduling criterion 3 / STAFF-LIST
+  latest date): `tests/unit/reservations/date-navigation.test.ts`
+  ("previous and next move one calendar day in a positive UTC offset";
+  "a stale reservations response does not replace the latest date")
 - Guest widget fully booked confirm (BW-16):
   `tests/unit/reservation-widget/fully-booked-error.test.ts` (source-scan
   `confirm()` exact-string branch; no page toast; step 2 `role="alert"`;
@@ -153,8 +171,8 @@
   convert/confirm export, EI-9 isolation scan)
 - Guest profiles: `tests/unit/guest-profiles/` (`normalizeGuestEmail` /
   `guestEmailFromRouteParam`, `buildGuestProfile` summary, RES-PRIV, staff
-  gate + ficha Save/PII/history table, `incidents.test.ts` (GI-1–GI-6), `merge.test.ts` (GM-1–GM-6), `segmentation.test.ts` (GS-1–GS-6), PII `ok` / `notFound`, live
-  `email_normalized` read, reservation-row `fichaHref` `Link`,
+  gate + ficha Save/PII/history table, `incidents.test.ts` (GI-1–GI-6), `merge.test.ts` (GM-1–GM-6), `segmentation.test.ts` (GS-1–GS-6), PII trim and bounds (`invalidInput`, `nameRequired`, `nameTooLong`, `phoneInvalid`; blank phone stored as `""`), `ok` / `notFound`, live
+  `email_normalized` read with the ficha column allowlist (never `*`) and named history fields (no row spread), reservation-row `fichaHref` `Link`,
   `playwright-local-supabase.test.ts` source-scan of Playwright `globalSetup`)
 
 ## Conventions
