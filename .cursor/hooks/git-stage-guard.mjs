@@ -6,9 +6,10 @@
  * Shell command — /commit staging plus the "operator merges in GitHub" rule,
  * enforced deterministically instead of by prose discipline. After a TDD loop
  * sets loopRan, also blocks any `git commit` until /commit opens the gate.
- * While /sdd-to-tdd is armed and Task has not succeeded, also denies Shell
- * writes (redirect, tee, sed -i, cp, mv) to protected source paths and
- * `.cursor/hooks/state/**` except the armed-state file.
+ * While /sdd-to-tdd is armed, also denies Shell writes (redirect, tee,
+ * sed -i, cp, mv) to protected source paths and `.cursor/hooks/state/**`
+ * (except the armed-state file) per depth/phase, like the Write guard. A
+ * subagent (depth > 0) with no phase set is denied protected targets.
  *
  * failClosed: true in hooks.json — a crash or timeout of this script must not
  * fail-open into a blanket stage or a merge. Matcher is Shell-only so a crash
@@ -22,7 +23,7 @@ import {
   readStdinJson,
   writeStdoutJson,
   checkLinearWriterParentShell,
-  checkTaskAvailabilityShell,
+  checkProtectedShellWrite,
   extractShellWriteTargets,
   isArmedStateFile,
   recordDisarm,
@@ -33,8 +34,9 @@ import {
   evaluateGitCommitPermission,
   getCommitExempt,
   isArmed,
+  getDepth,
+  getPhase,
   isLoopRan,
-  isTaskAvailable,
   stagedPathsFromGit,
   status,
 } from "./lib/tdd-guard-policy.mjs"
@@ -68,21 +70,20 @@ function main() {
         }
       }
     }
-    const shellWrite = checkTaskAvailabilityShell(command, {
+    const shellWrite = checkProtectedShellWrite(command, {
       armed: isArmed(),
-      taskAvailable: isTaskAvailable(),
+      depth: getDepth(),
+      phase: getPhase(),
     })
     if (shellWrite) {
       writeStdoutJson({
         permission: "deny",
-        user_message:
-          "Blocked a Shell write — Task is unavailable. STOP and report BLOCKED (infra).",
+        user_message: `Blocked a Shell write to "${shellWrite.target}" during sdd-to-tdd — protected paths need the delegated subagent or the Write tool.`,
         agent_message:
-          `git-stage guard: "${shellWrite.target}" would write a protected or ` +
-          "guard-state path while Task has not succeeded in this armed /sdd-to-tdd " +
-          "run. Do not edit tests, source, or `.cursor/hooks/state/**` (except " +
-          "tdd-guard.json) via redirect, tee, sed -i, cp, or mv. STOP and report " +
-          "BLOCKED (infra).",
+          `git-stage guard: "${shellWrite.target}" is a protected or guard-state path ` +
+          `(${shellWrite.kind}). While /sdd-to-tdd is armed, the orchestrator must not ` +
+          "write tests, source, or `.cursor/hooks/state/**` (except tdd-guard.json) via " +
+          "redirect, tee, sed -i, cp, or mv. Delegate to a tdd-* subagent.",
       })
       return
     }

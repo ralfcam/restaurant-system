@@ -453,17 +453,28 @@ export function extractShellWriteTargets(command) {
   return targets.map((target) => target.replace(/^['"]|['"]$/g, ""))
 }
 
-/** Deny Shell writes to protected source and guard-state paths while Task is down. */
-export function checkTaskAvailabilityShell(
+/** Deny Shell writes (redirect, tee, sed -i, cp, mv) to protected source and
+ *  guard-state paths while armed. Mirrors the Write guard: the parent
+ *  (depth 0) is denied on protected paths, a running subagent follows its
+ *  phase scope, and guard-state files are denied at any depth except the
+ *  armed-state file. A subagent with no phase set is denied every protected
+ *  target until the parent sets Red, Green, or Refactor. Independent of Task
+ *  events, which Cloud never fires. */
+export function checkProtectedShellWrite(
   command,
-  { armed, taskAvailable } = {},
+  { armed, depth = 0, phase = null } = {},
 ) {
-  if (!armed || taskAvailable) return null
+  if (!armed) return null
   for (const target of extractShellWriteTargets(command)) {
     const rel = normalize(target)
     if (isArmedStateFile(rel) || isArmedStateFile(target)) continue
-    if (isProtected(rel) || isGuardStatePath(rel) || isGuardStatePath(target)) {
-      return { deny: true, kind: "task-unavailable-shell", target: rel }
+    const hit = checkTddWrite(rel, { depth, phase })
+    if (hit) return { ...hit, target: rel }
+    if (depth > 0 && !phase && isProtected(rel)) {
+      return { deny: true, kind: "phase-unset", target: rel }
+    }
+    if (isGuardStatePath(rel) || isGuardStatePath(target)) {
+      return { deny: true, kind: "guard-state-shell", target: rel }
     }
   }
   return null

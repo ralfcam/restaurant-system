@@ -1,5 +1,14 @@
 #!/usr/bin/env node
 /**
+ * DISABLED — not registered in .cursor/hooks.json (RES decision 2026-10-15,
+ * to match Syntex-V0). Cursor fires no hook events (preToolUse, postToolUse,
+ * subagentStart, subagentStop) for subagent calls made through
+ * CallDynamicTool { namespace: "cursor", toolName: "Task" } on cloud VMs, so
+ * `--success` never ran and `taskAvailable` stayed false, denying every armed
+ * Write. QA's transcript check covers the gap until a v0.3.3 ticket restores
+ * the guard. Re-enable only after a live Cloud run proves the success hook
+ * fires.
+ *
  * Fail-closed Write interlock: while /sdd-to-tdd is ARMED, deny edits until
  * a Task (subagent) invocation has succeeded in this run. If Task is
  * unavailable, the orchestrator cannot self-implement — STOP with
