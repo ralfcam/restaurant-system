@@ -16,7 +16,7 @@ Suggested review order:
 
 Reusable pattern: none.
 
-Measured: a `NOT VALID` CHECK is still evaluated on UPDATE of a legacy row (SQLSTATE `23514` on `UPDATE orders SET status = 'preparing'` for a NULL-`reservation_id` order). Fixed in C15 (CodeRabbit fix round 1) by exempting rows created before the migration's apply time.
+Measured: a `NOT VALID` CHECK is still evaluated on UPDATE of a legacy row (SQLSTATE `23514` on `UPDATE orders SET status = 'preparing'` for a NULL-`reservation_id` order). C15 exempted legacy rows with an apply-time `created_at` cutoff; Jose replaced that in C16 with the plain CHECK, so the UPDATE behavior stands and is documented in the migration comment (see C16).
 
 ### C2 — reservations.source (CHECK, default online, not guest-insertable)
 
@@ -164,24 +164,28 @@ Suggested review order:
 
 Reusable pattern: none.
 
-### C15 — legacy orders stay updatable (CodeRabbit fix round 1)
+### C15 — legacy orders stay updatable (CodeRabbit fix round 1) — superseded by C16
+
+C15 added an apply-time `created_at` cutoff to the CHECK. Jose's decision (16 Oct 2026, 09:42 CEST) replaced it: `created_at` is writable, so a backdated insert bypassed the cutoff, and the cutoff shifted on any reset or replay. The C15 test was replaced by the C16 test; no C15 behavior remains.
+
+### C16 — plain NOT VALID CHECK, no `created_at` clause (Jose's decision)
 
 Suggested review order:
 
-- Legacy exemption predicate: `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql:13` [schema]
-- Same predicate in the baseline: `supabase/migrations/00000000000000_baseline.sql:944` [schema]
-- Why a `NOT VALID` check still blocks status updates: `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql:7`
-- Behavioral pin (backdated null visit can change status; a new null visit is `23514`): `tests/integration/pos/orders-persistence.integ.test.ts:395`
+- Plain CHECK in the dated migration: `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql:13` [schema]
+- Same contract in the baseline: `supabase/migrations/00000000000000_baseline.sql:943` [schema]
+- Why there is no cutoff: `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql:9`
+- Behavioral pin (null `reservation_id` refused at past, future and default `created_at`): `tests/integration/pos/orders-persistence.integ.test.ts:395`
 
-Reusable pattern: A `NOT VALID` CHECK still runs on UPDATE; bake the migration apply time in with `EXECUTE format('%L', now())` because a CHECK expression cannot call `now()`.
+Reusable pattern: Do not exempt a `NOT VALID` CHECK with `created_at < now()` via `EXECUTE format`; `created_at` is writable and `now()` changes on reset or replay. Use `CHECK (col IS NOT NULL) NOT VALID`.
 
-Residual findings (low): the exemption keys off the writable `created_at` (service-role only; the kitchen insert path never sets it); the cutoff equality (`<` vs `<=`) is unpinned.
+Known consequence (decided, not a defect): the CHECK is evaluated on UPDATE, so a pre-existing order with a null `reservation_id` cannot change status until it gets a `reservation_id`. The UPDATE path is specified and commented but not pinned by a test (low test-debt). Seeds do not insert `orders`; `createKitchenOrder` always stamps `reservation_id`; the only null inserts are the two refusal probes in `tests/integration/pos/orders-persistence.integ.test.ts`.
 
 ## Suggested Review Order (collated)
 
 Highest-risk first.
 
-1. **Migration and baseline [schema]** — `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql` adds `orders.reservation_id` (FK, default NO ACTION) with the `NOT VALID` CHECK `orders_reservation_id_required` (`reservation_id IS NOT NULL OR created_at < <apply time>`, so legacy open orders stay updatable), and `reservations.source` with `reservations_source_check`; the same statements sit in `supabase/migrations/00000000000000_baseline.sql`. The guest INSERT grant (`:193`) is unchanged, so a guest cannot set `source`. Sensitive: Jose accepts before merge.
+1. **Migration and baseline [schema]** — `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql` adds `orders.reservation_id` (FK, default NO ACTION) with the plain `NOT VALID` CHECK `orders_reservation_id_required` (`reservation_id IS NOT NULL`, no `created_at` clause), and `reservations.source` with `reservations_source_check`; the same statements sit in `supabase/migrations/00000000000000_baseline.sql`. The guest INSERT grant (`:193`) is unchanged, so a guest cannot set `source`. Sensitive: Jose accepts before merge.
 2. **Server-side visit resolution and refusal [auth] [security]** — `app/actions/operations.ts` `createKitchenOrder` (`:1059` staff gate, `:1094`-`:1127` merge labels, seated lookup, typed refusals, `reservation_id` stamp from the single seated row, never from the caller); `tests/integration/pos/orders-persistence.integ.test.ts` (real Postgres) and `tests/unit/floor/pos-table-picker.test.ts`.
 3. **Floor bill keyed by visit [booking]** — `lib/floor/table-bills.ts` `sumOpenOrderTotalsByReservationId`, `app/actions/reservations.ts` `getFloorSnapshot` (`reservation_id, total, status`, id-ordered paging, `null` on error), `lib/reservations/auto-assign.ts:353` `tableTotals[reservation.id] ?? 0`.
 4. **Walk-in source and id [public-api]** — `app/actions/reservations.ts` `seatWalkIn` stamps `source: "walk_in"` and returns `{ id }`.
@@ -209,15 +213,16 @@ Run: 2026-10-15 · plan: res-167-168_seated_visit_orders_3ce2 · issues: RES-167
 | C12       | WI-10, PV-4                    | `tests/unit/marketing/review-email-queue.test.ts`::transitionReservationStatus queues no review email for a reservation without an email             | `app/actions/reservations.ts`                                                                                                          | P1   | shipped |
 | C13       | FP-13                          | `tests/unit/floor/message-keys.test.ts`::POS not-seated refusal copy exists in en and fr with the label placeholder                                   | `messages/en.json`, `messages/fr.json`                                                                                                 | P2   | shipped |
 | C14       | FP-13                          | `tests/unit/floor/pos-terminal-not-seated.test.ts`::PosTerminal maps a not-seated refusal to the specific toast and keeps the order                   | `components/staff/pos-terminal.tsx`                                                                                                    | P1   | shipped |
-| C15       | FP-13                          | `tests/integration/pos/orders-persistence.integ.test.ts`::a legacy order created before the migration keeps its null reservation_id and can still change status, while a new null-visit order is still refused | `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql`, `supabase/migrations/00000000000000_baseline.sql` | P1   | shipped |
+| C15       | FP-13                          | superseded by C16 (test replaced)                                                                                                                      | superseded by C16                                            | —    | superseded |
+| C16       | FP-13                          | `tests/integration/pos/orders-persistence.integ.test.ts`::a null reservation_id is refused whatever created_at says, so a backdated insert cannot bypass the visit CHECK | `supabase/migrations/20261015190000_orders_reservation_id_reservation_source.sql`, `supabase/migrations/00000000000000_baseline.sql` | P1   | shipped |
 
 **manual-UAT (deferred):** QA UAT on the PR preview with labelled test data: seat visit A and order, complete it, seat visit B on the same table and the chip starts at `CHF 0.00`; a walk-in can order; a hand-set seated table with no reservation is refused with the specific toast; a merged member table is accepted while the primary is seated; visual captures at 375px and 1280px plus one FR shot. The migration is applied to the shared preview/dev project only by `staging-migrations.yml` on merge to `staging`.
 
 ## Run metrics
 
 Run: 2026-10-15 → 2026-10-15 · plan: res-167-168_seated_visit_orders_3ce2
-Criteria: 15 shipped · 0 manual-uat · 15 total
-Phases delegated: 49 Task calls (18 red, 16 green, 15 refactor). The 14 base red, 14 green and 14 refactor calls, plus three `tdd-red` fixture follow-ups (C3, C6, C12 hardening) and one `tdd-green` restore.
+Criteria: 15 shipped · 1 superseded (C15) · 0 manual-uat · 16 total
+Phases delegated: 52 Task calls (19 red, 17 green, 16 refactor). The 14 base red, 14 green and 14 refactor calls, plus three `tdd-red` fixture follow-ups (C3, C6, C12 hardening) and one `tdd-green` restore.
 Back-loops: 4 (C3 and C6 scripted-queue fixtures, C12 select-list hardening, and a `tdd-green` restore of `app/actions/reservations.ts` after a subagent's `git checkout` discarded uncommitted work in that file)
 BLOCKED events: none (the `tdd-red` hardening step reported BLOCKED after the accidental revert; resolved by the restore)
 Issues: RES-167, RES-168

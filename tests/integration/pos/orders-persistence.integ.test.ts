@@ -392,54 +392,42 @@ describe.skipIf(!authEnvReady)("orders persistence after local reset", () => {
     expect(handOrders ?? []).toHaveLength(0)
   })
 
-  it("a legacy order created before the migration keeps its null reservation_id and can still change status, while a new null-visit order is still refused", async () => {
+  it("a null reservation_id is refused whatever created_at says, so a backdated insert cannot bypass the visit CHECK", async () => {
     const supabase = createServiceClient()
-    let legacyId: string | null = null
-    try {
-      const { data: legacy, error: legacyError } = await supabase
-        .from("orders")
-        .insert({
-          ...orderInsert(TABLE_LABEL, null),
-          created_at: "2020-01-01T00:00:00Z",
-        })
-        .select("id, status, reservation_id")
-        .single()
 
-      expect(legacyError, legacyError?.message ?? "").toBeNull()
-      expect(legacy?.reservation_id).toBeNull()
-      expect(legacy?.status).toBe("new")
-      legacyId = legacy!.id
+    const { error: backdatedError } = await supabase.from("orders").insert({
+      ...orderInsert(TABLE_LABEL, null),
+      created_at: "2020-01-01T00:00:00Z",
+    })
+    expect(backdatedError).not.toBeNull()
+    expect(backdatedError?.code).toBe("23514")
 
-      const { data: preparing, error: preparingError } = await supabase
-        .from("orders")
-        .update({ status: "preparing" })
-        .eq("id", legacyId)
-        .select("status, reservation_id")
-        .single()
-      expect(preparingError, preparingError?.message ?? "").toBeNull()
-      expect(preparing?.status).toBe("preparing")
-      expect(preparing?.reservation_id).toBeNull()
+    const { error: futureError } = await supabase.from("orders").insert({
+      ...orderInsert(TABLE_LABEL, null),
+      created_at: "2099-01-01T00:00:00Z",
+    })
+    expect(futureError).not.toBeNull()
+    expect(futureError?.code).toBe("23514")
 
-      const { data: completed, error: completedError } = await supabase
-        .from("orders")
-        .update({ status: "completed" })
-        .eq("id", legacyId)
-        .select("status, reservation_id")
-        .single()
-      expect(completedError, completedError?.message ?? "").toBeNull()
-      expect(completed?.status).toBe("completed")
-      expect(completed?.reservation_id).toBeNull()
+    const { error: defaultCreatedAtError } = await supabase
+      .from("orders")
+      .insert(orderInsert(TABLE_LABEL, null))
+    expect(defaultCreatedAtError).not.toBeNull()
+    expect(defaultCreatedAtError?.code).toBe("23514")
 
-      const { error: freshNullError } = await supabase
+    const { data: nullVisitRows, error: selectError } = await supabase
+      .from("orders")
+      .select("id")
+      .eq("table_label", TABLE_LABEL)
+      .is("reservation_id", null)
+    expect(selectError).toBeNull()
+    if ((nullVisitRows ?? []).length > 0) {
+      await supabase
         .from("orders")
-        .insert(orderInsert(TABLE_LABEL, null))
-      expect(freshNullError).not.toBeNull()
-      expect(freshNullError?.code).toBe("23514")
-    } finally {
-      if (legacyId) {
-        await supabase.from("order_items").delete().eq("order_id", legacyId)
-        await supabase.from("orders").delete().eq("id", legacyId)
-      }
+        .delete()
+        .eq("table_label", TABLE_LABEL)
+        .is("reservation_id", null)
     }
+    expect(nullVisitRows ?? []).toEqual([])
   })
 })

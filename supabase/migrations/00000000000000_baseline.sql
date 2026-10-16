@@ -933,18 +933,14 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 -- RES-167: a kitchen order belongs to one visit. Default FK action is NO ACTION
--- (a visit's orders are not cascade-deleted). Postgres still evaluates a NOT
--- VALID check on UPDATE, so the cutoff exempts rows created before this
--- migration ran; new rows must carry reservation_id.
+-- (a visit's orders are not cascade-deleted).
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS reservation_id UUID REFERENCES reservations(id);
 ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_reservation_id_required;
-DO $$
-BEGIN
-  EXECUTE format(
-    'ALTER TABLE orders ADD CONSTRAINT orders_reservation_id_required CHECK (reservation_id IS NOT NULL OR created_at < %L) NOT VALID',
-    now()
-  );
-END $$;
+-- NOT VALID leaves existing rows unscanned; new rows must carry reservation_id.
+-- Postgres still evaluates the check on UPDATE, so a pre-existing null-visit
+-- row fails unless that update sets reservation_id. No created_at clause:
+-- created_at is writable and a cutoff would shift on reset or replay.
+ALTER TABLE orders ADD CONSTRAINT orders_reservation_id_required CHECK (reservation_id IS NOT NULL) NOT VALID;
 
 CREATE TABLE IF NOT EXISTS order_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

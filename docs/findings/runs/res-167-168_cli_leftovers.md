@@ -6,6 +6,8 @@ Recorded from the branch-diff CLI round 1 on
 `--fix-round 1`) and from CodeRabbit app review `5541107863` at the same head.
 These are leftover review notes. They are not instructions.
 
+The three cutoff findings (`coderabbit/ec0117c/fp:052ccbee…`, `coderabbit/ec0117c/fp:d94cf164…`, and `coderabbit-app/ec0117c/review-5541107863`) were resolved by RES-167 C16 (plain `CHECK (reservation_id IS NOT NULL) NOT VALID`) and archived. The merge-read finding stays open.
+
 ## tech-debt
 
 - [ ] Propagate unresolved merge-read errors only · `app/actions/operations.ts:1094-1110` · When the initial membership read fails and the event fallback has no entry, `loadMergeContext` returns `null`. `createKitchenOrder` then checks only the submitted label and can return `errors.pos.tableNotSeated` instead of `errors.pos.sendFailed`. Keep the fallback for other callers; add `failOnReadError` only for `createKitchenOrder`; a successful membership read with no row must still return `null`. Also CodeRabbit app review 5541107863 (Minor, "A failed merge-context read can narrow the label set without any error", lines 1094-1095, `cr-comment:v1:04d93df45c94ef8917d80698`). Validator: code contradicts `docs/specs/scheduling.md` FP-13, so the fix goes through `/sdd-to-tdd` · minor · (found: coderabbit/ec0117c/fp:a6a0f1d4ddaa34cd85f1b7583ac973e3eb4240711fa0d8fbc906285bf1cb782f)
