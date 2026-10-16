@@ -46,12 +46,12 @@ vi.mock("@/lib/supabase/server", () => ({
 type Row = Record<string, unknown>
 
 const POSTGREST_MAX_ROWS = 1000
-const TABLE_LABEL = "7"
+const RESERVATION_ID = "res-visit-7"
 const FIRST_PAGE_ROW_TOTAL = 1
 const NEXT_PAGE_ROW_TOTAL = 3.5
 
 function matchingOrder(total: number) {
-  return { table_label: TABLE_LABEL, total, status: "new" }
+  return { reservation_id: RESERVATION_ID, total, status: "new" }
 }
 
 function allMatchingOrders() {
@@ -124,8 +124,13 @@ function ordersPagedThenable() {
   return self
 }
 
+type OrdersPageSink = {
+  orders: { column: string; ascending?: boolean }[]
+  ranges: [number, number][]
+}
+
 /** Page 2 yields the 1001st row only when `.order("id", { ascending: true })` precedes `.range`. */
-function ordersStableIdOrderThenable() {
+function ordersStableIdOrderThenable(sink?: OrdersPageSink) {
   let rangeStart: number | null = null
   let rangeEnd: number | null = null
   let orderedByIdAscBeforeRange = false
@@ -149,6 +154,7 @@ function ordersStableIdOrderThenable() {
       }
       if (prop === "order") {
         return (column: string, options?: { ascending?: boolean }) => {
+          sink?.orders.push({ column, ascending: options?.ascending })
           if (
             column === "id" &&
             options?.ascending === true &&
@@ -161,6 +167,7 @@ function ordersStableIdOrderThenable() {
       }
       if (prop === "range") {
         return (start: number, end: number) => {
+          sink?.ranges.push([start, end])
           rangeStart = start
           rangeEnd = end
           return self
@@ -206,7 +213,7 @@ describe("getFloorSnapshot seated bills", () => {
     const { getFloorSnapshot } = await import("@/app/actions/reservations")
     const snapshot = await getFloorSnapshot("2026-08-18")
 
-    expect(snapshot.tableTotals?.[TABLE_LABEL]).toBe(
+    expect(snapshot.tableTotals?.[RESERVATION_ID]).toBe(
       POSTGREST_MAX_ROWS * FIRST_PAGE_ROW_TOTAL + NEXT_PAGE_ROW_TOTAL,
     )
   })
@@ -270,8 +277,70 @@ describe("getFloorSnapshot seated bills", () => {
     const { getFloorSnapshot } = await import("@/app/actions/reservations")
     const snapshot = await getFloorSnapshot("2026-08-18")
 
-    expect(snapshot.tableTotals?.[TABLE_LABEL]).toBe(
+    expect(snapshot.tableTotals?.[RESERVATION_ID]).toBe(
       POSTGREST_MAX_ROWS * FIRST_PAGE_ROW_TOTAL + NEXT_PAGE_ROW_TOTAL,
     )
+  })
+
+  it("getFloorSnapshot keys seated bill totals by reservation id and keeps paging and unavailable semantics", async () => {
+    const selects: string[] = []
+    const orders: { column: string; ascending?: boolean }[] = []
+    const ranges: [number, number][] = []
+
+    mocks.from.mockImplementation((name: string) => {
+      if (name === "orders") {
+        return {
+          select: (columns: string) => {
+            selects.push(columns)
+            return ordersStableIdOrderThenable({ orders, ranges })
+          },
+          insert: async () => ({ error: null }),
+          update: () => thenable({ error: null }),
+          delete: () => ({ eq: () => thenable({ error: null }) }),
+        }
+      }
+      return emptyTableApi()
+    })
+
+    const { getFloorSnapshot } = await import("@/app/actions/reservations")
+    const snapshot = await getFloorSnapshot("2026-08-18")
+
+    // FP-15-COMPLETE: reservation_id select, stable id order, 1000-row pages.
+    expect(selects).toEqual([
+      "reservation_id, total, status",
+      "reservation_id, total, status",
+    ])
+    expect(orders).toEqual([
+      { column: "id", ascending: true },
+      { column: "id", ascending: true },
+    ])
+    expect(ranges).toEqual([
+      [0, POSTGREST_MAX_ROWS - 1],
+      [POSTGREST_MAX_ROWS, POSTGREST_MAX_ROWS * 2 - 1],
+    ])
+    expect(snapshot.tableTotals?.[RESERVATION_ID]).toBe(
+      POSTGREST_MAX_ROWS * FIRST_PAGE_ROW_TOTAL + NEXT_PAGE_ROW_TOTAL,
+    )
+
+    mocks.from.mockImplementation((name: string) => {
+      if (name === "orders") {
+        return {
+          select: () =>
+            thenable({
+              data: null,
+              error: { message: "orders unavailable" },
+            }),
+          insert: async () => ({ error: null }),
+          update: () => thenable({ error: null }),
+          delete: () => ({ eq: () => thenable({ error: null }) }),
+        }
+      }
+      return emptyTableApi()
+    })
+
+    const failed = await getFloorSnapshot("2026-08-18")
+
+    // FP-15-UNAVAILABLE: a failed orders read is null, never a zero map.
+    expect(failed.tableTotals).toBe(null)
   })
 })

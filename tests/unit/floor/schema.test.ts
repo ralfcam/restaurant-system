@@ -458,11 +458,11 @@ describe("floor tables schema and live surfaces", () => {
       .join("\n")
 
     // FP-15: getFloorSnapshot (or a helper it calls) must load orders
-    // table_label/total/status — not only tables/reservations/assigned/merges.
+    // reservation_id/total/status — not only tables/reservations/assigned/merges.
     const scanned = `${snapshotFn}\n${helperSrc}`
     expect(scanned).toMatch(/from\(\s*["']orders["']\)/)
     expect(scanned).toMatch(
-      /select\(\s*["'][^"']*table_label[^"']*total[^"']*status[^"']*["']\s*\)|select\([^)]*\btable_label\b[^)]*\btotal\b[^)]*\bstatus\b/,
+      /select\(\s*["'][^"']*reservation_id[^"']*total[^"']*status[^"']*["']\s*\)|select\([^)]*\breservation_id\b[^)]*\btotal\b[^)]*\bstatus\b/,
     )
     expect(snapshotFn).not.toMatch(
       /return \{\s*tables,\s*reservations,\s*assigned,\s*merges\s*\}/,
@@ -471,9 +471,11 @@ describe("floor tables schema and live surfaces", () => {
     const hook = read("hooks/use-floor-plan.ts")
     expect(hook).toMatch(/refreshInterval:\s*(5000|FLOOR_REFRESH_MS)/)
     expect(hook).toMatch(/FLOOR_REFRESH_MS\s*=\s*5000/)
-    expect(hook).toMatch(/sumOpenOrderTotalsByTableLabel|tableTotals|billTotal/)
     expect(hook).toMatch(
-      /overlayReservationsOnTables\s*\([\s\S]*?(?:sumOpenOrderTotalsByTableLabel|tableTotals|billTotal)[\s\S]*?\)/,
+      /sumOpenOrderTotalsByReservationId|tableTotals|billTotal/,
+    )
+    expect(hook).toMatch(
+      /overlayReservationsOnTables\s*\([\s\S]*?(?:sumOpenOrderTotalsByReservationId|tableTotals|billTotal)[\s\S]*?\)/,
     )
   })
 

@@ -227,6 +227,8 @@
       "sentToKitchen": "Order #{orderNumber} sent to kitchen · Table {table}",
       "itemsFired": "{count, plural, one {# item fired} other {# items fired}}",
       "sendFailed": "Could not send order to kitchen",
+      "tableNotSeatedTitle": "Table {label} has no seated guest",
+      "tableNotSeatedDescription": "Orders can only be sent for a seated table. Seat the guest first, then try again.",
       "currentOrder": "Current Order",
       "tableLabel": "Table",
       "noTables": "No tables available",
@@ -644,7 +646,9 @@
       "orderNeedsItems": "Order must contain items.",
       "itemUnavailable": "Menu item is unavailable.",
       "sendFailed": "Unable to send order to kitchen.",
-      "saveItemsFailed": "Unable to save order items."
+      "saveItemsFailed": "Unable to save order items.",
+      "tableNotSeated": "Orders can only be sent for a seated table. Seat the guest first, then try again.",
+      "tableAmbiguousVisit": "More than one party is seated at this table. Ask a manager to fix the floor, then try again."
     },
     "kds": {
       "orderNotFound": "Kitchen order not found.",

@@ -83,6 +83,16 @@ export function PosTerminal({ tables, servers, items }: PosTerminalProps) {
         server,
         lines: cart.map(({ itemId, qty, notes }) => ({ itemId, qty, notes })),
       })
+      if ("error" in result) {
+        if (result.error === "errors.pos.tableNotSeated") {
+          toast.error(t("staff.pos.tableNotSeatedTitle", { label: table }), {
+            description: t("staff.pos.tableNotSeatedDescription"),
+          })
+          return
+        }
+        toast.error(t("staff.pos.sendFailed"))
+        return
+      }
       toast.success(
         t("staff.pos.sentToKitchen", {
           orderNumber: result.orderNumber,

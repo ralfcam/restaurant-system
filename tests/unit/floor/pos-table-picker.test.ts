@@ -15,8 +15,12 @@ const mocks = vi.hoisted(() => ({
   revalidatePath: vi.fn(),
   insertOrder: vi.fn(),
   insertOrderItems: vi.fn(),
+  reservationLookup: vi.fn(),
   menuItems: [] as Array<Record<string, unknown>>,
   tables: [] as Array<Record<string, unknown>>,
+  reservations: [] as Array<Record<string, unknown>>,
+  mergeMembers: [] as Array<{ merge_id: string; table_id: string }>,
+  merges: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -45,9 +49,50 @@ vi.mock("@/lib/supabase/service", () => ({
       if (name === "tables") {
         return {
           select: () => ({
-            eq: (_column: string, value: unknown) => ({
+            eq: (column: string, value: unknown) => ({
               maybeSingle: async () => ({
-                data: mocks.tables.find((row) => row.label === value) ?? null,
+                data: mocks.tables.find((row) => row[column] === value) ?? null,
+                error: null,
+              }),
+            }),
+            in: async (column: string, ids: unknown[]) => ({
+              data: mocks.tables.filter((row) =>
+                ids.map((id) => String(id)).includes(String(row[column] ?? "")),
+              ),
+              error: null,
+            }),
+            then: (resolve: (value: unknown) => unknown) =>
+              Promise.resolve({ data: mocks.tables, error: null }).then(
+                resolve,
+              ),
+          }),
+        }
+      }
+      if (name === "table_merge_members") {
+        return {
+          select: () => ({
+            eq: (column: string, value: unknown) => {
+              const data = mocks.mergeMembers.filter(
+                (row) => row[column as "merge_id" | "table_id"] === value,
+              )
+              return {
+                maybeSingle: async () => ({
+                  data: data[0] ?? null,
+                  error: null,
+                }),
+                then: (resolve: (value: unknown) => unknown) =>
+                  Promise.resolve({ data, error: null }).then(resolve),
+              }
+            },
+          }),
+        }
+      }
+      if (name === "table_merges") {
+        return {
+          select: () => ({
+            eq: (column: string, value: unknown) => ({
+              maybeSingle: async () => ({
+                data: mocks.merges.find((row) => row[column] === value) ?? null,
                 error: null,
               }),
             }),
@@ -75,6 +120,37 @@ vi.mock("@/lib/supabase/service", () => ({
       if (name === "order_items") {
         return {
           insert: async (rows: unknown) => mocks.insertOrderItems(rows),
+        }
+      }
+      if (name === "reservations") {
+        return {
+          select: (columns: string) => ({
+            eq: (column: string, value: unknown) => ({
+              in: async (inColumn: string, labels: unknown) => {
+                mocks.reservationLookup(
+                  columns,
+                  column,
+                  value,
+                  inColumn,
+                  labels,
+                )
+                const labelList = Array.isArray(labels)
+                  ? labels.map((label) => String(label))
+                  : []
+                const data = mocks.reservations.filter((row) => {
+                  if (column === "status" && row.status !== value) return false
+                  if (
+                    inColumn === "table_label" &&
+                    !labelList.includes(String(row.table_label))
+                  ) {
+                    return false
+                  }
+                  return true
+                })
+                return { data, error: null }
+              },
+            }),
+          }),
         }
       }
       throw new Error(`unexpected table ${name}`)
@@ -154,8 +230,14 @@ describe("createKitchenOrder requires a persisted tables row", () => {
     mocks.revalidatePath.mockReset()
     mocks.insertOrder.mockReset()
     mocks.insertOrderItems.mockReset()
+    mocks.reservationLookup.mockReset()
+    mocks.mergeMembers = []
+    mocks.merges = []
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
     mocks.tables = [{ id: "t1", label: "1" }]
+    mocks.reservations = [
+      { id: "res-seated-1", status: "seated", table_label: "1" },
+    ]
     mocks.menuItems = [
       {
         id: liveItem.id,
@@ -204,6 +286,88 @@ describe("createKitchenOrder requires a persisted tables row", () => {
     })
     expect(mocks.insertOrder).toHaveBeenCalledWith(
       expect.objectContaining({ table_id: "t1" }),
+    )
+  })
+
+  it("createKitchenOrder refuses a table with no seated reservation and writes nothing", async () => {
+    mocks.tables = [{ id: "t1", label: "1", status: "seated" }]
+    mocks.reservations = []
+    const { createKitchenOrder } = await import("@/app/actions/operations")
+
+    const result = await createKitchenOrder({
+      table: "1",
+      server: "Maya",
+      lines: [{ itemId: liveItem.id, qty: 1 }],
+    })
+
+    expect(result).toEqual({ error: "errors.pos.tableNotSeated" })
+    expect(mocks.insertOrder).not.toHaveBeenCalled()
+    expect(mocks.insertOrderItems).not.toHaveBeenCalled()
+    expect(mocks.reservationLookup).toHaveBeenCalledWith(
+      "id",
+      "status",
+      "seated",
+      "table_label",
+      ["1"],
+    )
+  })
+
+  it("createKitchenOrder refuses a table held by two seated reservations", async () => {
+    mocks.reservations = [
+      { id: "res-seated-1", status: "seated", table_label: "1" },
+      { id: "res-seated-2", status: "seated", table_label: "1" },
+    ]
+    const { createKitchenOrder } = await import("@/app/actions/operations")
+
+    const result = await createKitchenOrder({
+      table: "1",
+      server: "Maya",
+      lines: [{ itemId: liveItem.id, qty: 1 }],
+    })
+
+    expect(result).toEqual({ error: "errors.pos.tableAmbiguousVisit" })
+    expect(mocks.insertOrder).not.toHaveBeenCalled()
+    expect(mocks.insertOrderItems).not.toHaveBeenCalled()
+  })
+
+  it("createKitchenOrder on a merged member table stamps the primary's seated reservation", async () => {
+    mocks.tables = [
+      { id: "t1", label: "1" },
+      { id: "t2", label: "2" },
+    ]
+    mocks.mergeMembers = [
+      { merge_id: "merge-1", table_id: "t1" },
+      { merge_id: "merge-1", table_id: "t2" },
+    ]
+    mocks.merges = [
+      {
+        id: "merge-1",
+        expected_minutes: 90,
+        status: "seated",
+        expires_at: "2026-12-31T23:00:00.000Z",
+      },
+    ]
+    mocks.reservations = [
+      { id: "res-merge-primary", status: "seated", table_label: "1" },
+    ]
+    const { createKitchenOrder } = await import("@/app/actions/operations")
+
+    const result = await createKitchenOrder({
+      table: "2",
+      server: "Maya",
+      lines: [{ itemId: liveItem.id, qty: 1 }],
+    })
+
+    expect(result).toEqual({ id: "order-1", orderNumber: 1 })
+    expect(mocks.insertOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ reservation_id: "res-merge-primary" }),
+    )
+    expect(mocks.reservationLookup).toHaveBeenCalledWith(
+      "id",
+      "status",
+      "seated",
+      "table_label",
+      expect.arrayContaining(["1", "2"]),
     )
   })
 })

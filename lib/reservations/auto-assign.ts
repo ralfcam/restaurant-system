@@ -306,8 +306,10 @@ export function planAutoAssignments(
 
 /**
  * Occupying-reservation overlay. `tableTotals` is optional: when omitted or
- * `null` the path leaves `billTotal` off the view; when passed, seated labels
- * take the map value (missing key → 0) and confirmed / unassigned stay `null`.
+ * `null` the path leaves `billTotal` off the view; when passed, a seated
+ * overlay takes `tableTotals[reservation.id]` (missing key → 0) and confirmed
+ * / unassigned stay `null`. A merge copies that reservation onto every member,
+ * so each member chip shows the same visit bill.
  */
 export function overlayReservationsOnTables<T extends AssignableTable>(
   tables: T[],
@@ -351,7 +353,7 @@ export function overlayReservationsOnTables<T extends AssignableTable>(
     if (tableTotals != null) {
       view.billTotal =
         reservation?.status === "seated"
-          ? (tableTotals[table.label] ?? 0)
+          ? (tableTotals[reservation.id] ?? 0)
           : null
     }
     return view

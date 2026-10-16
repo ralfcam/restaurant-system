@@ -227,6 +227,8 @@
       "sentToKitchen": "Commande n° {orderNumber} envoyée en cuisine · Table {table}",
       "itemsFired": "{count, plural, one {# article lancé} other {# articles lancés}}",
       "sendFailed": "Impossible d'envoyer la commande en cuisine",
+      "tableNotSeatedTitle": "Aucun convive installé à la table n° {label}",
+      "tableNotSeatedDescription": "Les commandes ne peuvent être envoyées que pour une table occupée. Installez d'abord le convive, puis réessayez.",
       "currentOrder": "Commande en cours",
       "tableLabel": "Table n°",
       "noTables": "Aucune table disponible",
@@ -644,7 +646,9 @@
       "orderNeedsItems": "La commande doit contenir des articles.",
       "itemUnavailable": "Cet article du menu n'est pas disponible.",
       "sendFailed": "Impossible d'envoyer la commande en cuisine.",
-      "saveItemsFailed": "Impossible d'enregistrer les articles de la commande."
+      "saveItemsFailed": "Impossible d'enregistrer les articles de la commande.",
+      "tableNotSeated": "Les commandes ne peuvent être envoyées que pour une table occupée. Installez d'abord le convive, puis réessayez.",
+      "tableAmbiguousVisit": "Plusieurs convives sont installés à cette table. Demandez à un responsable de corriger le plan de salle, puis réessayez."
     },
     "kds": {
       "orderNotFound": "Commande cuisine introuvable.",

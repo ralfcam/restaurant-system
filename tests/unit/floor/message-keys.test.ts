@@ -653,6 +653,8 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
     script(
       ok([{ id: "item-1", name: "Soup", price_value: 10, available: true }]),
       ok({ id: "t1" }),
+      ok(null),
+      ok([{ id: "res-seated-1" }]),
       fail("insert order failed"),
     )
     expectMessageKey(
@@ -663,6 +665,8 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
     script(
       ok([{ id: "item-1", name: "Soup", price_value: 10, available: true }]),
       ok({ id: "t1" }),
+      ok(null),
+      ok([{ id: "res-seated-1" }]),
       ok({ id: "order-1", order_number: 4 }),
       fail("insert items failed"),
       ok(null),
@@ -722,5 +726,47 @@ describe("floor, POS, and KDS producers return errors.* catalog keys", () => {
       expectCatalogKey(key)
       expect(resolveLeaf(fr, key), `fr ${key}`).not.toBe(resolveLeaf(en, key))
     }
+  })
+
+  it("POS not-seated refusal copy exists in en and fr with the label placeholder", () => {
+    function resolveLeaf(catalog: unknown, key: string): unknown {
+      let node: unknown = catalog
+      for (const part of key.split(".")) {
+        if (node === null || typeof node !== "object" || Array.isArray(node)) {
+          return undefined
+        }
+        node = (node as Record<string, unknown>)[part]
+      }
+      return node
+    }
+
+    const notSeated = "errors.pos.tableNotSeated"
+    const ambiguous = "errors.pos.tableAmbiguousVisit"
+    const title = "staff.pos.tableNotSeatedTitle"
+    const description = "staff.pos.tableNotSeatedDescription"
+
+    for (const key of [notSeated, ambiguous, title, description]) {
+      expectCatalogKey(key)
+    }
+
+    expect(resolveLeaf(en, notSeated)).toBe(
+      "Orders can only be sent for a seated table. Seat the guest first, then try again.",
+    )
+    expect(resolveLeaf(fr, notSeated)).toBe(
+      "Les commandes ne peuvent être envoyées que pour une table occupée. Installez d'abord le convive, puis réessayez.",
+    )
+
+    expect(resolveLeaf(en, title)).toBe("Table {label} has no seated guest")
+    expect(resolveLeaf(fr, title)).toBe(
+      "Aucun convive installé à la table n° {label}",
+    )
+    expect(String(resolveLeaf(en, title))).toContain("{label}")
+    expect(String(resolveLeaf(fr, title))).toContain("{label}")
+
+    expect(resolveLeaf(en, description)).toBe(resolveLeaf(en, notSeated))
+    expect(resolveLeaf(fr, description)).toBe(resolveLeaf(fr, notSeated))
+
+    expect(resolveLeaf(en, ambiguous)).not.toBe(resolveLeaf(en, notSeated))
+    expect(resolveLeaf(fr, ambiguous)).not.toBe(resolveLeaf(fr, notSeated))
   })
 })

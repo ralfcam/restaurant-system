@@ -17,6 +17,7 @@ const mocks = vi.hoisted(() => ({
   insertOrderItems: vi.fn(),
   menuItems: [] as Array<Record<string, unknown>>,
   tables: [] as Array<Record<string, unknown>>,
+  reservations: [] as Array<Record<string, unknown>>,
 }))
 
 vi.mock("@/lib/supabase/require-staff", () => ({
@@ -77,6 +78,30 @@ vi.mock("@/lib/supabase/service", () => ({
           insert: async (rows: unknown) => mocks.insertOrderItems(rows),
         }
       }
+      if (name === "reservations") {
+        return {
+          select: () => ({
+            eq: (column: string, value: unknown) => ({
+              in: async (inColumn: string, labels: unknown) => {
+                const labelList = Array.isArray(labels)
+                  ? labels.map((label) => String(label))
+                  : []
+                const data = mocks.reservations.filter((row) => {
+                  if (column === "status" && row.status !== value) return false
+                  if (
+                    inColumn === "table_label" &&
+                    !labelList.includes(String(row.table_label))
+                  ) {
+                    return false
+                  }
+                  return true
+                })
+                return { data, error: null }
+              },
+            }),
+          }),
+        }
+      }
       throw new Error(`unexpected table ${name}`)
     },
   }),
@@ -92,6 +117,9 @@ describe("POS live menu availability", () => {
     mocks.insertOrderItems.mockReset()
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
     mocks.tables = [{ id: "t1", label: "1" }]
+    mocks.reservations = [
+      { id: "res-seated-1", status: "seated", table_label: "1" },
+    ]
     mocks.menuItems = [
       {
         id: liveItem.id,

@@ -64,6 +64,7 @@ const root = process.cwd()
 const walkIn = { table_label: "4", party_size: 2 }
 const walkInToday = "2026-10-02"
 const walkInNow = "12:21"
+const insertedWalkInId = "walk-in-created-id"
 
 function thenable<T>(value: T, insertValue?: T) {
   const builder: Record<string, unknown> = {}
@@ -78,7 +79,13 @@ function thenable<T>(value: T, insertValue?: T) {
       if (prop === "insert") {
         return (...args: unknown[]) => {
           mocks.insert(...args)
-          return thenable(insertValue ?? value)
+          // C11 reads this via .select("id").single(); a bare await still sees error.
+          return thenable(
+            insertValue ?? {
+              data: { id: insertedWalkInId },
+              error: null,
+            },
+          )
         }
       }
       if (prop === "single" || prop === "maybeSingle") {
@@ -266,6 +273,92 @@ describe("walk-in seating", () => {
       email: "walkin@test.local",
     })
     expect(mocks.sendBookingConfirmation).not.toHaveBeenCalled()
+  })
+
+  it("seatWalkIn stamps source walk_in on the inserted row", async () => {
+    const actions = (await import("@/app/actions/reservations")) as {
+      seatWalkIn?: (input: {
+        table_label: string
+        party_size: number
+      }) => Promise<{ error?: string }>
+    }
+    expect(typeof actions.seatWalkIn).toBe("function")
+    const seatWalkIn = actions.seatWalkIn as NonNullable<
+      typeof actions.seatWalkIn
+    >
+
+    const superAdmin = {
+      id: "super-admin-1",
+      app_metadata: { role: "super_admin" },
+    }
+    mocks.requireStaffUser.mockResolvedValue(superAdmin)
+    mocks.getUser.mockResolvedValue({ data: { user: superAdmin } })
+    mocks.insert.mockClear()
+
+    const seated = await seatWalkIn(walkIn)
+    expect(seated.error).toBeUndefined()
+    expect(mocks.insert).toHaveBeenCalledTimes(1)
+    expect(mocks.insert.mock.calls[0]?.[0]).toMatchObject({
+      source: "walk_in",
+      status: "seated",
+    })
+  })
+
+  it("seatWalkIn returns the id of the created reservation", async () => {
+    const actions = (await import("@/app/actions/reservations")) as {
+      seatWalkIn?: (input: {
+        table_label: string
+        party_size: number
+      }) => Promise<{ id?: string; error?: string }>
+    }
+    expect(typeof actions.seatWalkIn).toBe("function")
+    const seatWalkIn = actions.seatWalkIn as NonNullable<
+      typeof actions.seatWalkIn
+    >
+
+    const superAdmin = {
+      id: "super-admin-1",
+      app_metadata: { role: "super_admin" },
+    }
+    mocks.requireStaffUser.mockResolvedValue(superAdmin)
+    mocks.getUser.mockResolvedValue({ data: { user: superAdmin } })
+    mocks.insert.mockClear()
+
+    const created = await seatWalkIn(walkIn)
+    expect(created).toEqual({ id: insertedWalkInId })
+
+    const triggerMessage = "Booking denied: Outside operating hours."
+    mocks.from.mockImplementation((table: string) => {
+      if (table === "reservations") {
+        return thenable(
+          { data: [], error: null },
+          {
+            data: null,
+            error: { message: triggerMessage, code: "P0001" },
+          },
+        )
+      }
+      if (table === "tables") {
+        return thenable({
+          data: { label: "4", seats: 4 },
+          error: null,
+        })
+      }
+      return thenable({
+        data: {
+          occupancy_duration_minutes: 90,
+          safety_buffer_minutes: 15,
+        },
+        error: null,
+      })
+    })
+    const triggerRefused = await seatWalkIn(walkIn)
+    expect(triggerRefused).toEqual({ error: triggerMessage })
+
+    const invalidParty = await seatWalkIn({ table_label: "4", party_size: 0 })
+    expect(invalidParty).toEqual({
+      error: "errors.reservation.partySizeInvalid",
+    })
   })
 
   it("walk-in create returns the availability trigger refusal and adds no walk-in exception", async () => {

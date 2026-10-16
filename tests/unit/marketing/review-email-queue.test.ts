@@ -37,6 +37,21 @@ vi.mock("@/lib/supabase/server", () => ({
 
 type Row = Record<string, unknown>
 
+/** PostgREST returns only the columns named in `.select()`, so a read that
+ * drops `email` must not still see the address on the row. */
+function projectSelectedColumns(row: Row, columns: string): Row {
+  const selected = columns
+    .split(",")
+    .map((column) => column.trim())
+    .filter((column) => column.length > 0)
+  if (selected.includes("*")) return { ...row }
+  const projected: Row = {}
+  for (const column of selected) {
+    if (column in row) projected[column] = row[column]
+  }
+  return projected
+}
+
 function thenable<T>(value: T) {
   const builder: Record<string, unknown> = {}
   const self = new Proxy(builder, {
@@ -61,8 +76,13 @@ function thenable<T>(value: T) {
 }
 
 describe("transitionReservationStatus", () => {
-  let currentRow: { status: string; table_label: string | null }
+  let currentRow: {
+    status: string
+    table_label: string | null
+    email: string | null
+  }
   let reviewEmailInserts: Row[]
+  let reservationSelects: string[]
 
   beforeEach(() => {
     mocks.requireStaffUser.mockReset()
@@ -71,15 +91,26 @@ describe("transitionReservationStatus", () => {
     mocks.requireStaffUser.mockResolvedValue({ id: "staff-1" })
     mocks.today.mockReturnValue("2026-08-18")
     mocks.nowTime.mockReturnValue("18:00")
-    currentRow = { status: "seated", table_label: null }
+    currentRow = {
+      status: "seated",
+      table_label: null,
+      email: "guest@example.com",
+    }
     reviewEmailInserts = []
+    reservationSelects = []
 
     mocks.from.mockImplementation((name: string) => {
       if (name === "reservations") {
         return {
-          select: () => ({
+          select: (columns: string) => ({
             eq: () => ({
-              single: async () => ({ data: currentRow, error: null }),
+              single: async () => {
+                reservationSelects.push(columns)
+                return {
+                  data: projectSelectedColumns(currentRow, columns),
+                  error: null,
+                }
+              },
             }),
           }),
           update: (patch: Row) => {
@@ -120,7 +151,11 @@ describe("transitionReservationStatus", () => {
       toStatus: "completed" | "cancelled" | "no_show" | "confirmed" | "seated",
       reservationId: string,
     ) {
-      currentRow = { status: fromStatus, table_label: null }
+      currentRow = {
+        status: fromStatus,
+        table_label: null,
+        email: "guest@example.com",
+      }
       const before = reviewEmailInserts.length
       const result = await transitionReservationStatus(reservationId, toStatus)
       return {
@@ -154,5 +189,46 @@ describe("transitionReservationStatus", () => {
     const seated = await transition("confirmed", "seated", "res-seated")
     expect(seated.result.error).toBeUndefined()
     expect(seated.inserted).toHaveLength(0)
+  })
+
+  it("transitionReservationStatus queues no review email for a reservation without an email", async () => {
+    const { transitionReservationStatus } =
+      await import("@/app/actions/reservations")
+
+    const blankEmails: Array<string | null> = [null, "", "   "]
+    for (const email of blankEmails) {
+      currentRow = { status: "seated", table_label: null, email }
+      const before = reviewEmailInserts.length
+      const result = await transitionReservationStatus(
+        "res-no-email",
+        "completed",
+      )
+      expect(result.error).toBeUndefined()
+      expect(reviewEmailInserts.slice(before)).toHaveLength(0)
+    }
+
+    currentRow = {
+      status: "seated",
+      table_label: null,
+      email: "guest@example.com",
+    }
+    const before = reviewEmailInserts.length
+    const selectsBefore = reservationSelects.length
+    const result = await transitionReservationStatus(
+      "res-with-email",
+      "completed",
+    )
+    expect(result.error).toBeUndefined()
+    expect(
+      reservationSelects
+        .slice(selectsBefore)
+        .at(-1)
+        ?.split(",")
+        .map((column) => column.trim()),
+    ).toContain("email")
+    expect(reviewEmailInserts.slice(before)).toHaveLength(1)
+    expect(reviewEmailInserts.at(-1)).toEqual(
+      expect.objectContaining({ reservation_id: "res-with-email" }),
+    )
   })
 })

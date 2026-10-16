@@ -296,7 +296,7 @@ describe("overlayReservationsOnTables", () => {
         },
       ],
       [],
-      { "3": 30.5, "1": 8 },
+      { "r-seat": 30.5, "r-hold": 8 },
     )
 
     const seated = views.find((row) => row.label === "3")
@@ -314,5 +314,47 @@ describe("overlayReservationsOnTables", () => {
     expect(reserved?.billTotal).toBeNull()
 
     expect(views.find((row) => row.label === "8")?.reservation).toBeNull()
+  })
+
+  it("overlay seated chip takes its bill from the seated reservation id, not the table label", () => {
+    const tables = [table("T1", 2), table("T2", 4)]
+    const reservations = [
+      {
+        id: "r-B",
+        guest_name: "Seated Guest",
+        party_size: 2,
+        time: "18:00",
+        status: "seated" as const,
+        table_label: "T1",
+      },
+      {
+        id: "r-C",
+        guest_name: "Confirmed Guest",
+        party_size: 2,
+        time: "18:30",
+        status: "confirmed" as const,
+        table_label: "T2",
+      },
+    ]
+
+    const otherVisit = overlayReservationsOnTables(tables, reservations, [], {
+      "r-A": 30.5,
+    })
+    expect(otherVisit.find((row) => row.label === "T1")?.billTotal).toBe(0)
+    expect(otherVisit.find((row) => row.label === "T2")?.billTotal).toBeNull()
+
+    const thisVisit = overlayReservationsOnTables(tables, reservations, [], {
+      "r-B": 12,
+    })
+    expect(thisVisit.find((row) => row.label === "T1")?.billTotal).toBe(12)
+    expect(thisVisit.find((row) => row.label === "T2")?.billTotal).toBeNull()
+
+    for (const views of [
+      overlayReservationsOnTables(tables, reservations, [], null),
+      overlayReservationsOnTables(tables, reservations),
+    ]) {
+      expect(views.find((row) => row.label === "T1")?.billTotal).toBeUndefined()
+      expect(views.find((row) => row.label === "T2")?.billTotal).toBeUndefined()
+    }
   })
 })
